@@ -1,0 +1,21 @@
+#!/bin/bash
+
+setenforce 0
+setsebool -P httpd_can_network_connect_cobbler 1
+iptables -F
+
+
+service httpd restart
+service sqlite restart
+service cobblerd restart
+
+service puppetmaster start
+service puppet start
+
+
+cobbler sync
+#XINETD and NTPD to be restarted after cobbler sync.
+service xinetd restart
+service ntpd restart
+
+nohup /opt/contrail/server_manager/server_mgr_main.py -c /opt/contrail/server_manager/server_config.ini 0<&- &> /var/run/smgrd/smgrd.log&

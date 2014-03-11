@@ -1,0 +1,9 @@
+b99e83bed89bc7d5df13fc22d2505755  opt/contrail/server_mgr/bottle.py
+c48a3137ece0356bc3ecec4e0dfd6951  opt/contrail/server_mgr/server_config.ini
+7e33136fe56d861a0557e725849c66f2  opt/contrail/server_mgr/server_mgr_cobbler.py
+4547ec3d4f917baacb39bdadb9739e18  opt/contrail/server_mgr/server_mgr_db.py
+e505fd377204239cebf5d9d0cb789700  opt/contrail/server_mgr/server_mgr_main.py
+17049014155f1a64c23f7192727edfae  opt/contrail/server_mgr/server_mgr_puppet.py
+243bad3c82ad071e9f3df6bb555c4c08  opt/contrail/server_mgr/smgr_dhcp_event.py
+9e98908c37f4906bcd6c584919242ed8  usr/share/doc/contrail-smgr/changelog.gz
+c00325e6646fa5efc32890707b5e1b8d  usr/share/doc/contrail-smgr/copyright

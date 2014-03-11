@@ -1,0 +1,16 @@
+{
+    "image": [
+        {
+            "image_id": "ubuntu-12.04.3", 
+            "image_type": "ubuntu", 
+            "image_version": "ubuntu-12.04.3",
+            "image_path":"/iso/ubuntu-12.04.3-server-amd64.iso"
+        }, 
+        {
+            "image_id": "contrail-ubuntu-150", 
+            "image_type": "contrail-ubuntu-repo", 
+            "image_version": "contrail-ubuntu-150",
+            "image_path":"/iso/contrail-install-packages_1.03-150_all.deb"
+        }
+    ] 
+}

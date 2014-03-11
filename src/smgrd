@@ -1,0 +1,77 @@
+#! /bin/sh
+#
+# chkconfig: 2345 55 45
+# description:	The server mangement daemon maintains all the servers belonging to contrail ecosystem.
+# processname: smgrd
+# config: /etc/sysconfig/smgrd
+# pidfile: /var/run/smgrd/smgrd.pid
+
+#SYSTEMCTL_SKIP_REDIRECT=1
+
+# Source function library.
+. /etc/init.d/functions
+
+
+USER=root
+RETVAL=0
+prog="smgrd"
+pidfile=${PIDFILE-/var/run/$prog/$prog.pid}
+
+if [ -f /etc/sysconfig/$prog ];then 
+	. /etc/sysconfig/$prog
+fi
+
+
+
+start () {
+	echo -n $"Starting $prog: "
+	# Ensure that $pidfile directory has proper permissions and exists
+	piddir=`dirname $pidfile`
+	if [ ! -d $piddir ]; then
+		mkdir $piddir
+	fi
+	if [ "`stat -c %U $piddir`" != "$USER" ]; then
+		chown $USER $piddir
+	fi
+	source /opt/contrail/smgr-venv/bin/activate
+	daemon --pidfile ${pidfile} /usr/sbin/smgrd
+	RETVAL=$?
+}
+stop () {
+	echo -n $"Stopping $prog: "
+	killproc -p ${pidfile} $prog
+	RETVAL=$?
+	echo
+	if [ $RETVAL -eq 0 ] ; then
+		rm -f ${pidfile}
+	fi
+}
+
+restart () {
+        stop
+        start
+}
+
+
+# See how we were called.
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  status)
+	status -p ${pidfile} $prog
+	RETVAL=$?
+	;;
+  restart)
+	restart
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status|restart}"
+	RETVAL=2
+        ;;
+esac
+
+exit $RETVAL

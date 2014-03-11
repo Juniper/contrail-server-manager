@@ -1,0 +1,31 @@
+#!/bin/sh
+
+set -e
+
+
+echo "running post install"
+
+#cp -r /etc/contrail/cobbler /etc/
+cp -r /etc/contrail/puppet /etc/
+
+cp /etc/contrail/cobbler/dhcp.template.u /etc/cobbler/dhcp.template
+cp -r /etc/contrail/kickstarts /var/www/
+mkdir -p /var/www/html/contrail
+
+cp -u /etc/puppet/puppet_init_rd /var/www/cobbler/aux/puppet
+easy_install argparse
+easy_install paramiko
+easy_install pycrypto
+
+mkdir -p /etc/contrail/images/
+
+ln -s /opt/contrail/server_mgr/server_mgr_main.py /usr/sbin/smgrd
+puppet master
+
+sed -i 's/puppet_auto_setup: 0/puppet_auto_setup: 1/g' /etc/cobbler/settings
+sed -i 's/sign_puppet_certs_automatically: 0/sign_puppet_certs_automatically: 1/g' /etc/cobbler/settings
+
+sed -i 's/remove_old_puppet_certs_automatically: 0/remove_old_puppet_certs_automatically: 1/g' /etc/cobbler/settings
+sed -i 's/manage_dhcp: 0/manage_dhcp: 1/g' /etc/cobbler/settings
+sed -i 's/manage_dns: 0/manage_dns: 1/g' /etc/cobbler/settings
+sed -i 's:DocumentRoot /var/www:DocumentRoot /var/www/html:g' /etc/apache2/sites-available/default

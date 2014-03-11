@@ -1,0 +1,42 @@
+{
+    "cluster_id": "cluster1",
+    "router_asn": "64512",
+    "mask": "255.255.255.0",
+    "gway": "10.204.217.254",
+    "passwd": "c0ntrail123",
+    "domain": "englab.juniper.net",
+    "vns_id": "demo-vns",
+    "servers": [
+        {
+            "server_id": "nodeg35",
+            "mac": "00:25:90:C5:62:54",
+            "ip": "10.204.217.75",
+            "ifname": "rename2"
+        }
+    ],
+    "roles": [
+        {
+            "config": [
+                "nodeg35"
+            ],
+            "openstack": [
+                "nodeg35"
+            ],
+            "control": [
+                "nodeg35"
+            ],
+            "compute": [
+                "nodeg35"
+            ],
+            "collector": [
+                "nodeg35"
+            ],
+            "webui": [
+                "nodeg35"
+            ],
+            "database": [
+                "nodeg35"
+            ]
+        }
+    ]
+}

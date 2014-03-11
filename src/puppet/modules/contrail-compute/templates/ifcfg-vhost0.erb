@@ -1,0 +1,17 @@
+#Contrail vhost0
+DEVICE=vhost0
+ONBOOT=yes
+BOOTPROTO=none
+IPV6INIT=no
+USERCTL=yes
+IPADDR=<%= contrail_vhost_ip %>
+NETMASK=<%= contrail_netmask %>
+NM_CONTROLLED=no
+#NETWORK MANAGER BUG WORKAROUND
+SUBCHANNELS=1,2,3
+# TBD Abhay following needs to be done under certain conditions only. If so, remove from template
+# and append using exec resource in the manifest
+GATEWAY=<%= contrail_gway %>
+DNS1=%= contrail_dns1 %>
+DOMAIN=%= contrail_domain_list %>
+MTU=%= contrail_mtu %>
