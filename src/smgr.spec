@@ -128,7 +128,7 @@ cp %{_server_mgr_src}server_config.ini %{buildroot}%{_contrailopt}%{_server_mgr}
 cp -r %{_server_mgr_src}client %{buildroot}%{_contrailopt}%{_server_mgr}
 
 
-cp %{_third_party}/bottle-0.11.6/bottle.py %{buildroot}%{_contrailopt}%{_server_mgr}
+cp %{_server_mgr_src}third_party/bottle.py %{buildroot}%{_contrailopt}%{_server_mgr}
 
 
 cp %{_server_mgr_src}smgrd %{buildroot}%{_initdetc}
