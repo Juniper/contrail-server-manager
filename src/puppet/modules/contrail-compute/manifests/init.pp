@@ -7,13 +7,14 @@ define compute-scripts {
         mode => 0755,
         owner => root,
         group => root,
-        require => File["/etc/contrail/ctrl-details"], 
+        require => File["/etc/contrail/ctrl-details"],
     }
     exec { "setup-${title}" :
-        command => "/opt/contrail/contrail_setup_utils/contrail_installer/${title}.sh; echo setup-${title} >> /etc/contrail/contrail-compute-exec.out",
+        command => "/opt/contrail/contrail_installer/contrail_setup_utils/${title}.sh; echo setup-${title} >> /etc/contrail/contrail-compute-exec.out",
         require => File["/opt/contrail/contrail_installer/contrail_setup_utils/${title}.sh"],
         unless  => "grep -qx setup-${title} /etc/contrail/contrail-compute-exec.out",
-        provider => shell
+        provider => shell,
+        logoutput => "true"
     }
 }
 
