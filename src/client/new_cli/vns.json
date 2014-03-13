@@ -4,10 +4,6 @@
             "vns_id" : "demo-vns",
             "vns_params" : {
                 "router_asn": "64512",
-                "mask": "255.255.255.0",
-                "gway": "10.84.51.254",
-                "passwd": "juniper",
-                "domain": "demo.juniper.net",
                 "database_dir": "/home/cassandra",
                 "db_initial_token": "",
                 "openstack_mgmt_ip": "",
@@ -20,7 +16,12 @@
                 "openstack_passwd": "juniper",
                 "analytics_data_ttl": "168",
                 "compute_non_mgmt_ip": "",
-                "compute_non_mgmt_gway": ""
+                "compute_non_mgmt_gway": "",
+                "Opt_params" : " **** Below are optional params which MUST be specified if not done with server *** ",
+                "mask": "255.255.255.0",
+                "gway": "10.84.51.254",
+                "passwd": "juniper",
+                "domain": "demo.juniper.net"
                 }
         }
     ]

@@ -77,9 +77,11 @@ def parse_arguments(args_str=None):
                         help="IP address of the server manager.")
     parser.add_argument("--smgr_port", "-p",
                         help="server manager listening port number")
-    parser.add_argument("object",
-                        help=("one of server, cluster,"
-                             " vns or image, all"))
+    parser.add_argument("object", choices = ['server',
+                                             'cluster',
+                                             'vns',
+                                             'image'],
+                        help=("Object to be modified"))
     parser.add_argument("--file_name", "-f",
                         help="json file containing object param values")
     args = parser.parse_args()

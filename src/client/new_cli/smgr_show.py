@@ -32,25 +32,37 @@ def parse_arguments(args_str=None):
                         help="IP address of the server manager.")
     parser.add_argument("--smgr_port", "-p",
                         help="server manager listening port number")
-    parser.add_argument("object",
-                        help=("one of server, cluster,"
-                             " vns or image, all"))
+    parser.add_argument("object", choices = ['server',
+                                             'cluster',
+                                             'vns',
+                                             'image',
+                                             'all'],
+                        help=("Object requested"))
     parser.add_argument("--detail", "-d", action="store_true",
                         help="flag to indicate if details are requested")
-    parser.add_argument("--match", "-m",
-                        help="match condition, e.g. server_id=xyz-server")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--server_id",
+                        help=("server id for server to get info"))
+    group.add_argument("--vns_id",
+                        help=("vns id for vns or server(s) to get info"))
+    group.add_argument("--cluster_id",
+                        help=("cluster id for cluster or server(s) to get info about"))
+    group.add_argument("--rack_id",
+                        help=("rack id for server(s) to get info"))
+    group.add_argument("--pod_id",
+                        help=("pod id for server(s) to get info"))
     args = parser.parse_args()
     return args
 
-
-def send_REST_request(ip, port, object, match, detail, payload):
+def send_REST_request(ip, port, object, match_key,
+                      match_value, detail):
     try:
         response = StringIO()
         headers = ["Content-Type:application/json"]
         url = "http://%s:%s/%s" % (ip, port, object)
         args_str = ''
-        if match:
-            args_str += match
+        if match_key:
+            args_str += match_key + "=" + match_value
         if detail:
             args_str += "&detail"
         if args_str != '':
@@ -66,7 +78,6 @@ def send_REST_request(ip, port, object, match, detail, payload):
     except:
         return None
 
-
 def show_config(args_str=None):
     serverMgrCfg = {
         'smgr_ip_addr': _DEF_SMGR_IP_ADDR,
@@ -79,11 +90,27 @@ def show_config(args_str=None):
         serverMgrCfg['smgr_port'] = args.smgr_port
     object = args.object
     detail = args.detail
-    payload = '{}'
-    match = args.match
+    if args.server_id:
+        match_key='server_id'
+        match_value = args.server_id
+    elif args.vns_id:
+        match_key='vns_id'
+        match_value = args.vns_id
+    elif args.cluster_id:
+        match_key='cluster_id'
+        match_value = args.cluster_id
+    elif args.rack_id:
+        match_key='rack_id'
+        match_value = args.rack_id
+    elif args.pod_id:
+        match_key='pod_id'
+        match_value = args.pod_id
+    else:
+        match_key = None
+        match_value = None
     resp = send_REST_request(serverMgrCfg['smgr_ip_addr'],
                       serverMgrCfg['smgr_port'],
-                      object, match, detail, payload)
+                      object, match_key, match_value, detail)
     print resp
 # End of show_config
 

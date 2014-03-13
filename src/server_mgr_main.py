@@ -853,6 +853,7 @@ class VncServerManager():
             if not base_image_id:
                 abort(404, "No base image id specified")
             repo_image_id = entity.pop("repo_image_id", None)
+            server_details = entity.pop("server_details", None)
             # Now process other parameters there should be only one more
             if len(entity) == 0:
                 abort(404, "No servers specified")
@@ -868,38 +869,67 @@ class VncServerManager():
                                                 detail=True)
             images = self._serverDb.get_image("image_id", base_image_id, True)
             base_image = images[0]
-            for server in servers:
-                server_params = eval(server['server_params'])
-                # build all parameters needed for re-imaging
-                vns = self._serverDb.get_vns(server['vns_id'],
-                                             detail=True)[0]
-                vns_params = eval(vns['vns_params'])
-                if server['passwd']:
-                    passwd = server['passwd']
-                else:
-                    passwd = vns_params['passwd']
-                if server['mask']:
-                    mask = server['mask']
-                else:
-                    mask = vns_params['mask']
-                if server['gway']:
-                    gway = server['gway']
-                else:
-                    gway = vns_params['gway']
-                if server['domain']:
-                    domain = server['domain']
-                else:
-                    domain = vns_params['domain']
-                reimage_params = {}
-                reimage_params['server_id'] = server['server_id']
-                reimage_params['server_ip'] = server['ip']
-                reimage_params['server_mac'] = server['mac']
-                reimage_params['server_passwd'] = self._encrypt_passwd(passwd)
-                reimage_params['server_mask'] = mask
-                reimage_params['server_gway'] = gway
-                reimage_params['server_domain'] = domain
-                reimage_params['server_ifname'] = server_params['ifname']
-                self._do_reimage_server(base_image, repo_image_id, reimage_params)
+            # if no servers in DB, check if user specified reimage parameters with
+            # the request. If so, allow reimage using those.
+            if ((not servers) or
+                (server_details)):
+                if match_key != "server_id":
+                    abort(404, "no servers found in DB")
+                if ((not server_details) or
+                    type(server_details) != type({})):
+                    abort(404, "Server reimage parameters not specified")
+                reimage_params = server_details.copy()
+                if ('server_passwd' not in reimage_params):
+                    reimage_params['server_passwd'] = "c0ntrail123"
+                if ('server_ifname' not in reimage_params):
+                    reimage_params['server_ifname'] = "eth0"
+                if (('server_ip' not in reimage_params) or
+                    ('server_mac' not in reimage_params) or
+                    ('server_mask' not in reimage_params) or
+                    ('server_gway' not in reimage_params) or
+                    ('server_domain' not in reimage_params)):
+                    abort(404, "missing reimage parameters")
+                reimage_params['server_id'] = match_value
+                self._do_reimage_server(
+                    base_image, repo_image_id, reimage_params)
+            # end if not servers
+            else:
+                for server in servers:
+                    server_params = eval(server['server_params'])
+                    # build all parameters needed for re-imaging
+                    vns = self._serverDb.get_vns(server['vns_id'],
+                                                 detail=True)[0]
+                    vns_params = eval(vns['vns_params'])
+                    if server['passwd']:
+                        passwd = server['passwd']
+                    else:
+                        passwd = vns_params['passwd']
+                    if server['mask']:
+                        mask = server['mask']
+                    else:
+                        mask = vns_params['mask']
+                    if server['gway']:
+                        gway = server['gway']
+                    else:
+                        gway = vns_params['gway']
+                    if server['domain']:
+                        domain = server['domain']
+                    else:
+                        domain = vns_params['domain']
+                    reimage_params = {}
+                    reimage_params['server_id'] = server['server_id']
+                    reimage_params['server_ip'] = server['ip']
+                    reimage_params['server_mac'] = server['mac']
+                    reimage_params['server_passwd'] = self._encrypt_passwd(
+                        passwd)
+                    reimage_params['server_mask'] = mask
+                    reimage_params['server_gway'] = gway
+                    reimage_params['server_domain'] = domain
+                    reimage_params['server_ifname'] = server_params['ifname']
+                    self._do_reimage_server(
+                        base_image, repo_image_id, reimage_params)
+                # end for server in servers
+            # end else
         except Exception as e:
             abort(404, repr(e))
         return "server(s) upgraded"
@@ -954,6 +984,23 @@ class VncServerManager():
                 servers.append(server)
         return servers
 
+    # Function to get map server name to server ip
+    # accepts list of server names and returns list of
+    # server ips
+    def get_server_ip_list(self, server_names, servers):
+        server_ips = []
+        for server_name in server_names:
+            for server in servers:
+                if server['server_id'] == server_name:
+                    server_ips.append(
+                        server['server_ip'])
+                    break
+                # end if
+            # end for server
+        # end for server_name
+        return server_ips
+    # end get_server_ip_list
+
     # API call to provision server(s) as per roles/roles
     # defined for those server(s). This function creates the
     # puppet manifest file for the server and adds it to site
@@ -961,8 +1008,10 @@ class VncServerManager():
     def provision_server(self):
         try:
             entity = bottle.request.json
+            req_provision_params = entity.pop("provision_params", None)
             # Now process other parameters there should be only one more
-            if len(entity) == 0:
+            if ((len(entity) == 0) and
+                (req_provision_params == None)):
                 abort(404, "No servers specified")
             elif len(entity) == 1:
                 match_key, match_value = entity.popitem()
@@ -971,11 +1020,68 @@ class VncServerManager():
                                       "rack_id", "pod_id", "vns_id")):
                     abort(404, "Invalid Query arguments")
             else:
-                abort(404, "Invalid Query arguments")
-            servers = self._serverDb.get_server(match_key, match_value,
-                                                detail=True)
+                match_key = None
+                match_value = None
+            # Check if user specified provision params with the
+            # request. If so, allow provisioning using those.
+            if (req_provision_params):
+                if (type(req_provision_params) != type({})):
+                    abort(404, "Incorrect server provision parameters")
+                servers = req_provision_params.pop("servers", None)
+                if ((not servers) or
+                    (type(servers) != type([]))):
+                    abort(404, "No servers specified")
+                roles = req_provision_params.pop("roles", None)
+                if ((not roles) or
+                    (type(roles) != type ({}))):
+                    abort(404, "No roles specified")
+                # set default values in provision params
+                provision_params = {
+                    "database_dir" : "/home/cassandra",
+                    "db_initial_token" : "",
+                    "openstack_mgmt_ip" : "",
+                    "use_certs" : "False",
+                    "multi_tenancy" : "False",
+                    "service_token" : "contrail123",
+                    "ks_user" : "admin",
+                    "ks_passwd" : "contrail123",
+                    "ks_tenant" : "admin",
+                    "openstack_passwd" : "contrail123",
+                    "analytics_data_ttl" : "168"
+                }
+                params = req_provision_params.pop(
+                    "params", None)
+                if ((not params) or
+                    (type(params) != type ({}))):
+                    abort(404, "No params specified")
+                for key, value in params.iteritems():
+                    provision_params[key] = value 
+                for key, value in roles.iteritems():
+                    if (type(value) != type([])):
+                        abort(404, "roles format error")
+                    roles[key] = self.get_server_ip_list(
+                        value, servers)
+                provision_params['roles'] = roles
+                for server in servers:
+                    provision_params['server_id'] = server[
+                        'server_id']
+                    provision_params['server_ip'] = server[
+                        'server_ip']
+                    provision_params['phy_interface'] = server[
+                        'ifname']
+                    provision_params[
+                        'compute_non_mgmt_ip'] = server.get(
+                            'compute_non_mgmt_ip', '')
+                    provision_params[
+                        'compute_non_mgmt_gway'] = server.get(
+                            'compute_non_mgmt_gway', '')
+                    self._do_provision_server(provision_params)
+                return "Server(s) provisioned"
+            # end if req_provision_params
             role_servers = {}
             role_ips = {}
+            servers = self._serverDb.get_server(match_key, match_value,
+                                                detail=True)
             for server in servers:
                 server_params = eval(server['server_params'])
                 vns = self._serverDb.get_vns(server['vns_id'],

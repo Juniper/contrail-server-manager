@@ -84,7 +84,8 @@ class ServerMgrPuppet:
         # Get all the parameters needed to send to puppet manifest.
         data = ''
         config_server = provision_params['roles']['config'][0]
-        cassandra_seeds = provision_params['roles']['database']
+        cassandra_seeds = ["\"%s\""%(x) for x in \
+            provision_params['roles']['database']]
         data += '''    # contrail-database role.
     contrail-database::contrail-database{contrail_database:
         contrail_database_ip => "%s",
@@ -133,10 +134,11 @@ class ServerMgrPuppet:
         data = ''
         compute_server = provision_params['roles']['compute'][0]
         config_servers = provision_params['roles']['config']
-        zk_ip_list = config_servers
+        zk_ip_list = ["\"%s\""%(x) for x in config_servers]
         contrail_cfgm_index = config_servers.index(
             provision_params["server_ip"])+1
-        cassandra_ip_list = provision_params['roles']['database']
+        cassandra_ip_list = ["\"%s\""%(x) for x in \
+            provision_params['roles']['database']]
         openstack_server = provision_params['roles']['openstack'][0]
         control_ip_list = provision_params['roles']['control']
         if (provision_params['openstack_mgmt_ip'] == ''):
@@ -238,7 +240,8 @@ class ServerMgrPuppet:
         # Get all the parameters needed to send to puppet manifest.
         data = ''
         config_server = provision_params['roles']['config'][0]
-        cassandra_ip_list = provision_params['roles']['database']
+        cassandra_ip_list = ["\"%s\""%(x) for x in \
+            provision_params['roles']['database']]
         collector_servers = provision_params['roles']['collector']
         redis_master_ip = collector_servers[0]
         if (redis_master_ip == provision_params["server_ip"]):
@@ -278,7 +281,8 @@ class ServerMgrPuppet:
             hindex = hindex % len(collector_servers)
             collector_server = collector_servers[hindex]
         openstack_server = provision_params['roles']['openstack'][0]
-        cassandra_ip_list = provision_params['roles']['database']
+        cassandra_ip_list = ["\"%s\""%(x) for x in \
+            provision_params['roles']['database']]
         data += '''    # contrail-webui role.
     contrail-webui::contrail-webui{contrail_webui:
         contrail_config_ip => "%s",
