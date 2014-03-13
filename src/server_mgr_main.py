@@ -268,7 +268,7 @@ class VncServerManager():
                 # check that match key is a valid one
                 if ((match_key not in (
                         "server_id", "mac", "cluster_id",
-                        "rack_id", "pod_id", "vns_id", 'disc_flag')) or
+                        "rack_id", "pod_id", "vns_id", 'ip')) or
                         (len(match_value) != 1)):
                     abort(404, "Invalid Query arguments")
                 match_value = match_value[0]
@@ -681,7 +681,7 @@ class VncServerManager():
                 # check that match key is a valid one
                 if ((match_key not in (
                         "server_id", "mac", "cluster_id",
-                        "rack_id", "pod_id", "vns_id", "disc_flag")) or
+                        "rack_id", "pod_id", "vns_id", "ip")) or
                         (len(match_value) != 1)):
                     abort(404, "Invalid Query arguments")
                 match_value = match_value[0]

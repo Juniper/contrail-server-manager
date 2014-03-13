@@ -85,16 +85,42 @@ def parse_arguments(args_str=None):
                         help="IP address of the server manager.")
     parser.add_argument("--smgr_port", "-p",
                         help="server manager listening port number")
-    parser.add_argument("object", choices = ['server',
-                                             'cluster',
-                                             'vns',
-                                             'image'],
-                        help=("Object to be created"))
-    parser.add_argument("--file_name", "-f",
-                        help="json file containing object param values")
+    subparsers = parser.add_subparsers(title='subcommands',
+                                       description='valid subcommands',
+                                       help='help for subcommand',
+                                       dest='object')
+
+    # Subparser for server create
+    parser_server = subparsers.add_parser(
+        "server",help='Create server')
+    parser_server.add_argument(
+        "--file_name", "-f",
+        help="json file containing server param values")
+
+    # Subparser for vns create
+    parser_vns = subparsers.add_parser(
+        "vns", help='Create vns')
+    parser_vns.add_argument(
+        "--file_name", "-f",
+        help="json file containing vns param values")
+
+    # Subparser for cluster create
+    parser_cluster = subparsers.add_parser(
+        "cluster", help='Create cluster')
+    parser_cluster.add_argument(
+        "--file_name", "-f",
+        help="json file containing cluster param values")
+
+    # Subparser for image create
+    parser_image = subparsers.add_parser(
+        "image", help='Create image')
+    parser_image.add_argument(
+        "--file_name", "-f",
+        help="json file containing image param values")
+
     args = parser.parse_args()
     return args
-
+# end def parse_arguments
 
 def send_REST_request(ip, port, object, payload):
     try:
