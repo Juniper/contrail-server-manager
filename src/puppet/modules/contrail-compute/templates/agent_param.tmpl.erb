@@ -1,9 +1,11 @@
 LOG=/var/log/contrail.log
 CONFIG=/etc/contrail/agent.conf
 prog=/usr/bin/vnswad
-kmod=/lib/modules/2.6.32-358.el6.x86_64/extra/net/vrouter/vrouter.ko
+kmod=/lib/modules/3.8.0-29-generic/extra/net/vrouter/vrouter.ko
 pname=vnswad
 LIBDIR=/usr/lib64
-VHOST_CFG=/etc/sysconfig/network-scripts/ifcfg-vhost0
+DEVICE=vhost0
 dev=__DEVICE__
+vgw_subnet_ip=__VGW_SUBNET_IP__
+vgw_subnet_mask=__VGW_SUBNET_MASK__
 LOGFILE=--log-file=/var/log/contrail/vrouter.log
