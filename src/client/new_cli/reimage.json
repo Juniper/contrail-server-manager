@@ -1,9 +1,14 @@
 {
-    'server_ip' : "10.84.51.15",
-    'server_mac' : "00:01:02:03:04:05",
-    'server_mask' : "255.255.0.0",
-    'server_gway' : "10.84.51.250",
-    'server_domain' : "demo.juniper.net1",
-    'server_passwd' : "testing",
-    'server_ifname' : "eth2"
+    "servers" : [
+        {
+            "server_id" : "demo2-server",
+            "server_ip" : "10.84.51.15",
+            "server_mac" : "00:01:02:03:04:05",
+            "server_mask" : "255.255.0.0",
+            "server_gway" : "10.84.51.250",
+            "server_domain" : "demo.juniper.net1",
+            "server_passwd" : "testing",
+            "server_ifname" : "eth2"
+        }
+    ]
 }

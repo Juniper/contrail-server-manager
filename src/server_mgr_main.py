@@ -853,47 +853,55 @@ class VncServerManager():
             if not base_image_id:
                 abort(404, "No base image id specified")
             repo_image_id = entity.pop("repo_image_id", None)
-            server_details = entity.pop("server_details", None)
+            req_reimage_params = entity.pop("reimage_params", None)
             # Now process other parameters there should be only one more
-            if len(entity) == 0:
-                abort(404, "No servers specified")
-            elif len(entity) == 1:
-                match_key, match_value = entity.popitem()
-                # check that match key is a valid one
-                if (match_key not in ("server_id", "mac", "cluster_id",
-                                      "rack_id", "pod_id", "vns_id")):
-                    abort(404, "Invalid Query arguments")
-            else:
-                abort(404, "Invalid Query arguments")
-            servers = self._serverDb.get_server(match_key, match_value,
-                                                detail=True)
+            if (req_reimage_params == None):
+                if (len(entity) == 0):
+                    abort(404, "No servers specified")
+                elif len(entity) == 1:
+                    match_key, match_value = entity.popitem()
+                    # check that match key is a valid one
+                    if (match_key not in ("server_id", "mac", "cluster_id",
+                                          "rack_id", "pod_id", "vns_id")):
+                        abort(404, "Invalid Query arguments")
+                else:
+                    match_key = None
+                    match_value = None
+                # end else
+            # end if req_reimage_params == None
             images = self._serverDb.get_image("image_id", base_image_id, True)
             base_image = images[0]
-            # if no servers in DB, check if user specified reimage parameters with
+            # Check if user specified reimage parameters with
             # the request. If so, allow reimage using those.
-            if ((not servers) or
-                (server_details)):
-                if match_key != "server_id":
-                    abort(404, "no servers found in DB")
-                if ((not server_details) or
-                    type(server_details) != type({})):
-                    abort(404, "Server reimage parameters not specified")
-                reimage_params = server_details.copy()
-                if ('server_passwd' not in reimage_params):
-                    reimage_params['server_passwd'] = "c0ntrail123"
-                if ('server_ifname' not in reimage_params):
-                    reimage_params['server_ifname'] = "eth0"
-                if (('server_ip' not in reimage_params) or
-                    ('server_mac' not in reimage_params) or
-                    ('server_mask' not in reimage_params) or
-                    ('server_gway' not in reimage_params) or
-                    ('server_domain' not in reimage_params)):
-                    abort(404, "missing reimage parameters")
-                reimage_params['server_id'] = match_value
-                self._do_reimage_server(
-                    base_image, repo_image_id, reimage_params)
+            if req_reimage_params:
+                if (type(req_reimage_params) != type({})):
+                    abort(404, "Incorrect server reimage parameters")
+                servers = req_reimage_params.pop("servers", None)
+                if ((not servers) or
+                    (type(servers) != type([]))):
+                    abort(404, "No servers specified")
+                for server in servers:
+                    if (type(server) != type({})):
+                        continue
+                    reimage_params = server.copy()
+                    if ('server_passwd' not in reimage_params):
+                        reimage_params['server_passwd'] = "c0ntrail123"
+                    if ('server_ifname' not in reimage_params):
+                        reimage_params['server_ifname'] = "eth0"
+                    if (('server_ip' not in reimage_params) or
+                        ('server_id' not in reimage_params) or
+                        ('server_mac' not in reimage_params) or
+                        ('server_mask' not in reimage_params) or
+                        ('server_gway' not in reimage_params) or
+                        ('server_domain' not in reimage_params)):
+                        abort(404, "missing reimage parameters")
+                    self._do_reimage_server(
+                        base_image, repo_image_id, reimage_params)
+                # end for server in servers
             # end if not servers
             else:
+                servers = self._serverDb.get_server(
+                    match_key, match_value, detail=True)
                 for server in servers:
                     server_params = eval(server['server_params'])
                     # build all parameters needed for re-imaging
@@ -1009,19 +1017,23 @@ class VncServerManager():
         try:
             entity = bottle.request.json
             req_provision_params = entity.pop("provision_params", None)
-            # Now process other parameters there should be only one more
-            if ((len(entity) == 0) and
-                (req_provision_params == None)):
-                abort(404, "No servers specified")
-            elif len(entity) == 1:
-                match_key, match_value = entity.popitem()
-                # check that match key is a valid one
-                if (match_key not in ("server_id", "mac", "cluster_id",
-                                      "rack_id", "pod_id", "vns_id")):
-                    abort(404, "Invalid Query arguments")
-            else:
-                match_key = None
-                match_value = None
+            # if no provision params are specified, there needs to be
+            # server selection criteria provided.
+            if (req_provision_params == None):
+                if (len(entity) == 0):
+                    abort(404, "No servers specified")
+                elif len(entity) == 1:
+                    match_key, match_value = entity.popitem()
+                    # check that match key is a valid one
+                    if (match_key not in (
+                        "server_id", "mac", "cluster_id",
+                        "rack_id", "pod_id", "vns_id")):
+                        abort(404, "Invalid Query arguments")
+                else:
+                    match_key = None
+                    match_value = None
+                # end else
+            # end if req_provision_params == None
             # Check if user specified provision params with the
             # request. If so, allow provisioning using those.
             if (req_provision_params):

@@ -13,6 +13,7 @@ import sys
 import pycurl
 from StringIO import StringIO
 import json
+from collections import OrderedDict
 
 _DEF_SMGR_IP_ADDR = '127.0.0.1'
 _DEF_SMGR_PORT = 8090
@@ -24,12 +25,19 @@ def parse_arguments(args_str=None):
     # Process the arguments
     parser = argparse.ArgumentParser(
         description='''Reimage given server(s) with provided
-                       base ISO and repository'''
+                       base ISO and repository. Servers can be
+                       specified by search in DB, or provided
+                       in a file or entered interactively.'''
     )
     parser.add_argument("--smgr_ip", "-i",
                         help="IP address of the server manager.")
     parser.add_argument("--smgr_port", "-p",
                         help="server manager listening port number")
+    parser.add_argument("base_image_id",
+                        help="image id for base image to be used")
+    parser.add_argument("--repo_image_id", "-r",
+                        help=("Optional contrail repo to be copied"
+                             " on reimaged server"))
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--server_id",
                         help=("server id for the server to be reimaged"))
@@ -41,16 +49,10 @@ def parse_arguments(args_str=None):
                         help=("rack id for the server(s) to be reimaged"))
     group.add_argument("--pod_id",
                         help=("pod id for the server(s) to be reimaged"))
-    parser.add_argument("base_image_id",
-                        help="image id for base image to be used")
-    parser.add_argument("--repo_image_id", "-r",
-                        help=("Optional contrail repo to be copied"
-                             " on reimaged server"))
-    group1 = parser.add_mutually_exclusive_group()
-    group1.add_argument("--server_details_file", "-f", 
+    group.add_argument("--reimage_params_file", "-f", 
                         help=("Optional json file containing parameters "
-                             " for reimaging server"))
-    group1.add_argument("--interactive", "-I", action="store_true", 
+                             " for reimaging servers"))
+    group.add_argument("--interactive", "-I", action="store_true", 
                         help=("flag that user wants to enter the server "
                              " parameters for reimaging manually"))
     args = parser.parse_args()
@@ -58,24 +60,42 @@ def parse_arguments(args_str=None):
 
 # Function to accept parameters from user and then build payload to be
 # sent with REST API request for reimaging server.
-def get_server_details():
-    server_details = {}
-    fields = {
-        'server_ip' : " (Server IP Address) : ",
-        'server_mac' : " (Server MAC Address) : ",
-        'server_mask' : " (Server subnet mask) : ",
-        'server_gway' : " (Server default gateway) : ",
-        'server_domain' : " (Server domain name) : ",
-        'server_passwd' : " (root password (default C0ntrail123)) : ",
-        'server_ifname' : " (Server Interface name (default eth0)) : "}
-    for field in fields:
-       msg = field + fields[field] 
-       user_input = raw_input(msg)
-       if user_input:
-           server_details[field] = user_input
-    return server_details
-# End get_server_details
-
+def get_reimage_params():
+    server_list = []
+    fields = OrderedDict ([
+        ("server_id" , " (Server Name/Id) <Enter> to end : "),
+        ("server_ip" , " (Server IP Address) : "),
+        ("server_mac" , " (Server MAC Address) : "),
+        ("server_mask" , " (Server subnet mask) : "),
+        ("server_gway" , " (Server default gateway) : "),
+        ("server_domain" , " (Server domain name) : "),
+        ("server_passwd" , " (root password (default C0ntrail123)) : "),
+        ("server_ifname" , " (Server Interface name (default eth0)) : ")
+    ])
+    print "******** List of servers to be reimaged ********"
+    while True:
+        server = {}
+        done = False
+        for field in fields:
+            msg = field + fields[field] 
+            user_input = raw_input(msg)
+            if user_input:
+                server[field] = user_input
+            else:
+                if field == 'server_id':
+                    done = True
+                    break
+                # end if field ==
+            # end else user_input
+        # end for field in fields
+        if done:
+            break;
+        server_list.append(server)
+        print "****** Next Server details ******"
+    # end while True
+    reimage_params = {"servers" : server_list}
+    return reimage_params
+# End get_reimage_params
 
 def send_REST_request(ip, port, payload):
     try:
@@ -104,6 +124,10 @@ def reimage_server(args_str=None):
         serverMgrCfg['smgr_ip_addr'] = args.smgr_ip
     if args.smgr_port:
         serverMgrCfg['smgr_port'] = args.smgr_port
+
+    reimage_params = {}
+    match_key = None
+    match_value = None
     if args.server_id:
         match_key='server_id'
         match_value = args.server_id
@@ -119,24 +143,21 @@ def reimage_server(args_str=None):
     elif args.pod_id:
         match_key='pod_id'
         match_value = args.pod_id
-    else:
-        pass
-
-    server_details = {}
-    if args.interactive:
-       server_details = get_server_details()
-    elif args.server_details_file:
-       server_details = json.load(
-           open(args.server_details_file))
+    elif args.interactive:
+       reimage_params = get_reimage_params()
+    elif args.reimage_params_file:
+       reimage_params = json.load(
+           open(args.reimage_params_file))
     else:
         pass
     
     payload = {}
     payload['base_image_id'] = args.base_image_id
     payload['repo_image_id'] = args.repo_image_id
-    payload[match_key] = match_value
-    if server_details:
-        payload['server_details'] = server_details
+    if match_key:
+        payload[match_key] = match_value
+    if reimage_params:
+        payload['reimage_params'] = reimage_params
  
     resp = send_REST_request(serverMgrCfg['smgr_ip_addr'],
                       serverMgrCfg['smgr_port'],
