@@ -907,30 +907,30 @@ class VncServerManager():
                     # build all parameters needed for re-imaging
                     vns = self._serverDb.get_vns(server['vns_id'],
                                                  detail=True)[0]
-                    vns_params = []
+                    vns_params = {}
                     if vns['vns_params']:
                         vns_params = eval(vns['vns_params'])
                     if server['passwd']:
                         passwd = server['passwd']
-                    elif len(vns_params):
+                    elif vns_params:
                         passwd = vns_params['passwd']
                     else:
                         abort(404, "Missing Password")
                     if server['mask']:
                         mask = server['mask']
-                    elif len(vns_params):
+                    elif vns_params:
                         mask = vns_params['mask']
                     else:
                         abort(404, "Missing Mask")
                     if server['gway']:
                         gway = server['gway']
-                    elif len(vns_params):
+                    elif vns_params:
                         gway = vns_params['gway']
                     else:
                         abort(404, "Missing Gateway")
                     if server['domain']:
                         domain = server['domain']
-                    elif len(vns_params):
+                    elif vns_params:
                         domain = vns_params['domain']
                     else:
                         abort(404, "Missing Domain")
@@ -978,20 +978,20 @@ class VncServerManager():
             for server in servers:
                 vns = self._serverDb.get_vns(server['vns_id'],
                                              detail=True)[0]
-                vns_params = []
+                vns_params = {}
                 if vns['vns_params']:
                     vns_params = eval(vns['vns_params'])
 
                 if server['passwd']:
                     passwd = server['passwd']
-                elif len(vns_params):
+                elif vns_params:
                     passwd = vns_params['passwd']
                 else:
                     abort(404, "Missing password")
 
                 if server['domain']:
                     domain = server['domain']
-                elif len(vns_params):
+                elif vns_params:
                     domain = vns_params['domain']
                 else:
                     abort(404, "Missing Domain")
