@@ -330,8 +330,6 @@ class ServerMgrDb:
             if (match_key.lower() == "mac"):
                 if match_value:
                     match_value = str(EUI(match_value)).replace("-", ":")
-            servers = self._get_items(server_table, match_key,
-                                      match_value, False, "mac")
             self._delete_row(server_table, match_key, match_value)
         except Exception as e:
             raise e

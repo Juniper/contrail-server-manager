@@ -1,0 +1,34 @@
+{
+    "params" : {
+        "domain" : "demo.juniper.net",
+        "database_dir" : "/home/cassandra",
+        "db_initial_token" : "",
+        "openstack_mgmt_ip" : "",
+        "use_certs" : "False",
+        "multi_tenancy" : "False",
+        "service_token" : "contrail123",
+        "ks_user" : "admin",
+        "ks_passwd" : "contrail123",
+        "ks_tenant" : "admin",
+        "openstack_passwd" : "juniper",
+        "analytics_data_ttl" : "168"
+    },
+    "servers" : [
+        {
+            "server_id" : "demo2-server",
+            "server_ip" : "10.84.51.13",
+            "ifname" : "eth1",
+            "compute_non_mgmt_ip" : "",
+            "compute_non_mgmt_gway" : ""
+        }
+    ],
+    "roles" : {
+        "database" : ["demo2-server"],
+        "openstack" : ["demo2-server"],
+        "config" : ["demo2-server"],
+        "control" : ["demo2-server"],
+        "collector" : ["demo2-server"],
+        "webui" : ["demo2-server"],
+        "compute" :  ["demo2-server"]
+    }
+}
