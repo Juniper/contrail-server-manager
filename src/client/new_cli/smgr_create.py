@@ -42,16 +42,17 @@ object_dict = {
              ("ks_passwd", "keystone password"),
              ("ks_tenant", "keystone tenant name"),
              ("openstack_passwd", "open stack password"),
-             ("analytics_data_ttl", "analytics data TTL"),
-             ("compute_non_mgmt_ip", "compute node non mgmt ip"),
-             ("compute_non_mgmt_gway", "compute node non mgmt gway")]))
+             ("analytics_data_ttl", "analytics data TTL")]))
     ]),
     "server": OrderedDict ([ 
         ("server_id", "server id value"),
         ("ip", "server ip address"),
         ("mac", "server mac address"),
         ("roles", "comma-separated list of roles for this server"),
-        ("server_params", OrderedDict([("ifname", "Ethernet Interface name")])),
+        ("server_params", OrderedDict([
+            ("ifname", "Ethernet Interface name"),
+            ("compute_non_mgmt_ip", "compute node non mgmt ip (default none)"),
+            ("compute_non_mgmt_gway", "compute node non mgmt gway (default none)")])),
         ("vns_id", "vns id the server belongs to"),
         ("cluster_id", "Physical cluster id the server belongs to"),
         ("pod_id", "pod id the server belongs to"),

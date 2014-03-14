@@ -1155,8 +1155,8 @@ class VncServerManager():
                 provision_params['openstack_passwd'] = vns_params['openstack_passwd']
                 provision_params['analytics_data_ttl'] = vns_params['analytics_data_ttl']
                 provision_params['phy_interface'] = server_params['ifname']
-                provision_params['compute_non_mgmt_ip'] = vns_params['compute_non_mgmt_ip']
-                provision_params['compute_non_mgmt_gway'] = vns_params['compute_non_mgmt_gway']
+                provision_params['compute_non_mgmt_ip'] = server_params['compute_non_mgmt_ip']
+                provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
                 self._do_provision_server(provision_params)
         except Exception as e:
             abort(404, repr(e))

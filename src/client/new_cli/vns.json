@@ -15,8 +15,6 @@
                 "ks_tenant": "admin",
                 "openstack_passwd": "juniper",
                 "analytics_data_ttl": "168",
-                "compute_non_mgmt_ip": "",
-                "compute_non_mgmt_gway": "",
                 "Opt_params" : " **** Below are optional params which MUST be specified if not done with server *** ",
                 "mask": "255.255.255.0",
                 "gway": "10.84.51.254",
