@@ -489,7 +489,7 @@ class VncServerManager():
         if (not entity):
             abort(404, 'Server MAC or server_id not specified')
         try:
-            servers = entity.get("servers", None)
+            servers = entity.get("server", None)
             for server in servers:
                 if (('server_id' not in server) or ('mac' not in server)):
                     abort(404, 'Server MAC or server_id not specified')
