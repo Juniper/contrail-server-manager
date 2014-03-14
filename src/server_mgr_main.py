@@ -489,7 +489,7 @@ class VncServerManager():
         if (not entity):
             abort(404, 'Server MAC or server_id not specified')
         try:
-            servers = entity.get("server", None)
+            servers = entity.get("servers", None)
             for server in servers:
                 if (('server_id' not in server) or ('mac' not in server)):
                     abort(404, 'Server MAC or server_id not specified')
@@ -907,23 +907,34 @@ class VncServerManager():
                     # build all parameters needed for re-imaging
                     vns = self._serverDb.get_vns(server['vns_id'],
                                                  detail=True)[0]
-                    vns_params = eval(vns['vns_params'])
+                    vns_params = []
+                    if vns['vns_params']:
+                        vns_params = eval(vns['vns_params'])
                     if server['passwd']:
                         passwd = server['passwd']
-                    else:
+                    elif len(vns_params):
                         passwd = vns_params['passwd']
+                    else:
+                        abort(404, "Missing Password")
                     if server['mask']:
                         mask = server['mask']
-                    else:
+                    elif len(vns_params):
                         mask = vns_params['mask']
+                    else:
+                        abort(404, "Missing Mask")
                     if server['gway']:
                         gway = server['gway']
-                    else:
+                    elif len(vns_params):
                         gway = vns_params['gway']
+                    else:
+                        abort(404, "Missing Gateway")
                     if server['domain']:
                         domain = server['domain']
-                    else:
+                    elif len(vns_params):
                         domain = vns_params['domain']
+                    else:
+                        abort(404, "Missing Domain")
+
                     reimage_params = {}
                     reimage_params['server_id'] = server['server_id']
                     reimage_params['server_ip'] = server['ip']
@@ -967,15 +978,24 @@ class VncServerManager():
             for server in servers:
                 vns = self._serverDb.get_vns(server['vns_id'],
                                              detail=True)[0]
-                vns_params = eval(vns['vns_params'])
+                vns_params = []
+                if vns['vns_params']:
+                    vns_params = eval(vns['vns_params'])
+
                 if server['passwd']:
                     passwd = server['passwd']
-                else:
+                elif len(vns_params):
                     passwd = vns_params['passwd']
+                else:
+                    abort(404, "Missing password")
+
                 if server['domain']:
                     domain = server['domain']
-                else:
+                elif len(vns_params):
                     domain = vns_params['domain']
+                else:
+                    abort(404, "Missing Domain")
+
                 self._power_cycle_server(
                     server['server_id'], domain, server['ip'],
                     passwd, net_boot)
