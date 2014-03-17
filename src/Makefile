@@ -7,5 +7,5 @@ rpm:
 	mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 	cp smgr.spec ~/rpmbuild/SPECS
 	rpmbuild -bb ~/rpmbuild/SPECS/smgr.spec
-	cp /home/tsurendra/rpmbuild/RPMS/noarch/server_mgr-1.0-1.noarch.rpm /home/tsurendra/rpmbuild/RPMS/noarch/server_mgr-1.0-1_$(commit_id).noarch.rpm
+	cp ~/rpmbuild/RPMS/noarch/server_mgr-1.0-1.noarch.rpm ~/rpmbuild/RPMS/noarch/server_mgr-1.0-1_$(commit_id).noarch.rpm
 
