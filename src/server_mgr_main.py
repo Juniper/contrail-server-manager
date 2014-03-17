@@ -709,7 +709,7 @@ class VncServerManager():
             if not images:
                 abort(404, "Image not found")
             image = images[0]
-            if (image['type'] == 'contrail-ubuntu-repo'):
+            if (image['image_type'] == 'contrail-ubuntu-repo'):
                 # remove the file
                 os.remove(self._args.smgr_base_dir + 'images/' +
                           image_id + '.deb')
