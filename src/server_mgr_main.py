@@ -886,6 +886,8 @@ class VncServerManager():
                     reimage_params = server.copy()
                     if ('server_passwd' not in reimage_params):
                         reimage_params['server_passwd'] = "c0ntrail123"
+                    reimage_params['server_passwd'] = self._encrypt_passwd(
+                        reimage_params['server_passwd'])
                     if ('server_ifname' not in reimage_params):
                         reimage_params['server_ifname'] = "eth0"
                     if (('server_ip' not in reimage_params) or
