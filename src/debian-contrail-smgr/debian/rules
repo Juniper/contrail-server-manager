@@ -10,7 +10,7 @@ export DH_VERBOSE=1
 export WS := $(shell pwd)
 export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):debian/contrail-control/usr/lib64/contrail:debian/contrail-libs/usr/lib64/contrail
 export BUILDTIME := $(shell date -u +%y%m%d%H%M)
-export src_path := ./../../server_mgr/
+export src_path := ./../
 BUILDTAG =
 ifdef TAG
 BUILDTAG = $(TAG)
@@ -34,7 +34,7 @@ override_dh_auto_install:
 #	rm -rf debian/contrail-smgr/var/log/contrail
 	
 	# Install directories
-	install -d -m 755 debian/contrail-smgr/opt/contrail/server_mgr
+	install -d -m 755 debian/contrail-smgr/opt/contrail/server_manager/
 	install -d -m 754 debian/contrail-smgr/etc/init.d/
 	install -d -m 754 debian/contrail-smgr/etc/contrail/
 	install -d -m 754 debian/contrail-smgr/usr/sbin/
@@ -43,14 +43,16 @@ override_dh_auto_install:
 #	install -d -m 755 debian/contrail-smgr/var/log/contrail
 	
 	# Copy/install files
-	cp -r $(src_path)/server_mgr_main.py $(WS)/debian/contrail-smgr/opt/contrail/server_mgr/
-	cp -r $(src_path)/server_mgr_db.py  $(WS)/debian/contrail-smgr/opt/contrail/server_mgr/
-	cp -r $(src_path)/server_mgr_cobbler.py  $(WS)/debian/contrail-smgr/opt/contrail/server_mgr/
-	cp -r $(src_path)/server_mgr_puppet.py  $(WS)/debian/contrail-smgr/opt/contrail/server_mgr/
-	cp -r $(src_path)/smgr_dhcp_event.py  $(WS)/debian/contrail-smgr/opt/contrail/server_mgr/
-	cp -r $(src_path)/server_config.ini  $(WS)/debian/contrail-smgr/opt/contrail/server_mgr/
-	
-	cp -r $(src_path)/../../third_party/bottle-0.11.6/bottle.py  $(WS)/debian/contrail-smgr/opt/contrail/server_mgr/
+	cp -r $(src_path)/server_mgr_main.py $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
+	cp -r $(src_path)/server_mgr_db.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
+	cp -r $(src_path)/server_mgr_cobbler.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
+	cp -r $(src_path)/server_mgr_puppet.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
+	cp -r $(src_path)/smgr_dhcp_event.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
+	cp -r $(src_path)/server_config.ini  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
+
+	cp -r $(src_path)/smgrd.start  $(WS)/debian/contrail-smgr/usr/sbin/smgrd
+
+	cp -r $(src_path)/third_party/bottle.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
 	
 	cp $(src_path)/smgrd.u  $(WS)/debian/contrail-smgr/etc/init.d/smgrd
 #	cp $(src_path)/smgrd.sbin $(WS)/debian/contrail-smgr/usr/sbin/smgrd

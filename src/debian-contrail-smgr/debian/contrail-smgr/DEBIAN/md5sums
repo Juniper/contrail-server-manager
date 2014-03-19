@@ -1,9 +1,10 @@
-b99e83bed89bc7d5df13fc22d2505755  opt/contrail/server_mgr/bottle.py
-c48a3137ece0356bc3ecec4e0dfd6951  opt/contrail/server_mgr/server_config.ini
-7e33136fe56d861a0557e725849c66f2  opt/contrail/server_mgr/server_mgr_cobbler.py
-4547ec3d4f917baacb39bdadb9739e18  opt/contrail/server_mgr/server_mgr_db.py
-e505fd377204239cebf5d9d0cb789700  opt/contrail/server_mgr/server_mgr_main.py
-17049014155f1a64c23f7192727edfae  opt/contrail/server_mgr/server_mgr_puppet.py
-243bad3c82ad071e9f3df6bb555c4c08  opt/contrail/server_mgr/smgr_dhcp_event.py
+b99e83bed89bc7d5df13fc22d2505755  opt/contrail/server_manager/bottle.py
+1276b9dcd6774593479a3a888eacea36  opt/contrail/server_manager/server_config.ini
+9b314d81421100151dd40cd85090fffa  opt/contrail/server_manager/server_mgr_cobbler.py
+38bf1d82b7bd903ee01ba19c9ed2b76d  opt/contrail/server_manager/server_mgr_db.py
+ba657709a98b5703935df94fbb1dd31e  opt/contrail/server_manager/server_mgr_main.py
+367c8f8fc9fa9d25438dd3e120eee0df  opt/contrail/server_manager/server_mgr_puppet.py
+243bad3c82ad071e9f3df6bb555c4c08  opt/contrail/server_manager/smgr_dhcp_event.py
+292209864411a40567010ab208fb3985  usr/sbin/smgrd
 9e98908c37f4906bcd6c584919242ed8  usr/share/doc/contrail-smgr/changelog.gz
 c00325e6646fa5efc32890707b5e1b8d  usr/share/doc/contrail-smgr/copyright

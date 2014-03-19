@@ -18,9 +18,13 @@ easy_install paramiko
 easy_install pycrypto
 
 mkdir -p /etc/contrail/images/
+service apache2 restart
+service xinetd restart
+service cobbler restart
 
-ln -s /opt/contrail/server_mgr/server_mgr_main.py /usr/sbin/smgrd
-puppet master
+
+service puppetmaster restart
+
 
 sed -i 's/puppet_auto_setup: 0/puppet_auto_setup: 1/g' /etc/cobbler/settings
 sed -i 's/sign_puppet_certs_automatically: 0/sign_puppet_certs_automatically: 1/g' /etc/cobbler/settings
@@ -29,3 +33,24 @@ sed -i 's/remove_old_puppet_certs_automatically: 0/remove_old_puppet_certs_autom
 sed -i 's/manage_dhcp: 0/manage_dhcp: 1/g' /etc/cobbler/settings
 sed -i 's/manage_dns: 0/manage_dns: 1/g' /etc/cobbler/settings
 sed -i 's:DocumentRoot /var/www:DocumentRoot /var/www/html:g' /etc/apache2/sites-available/default
+
+HOST_IP_LIST=`ifconfig | sed -n -e 's/:127\.0\.0\.1 //g' -e 's/ *inet addr:\([0-9.]\+\).*/\1/gp'`
+HOST_IP=`echo $HOST_IP_LIST | cut -d',' -f1`
+echo $HOST_IP
+
+sed -i "s/10.84.51.11/$HOST_IP/" /etc/cobbler/settings
+update-rc.d smgrd defaults
+#/sbin/chkconfig --add smgrd
+sed -i "s/authn_denyall/authn_testing/g" /etc/cobbler/modules.conf
+sed -i "s/authn_configfile/authn_testing/g" /etc/cobbler/modules.conf
+
+sed -i "s/127.0.0.1/$HOST_IP/g" /opt/contrail/server_manager/server_config.ini
+
+update-rc.d apache2 defaults
+update-rc.d xinetd defaults
+update-rc.d cobbler defaults
+update-rc.d puppetmaster defaults
+
+#puppet master
+service smgrd restart
+
