@@ -49,6 +49,7 @@ override_dh_auto_install:
 	cp -r $(src_path)/server_mgr_puppet.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
 	cp -r $(src_path)/smgr_dhcp_event.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
 	cp -r $(src_path)/server_config.ini  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
+	cp -r $(src_path)/client  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
 
 	cp -r $(src_path)/smgrd.start  $(WS)/debian/contrail-smgr/usr/sbin/smgrd
 

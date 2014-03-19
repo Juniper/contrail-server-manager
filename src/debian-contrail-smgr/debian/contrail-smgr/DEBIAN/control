@@ -2,8 +2,8 @@ Package: contrail-smgr
 Version: 1401101206
 Architecture: amd64
 Maintainer: swamy <swamy@juniper.net>
-Installed-Size: 4147
-Depends: python, lighttpd, sqlite, cobbler, puppetmaster, xinetd, python-pip, dhcp3-server, ntp, autoconf, gcc, bind9, tftp
+Installed-Size: 4249
+Depends: python, apache2, sqlite, cobbler, puppetmaster, xinetd, python-pip, dhcp3-server, ntp, autoconf, gcc, bind9, tftp
 Section: contrail-smgr
 Priority: extra
 Description: Contrail Systems Web UI

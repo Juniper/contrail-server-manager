@@ -18,13 +18,6 @@ easy_install paramiko
 easy_install pycrypto
 
 mkdir -p /etc/contrail/images/
-service apache2 restart
-service xinetd restart
-service cobbler restart
-
-
-service puppetmaster restart
-
 
 sed -i 's/puppet_auto_setup: 0/puppet_auto_setup: 1/g' /etc/cobbler/settings
 sed -i 's/sign_puppet_certs_automatically: 0/sign_puppet_certs_automatically: 1/g' /etc/cobbler/settings
@@ -46,10 +39,19 @@ sed -i "s/authn_configfile/authn_testing/g" /etc/cobbler/modules.conf
 
 sed -i "s/127.0.0.1/$HOST_IP/g" /opt/contrail/server_manager/server_config.ini
 
-update-rc.d apache2 defaults
-update-rc.d xinetd defaults
-update-rc.d cobbler defaults
-update-rc.d puppetmaster defaults
+service apache2 restart
+service xinetd restart
+service cobbler restart
+
+
+service puppetmaster restart
+
+
+
+#update-rc.d apache2 defaults
+#update-rc.d xinetd defaults
+#update-rc.d cobbler defaults
+#update-rc.d puppetmaster defaults
 
 #puppet master
 service smgrd restart
