@@ -149,7 +149,7 @@ class ServerMgrPuppet:
         if (provision_params["server_ip"] in collector_servers):
            collector_server = provision_params['server_ip']
         else:
-            hindex = config_servers.index[provision_params['server_ip']]
+            hindex = config_servers.index(provision_params['server_ip'])
             hindex = hindex % len(collector_servers)
             collector_server = collector_servers[hindex]
         nworkers = 1
@@ -204,7 +204,7 @@ class ServerMgrPuppet:
         if (provision_params["server_ip"] in collector_servers):
            collector_server = provision_params['server_ip']
         else:
-            hindex = control_servers.index[provision_params['server_ip']]
+            hindex = control_servers.index(provision_params['server_ip'])
             hindex = hindex % len(collector_servers)
             collector_server = collector_servers[hindex]
         nworkers = 1
