@@ -852,7 +852,7 @@ class VncServerManager():
             base_image_id = entity.pop("base_image_id", None)
             if not base_image_id:
                 abort(404, "No base image id specified")
-            repo_image_id = entity.pop("repo_image_id", None)
+            repo_image_id = entity.pop("repo_image_id", '')
             req_reimage_params = entity.pop("reimage_params", None)
             # Now process other parameters there should be only one more
             if (req_reimage_params == None):
