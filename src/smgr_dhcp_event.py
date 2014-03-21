@@ -16,7 +16,7 @@ import pycurl
 
 _DEF_SMGR_CFG_FILE = './smgr.ini'
 _DEF_SMGR_IP_ADDR = '10.84.51.11'
-_DEF_SMGR_PORT = 8090
+_DEF_SMGR_PORT = 9001
 
 
 def parse_arguments(args_str=None):

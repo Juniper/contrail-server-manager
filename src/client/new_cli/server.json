@@ -9,13 +9,13 @@
                 "compute_non_mgmt_ip": "",
                 "compute_non_mgmt_gway": ""
             },
-            "roles" : ["config","openstack","control","compute","collector","webui","database"] 
+            "roles" : ["config","openstack","control","compute","collector","webui","database"],
             "cluster_id": "demo-cluster",
             "vns_id": "demo-vns",
             "mask": "255.255.255.0",
             "gway": "10.84.51.254",
             "passwd": "juniper",
-            "domain": "demo.juniper.net",
+            "domain": "demo.juniper.net"
         }
     ]
 }

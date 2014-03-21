@@ -26,7 +26,7 @@ import restart_server
 
 _DEF_SMGR_CFG_FILE = './smgr.ini'
 _DEF_SMGR_IP_ADDR = '127.0.0.1'
-_DEF_SMGR_PORT = 8090
+_DEF_SMGR_PORT = 9001
 
 call_table = {
     "1": get_config.get_config,

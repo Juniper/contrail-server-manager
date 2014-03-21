@@ -17,7 +17,7 @@ import json
 from collections import OrderedDict
 
 _DEF_SMGR_IP_ADDR = '127.0.0.1'
-_DEF_SMGR_PORT = 8090
+_DEF_SMGR_PORT = 9001
 
 # Below array of dictionary's is used by create_payload
 # function to create payload when user choses to input

@@ -34,7 +34,7 @@ from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 
 _WEB_HOST = '127.0.0.1'
-_WEB_PORT = 8090
+_WEB_PORT = 9001
 _DEF_CFG_DB = 'vns_server_mgr.db'
 _DEF_SMGR_BASE_DIR = '/etc/contrail/'
 _DEF_HTML_ROOT_DIR = '/var/www/html/'

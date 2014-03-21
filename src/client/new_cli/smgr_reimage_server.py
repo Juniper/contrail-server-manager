@@ -16,7 +16,7 @@ import json
 from collections import OrderedDict
 
 _DEF_SMGR_IP_ADDR = '127.0.0.1'
-_DEF_SMGR_PORT = 8090
+_DEF_SMGR_PORT = 9001
 
 
 def parse_arguments(args_str=None):
