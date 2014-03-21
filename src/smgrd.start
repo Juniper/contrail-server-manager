@@ -18,4 +18,5 @@ cobbler sync
 service xinetd restart
 service ntpd restart
 
+mkdir -p /var/run/smgrd/
 nohup /opt/contrail/server_manager/server_mgr_main.py -c /opt/contrail/server_manager/server_config.ini 0<&- &> /var/run/smgrd/smgrd.log&
