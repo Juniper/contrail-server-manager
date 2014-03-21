@@ -9,8 +9,9 @@ echo "running post install"
 cp -r /etc/contrail/puppet /etc/
 
 cp /etc/contrail/cobbler/dhcp.template.u /etc/cobbler/dhcp.template
-mkdir /var/www/html/kickstarts
-cp -r /etc/contrail/kickstarts /var/www/html/kickstarts
+mkdir -p /var/www/html
+mkdir -p /var/www/html/kickstarts
+cp -r /etc/contrail/kickstarts /var/www/html/
 mkdir -p /var/www/html/contrail
 
 cp -u /etc/puppet/puppet_init_rd /var/www/cobbler/aux/puppet
