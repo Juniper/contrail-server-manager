@@ -964,17 +964,38 @@ class VncServerManager():
             net_boot = entity.pop("net_boot", None)
             if ((not net_boot) or (net_boot != "y")):
                 net_boot = "n"
-            # Now process other parameters there should be only one more
-            if len(entity) == 0:
-                abort(404, "No servers specified")
-            elif len(entity) == 1:
-                match_key, match_value = entity.popitem()
-                # check that match key is a valid one
-                if (match_key not in ("server_id", "mac", "cluster_id",
-                                      "rack_id", "pod_id", "vns_id")):
+            req_restart_params = entity.pop("restart_params", None)
+            # if no restart params are specified, there needs to be
+            # server selection criteria provided.
+            if (req_restart_params == None):
+                if len(entity) == 0:
+                    abort(404, "No servers specified")
+                elif len(entity) == 1:
+                    match_key, match_value = entity.popitem()
+                    # check that match key is a valid one
+                    if (match_key not in ("server_id", "mac", "cluster_id",
+                                          "rack_id", "pod_id", "vns_id")):
+                        abort(404, "Invalid Query arguments")
+                else:
                     abort(404, "Invalid Query arguments")
+                # end else
             else:
-                abort(404, "Invalid Query arguments")
+                if (type(req_restart_params) != type({})):
+                    abort(404, "Incorrect server restart parameters")
+                servers = req_restart_params.pop("servers", None)
+                if ((not servers) or
+                    (type(servers) != type([]))):
+                    abort(404, "No servers specified")
+                for server in servers:
+                    self._power_cycle_server(
+                        server.get('server_id', ''),
+                        server.get('server_domain', ''),
+                        server.get('server_ip', ''),
+                        server.get('server_passwd', ''),
+                        net_boot)
+                # end for server in servers
+                return "Server(s) restarted"
+            # end if req_provision_params
             servers = self._serverDb.get_server(match_key, match_value,
                                                 detail=True)
             for server in servers:
