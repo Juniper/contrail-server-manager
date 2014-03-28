@@ -13,10 +13,10 @@ import pdb
 import sys
 import pycurl
 from StringIO import StringIO
+import ConfigParser
 
-_DEF_SMGR_IP_ADDR = '127.0.0.1'
 _DEF_SMGR_PORT = 9001
-
+_DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
 
 def parse_arguments(args_str=None):
     if not args_str:
@@ -26,10 +26,15 @@ def parse_arguments(args_str=None):
     parser = argparse.ArgumentParser(
         description='''Delete a Server Manager object''',
     )
-    parser.add_argument("--smgr_ip", "-i",
-                        help="IP address of the server manager.")
-    parser.add_argument("--smgr_port", "-p",
-                        help="server manager listening port number")
+    group1 = parser.add_mutually_exclusive_group()
+    group1.add_argument("--ip_port", "-i",
+                        help=("ip addr & port of server manager "
+                              "<ip-addr>[:<port>] format, default port "
+                              " 9001"))
+    group1.add_argument("--config_file", "-c",
+                        help=("Server manager client config file "
+                              " (default - %s)" %(
+                              _DEF_SMGR_CFG_FILE)))
     subparsers = parser.add_subparsers(title='subcommands',
                                        description='valid subcommands',
                                        help='help for subcommand')
@@ -152,19 +157,33 @@ def delete_image(args):
 #end def delete_image
 
 def delete_config(args_str=None):
-    serverMgrCfg = {
-        'smgr_ip_addr': _DEF_SMGR_IP_ADDR,
-        'smgr_port': _DEF_SMGR_PORT
-    }
     parser = parse_arguments(args_str)
     args = parser.parse_args()
-    if args.smgr_ip:
-        serverMgrCfg['smgr_ip_addr'] = args.smgr_ip
-    if args.smgr_port:
-        serverMgrCfg['smgr_port'] = args.smgr_port
+    if args.ip_port:
+        smgr_ip, smgr_port = args.ip_port.split(":")
+        if not smgr_port:
+            smgr_port = _DEF_SMGR_PORT
+    else:
+        if args.config_file:
+            config_file = args.config_file
+        else:
+            config_file = _DEF_SMGR_CFG_FILE
+        # end args.config_file
+        try:
+            config = ConfigParser.SafeConfigParser()
+            config.read([config_file])
+            smgr_config = dict(config.items("SERVER-MANAGER"))
+            smgr_ip = smgr_config.get("listen_ip_addr", None)
+            if not smgr_ip:
+                sys.exit(("listen_ip_addr missing in config file"
+                          "%s" %config_file))
+            smgr_port = smgr_config.get("listen_port", _DEF_SMGR_PORT)
+        except:
+            sys.exit("Error reading config file %s" %config_file)
+        # end except
+    # end else args.ip_port
     rest_api_params = args.func(args)
-    resp = send_REST_request(serverMgrCfg['smgr_ip_addr'],
-                      serverMgrCfg['smgr_port'],
+    resp = send_REST_request(smgr_ip, smgr_port,
                       rest_api_params['object'],
                       rest_api_params['match_key'],
                       rest_api_params['match_value'])

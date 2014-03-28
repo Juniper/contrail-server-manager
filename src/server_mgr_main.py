@@ -36,13 +36,14 @@ from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 _WEB_HOST = '127.0.0.1'
 _WEB_PORT = 9001
 _DEF_CFG_DB = 'vns_server_mgr.db'
-_DEF_SMGR_BASE_DIR = '/etc/contrail/'
+_DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
+_DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'smgr_config.ini'
 _DEF_HTML_ROOT_DIR = '/var/www/html/'
 _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = None
 _DEF_COBBLER_USER = 'cobbler'
 _DEF_COBBLER_PASSWD = 'cobbler'
-_DEF_PUPPET_DIR = '/etc/puppet-test/'
+_DEF_PUPPET_DIR = '/etc/puppet/'
 
 
 @bottle.error(403)
@@ -1226,10 +1227,17 @@ class VncServerManager():
         }
 
         if args.config_file:
+            config_file = args.config_file
+        else:
+            config_file = _DEF_SMGR_CFG_FILE
+        try:
             config = ConfigParser.SafeConfigParser()
             config.read([args.config_file])
             for key in serverMgrCfg.keys():
                 serverMgrCfg[key] = dict(config.items("SERVER-MANAGER"))[key]
+        except:
+            # if config file could not be read, use default values
+            pass
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -1439,7 +1447,7 @@ def main(args_str=None):
     server_port = vnc_server_mgr.get_server_port()
 
     server_mgr_pid = os.getpid()
-    pid_file = "/var/run/smgrd/smgrd.pid"
+    pid_file = "/var/run/contrail_smgrd/contrail_smgrd.pid"
     dir = os.path.dirname(pid_file)
     if not os.path.exists(dir):
         os.mkdir(dir)

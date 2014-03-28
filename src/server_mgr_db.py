@@ -5,7 +5,7 @@ import sys
 import pdb
 from netaddr import *
 
-def_server_db_file = 'vns_server_config.db'
+def_server_db_file = 'smgr_data.db'
 pod_table = 'pod_table'
 rack_table = 'rack_table'
 cluster_table = 'cluster_table'
