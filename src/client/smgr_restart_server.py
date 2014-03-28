@@ -18,9 +18,7 @@ import json
 from collections import OrderedDict
 import ConfigParser
 
-_DEF_SMGR_IP_ADDR = '127.0.0.1'
 _DEF_SMGR_PORT = 9001
-
 _DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
 
 def parse_arguments(args_str=None):
