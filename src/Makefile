@@ -4,10 +4,14 @@ rpm:
 	@echo "RPM"
 	$(eval commit_id=$(shell git log --format="%H" | head -n1))
 	@echo git_log is $(commit_id)
-	mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-	cp smgr.spec ~/rpmbuild/SPECS
-	rpmbuild -bb ~/rpmbuild/SPECS/smgr.spec
-	cp ~/rpmbuild/RPMS/noarch/server_mgr-1.0-1.noarch.rpm ~/rpmbuild/RPMS/noarch/server_mgr-1.0-1_$(commit_id).noarch.rpm
+	mkdir -p ~/rpmbuild/BUILD
+	mkdir -p ~/rpmbuild/RPMS
+	mkdir -p ~/rpmbuild/SOURCES
+	mkdir -p ~/rpmbuild/SPECS
+	mkdir -p ~/rpmbuild/SRPMS
+	cp contrail_smgr.spec ~/rpmbuild/SPECS
+	rpmbuild -bb ~/rpmbuild/SPECS/contrail_smgr.spec
+	cp ~/rpmbuild/RPMS/noarch/contrail_smgr-1.0-1.noarch.rpm ~/rpmbuild/RPMS/noarch/contrail_smgr-1.0-1_$(commit_id).noarch.rpm
 deb:
 	(cd debian-contrail-smgr; fakeroot debian/rules binary)
 clean:

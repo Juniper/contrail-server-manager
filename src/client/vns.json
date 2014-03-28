@@ -1,42 +1,26 @@
 {
-    "cluster_id": "cluster1",
-    "router_asn": "64512",
-    "mask": "255.255.255.0",
-    "gway": "10.204.217.254",
-    "passwd": "c0ntrail123",
-    "domain": "englab.juniper.net",
-    "vns_id": "demo-vns",
-    "servers": [
-        {
-            "server_id": "nodeg35",
-            "mac": "00:25:90:C5:62:54",
-            "ip": "10.204.217.75",
-            "ifname": "rename2"
-        }
-    ],
-    "roles": [
-        {
-            "config": [
-                "nodeg35"
-            ],
-            "openstack": [
-                "nodeg35"
-            ],
-            "control": [
-                "nodeg35"
-            ],
-            "compute": [
-                "nodeg35"
-            ],
-            "collector": [
-                "nodeg35"
-            ],
-            "webui": [
-                "nodeg35"
-            ],
-            "database": [
-                "nodeg35"
-            ]
+    "vns" : [
+        {  
+            "vns_id" : "demo-vns",
+            "vns_params" : {
+                "router_asn": "64512",
+                "database_dir": "/home/cassandra",
+                "db_initial_token": "",
+                "openstack_mgmt_ip": "",
+                "use_certs": "False",
+                "multi_tenancy": "False",
+                "service_token": "contrail123",
+                "ks_user": "admin",
+                "ks_passwd": "contrail123",
+                "ks_tenant": "admin",
+                "openstack_passwd": "juniper",
+                "analytics_data_ttl": "168",
+                "mask": "255.255.255.0",
+                "gway": "10.84.51.254",
+                "passwd": "juniper",
+                "domain": "demo.juniper.net"
+                }
         }
     ]
 }
+

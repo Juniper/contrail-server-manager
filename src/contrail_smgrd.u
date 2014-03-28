@@ -20,10 +20,10 @@
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="Contrail Server Manager"
-NAME=smgrd
+NAME=contrail_smgrd
 DAEMON=/usr/sbin/$NAME
-DAEMON_ARGS="-c /opt/contrail/server_mgr/server_config.ini"
-PIDFILE=/var/run/smgrd/smgrd.pid
+DAEMON_ARGS="-c /opt/contrail/server_manager/smgr_config.ini"
+PIDFILE=/var/run/contrail_smgrd/contrail_smgrd.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Exit if the package is not installed
@@ -123,7 +123,7 @@ case "$1" in
 	start-stop-daemon --status -p $PIDFILE
         RETVAL="$?"
         if [ "$RETVAL" = 0 ]; then
-		echo "smgrd is running!"
+		echo "contrail_smgrd is running!"
 	fi
 
        ;;

@@ -2,9 +2,9 @@
 #
 # chkconfig: 2345 55 45
 # description:	The server mangement daemon maintains all the servers belonging to contrail ecosystem.
-# processname: smgrd
-# config: /etc/sysconfig/smgrd
-# pidfile: /var/run/smgrd/smgrd.pid
+# processname: contrail_smgrd
+# config: /etc/sysconfig/contrail_smgrd
+# pidfile: /var/run/contrail_smgrd/contrail_smgrd.pid
 
 #SYSTEMCTL_SKIP_REDIRECT=1
 
@@ -14,7 +14,7 @@
 
 USER=root
 RETVAL=0
-prog="smgrd"
+prog="contrail_smgrd"
 pidfile=${PIDFILE-/var/run/$prog/$prog.pid}
 
 if [ -f /etc/sysconfig/$prog ];then 
@@ -34,7 +34,7 @@ start () {
 		chown $USER $piddir
 	fi
 	source /opt/contrail/smgr-venv/bin/activate
-	daemon --pidfile ${pidfile} /usr/sbin/smgrd
+	daemon --pidfile ${pidfile} /usr/sbin/contrail_smgrd
 	RETVAL=$?
 }
 stop () {

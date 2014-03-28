@@ -11,6 +11,7 @@ export WS := $(shell pwd)
 export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):debian/contrail-control/usr/lib64/contrail:debian/contrail-libs/usr/lib64/contrail
 export BUILDTIME := $(shell date -u +%y%m%d%H%M)
 export src_path := ./../
+export build_root := debian/contrail-smgr
 BUILDTAG =
 ifdef TAG
 BUILDTAG = $(TAG)
@@ -22,45 +23,35 @@ endif
 	dh $@
 
 override_dh_auto_build: 
-#	sed -i 's,BUILDTAG,$(BUILDTAG),g' $(WS)/debian/changelog
-#	cd ~/rpmbuild/SOURCES/contrail-smgr/contrail-ui; make package
 	echo "auto_build"
 override_dh_auto_install: 
 	# Cleanup directories
-	rm -rf debian/contrail-smgr/opt/contrail/server_mgr
-	rm -rf debian/contrail-smgr/etc
-#	rm -rf debian/contrail-smgr/usr/lib64/node_modules
-#	rm -rf debian/contrail-smgr/etc/contrail
-#	rm -rf debian/contrail-smgr/var/log/contrail
+	rm -rf $(build_root)/opt/contrail/server_manager
+	rm -rf $(build_root)/etc
 	
 	# Install directories
-	install -d -m 755 debian/contrail-smgr/opt/contrail/server_manager/
-	install -d -m 754 debian/contrail-smgr/etc/init.d/
-	install -d -m 754 debian/contrail-smgr/etc/contrail/
-	install -d -m 754 debian/contrail-smgr/usr/sbin/
-#	install -d -m 755 debian/contrail-smgr/usr/lib64/node_modules
-#	install -d -m 755 debian/contrail-smgr/etc/contrail
-#	install -d -m 755 debian/contrail-smgr/var/log/contrail
+	install -d -m 755 $(build_root)/opt/contrail/server_manager/
+	install -d -m 754 $(build_root)/etc/init.d/
+	install -d -m 754 $(build_root)/etc/contrail_smgr/
+	install -d -m 754 $(build_root)/usr/sbin/
 	
 	# Copy/install files
-	cp -r $(src_path)/server_mgr_main.py $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
-	cp -r $(src_path)/server_mgr_db.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
-	cp -r $(src_path)/server_mgr_cobbler.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
-	cp -r $(src_path)/server_mgr_puppet.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
-	cp -r $(src_path)/smgr_dhcp_event.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
-	cp -r $(src_path)/server_config.ini  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
-	cp -r $(src_path)/client  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
-
-	cp -r $(src_path)/smgrd.start  $(WS)/debian/contrail-smgr/usr/sbin/smgrd
-
-	cp -r $(src_path)/third_party/bottle.py  $(WS)/debian/contrail-smgr/opt/contrail/server_manager/
-	
-	cp $(src_path)/smgrd.u  $(WS)/debian/contrail-smgr/etc/init.d/smgrd
-#	cp $(src_path)/smgrd.sbin $(WS)/debian/contrail-smgr/usr/sbin/smgrd
-	cp -r $(src_path)/puppet  $(WS)/debian/contrail-smgr/etc/contrail/
-	cp -r $(src_path)/repos/puppet-repo  $(WS)/debian/contrail-smgr/etc/contrail/
-	cp -r $(src_path)/cobbler  $(WS)/debian/contrail-smgr/etc/contrail/
-	cp -r $(src_path)/kickstarts  $(WS)/debian/contrail-smgr/etc/contrail/
+	cp -r $(src_path)/server_mgr_main.py $(WS)/$(build_root)/opt/contrail/server_manager/
+	cp -r $(src_path)/server_mgr_db.py  $(WS)/$(build_root)/opt/contrail/server_manager/
+	cp -r $(src_path)/server_mgr_cobbler.py  $(WS)/$(build_root)/opt/contrail/server_manager/
+	cp -r $(src_path)/server_mgr_puppet.py  $(WS)/$(build_root)/opt/contrail/server_manager/
+	cp -r $(src_path)/smgr_dhcp_event.py  $(WS)/$(build_root)/opt/contrail/server_manager/
+	cp -r $(src_path)/smgr_config.ini  $(WS)/$(build_root)/opt/contrail/server_manager/
+	cp -r $(src_path)/client  $(WS)/$(build_root)/opt/contrail/server_manager/
+	cp -r $(src_path)/contrail_smgrd.start  $(WS)/$(build_root)/usr/sbin/contrail_smgrd
+	cp -r $(src_path)/third_party/bottle.py  $(WS)/$(build_root)/opt/contrail/server_manager/
+	cp $(src_path)/contrail_smgrd.u  $(WS)/$(build_root)/etc/init.d/contrail_smgrd
+#	cp $(src_path)/contrail_smgrd.sbin $(WS)/$(build_root)/usr/sbin/contrail_smgrd
+	cp -r $(src_path)/puppet  $(WS)/$(build_root)/etc/contrail_smgr/
+	cp -r $(src_path)/repos/puppet-repo  $(WS)/$(build_root)/etc/contrail_smgr/
+	cp -r $(src_path)/cobbler  $(WS)/$(build_root)/etc/contrail_smgr/
+	cp -r $(src_path)/kickstarts  $(WS)/$(build_root)/etc/contrail_smgr/
+	cp -r $(src_path)/client/smgr_client_config.ini  $(WS)/$(build_root)/etc/contrail_smgr/
 
 	echo "auto_install"
 get-orig-source:
