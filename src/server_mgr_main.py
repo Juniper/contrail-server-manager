@@ -1185,6 +1185,7 @@ class VncServerManager():
       		provision_params['passwd'] = server['passwd']
 		provision_params['esx_vswitch'] = server_params['esx_vswitch']
 		provision_params['esx_ip'] = server_params['esx_ip']
+		provision_params['haproxy'] = vns_params['haproxy']
                 self._do_provision_server(provision_params)
         except Exception as e:
             abort(404, repr(e))

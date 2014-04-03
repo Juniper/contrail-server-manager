@@ -7,4 +7,3 @@ filename=$2
         echo "    }" >> $filename
         echo "]." >> $filename
     fi
-fi

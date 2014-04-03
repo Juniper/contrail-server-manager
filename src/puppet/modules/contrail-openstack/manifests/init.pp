@@ -23,7 +23,8 @@ define contrail-openstack (
         $contrail_compute_ip,
         $contrail_openstack_mgmt_ip,
         $contrail_service_token,
-        $contrail_ks_admin_passwd
+        $contrail_ks_admin_passwd,
+	$contrail_haproxy,
     ) {
 
     # list of packages
@@ -113,11 +114,17 @@ define contrail-openstack (
     
     # Ensure ctrl-details file is present with right content.
     if ! defined(File["/etc/contrail/ctrl-details"]) {
-        $quantum_port = "9696"
+        $quantum_port = "9697"
+        if $contrail_haproxy == "enable" {
+		$quantum_ip = "127.0.0.1"
+	} else {
+		$quantum_ip = $contrail_config_ip
+	}
         file { "/etc/contrail/ctrl-details" :
             ensure  => present,
             content => template("contrail-common/ctrl-details.erb"),
         }
+
     }
     # Ensure service.token file is present with right content.
     if ! defined(File["/etc/contrail/service.token"]) {
