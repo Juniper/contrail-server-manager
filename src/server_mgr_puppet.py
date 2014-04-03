@@ -323,6 +323,10 @@ class ServerMgrPuppet:
         contrail_ks_admin_user => "%s",
         contrail_ks_admin_passwd => "%s",
         contrail_ks_admin_tenant => "%s",
+	contrail_vm_ip => "%s",
+	contrail_vm_username => "%s",
+	contrail_vm_passwd => "%s",
+	contrail_vm_switch => "%s",
         require => %s
     }\n\n''' % (
         config_server, provision_params["server_id"],
@@ -333,7 +337,10 @@ class ServerMgrPuppet:
         len(control_servers), provision_params["compute_non_mgmt_ip"],
         provision_params["compute_non_mgmt_gway"],
         provision_params["ks_user"], provision_params["ks_passwd"],
-        provision_params["ks_tenant"], last_res_added)
+        provision_params["ks_tenant"], provision_params["esx_ip"],
+	provision_params["esx_username"], provision_params["passwd"],
+        provision_params["esx_vswitch"],
+	last_res_added)
         return data
     # end puppet_add_compute_role
 

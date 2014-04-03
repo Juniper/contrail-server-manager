@@ -1181,6 +1181,10 @@ class VncServerManager():
                 provision_params['phy_interface'] = server_params['ifname']
                 provision_params['compute_non_mgmt_ip'] = server_params['compute_non_mgmt_ip']
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
+      		provision_params['esx_username'] = server_params['esx_username']
+      		provision_params['passwd'] = server['passwd']
+		provision_params['esx_vswitch'] = server_params['esx_vswitch']
+		provision_params['esx_ip'] = server_params['esx_ip']
                 self._do_provision_server(provision_params)
         except Exception as e:
             abort(404, repr(e))

@@ -109,6 +109,10 @@ define contrail-compute-part-2 (
         $contrail_ks_admin_user,
         $contrail_ks_admin_passwd,
         $contrail_ks_admin_tenant,
+	$contrail_vm_ip,
+	$contrail_vm_username,
+	$contrail_vm_passwd,
+	$contrail_vswitch,
     ) {
     # Ensure all needed packages are present
     package { 'contrail-openstack-vrouter' : ensure => present,}
@@ -162,12 +166,7 @@ define contrail-compute-part-2 (
     }
     ## For compute node, additional processing to be done for enable_kernel_core (TBD Abhay)
 
-    if ($operatingsystem == "Ubuntu") {
-        $novaconf_hostname_str = "rabbit_host"
-    }
-    else {
-        $novaconf_hostname_str = "qpid_hostname"
-    }
+    $novaconf_hostname_str = "rabbit_host"
     exec { "exec-compute-qpid-rabbitmq-hostname" :
         command => "echo \"$novaconf_hostname_str = $contrail_openstack_ip\" >> /etc/nova/nova.conf && echo exec-compute-qpid-rabbitmq-hostname >> /etc/contrail/contrail-compute-exec.out",
         unless  => ["grep -qx exec-compute-qpid-rabbitmq-hostname /etc/contrail/contrail-compute-exec.out",
@@ -189,7 +188,7 @@ define contrail-compute-part-2 (
         $quantum_port = "9696"
         file { "/etc/contrail/ctrl-details" :
             ensure  => present,
-            content => template("contrail-common/ctrl-details.erb"),
+            content => template("contrail-compute/ctrl-details.erb"),
         }
     }
     # Ensure service.token file is present with right content.
@@ -280,8 +279,9 @@ define contrail-compute-part-2 (
         }
 
         exec { "update-dev-net-config" :
-            command => "/bin/bash -c \"source /opt/contrail/api-venv/bin/activate && python /etc/contrail/contrail_setup_utils/update_dev_net_config_files.py --compute_ip $contrail_compute_ip --physical_interface \'$contrail_physical_interface\' --non_mgmt_ip \'$contrail_non_mgmt_ip\' --non_mgmt_gw \'$contrail_non_mgmt_gw\' --collector_ip $contrail_collector_ip --discovery_ip $contrail_config_ip --ncontrols $contrail_num_controls --mac $contrail_macaddr && echo update-dev-net-config >> /etc/contrail/contrail-compute-exec.out\"",
-            require => [ File["/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py"] ],
+            command => "/bin/bash -c \"python /etc/contrail/contrail_setup_utils/update_dev_net_config_files.py --compute_ip $contrail_compute_ip --physical_interface \'$contrail_physical_interface\' --non_mgmt_ip \'$contrail_non_mgmt_ip\' --non_mgmt_gw \'$contrail_non_mgmt_gw\' --collector_ip $contrail_collector_ip --discovery_ip $contrail_config_ip --ncontrols $contrail_num_controls --mac $contrail_macaddr --vmware \'$contrail_vm_ip\' && echo update-dev-net-config >> /etc/contrail/contrail-compute-exec.out\"",
+            require => [ File["/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py"],
+                           Exec['api-venv'] ],
             unless  => "grep -qx update-dev-net-config /etc/contrail/contrail-compute-exec.out",
             provider => shell,
             logoutput => 'true'
@@ -295,8 +295,9 @@ define contrail-compute-part-2 (
             source => "puppet:///modules/contrail-compute/provision_vrouter.py"
         }
         exec { "add-vnc-config" :
-            command => "/bin/bash -c \"source /opt/contrail/api-venv/bin/activate && python /etc/contrail/contrail_setup_utils/provision_vrouter.py --host_name $contrail_compute_hostname --host_ip $contrail_compute_ip --api_server_ip $contrail_config_ip --oper add --admin_user $contrail_ks_admin_user --admin_password $contrail_ks_admin_passwd --admin_tenant_name $contrail_ks_admin_tenant && echo add-vnc-config >> /etc/contrail/contrail-compute-exec.out\"",
-            require => File["/etc/contrail/contrail_setup_utils/provision_vrouter.py"],
+            command => "/bin/bash -c \"python /etc/contrail/contrail_setup_utils/provision_vrouter.py --host_name $contrail_compute_hostname --host_ip $contrail_compute_ip --api_server_ip $contrail_config_ip --oper add --admin_user $contrail_ks_admin_user --admin_password $contrail_ks_admin_passwd --admin_tenant_name $contrail_ks_admin_tenant && echo add-vnc-config >> /etc/contrail/contrail-compute-exec.out\"",
+            require =>[ File["/etc/contrail/contrail_setup_utils/provision_vrouter.py"],
+				Exec['api-venv'] ],
             unless  => "grep -qx add-vnc-config /etc/contrail/contrail-compute-exec.out",
             provider => shell,
             logoutput => 'true'
@@ -365,6 +366,11 @@ define contrail-compute (
         $contrail_ks_admin_user,
         $contrail_ks_admin_passwd,
         $contrail_ks_admin_tenant,
+	$contrail_vm_username,
+	$contrail_vm_ip,
+	$contrail_vm_passwd,
+	$contrail_vswitch,
+
     ) {
 
     if ($operatingsystem == "Ubuntu") {
@@ -384,6 +390,11 @@ define contrail-compute (
                 contrail_ks_admin_user => $contrail_ks_admin_user,
                 contrail_ks_admin_passwd => $contrail_ks_admin_passwd,
                 contrail_ks_admin_tenant => $contrail_ks_admin_tenant,
+		contrail_vm_ip => $contrail_vm_ip,
+		contrail_vm_username => $contrail_vm_username,
+		contrail_vm_passwd => $contrail_vm_passwd,
+		contrail_vswitch => $contrail_vswitch,
+
             }
         }
         else {
@@ -425,6 +436,10 @@ define contrail-compute (
                 contrail_ks_admin_user => $contrail_ks_admin_user,
                 contrail_ks_admin_passwd => $contrail_ks_admin_passwd,
                 contrail_ks_admin_tenant => $contrail_ks_admin_tenant,
+		contrail_vm_ip => $contrail_vm_ip,
+		contrail_vm_username => $contrail_vm_username,
+		contrail_vm_passwd => $contrail_vm_passwd,
+		contrail_vswitch => $contrail_vswitch,
             }
         }
         else {

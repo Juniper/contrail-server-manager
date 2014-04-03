@@ -104,6 +104,7 @@ define contrail-control (
         subscribe => File['/etc/contrail/control_param'],
         ensure => running,
     }
+if ($operatingsystem == "Ubuntu") {
     service { "supervisor-dns" :
         enable => true,
         require => [ Package['contrail-openstack-control'],
@@ -111,6 +112,7 @@ define contrail-control (
         subscribe => File['/etc/contrail/dns_param'],
         ensure => running,
     }
+}
     service { "contrail-named" :
         enable => true,
         require => [ Package['contrail-openstack-control'],

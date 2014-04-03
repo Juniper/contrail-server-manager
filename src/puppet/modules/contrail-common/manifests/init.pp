@@ -151,14 +151,9 @@ define contrail-common (
         logoutput => "true"
     }
 
+
     if ($operatingsystem == "Ubuntu"){
-        exec { "exec-update-nova-conf" :
-            command => "sed -i \"s/^rpc_backend = nova.openstack.common.rpc.impl_qpid/#rpc_backend = nova.openstack.common.rpc.impl_qpid/g\" /etc/nova/nova.conf && echo exec-update-nova-conf >> /etc/contrail/contrail-common-exec.out",
-            unless  => ["[ ! -f /etc/nova/nova.conf ]",
-                        "grep -qx exec-update-nova-conf /etc/contrail/contrail-common-exec.out"],
-            provider => shell,
-            logoutput => "true"
-        }
+
         exec { "exec-update-neutron-conf" :
             command => "sed -i \"s/^rpc_backend = nova.openstack.common.rpc.impl_qpid/#rpc_backend = nova.openstack.common.rpc.impl_qpid/g\" /etc/neutron/neutron.conf && echo exec-update-neutron-conf >> /etc/contrail/contrail-common-exec.out",
             unless  => ["[ ! -f /etc/neutron/neutron.conf ]",
@@ -166,6 +161,19 @@ define contrail-common (
             provider => shell,
             logoutput => "true"
         }
+    }
+
+    if ($operatingsystem == "Centos" or $operatingsystem == "Fedora") {
+
+        exec { "exec-update-quantum-conf" :
+            command => "sed -i \"s/rpc_backend\s*=\s*quantum.openstack.common.rpc.impl_qpid/#rpc_backend = quantum.openstack.common.rpc.impl_qpid/g\" /etc/quantum/quantum.conf && echo exec-update-quantum-conf >> /etc/contrail/contrail-common-exec.out",
+            unless  => ["[ ! -f /etc/quantum/quantum.conf ]",
+                        "grep -qx exec-update-quantum-conf /etc/contrail/contrail-common-exec.out"],
+            provider => shell,
+            logoutput => "true"
+        }
+    
+
     }
 
 }
