@@ -1181,6 +1181,39 @@ class VncServerManager():
                 provision_params['phy_interface'] = server_params['ifname']
                 provision_params['compute_non_mgmt_ip'] = server_params['compute_non_mgmt_ip']
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
+      		provision_params['passwd'] = server['passwd']
+		provision_params['haproxy'] = vns_params['haproxy']
+		if 'esx_server' in server_params.keys():
+		   provision_params['esx_uplink_nic'] = server_params['esx_uplink_nic']
+		   provision_params['esx_fab_vswitch'] = server_params['esx_fab_vswitch']
+		   provision_params['esx_vm_vswitch'] = server_params['esx_vm_vswitch']
+		   provision_params['esx_fab_port_group'] = server_params['esx_fab_port_group']
+	   	   provision_params['esx_vm_port_group'] = server_params['esx_vm_port_group']
+	           provision_params['esx_vmdk'] = server_params['esx_vmdk']
+                   esx_servers = self._serverDb.get_server('server_id', server_params['esx_server'],
+                                                detail=True)
+		   esx_server = esx_servers[0]
+                   provision_params['esx_ip'] = esx_server['ip']
+		   provision_params['esx_username'] = "root"
+		   provision_params['esx_passwd'] = esx_server['passwd']
+
+		else:
+		   provision_params['esx_uplink_nic'] = ""
+		   provision_params['esx_fab_vswitch'] = "" 
+		   provision_params['esx_vm_vswitch'] = ""
+		   provision_params['esx_fab_port_group'] = "" 
+	   	   provision_params['esx_vm_port_group'] = ""
+	           provision_params['esx_vmdk'] = ""
+                   provision_params['esx_ip'] = ""
+		   provision_params['esx_username'] = ""
+		   provision_params['esx_passwd'] = ""
+
+
+
+#		   provision_params['esx_vswitch'] = server_params['esx_vswitch']
+#		   provision_params['esx_ip'] = server_params['esx_ip']
+#		   provision_params['esx_vswitch'] = server_params['esx_vswitch']
+	
                 self._do_provision_server(provision_params)
         except Exception as e:
             abort(404, repr(e))

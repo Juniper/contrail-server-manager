@@ -49,6 +49,22 @@ def get_if_mtu(dev):
 # end if_mtu
 
 
+def get_secondary_device(primary):
+    for i in netifaces.interfaces ():
+        try:
+            if i == 'pkt1':
+                continue
+            if i == primary:
+                continue
+            if i == 'vhost0':
+                continue
+            if not netifaces.ifaddresses (i).has_key (netifaces.AF_INET):
+                return i
+        except ValueError,e:
+                print "Skipping interface %s" % i
+    raise RuntimeError, '%s not configured, rerun w/ --physical_interface' % ip
+
+
 def get_device_by_ip(ip):
     for i in netifaces.interfaces():
         try:
@@ -155,7 +171,7 @@ def migrate_routes(device):
     # end with open...
 # end def migrate_routes
 
-def rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gateway_ip):
+def rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gateway_ip, non_mgmt_ip):
     temp_intf_file = '%s/interfaces' %(temp_dir_name)
 
     # Save original network interfaces file
@@ -164,19 +180,10 @@ def rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gate
 
     # replace with dev as manual and vhost0 as static
     with open(temp_intf_file, 'w') as f:
-        f.write("auto %s\n" %(dev))
-        f.write("iface %s inet manual\n" %(dev))
-        f.write("    pre-up ifconfig %s up\n" %(dev))
-        f.write("    post-down ifconfig %s down\n" %(dev))
-        f.write("\n")
+	f.write("\n")
         f.write("auto vhost0\n")
         f.write("iface vhost0 inet static\n")
-        f.write("    pre-up vif --create vhost0 --mac %s\n" %(mac))
-        f.write("    pre-up vif --add vhost0"
-                " --mac %s --vrf 0 --mode x --type vhost\n" \
-                                                       %(mac))
-        f.write("    pre-down /etc/contrail/vif-helper delete vhost0\n")
-        f.write("    post-down ip link del vhost0\n")
+        f.write("    pre-up /opt/contrail/bin/if-vhost0\n")
         f.write("    netmask %s\n" %(netmask))
         f.write("    network_name application\n")
         if vhost_ip:
@@ -192,6 +199,18 @@ def rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gate
             for dns in dns_list:
                 f.write(" %s" %(dns))
             f.write("\n")
+
+	if not non_mgmt_ip:
+	    # remove entry from auto <dev> to auto excluding these pattern
+	    # then delete specifically auto <dev>
+	    #local("sed -i '/auto %s/,/auto/{/auto/!d}' %s" %(dev, temp_intf_file))
+	    #local("sed -i '/auto %s/d' %s" %(dev, temp_intf_file))
+	    # add manual entry for dev
+	    f.write("auto %s\n" %(dev))
+	    f.write("iface %s inet manual\n" %(dev))
+	    f.write("    pre-up ifconfig %s up\n" %(dev))
+	    f.write("    post-down ifconfig %s down\n" %(dev))
+	    f.write("\n")
 
     # move it to right place
     cmd = "mv -f %s /etc/network/interfaces" %(temp_intf_file)
@@ -218,7 +237,7 @@ def replace_discovery_server(agent_elem, discovery_ip, ncontrols):
 def update_dev_net_config_files(compute_ip, physical_interface,
                                 non_mgmt_ip, non_mgmt_gw,
                                 collector_ip, discovery_ip, ncontrols,
-                                macaddr):
+                                macaddr, vmware):
     dist = platform.dist()[0]
     # add /dev/net/tun in cgroup_device_acl needed for type=ethernet interfaces
     return_code = subprocess.call(
@@ -311,6 +330,20 @@ def update_dev_net_config_files(compute_ip, physical_interface,
         pn.text = dev
         ethpt_elem.append(pn)
 
+
+        if vmware:
+	    vmware_dev = get_secondary_device(dev)
+            hyper_elem = ET.Element('hypervisor')
+            hyper_elem.set('mode', 'vmware')
+            agent_elem.append(hyper_elem)
+            driver_elem = ET.Element('driver')
+            driver_elem.text = 'esxi'
+            hyper_elem.append(driver_elem)
+            port_elem = ET.Element('port')
+            port_elem.text = vmware_dev
+            hyper_elem.append(port_elem)
+
+
         replace_discovery_server(agent_elem, discovery_ip, ncontrols)
 
         control_elem = ET.Element('control')
@@ -379,7 +412,7 @@ SUBCHANNELS=1,2,3
         if ((dist.lower() == "ubuntu") or
             (dist.lower() == "debian")):
             rewrite_net_interfaces_file(temp_dir_name, dev, macaddr,
-                                        vhost_ip, netmask, gateway)
+                                        vhost_ip, netmask, gateway, non_mgmt_ip)
     else:
         # allow for updating anything except self-ip/gw and eth-port
         cmd = "sed -i 's/COLLECTOR=.*/COLLECTOR=%s/g'" \
@@ -416,11 +449,15 @@ def main():
     parser.add_argument("--mac",
                         help="mac address of the interface",
                         default="")
+    parser.add_argument("--vmware",
+                        help="Esxi IP address",
+                        default="")
+
     args = parser.parse_args()
     update_dev_net_config_files(args.compute_ip, args.physical_interface,
                                 args.non_mgmt_ip, args.non_mgmt_gw,
                                 args.collector_ip, args.discovery_ip,
-                                args.ncontrols, args.mac)
+                                args.ncontrols, args.mac, args.vmware)
 # end main
 
 if __name__ == "__main__":

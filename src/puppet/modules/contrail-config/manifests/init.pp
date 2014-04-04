@@ -49,7 +49,8 @@ define contrail-config (
         $contrail_redis_ip,
         $contrail_cfgm_index,
         $contrail_api_nworkers,
-        $contrail_supervisorctl_lines
+        $contrail_supervisorctl_lines,
+	$contrail_haproxy,
     ) {
 
     if $contrail_use_certs == "yes" {
@@ -117,7 +118,14 @@ define contrail-config (
     
     # Ensure ctrl-details file is present with right content.
     if ! defined(File["/etc/contrail/ctrl-details"]) {
-        $quantum_port = "9696"
+        $quantum_port = "9697"
+        #$contrail_compute_ip = ''
+        #$contrail_openstack_mgmt_ip = ''
+     	if $contrail_haproxy == "enable" {
+		$quantum_ip = "127.0.0.1"
+        } else {
+		$quantum_ip = $contrail_config_ip
+	}
         file { "/etc/contrail/ctrl-details" :
             ensure  => present,
             content => template("contrail-common/ctrl-details.erb"),
@@ -221,8 +229,9 @@ define contrail-config (
         require => Package["contrail-openstack-config"],
         source => "puppet:///modules/contrail-config/config-zk-files-setup.sh"
     }
+    $contrail_zk_ip_list_for_shell = inline_template('<%= contrail_zookeeper_ip_list.map{ |ip| "#{ip}" }.join(" ") %>')
     exec { "setup-config-zk-files-setup" :
-        command => "/bin/bash /etc/contrail/contrail_setup_utils/config-zk-files-setup.sh $operatingsystem $contrail_cfgm_index $contrail_zookeeper_ip_list && echo setup-config-zk-files-setup >> /etc/contrail/contrail-config-exec.out",
+        command => "/bin/bash /etc/contrail/contrail_setup_utils/config-zk-files-setup.sh $operatingsystem $contrail_cfgm_index $contrail_zk_ip_list_for_shell && echo setup-config-zk-files-setup >> /etc/contrail/contrail-config-exec.out",
         require => File["/etc/contrail/contrail_setup_utils/config-zk-files-setup.sh"],
         unless  => "grep -qx setup-config-zk-files-setup /etc/contrail/contrail-config-exec.out",
         provider => shell,

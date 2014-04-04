@@ -23,7 +23,8 @@ define contrail-openstack (
         $contrail_compute_ip,
         $contrail_openstack_mgmt_ip,
         $contrail_service_token,
-        $contrail_ks_admin_passwd
+        $contrail_ks_admin_passwd,
+	$contrail_haproxy,
     ) {
 
     # list of packages
@@ -47,12 +48,25 @@ define contrail-openstack (
         logoutput => 'true'
     }
 
+    if ($operatingsystem == "Ubuntu") {
+
+    exec { "local-settings" :
+        command => "echo \"HORIZON_CONFIG[\'customization_module\'] = \'contrail_openstack_dashboard.overrides\'\" >> /etc/openstack-dashboard/local_settings.py && \
+			echo \"LOGOUT_URL=\'/horizon/auth/logout/\'\" >> /etc/openstack-dashboard/local_settings.py && \
+			 echo exec-local-settings >> /etc/contrail/contrail-openstack-exec.out",
+        #require =>  File["/etc/openstack-dashboard/local_settings.py"],
+        unless  => "grep -qx exec-local-settings /etc/contrail/contrail-openstack-exec.out",
+        provider => shell,
+        logoutput => 'true'
+    }
+}
+
     # Handle qpidd.conf changes
     if ($operatingsystem == "Ubuntu") {
         $conf_file = "/etc/rabbitmq/rabbitmq.config"
     }
     else {
-        $conf_file = "/etc/qpid/qpidd.conf"
+        $conf_file = "/etc/rabbitmq/rabbitmq.config"
     }
     if ! defined(File["/etc/contrail/contrail_setup_utils/cfg-qpidd-rabbitmq.sh"]) {
         file { "/etc/contrail/contrail_setup_utils/cfg-qpidd-rabbitmq.sh" : 
@@ -88,12 +102,7 @@ define contrail-openstack (
         logoutput => 'true'
     }
 
-    if ($operatingsystem == "Ubuntu") {
-        $novaconf_hostname_str = "rabbit_host"
-    }
-    else {
-        $novaconf_hostname_str = "qpid_hostname"
-    }
+    $novaconf_hostname_str = "rabbit_host"
     exec { "exec-openstack-qpid-rabbitmq-hostname" :
         command => "echo \"$novaconf_hostname_str = $contrail_openstack_ip\" >> /etc/nova/nova.conf && echo exec-openstack-qpid-rabbitmq-hostname >> /etc/contrail/contrail-openstack-exec.out",
         require =>  Package["contrail-openstack"],
@@ -105,11 +114,17 @@ define contrail-openstack (
     
     # Ensure ctrl-details file is present with right content.
     if ! defined(File["/etc/contrail/ctrl-details"]) {
-        $quantum_port = "9696"
+        $quantum_port = "9697"
+        if $contrail_haproxy == "enable" {
+		$quantum_ip = "127.0.0.1"
+	} else {
+		$quantum_ip = $contrail_config_ip
+	}
         file { "/etc/contrail/ctrl-details" :
             ensure  => present,
             content => template("contrail-common/ctrl-details.erb"),
         }
+
     }
     # Ensure service.token file is present with right content.
     if ! defined(File["/etc/contrail/service.token"]) {
@@ -160,18 +175,25 @@ define contrail-openstack (
                      Openstack-scripts["nova-server-setup"] ],
         ensure => running,
     }
-    if ($operatingsystem == "Centos" or $operatingsystem == "Fedora") {
-        service { "qpidd" :
-            enable => true,
-            ensure => running,
-        }
-    }
+#    if ($operatingsystem == "Centos" or $operatingsystem == "Fedora") {
+#        service { "qpidd" :
+#            enable => true,
+#            ensure => running,
+#        }
+#    }
     service { "memcached" :
         enable => true,
         ensure => running,
     }
+    exec { "exec-update-nova-conf" :
+        command => "sed -i \"s/^rpc_backend = nova.openstack.common.rpc.impl_qpid/#rpc_backend = nova.openstack.common.rpc.impl_qpid/g\" /etc/nova/nova.conf && echo exec-update-nova-conf >> /etc/contrail/contrail-common-exec.out",
+        unless  => ["[ ! -f /etc/nova/nova.conf ]",
+                        "grep -qx exec-update-nova-conf /etc/contrail/contrail-common-exec.out"],
+        provider => shell,
+        logoutput => "true"
+    }
 
-    Package['contrail-openstack']->File['/etc/contrail/contrail_setup_utils/django-admin.sh']->Exec['exec-django-admin']->File['/etc/contrail/contrail_setup_utils/api-paste.sh']->Exec['exec-api-paste']->Exec['exec-openstack-qpid-rabbitmq-hostname']->File["/etc/contrail/ctrl-details"]->File["/etc/contrail/service.token"]->Openstack-scripts["keystone-server-setup"]->Openstack-scripts["glance-server-setup"]->Openstack-scripts["cinder-server-setup"]->Openstack-scripts["nova-server-setup"]->Service['mysqld']->Service['openstack-keystone']->Service['memcached']
+    Package['contrail-openstack']->File['/etc/contrail/contrail_setup_utils/django-admin.sh']->Exec['exec-django-admin']->File['/etc/contrail/contrail_setup_utils/api-paste.sh']->Exec['exec-api-paste']->Exec['exec-openstack-qpid-rabbitmq-hostname']->File["/etc/contrail/ctrl-details"]->File["/etc/contrail/service.token"]->Exec['exec-update-nova-conf']->Openstack-scripts["keystone-server-setup"]->Openstack-scripts["glance-server-setup"]->Openstack-scripts["cinder-server-setup"]->Openstack-scripts["nova-server-setup"]->Service['mysqld']->Service['openstack-keystone']->Service['memcached']
 }
 # end of user defined type contrail-openstack.
 
