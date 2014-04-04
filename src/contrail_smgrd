@@ -33,7 +33,6 @@ start () {
 	if [ "`stat -c %U $piddir`" != "$USER" ]; then
 		chown $USER $piddir
 	fi
-	source /opt/contrail/smgr-venv/bin/activate
 	daemon --pidfile ${pidfile} /usr/sbin/contrail_smgrd
 	RETVAL=$?
 }

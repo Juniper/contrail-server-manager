@@ -14,8 +14,6 @@
 %define		_etc	    /etc/
 %define		_cobbleretc /etc/cobbler/
 %define		_puppetetc /etc/puppet/
-%define             _venv_root    /opt/contrail/smgr-venv
-%define             _venvtr       --prefix=%{_venv_root}
 %define		_contrailopt /opt/contrail/
 %define		_sbinusr    /usr/sbin/
 
@@ -49,7 +47,6 @@ Requires: autoconf
 Requires: gcc
 Requires: bind
 Requires: tftp
-Requires: contrail-smgr-venv
 Requires: ntp
 
 %description
@@ -74,6 +71,7 @@ cp -u /etc/puppet/puppet_init_rd /var/www/cobbler/aux/puppet
 easy_install argparse
 easy_install paramiko
 easy_install pycrypto
+easy_install ordereddict
 
 mkdir -p %{_contrailetc}/images/
 service httpd start
