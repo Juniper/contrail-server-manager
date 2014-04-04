@@ -1361,8 +1361,9 @@ class VncServerManager():
 
     def _encrypt_passwd(self, server_passwd):
         try:
-            xyz = subprocess.check_output(["openssl", "passwd", "-1",
-                                           "-noverify", server_passwd])
+            xyz = subprocess.Popen(
+                ["openssl", "passwd", "-1", "-noverify", server_passwd],
+                stdout=subprocess.PIPE).communicate()[0]
         except:
             return None
         return xyz
