@@ -323,7 +323,7 @@ define contrail-compute-part-2 (
             mode => 0644,
             content => "2"
         }
-    	exec { "exec-update-nova-conf" :
+    	exec { "exec-compute-update-nova-conf" :
         	command => "sed -i \"s/^rpc_backend = nova.openstack.common.rpc.impl_qpid/#rpc_backend = nova.openstack.common.rpc.impl_qpid/g\" /etc/nova/nova.conf && echo exec-update-nova-conf >> /etc/contrail/contrail-common-exec.out",
         	unless  => ["[ ! -f /etc/nova/nova.conf ]",
                         "grep -qx exec-update-nova-conf /etc/contrail/contrail-common-exec.out"],
@@ -349,7 +349,7 @@ define contrail-compute-part-2 (
             provider => "shell",
             logoutput => 'true'
         }
-        Package['contrail-openstack-vrouter'] -> File["/etc/libvirt/qemu.conf"] -> Compute-template-scripts["vrouter_nodemgr_param"] -> Compute-template-scripts["default_pmac"] ->  Compute-template-scripts["agent_param.tmpl"] ->  Compute-template-scripts["rpm_agent.conf"] -> File["/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py"] -> Exec["update-dev-net-config"] -> File["/etc/contrail/contrail_setup_utils/provision_vrouter.py"] -> Exec["add-vnc-config"] -> Exec["exec-update-nova-conf"] -> Compute-scripts["compute-server-setup"] -> File["/etc/contrail/interface_renamed"] -> Exec["reboot-server"]
+        Package['contrail-openstack-vrouter'] -> File["/etc/libvirt/qemu.conf"] -> Compute-template-scripts["vrouter_nodemgr_param"] -> Compute-template-scripts["default_pmac"] ->  Compute-template-scripts["agent_param.tmpl"] ->  Compute-template-scripts["rpm_agent.conf"] -> File["/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py"] -> Exec["update-dev-net-config"] -> File["/etc/contrail/contrail_setup_utils/provision_vrouter.py"] -> Exec["add-vnc-config"] -> Exec["exec-compute-update-nova-conf"] -> Compute-scripts["compute-server-setup"] -> File["/etc/contrail/interface_renamed"] -> Exec["reboot-server"]
     }
     else {
         file { "/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py":
