@@ -506,6 +506,7 @@ class VncServerManager():
     # where SM is running. This function DOES NOT upload image from REST client
     # For that use upload_image call instead.
     def add_image(self):
+        import pdb; pdb.set_trace()
         entity = bottle.request.json
         if (not entity):
             abort(404, 'Error : No images specified')
@@ -521,7 +522,7 @@ class VncServerManager():
                     abort(404, "image id or location not specified")
                 if (image_type not in [
                         "centos", "fedora", "ubuntu",
-                        "contrail-ubuntu-repo"]):
+                        "contrail-ubuntu-repo", "esxi5.5"]):
                     abort(404, "image type not specified or invalid")
                 # For repo, simply copy file to base directory,
                 # no cobbler operation is needed.
@@ -610,6 +611,12 @@ class VncServerManager():
                 ks_file = self._args.html_root_dir + \
                     "kickstarts/contrail-centos.ks"
                 kernel_options = ''
+            elif (image_type == "esxi5.5"):
+                kernel_file = "/mboot.c32"
+                initrd_file = "/imgpayld.tgz"
+                # Abhay TBD change to real kick start file
+                ks_file = '/var/lib/cobbler/kickstarts/sample_esxi5.ks'
+                kernel_options = ''
             elif (image_type == "ubuntu"):
                 kernel_file = "/install/netboot/ubuntu-installer/amd64/linux"
                 initrd_file = (
@@ -644,6 +651,31 @@ class VncServerManager():
         except Exception as e:
             abort(404, repr(e))
     # End of _add_image_to_cobbler
+
+    def _add_image_to_cobbler_new(self, image_id, image_type,
+                              image_version, dest):
+        # Mount the ISO
+        try:
+            mount_path = self._args.smgr_base_dir + "mnt/"
+            self._unmount_iso(mount_path)
+            # Make directory where ISO will be mounted
+            return_code = subprocess.call(["mkdir", "-p", mount_path])
+            if (return_code != 0):
+                return return_code
+            # Mount the ISO
+            return_code = subprocess.call(
+                ["mount", "-o", "loop", dest, mount_path])
+            if (return_code != 0):
+                return return_code
+            # Setup distro information in cobbler
+            self._smgr_cobbler.import_tree(
+                mount_path, image_id)
+
+            # Sync the above information
+            self._smgr_cobbler.sync()
+        except Exception as e:
+            abort(404, repr(e))
+    # End of _add_image_to_cobbler_new
 
     # API call to delete a cluster from server manager config. Along with
     # cluster, all servers in that cluster and associated roles are also

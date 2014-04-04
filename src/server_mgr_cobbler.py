@@ -6,6 +6,7 @@ import xmlrpclib
 import threading
 import time
 import subprocess
+import cobbler.api as capi
 
 _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = ''
@@ -77,6 +78,7 @@ class ServerMgrCobbler:
                     self._cobbler_ip + "/cobbler_api")
             self._token = self._server.login(self._cobbler_username,
                                              self._cobbler_password)
+            self._capi_handle = capi.BootAPI()
 
             # Copy puppet repo to cobber repos, so that target systems
             # can install and run puppet agent from kickstart.
@@ -133,14 +135,45 @@ class ServerMgrCobbler:
                     'tree=http://' + cobbler_ip_address +
                     '/contrail/images/' + distro_name,
                     self._token)
-            if (image_type == 'ubuntu'):
+            elif (image_type == 'ubuntu'):
                 self._server.modify_distro(distro_id, 'arch',
                                            'x86_64', self._token)
                 self._server.modify_distro(distro_id, 'breed',
                                            'ubuntu', self._token)
                 self._server.modify_distro(distro_id, 'os_version',
                                            'precise', self._token)
+            elif (image_type == 'esxi5.5'):
+                self._server.modify_distro(
+                    distro_id, 'ksmeta',
+                    'tree=http://' + cobbler_ip_address +
+                    '/contrail/images/' + distro_name,
+                    self._token)
+                self._server.modify_distro(
+                    distro_id, 'arch', 'x86_64', self._token)
+                self._server.modify_distro(
+                    distro_id, 'breed', 'vmware', self._token)
+                self._server.modify_distro(
+                    distro_id, 'os_version', 'esxi55', self._token)
+                self._server.modify_distro(
+                    distro_id, 'boot_files',
+                    '$local_img_path/*.*=' + path + '/*.*',
+                    self._token)
+                self._server.modify_distro(
+                    distro_id, 'template_files',
+                    '/etc/cobbler/pxe/bootcfg_esxi55.template=' +
+                    '$local_img_path/cobbler-boot.cfg',
+                    self._token)
+            else:
+                pass
             self._server.save_distro(distro_id, self._token)
+        except Exception as e:
+            raise e
+    # End of create_distro
+
+    def import_tree(self, path, name):
+        try:
+            self._capi_handle.import_tree(
+                path, name, logger=self._capi_handle.logger)
         except Exception as e:
             raise e
     # End of create_distro
