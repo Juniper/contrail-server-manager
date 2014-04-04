@@ -314,7 +314,11 @@ $__contrail_disc_backend_servers__
     def puppet_add_control_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
         data = ''
-        config_server = provision_params['roles']['config'][0]
+    	if provision_params['server_ip'] in provision_params['roles']['config']:
+            config_server = provision_params['server_ip']
+        else:
+            config_server = provision_params['roles']['config'][0]
+
         collector_servers = provision_params['roles']['collector']
         control_servers = provision_params['roles']['control']
         if (provision_params["server_ip"] in collector_servers):
@@ -415,6 +419,14 @@ $__contrail_disc_backend_servers__
     def puppet_add_compute_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
         data = ''
+	#Vm on top of ESX Server
+	if 'esx_server' in provision_params.keys():
+	    print "esx_server"
+	    #call scripts to provision esx
+
+
+
+
         control_servers = provision_params['roles']['control']
         config_server = provision_params['roles']['config'][0]
         collector_server = provision_params['roles']['collector'][0]
@@ -461,8 +473,8 @@ $__contrail_disc_backend_servers__
         provision_params["ks_user"], provision_params["ks_passwd"],
         provision_params["ks_tenant"], provision_params["haproxy"],
 	provision_params["esx_ip"],
-	provision_params["esx_username"], provision_params["passwd"],
-        provision_params["esx_vswitch"],
+	provision_params["esx_username"], provision_params["esx_passwd"],
+        provision_params["esx_vm_vswitch"],
 	last_res_added)
         return data
     # end puppet_add_compute_role
