@@ -506,7 +506,6 @@ class VncServerManager():
     # where SM is running. This function DOES NOT upload image from REST client
     # For that use upload_image call instead.
     def add_image(self):
-        import pdb; pdb.set_trace()
         entity = bottle.request.json
         if (not entity):
             abort(404, 'Error : No images specified')
