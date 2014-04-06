@@ -93,7 +93,8 @@ class VncServerManager():
 
         # Connect to the cluster-servers database
         try:
-            self._serverDb = db(self._args.db_name)
+            self._serverDb = db(
+                self._args.smgr_base_dir+self._args.db_name)
         except:
             print ("Error Connecting to Server Database %s"
                    ) % (self._args.db_name)
@@ -610,12 +611,15 @@ class VncServerManager():
                 ks_file = self._args.html_root_dir + \
                     "kickstarts/contrail-centos.ks"
                 kernel_options = ''
+                ks_meta = ''
             elif (image_type == "esxi5.5"):
                 kernel_file = "/mboot.c32"
                 initrd_file = "/imgpayld.tgz"
                 # Abhay TBD change to real kick start file
-                ks_file = '/var/lib/cobbler/kickstarts/sample_esxi5.ks'
+                ks_file = self._args.html_root_dir + \
+                    "kickstarts/contrail-esxi.ks"
                 kernel_options = ''
+                ks_meta = 'ks_file=%s' %(ks_file)
             elif (image_type == "ubuntu"):
                 kernel_file = "/install/netboot/ubuntu-installer/amd64/linux"
                 initrd_file = (
@@ -629,6 +633,7 @@ class VncServerManager():
                     "console-keymaps-at/keymap=us "
                     "ks=http://%s/kickstarts/contrail-ubuntu.ks ") % (
                     self._args.listen_ip_addr)
+                ks_meta = ''
             else:
                 abort(404, "invalid image type")
             self._mount_and_copy_iso(dest, copy_path, distro_name,
@@ -641,9 +646,9 @@ class VncServerManager():
 
             # Setup profile information in cobbler
             profile_name = distro_name + '-P'
-            self._smgr_cobbler.create_profile(profile_name, distro_name,
-                                              image_type, ks_file,
-                                              kernel_options)
+            self._smgr_cobbler.create_profile(
+                profile_name, distro_name, image_type,
+                ks_file, kernel_options, ks_meta)
 
             # Sync the above information
             self._smgr_cobbler.sync()

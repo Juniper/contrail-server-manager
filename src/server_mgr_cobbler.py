@@ -178,8 +178,9 @@ class ServerMgrCobbler:
             raise e
     # End of create_distro
 
-    def create_profile(self, profile_name,
-                       distro_name, image_type, ks_file, kernel_options):
+    def create_profile(
+        self, profile_name, distro_name, image_type,
+        ks_file, kernel_options, ks_meta):
         try:
             # If profile exists, nothing to do, jus return.
             profile = self._server.find_profile({"name":  profile_name})
@@ -194,6 +195,8 @@ class ServerMgrCobbler:
                                         ks_file, self._token)
             self._server.modify_profile(profile_id, "kernel_options",
                                         kernel_options, self._token)
+            self._server.modify_profile(profile_id, "ks_meta",
+                                        ks_meta, self._token)
             if ((image_type == "centos") or (image_type == "fedora")):
                 repo_list = [_CONTRAIL_PUPP_REPO]
                 self._server.modify_profile(profile_id, "repos",
