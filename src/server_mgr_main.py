@@ -1198,6 +1198,7 @@ class VncServerManager():
                 else:
                     provision_params['domain'] = vns_params['domain']
                 provision_params['server_ip'] = server['ip']
+                provision_params['server_mac'] = server['mac']
                 provision_params['database_dir'] = vns_params['database_dir']
                 provision_params['db_initial_token'] = vns_params['db_initial_token']
                 provision_params['openstack_mgmt_ip'] = vns_params['openstack_mgmt_ip']

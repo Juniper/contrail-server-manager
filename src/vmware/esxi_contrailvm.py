@@ -99,7 +99,7 @@ class ContrailVM(object):
                              ('displayName', "sample"),
                              ('extendedConfigFile', "ContrailVM.vmxf"),
                              ('floppy0.present', "FALSE"),
-                             ('numvcpus', "5"),
+                             ('numvcpus', "4"),
                              ('cpuid.coresPerSocket', "4"),
                              ('scsi0.present', "TRUE"),
                              ('scsi0.sharedBus', "none"),
