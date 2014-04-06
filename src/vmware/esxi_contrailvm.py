@@ -290,6 +290,7 @@ class ContrailVM(object):
                          
 #end class ContrailVM
 
+'''
 contrail_vm_params =  {  'vm':"ContrailVM",
                          'vmdk':"ContrailVM",
                          'datastore':"/vmfs/volumes/cs_shared/",
@@ -315,3 +316,4 @@ def main(args_str=None):
 if __name__ == '__main__':
     cgitb.enable(format='text')
     main()
+'''
