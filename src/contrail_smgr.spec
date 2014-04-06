@@ -7,6 +7,7 @@
 %define         _contrailutils /opt/contrail/utils
 %define		_etc /etc
 %define		_contrail_smgr /server_manager
+%define         _vmware /vmware/
 %define		_contrail_smgr_src	    %(pwd)/
 %define		_third_party	    %(pwd)/../../third_party/
 %define		_mydate %(date)
@@ -135,6 +136,7 @@ cp %{_contrail_smgr_src}server_mgr_cobbler.py %{buildroot}%{_contrailopt}%{_cont
 cp %{_contrail_smgr_src}server_mgr_puppet.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_dhcp_event.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}%{_vmware}esxi_contrailvm.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
 cp -r %{_contrail_smgr_src}client %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
