@@ -73,6 +73,25 @@ class ServerMgrPuppet:
         self.pupp_copy_common_files(self.puppet_directory)
     # end __init__
 
+    def puppet_add_script_end_role(self, provision_params, last_res_added=None):
+#        pdb.set_trace()
+	if 'execute_script' in provision_params.keys():
+            script_data = eval(provision_params["execute_script"])
+            script_name = script_data["script_name"]
+	    script_args = script_data["args"]
+	    print "Executing Custom script"
+            data = '''    # Execute Script for all roles.
+    	contrail-common::contrail-exec-script{%s:
+       	    script_name => "%s",
+       	    args => "%s",
+            require => %s
+    	}\n\n''' % (script_name.replace('.','_'),
+		script_name,
+                script_args.replace('"','\''), last_res_added)
+        return data
+
+
+
     def puppet_add_common_role(self, provision_params, last_res_added=None):
         data = '''    # custom type common for all roles.
     contrail-common::contrail-common{contrail_common:
@@ -86,7 +105,11 @@ class ServerMgrPuppet:
     def puppet_add_database_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
         data = ''
-        config_server = provision_params['roles']['config'][0]
+        if provision_params['server_ip'] in provision_params['roles']['config']:
+            config_server = provision_params['server_ip']
+        else:
+            config_server = provision_params['roles']['config'][0]
+
         cassandra_seeds = ["\"%s\""%(x) for x in \
             provision_params['roles']['database']]
         data += '''    # contrail-database role.
@@ -121,8 +144,17 @@ class ServerMgrPuppet:
             contrail_openstack_mgmt_ip = provision_params["server_ip"]
         else:
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
-        config_server = provision_params['roles']['config'][0]
-        compute_server = provision_params['roles']['compute'][0]
+        if provision_params['server_ip'] in provision_params['roles']['config']:
+            config_server = provision_params['server_ip']
+        else:
+            config_server = provision_params['roles']['config'][0]
+
+        if provision_params['server_ip'] in provision_params['roles']['compute']:
+            compute_server = provision_params['server_ip']
+        else:
+            compute_server = provision_params['roles']['compute'][0]
+
+
         data += '''    # contrail-openstack role.
     contrail-openstack::contrail-openstack{contrail_openstack:
         contrail_openstack_ip => "%s",
@@ -144,7 +176,6 @@ class ServerMgrPuppet:
 
 
     def create_config_ha_proxy(self, provision_params):
-	pdb.set_trace()
         smgr_dir = "/etc/contrail/"
         staging_dir = "/etc/puppet/modules/contrail-common/files/"
         cfg_ha_proxy_tmpl = string.Template("""
@@ -223,6 +254,26 @@ $__contrail_disc_backend_servers__
         cfg_file.write(haproxy_config)
         cfg_file.close()
 
+    def puppet_add_zk_role(self, provision_params, last_res_added):
+	data = ''
+	config_servers = provision_params['roles']['config']
+	zk_servers = provision_params['roles']['zookeeper']
+
+	cfgm_ip_list = ["\"%s\""%(x) for x in config_servers]
+	zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
+	zk_ip_list = cfgm_ip_list + zoo_ip_list
+
+ 	contrail_zk_index = len(config_servers) + zk_servers.index(
+            provision_params["server_ip"])+1
+
+        data = '''    # Execute Script for all roles.
+        contrail-common::contrail-cfg-zk{contrail_cfg_zk:
+            zk_ip_list => [%s],
+            zk_index => "%s",
+            require => %s
+        }\n\n''' % (','.join(zk_ip_list),
+                contrail_zk_index, last_res_added)
+        return data
 
 
     def puppet_add_config_role(self, provision_params, last_res_added):
@@ -238,7 +289,12 @@ $__contrail_disc_backend_servers__
             compute_server = provision_params['roles']['compute'][0]
 
         config_servers = provision_params['roles']['config']
-        zk_ip_list = ["\"%s\""%(x) for x in config_servers]
+	zk_servers = provision_params['roles']['zookeeper']
+
+        cfgm_ip_list = ["\"%s\""%(x) for x in config_servers]
+	zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
+	zk_ip_list = cfgm_ip_list + zoo_ip_list
+
         contrail_cfgm_index = config_servers.index(
             provision_params["server_ip"])+1
         cassandra_ip_list = ["\"%s\""%(x) for x in \
@@ -398,7 +454,11 @@ $__contrail_disc_backend_servers__
     def puppet_add_webui_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
         data = ''
-        config_server = provision_params['roles']['config'][0]
+    	if provision_params['server_ip'] in provision_params['roles']['config']:
+            config_server = provision_params['server_ip']
+        else:
+            config_server = provision_params['roles']['config'][0]
+
         webui_ips = provision_params['roles']['webui']
         collector_servers = provision_params['roles']['collector']
         if (provision_params["server_ip"] in collector_servers):
@@ -451,9 +511,22 @@ $__contrail_disc_backend_servers__
             print out
 
         control_servers = provision_params['roles']['control']
-        config_server = provision_params['roles']['config'][0]
-        collector_server = provision_params['roles']['collector'][0]
-        openstack_server = provision_params['roles']['openstack'][0]
+
+    	if provision_params['server_ip'] in provision_params['roles']['config']:
+            config_server = provision_params['server_ip']
+        else:
+            config_server = provision_params['roles']['config'][0]
+
+    	if provision_params['server_ip'] in provision_params['roles']['collector']:
+            collector_server = provision_params['server_ip']
+        else:
+            collector_server = provision_params['roles']['collector'][0]
+
+    	if provision_params['server_ip'] in provision_params['roles']['openstack']:
+            openstack_server = provision_params['server_ip']
+        else:
+            openstack_server = provision_params['roles']['openstack'][0]
+
         if (provision_params['openstack_mgmt_ip'] == ''):
             contrail_openstack_mgmt_ip = provision_params['roles']['openstack'][0]
         else:
@@ -530,7 +603,7 @@ $__contrail_disc_backend_servers__
         # list array used to ensure that the role definitions are added
         # in a particular order
         roles = ['database', 'openstack', 'config', 'control',
-                 'collector', 'webui', 'compute']
+                 'collector', 'webui', 'zookeeper', 'compute']
         for role in roles:
             if provision_params['server_ip'] in \
                 provision_params['roles'][role]:
@@ -538,10 +611,19 @@ $__contrail_disc_backend_servers__
                     self, provision_params, last_res_added)
 		if role == "config":
 		    last_res_added =  "Contrail-common::Haproxy-cfg[\"haproxy_cfg\"]"
-  
-                last_res_added = (
-                    "Contrail-%s::Contrail-%s[\"contrail_%s\"]")\
-                    % (role, role, role)
+  		elif role == "zookeeper":
+		    last_res_added =  "Contrail-common::Contrail-cfg-zk[\"contrail_cfg_zk\"]"
+		else:
+                    last_res_added = (
+                        "Contrail-%s::Contrail-%s[\"contrail_%s\"]")\
+                        % (role, role, role)
+
+
+	#Call stuff to be added at end
+	if provision_params['execute_script']:
+	    data += self.puppet_add_script_end_role(provision_params,
+						 last_res_added)
+
         data += '''}'''
         # write the data to manifest file for this server.
         with open(server_manifest_file, 'w') as f:

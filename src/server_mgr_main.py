@@ -1193,7 +1193,7 @@ class VncServerManager():
                 if not role_servers:
                     for role in ['database', 'openstack',
                                  'config', 'control',
-                                 'collector', 'webui',
+                                 'collector', 'webui', 'zookeeper',
                                  'compute']:
                         role_servers[role] = self.role_get_servers(
                             vns_servers, role)
@@ -1232,6 +1232,11 @@ class VncServerManager():
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
       		provision_params['passwd'] = server['passwd']
 		provision_params['haproxy'] = vns_params['haproxy']
+		if 'execute_script' in server_params.keys():
+		   provision_params['execute_script'] = server_params['execute_script']
+                else:
+		   provision_params['execute_script'] = ""
+
 		if 'esx_server' in server_params.keys():
                     provision_params['esx_uplink_nic'] = server_params['esx_uplink_nic']
                     provision_params['esx_fab_vswitch'] = server_params['esx_fab_vswitch']
