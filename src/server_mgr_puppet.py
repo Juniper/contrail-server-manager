@@ -287,6 +287,9 @@ $__contrail_disc_backend_servers__
         contrail_api_nworkers => "%s",
         contrail_supervisorctl_lines => '%s',
 	contrail_haproxy => "%s",
+        contrail_uuid => "%s",
+	contrail_rmq_master => "%s",
+	contrail_rmq_is_master => "%s",
         require => %s
     }\n\n''' % (openstack_server, contrail_openstack_mgmt_ip, compute_server,
 		provision_params["use_certs"], provision_params["multi_tenancy"],
@@ -296,7 +299,10 @@ $__contrail_disc_backend_servers__
         provision_params["ks_tenant"], provision_params["openstack_passwd"],
         ','.join(cassandra_ip_list), ','.join(zk_ip_list),
         config_servers[0], contrail_cfgm_index,
-        nworkers, sctl_lines, "enable", last_res_added)
+        nworkers, sctl_lines, "enable",
+	provision_params['uuid'], provision_params['rmq_master'],
+	provision_params['is_rmq_master'],
+	last_res_added)
 	#add Ha Proxy
 	self.create_config_ha_proxy(provision_params)
 

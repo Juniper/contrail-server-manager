@@ -28,7 +28,7 @@ from time import gmtime, strftime
 import pdb
 import server_mgr_db
 import ast
-
+import uuid
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
@@ -344,6 +344,8 @@ class VncServerManager():
             for cur_vns in vns:
                 if ('vns_id' not in cur_vns):
                     abort(404, 'Error : No vns_id specified')
+		str_uuid = str(uuid.uuid4())
+		cur_vns["vns_params"].update({"uuid":str_uuid})
                 self._serverDb.add_vns(cur_vns)
         except Exception as e:
             abort(404, repr(e))
@@ -1172,6 +1174,7 @@ class VncServerManager():
             # end if req_provision_params
             role_servers = {}
             role_ips = {}
+	    role_ids = {}
             servers = self._serverDb.get_server(match_key, match_value,
                                                 detail=True)
             for server in servers:
@@ -1195,6 +1198,7 @@ class VncServerManager():
                         role_servers[role] = self.role_get_servers(
                             vns_servers, role)
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
+			role_ids[role] = [x["server_id"] for x in role_servers[role]]
                 provision_params = {}
                 provision_params['roles'] = role_ips
                 provision_params['server_id'] = server['server_id']
@@ -1202,6 +1206,14 @@ class VncServerManager():
                     provision_params['domain'] = server['domain']
                 else:
                     provision_params['domain'] = vns_params['domain']
+		
+		provision_params['rmq_master'] = role_ids['config'][0]
+		provision_params['uuid'] = vns_params['uuid']
+		if role_ids['config'][0] == server['server_id']:
+	            provision_params['is_rmq_master'] = "yes"
+		else:
+		    provision_params['is_rmq_master'] = "no"
+
                 provision_params['server_ip'] = server['ip']
                 provision_params['server_mac'] = server['mac']
                 provision_params['database_dir'] = vns_params['database_dir']

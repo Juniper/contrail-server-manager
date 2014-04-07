@@ -51,6 +51,9 @@ define contrail-config (
         $contrail_api_nworkers,
         $contrail_supervisorctl_lines,
 	$contrail_haproxy,
+	$contrail_uuid,
+	$contrail_rmq_master,
+	$contrail_rmq_is_master,
     ) {
 
     if $contrail_use_certs == "yes" {
@@ -238,6 +241,24 @@ define contrail-config (
         logoutput => "true"
     }
 
+    file { "/etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+        require => Package["contrail-openstack-config"],
+        source => "puppet:///modules/contrail-config/setup_rabbitmq_cluster.sh"
+    }
+
+    exec { "setup-rabbitmq-cluster" :
+        command => "/bin/bash /etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh $operatingsystem $contrail_uuid $contrail_rmq_master $contrail_rmq_is_master && echo setup_rabbitmq_cluster >> /etc/contrail/contrail-config-exec.out",
+       # command => "echo rabbit && echo setup_rabbitmq_cluster >> /etc/contrail/contrail-config-exec.out",
+        require => File["/etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh"],
+        unless  => "grep -qx setup_rabbitmq_cluster /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
     # run setup-pki.sh script
     if $contrail_use_certs == true {
         file { "/etc/contrail_setup_utils/setup-pki.sh" : 
@@ -275,7 +296,7 @@ define contrail-config (
         logoutput => "true"
     }
 
-    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]
+    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["setup-rabbitmq-cluster"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name
