@@ -427,8 +427,8 @@ $__contrail_disc_backend_servers__
             vm_params = {}
             vm_params['vm'] = "ContrailVM"
             vm_params['vmdk'] = "ContrailVM"
-            vm_params['datastore'] = "/vmfs/volumes/datastore1"
-            vm_params['eth0_mac'] = provision_params['mac']
+            vm_params['datastore'] = "/vmfs/volumes/datastore1/"
+            vm_params['eth0_mac'] = provision_params['server_mac']
             vm_params['eth0_pg'] = provision_params['esx_fab_port_group']
             vm_params['eth0_vswitch'] = provision_params['esx_fab_vswitch']
             vm_params['eth0_vlan'] = None
