@@ -167,9 +167,9 @@ class ContrailVM(object):
         transport.connect(username=self.username, password=self.passwd)
         sftp = paramiko.SFTPClient.from_transport(transport)
         dst_vmx = self.vm+".vmx"
-        thin_vmdk = self.vm+"-disk.vmdk"
-        thick_vmdk = self.vm+".vmdk"
-        vm_store = self.datastore+self.vm+"/"
+        thin_vmdk = self.vmdk+"-disk.vmdk"
+        thick_vmdk = self.vmdk+".vmdk"
+        vm_store = self.datastore+"/"+self.vm+"/"
         sftp.put("/tmp/contrail.vmx", vm_store+dst_vmx)
         sftp.put(self.thindisk, vm_store+thin_vmdk)
         transport.close()

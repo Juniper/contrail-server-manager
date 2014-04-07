@@ -1234,6 +1234,10 @@ class VncServerManager():
                     provision_params['esx_username'] = "root"
                     provision_params['esx_passwd'] = esx_server['passwd']
                     provision_params['esx_server'] = esx_server
+                    if 'datastore' in server_params.keys():
+                        provision_params['datastore'] = server_params['datastore']
+                    else:
+                        provision_params['datastore'] = "/vmfs/volumes/datastore1"
 
 		else:
 		   provision_params['esx_uplink_nic'] = ""
