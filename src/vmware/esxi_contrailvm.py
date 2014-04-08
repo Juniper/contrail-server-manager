@@ -303,13 +303,10 @@ class ContrailVM(object):
         if ssh_session is None:
             return
 
-        # Check the linux type
-        out, err = execute_cmd_out(ssh_session, "more /etc/issue")
-        if "CentOS" in out:
-            pass
-        elif "Ubuntu" in out:
-            install_cmd = ("dpkg -i %s") % ("/root/contrail_pkg")
-            out, err = execute_cmd_out(ssh_session, install_cmd)
+        install_cmd = ("dpkg -i %s") % ("/root/contrail_pkg")
+        out, err = execute_cmd_out(ssh_session, install_cmd)
+        setup_cmd = "/opt/contrail/contrail_packages/setup.sh"
+        out, err = execute_cmd_out(ssh_session, setup_cmd)
 
         # close ssh session
         ssh_session.close()
