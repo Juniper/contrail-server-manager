@@ -634,7 +634,7 @@ class VncServerManager():
                 self._args.listen_ip_addr)
 
             # Setup profile information in cobbler
-            profile_name = distro_name + '-P'
+            profile_name = distro_name
             self._smgr_cobbler.create_profile(profile_name, distro_name,
                                               image_type, ks_file,
                                               kernel_options)
@@ -1374,7 +1374,7 @@ class VncServerManager():
                            repo_image_id, reimage_params):
         try:
             # Profile name is based on image name (appended with -P).
-            profile_name = base_image['image_id'] + "-P"
+            profile_name = base_image['image_id']
             # Setup system information in cobbler
             self._smgr_cobbler.create_system(
                 reimage_params['server_id'], profile_name, repo_image_id,
