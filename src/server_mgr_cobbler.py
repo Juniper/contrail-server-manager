@@ -240,7 +240,20 @@ class ServerMgrCobbler:
             if (base_image['image_type'] == 'esxi5.5'):
                 ks_metadata += ' server_license=' + server_license
                 ks_metadata += ' esx_nicname=' + esx_nicname
+
+                # temporary patch to have kickstart work for esxi. ESXi seems
+                # to take kickstart from profile instead of system. So need to copy
+                # ks_meta parameters at profile level too. This is a hack that would
+                # be removed later - TBD Abhay
+                profile = self._server.find_profile({"name":  profile_name})
+                if profile:
+                    profile_id = self._server.get_profile_handle(
+                        profile_name, self._token)
+                    self._server.modify_profile(
+                        profile_id, 'ksmeta', ks_metadata, self._token)
+                # end hack workaround
             #end if
+
             self._server.modify_system(system_id, 'ksmeta',
                                        ks_metadata, self._token)
 
