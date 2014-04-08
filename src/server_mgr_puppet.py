@@ -176,7 +176,7 @@ class ServerMgrPuppet:
 
 
     def create_config_ha_proxy(self, provision_params):
-        smgr_dir = "/etc/contrail/"
+        smgr_dir = "/etc/puppet/modules/contrail-common/files/"
         staging_dir = "/etc/puppet/modules/contrail-common/files/"
         cfg_ha_proxy_tmpl = string.Template("""
 #contrail-config-marker-start
@@ -221,7 +221,7 @@ $__contrail_disc_backend_servers__
         api_server_lines = ''
         disc_listen_port = 9110
         disc_server_lines = ''
-        smgr_dir = "/etc/contrail/"
+        smgr_dir = "/etc/puppet/modules/contrail-common/files/"
         staging_dir = "/etc/puppet/modules/contrail-common/files/"
         #TODO
         nworkers = 1
