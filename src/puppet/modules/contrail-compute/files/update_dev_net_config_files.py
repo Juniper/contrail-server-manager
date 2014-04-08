@@ -177,6 +177,8 @@ def rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gate
     # Save original network interfaces file
     if (os.path.isfile("/etc/network/interfaces")):
         subprocess.call("mv -f /etc/network/interfaces /etc/network/interfaces-orig", shell=True)
+	output = subprocess.Popen(['sed', '/'+dev+'/d' ,'/etc/network/interfaces-orig'], stdout=subprocess.PIPE).communicate()[0]
+        
 
     # replace with dev as manual and vhost0 as static
     with open(temp_intf_file, 'w') as f:
@@ -211,7 +213,7 @@ def rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gate
 	    f.write("    pre-up ifconfig %s up\n" %(dev))
 	    f.write("    post-down ifconfig %s down\n" %(dev))
 	    f.write("\n")
-
+            f.write(output)
     # move it to right place
     cmd = "mv -f %s /etc/network/interfaces" %(temp_intf_file)
     subprocess.call(cmd, shell=True)
