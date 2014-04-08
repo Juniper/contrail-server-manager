@@ -5,10 +5,10 @@
 
 vmaccepteula
 reboot --noeject
-rootpw vmware123
+rootpw --iscrypted $passwd
 
 # Set the network to DHCP on the first network adapter
-network --bootproto=dhcp --device=vmnic0
+network --bootproto=dhcp --device=$esx_nicname
 
 install --firstdisk --overwritevmfs
 clearpart --firstdisk --overwritevmfs
@@ -29,6 +29,7 @@ esxcli system settings advanced set -o /UserVars/SuppressShellWarning -i 1
 # ESXi Shell interactive idle time logout
 esxcli system settings advanced set -o /UserVars/ESXiShellInteractiveTimeOut -i 3600
 # assign license
-vim-cmd vimsvc/license --set AAAAA-BBBBB-CCCCC-DDDDD-EEEEE
+vim-cmd vimsvc/license --set $server_license
 
 %post --interpreter=busybox
+$SNIPPET('kickstart_done')

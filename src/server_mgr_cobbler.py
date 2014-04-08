@@ -208,7 +208,8 @@ class ServerMgrCobbler:
 
     def create_system(self, system_name, profile_name, repo_image_id,
                       mac, ip, subnet, gway, system_domain,
-                      ifname, enc_passwd, base_image, server_ip):
+                      ifname, enc_passwd, server_license, esx_nicname,
+                      base_image, server_ip):
         try:
             system = self._server.find_system({"name":  system_name})
             if system:
@@ -236,6 +237,10 @@ class ServerMgrCobbler:
             ks_metadata += ' ip_address=' + ip
             ks_metadata += ' system_name=' + system_name
             ks_metadata += ' system_domain=' + system_domain
+            if (base_image['image_type'] == 'esxi5.5'):
+                ks_metadata += ' server_license=' + server_license
+                ks_metadata += ' esx_nicname=' + esx_nicname
+            #end if
             self._server.modify_system(system_id, 'ksmeta',
                                        ks_metadata, self._token)
 

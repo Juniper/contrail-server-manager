@@ -23,6 +23,7 @@ import ConfigParser
 import paramiko
 import base64
 import shutil
+import string
 from urlparse import urlparse, parse_qs
 from time import gmtime, strftime
 import pdb
@@ -647,7 +648,7 @@ class VncServerManager():
                 self._args.listen_ip_addr)
 
             # Setup profile information in cobbler
-            profile_name = distro_name + '-P'
+            profile_name = distro_name
             self._smgr_cobbler.create_profile(
                 profile_name, distro_name, image_type,
                 ks_file, kernel_options, ks_meta)
@@ -986,6 +987,12 @@ class VncServerManager():
                     reimage_params['server_gway'] = gway
                     reimage_params['server_domain'] = domain
                     reimage_params['server_ifname'] = server_params['ifname']
+                    if base_image['image_type'] == 'esxi5.5':
+                        reimage_params['server_license'] = server_params.get(
+                            'server_license', '')
+                        reimage_params['esx_nicname'] = server_params.get(
+                            'esx_nicname', 'vmnic0')
+                    # end if
                     self._do_reimage_server(
                         base_image, repo_image_id, reimage_params)
                 # end for server in servers
@@ -1466,7 +1473,7 @@ class VncServerManager():
                            repo_image_id, reimage_params):
         try:
             # Profile name is based on image name (appended with -P).
-            profile_name = base_image['image_id'] + "-P"
+            profile_name = base_image['image_id']
             # Setup system information in cobbler
             self._smgr_cobbler.create_system(
                 reimage_params['server_id'], profile_name, repo_image_id,
@@ -1474,6 +1481,8 @@ class VncServerManager():
                 reimage_params['server_mask'], reimage_params['server_gway'],
                 reimage_params['server_domain'], reimage_params['server_ifname'],
                 reimage_params['server_passwd'],
+                reimage_params.get('server_license', ''),
+                reimage_params.get('esx_nicname', 'vmnic0'),
                 base_image, self._args.listen_ip_addr)
 
             # Sync the above information
