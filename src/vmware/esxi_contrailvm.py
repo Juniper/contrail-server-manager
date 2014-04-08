@@ -67,6 +67,7 @@ class ContrailVM(object):
         self.vmdk = vm_params['vmdk']
         self.datastore = vm_params['datastore']
         self.eth0_mac = vm_params['eth0_mac']
+        self.eth0_ip = vm_params['eth0_ip']
         self.eth0_pg = vm_params['eth0_pg']
         self.eth0_vswitch = vm_params['eth0_vswitch']
         self.eth0_vlan = vm_params['eth0_vlan']
@@ -82,6 +83,7 @@ class ContrailVM(object):
         self.vm_id = 0
         self._create_networking()
         print self._create_vm()
+        self._install_contrailvm_pkg(self.eth0_ip, "root", "c0ntrail123", "/root/contrailvm_pkg")
         
     #end __init__    
 
@@ -287,6 +289,32 @@ class ContrailVM(object):
         ssh_session.close()
 
     # end _create_networking
+
+    def _install_contrailvm_pkg(self, ip, user, passwd, pkg):
+        # open sftp session
+        transport = paramiko.Transport((ip, 22))
+        transport.connect(username=user, password=passwd)
+        sftp = paramiko.SFTPClient.from_transport(transport)
+        sftp.put(pkg, "/root/contrail_pkg")
+        transport.close()
+
+        # open ssh session
+        ssh_session = ssh(ip, user, passwd)
+        if ssh_session is None:
+            return
+
+        # Check the linux type
+        out, err = execute_cmd_out(ssh_session, "more /etc/issue")
+        if "CentOS" in out:
+            pass
+        elif "Ubuntu" in out:
+            install_cmd = ("dpkg -i %s") % ("/root/contrail_pkg")
+            out, err = execute_cmd_out(ssh_session, install_cmd)
+
+        # close ssh session
+        ssh_session.close()
+
+    # end _install_contrailvm_pkg
                          
 #end class ContrailVM
 
