@@ -508,7 +508,12 @@ $__contrail_disc_backend_servers__
             vm_params['username'] = provision_params['esx_username']
             vm_params['passwd'] = provision_params['esx_passwd']
             vm_params['thindisk'] =  provision_params['esx_vmdk']
-            out = ContrailVM(vm_params)
+		    vm_params['smgr_ip'] = global_smgr_ip;
+            vm_params['domain'] =  provision_params['domain']
+		    vm_params['vm_passwd'] = provision_params['passwd']
+		    vm_params['vm_server'] = provision_params['server_id']
+			vm_params['vm_deb'] = provision_params['vm_deb']
+			out = ContrailVM(vm_params)
             print out
 
         control_servers = provision_params['roles']['control']

@@ -23,6 +23,7 @@ import cgitb
 import paramiko
 import logging as LOG
 from collections import OrderedDict
+import pdb
 
 def ssh(host, user, passwd, log=LOG):
     """ SSH to any host.
@@ -80,10 +81,16 @@ class ContrailVM(object):
         self.username = vm_params['username']
         self.passwd = vm_params['passwd']
         self.thindisk = vm_params['thindisk']
+	self.vm_domain = vm_params['domain']
         self.vm_id = 0
-        self._create_networking()
-        print self._create_vm()
-        self._install_contrailvm_pkg(self.eth0_ip, "root", "c0ntrail123", "/root/contrailvm_pkg")
+	self.smgr_ip = vm_params['smgr_ip']
+	self.vm_server = vm_params['vm_server']
+	self.vm_passwd = vm_params['vm_passwd']
+	self.vm_deb = vm_params['vm_deb']
+    #    self._create_networking()
+     #   print self._create_vm()
+        self._install_contrailvm_pkg(self.eth0_ip, "root", self.vm_passwd, self.vm_domain, self.vm_server,
+				 self.vm_deb, self.smgr_ip)
         
     #end __init__    
 
@@ -161,6 +168,15 @@ class ContrailVM(object):
 
         # open ssh session
         ssh_session = ssh(self.server, self.username, self.passwd)
+        vm_store = self.datastore+"/"+self.vm+"/"
+        get_vmid = 0
+        get_vmid_cmd = ("vim-cmd vmsvc/getallvms | grep %s | awk \'{print $1}\'") % (self.vm)
+        get_vmid, err = execute_cmd_out(ssh_session, get_vmid_cmd)
+        if get_vmid is not 0:
+            out, err = execute_cmd_out(ssh_session, ("vim-cmd vmsvc/power.off %s") % (get_vmid))
+            out, err = execute_cmd_out(ssh_session, ("vim-cmd vmsvc/unregister %s") % (get_vmid))
+            out, err = execute_cmd_out(ssh_session, ("rm -rf %s") % (vm_store))
+
         create_dir = ("%s %s/%s") % ("mkdir -p", self.datastore, self.vm)
         execute_cmd_out(ssh_session, create_dir)
         
@@ -171,13 +187,12 @@ class ContrailVM(object):
         dst_vmx = self.vm+".vmx"
         thin_vmdk = self.vmdk+"-disk.vmdk"
         thick_vmdk = self.vmdk+".vmdk"
-        vm_store = self.datastore+"/"+self.vm+"/"
         sftp.put("/tmp/contrail.vmx", vm_store+dst_vmx)
         sftp.put(self.thindisk, vm_store+thin_vmdk)
         transport.close()
         
         # Convert thin to thick disk
-        # vmkfstools -i "thin" -d zeroedthick "thick"
+        #vmkfstools -i "thin" -d zeroedthick "thick"
         src_vmdk = vm_store+thin_vmdk
         dst_vmdk = vm_store+thick_vmdk
         convert_thick_vmdk = ("vmkfstools -i \"%s\" -d zeroedthick \"%s\"") % (src_vmdk, dst_vmdk)
@@ -290,23 +305,39 @@ class ContrailVM(object):
 
     # end _create_networking
 
-    def _install_contrailvm_pkg(self, ip, user, passwd, pkg):
-        # open sftp session
-        transport = paramiko.Transport((ip, 22))
-        transport.connect(username=user, password=passwd)
-        sftp = paramiko.SFTPClient.from_transport(transport)
-        sftp.put(pkg, "/root/contrail_pkg")
-        transport.close()
+    def _install_contrailvm_pkg(self, ip, user, passwd, domain, server ,
+					pkg, smgr_ip):
+	ssh_session = paramiko.SSHClient()
+        ssh_session.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+	ssh_session.connect(ip, username=user, password=passwd, timeout=100)
 
-        # open ssh session
-        ssh_session = ssh(ip, user, passwd)
-        if ssh_session is None:
-            return
+	sftp = ssh_session.open_sftp()
+	sftp.put(pkg, "/root/contrail_pkg")
+	sftp.close()
 
-        install_cmd = ("dpkg -i %s") % ("/root/contrail_pkg")
+        install_cmd = ("/usr/bin/dpkg -i %s") % ("/root/contrail_pkg")
         out, err = execute_cmd_out(ssh_session, install_cmd)
         setup_cmd = "/opt/contrail/contrail_packages/setup.sh"
         out, err = execute_cmd_out(ssh_session, setup_cmd)
+	puppet_cmd = "echo \"[agent]\" >> /etc/puppet/puppet.conf; \
+			echo \"    pluginsync = true\" >> /etc/puppet/puppet.conf; \
+			echo \"    ignorecache = true\" >> /etc/puppet/puppet.conf; \
+			echo \"    usecacheonfailure = false\" >> /etc/puppet/puppet.conf"
+
+ 	out, err = execute_cmd_out(ssh_session, puppet_cmd)
+
+
+#	puppet_start_cmd = "puppet agent --waitforcert 60 --test"
+#	out, err = execute_cmd_out(ssh_session, puppet_start_cmd)
+
+	etc_host_cmd = ('echo "%s %s.%s %s" >> /etc/hosts') % (ip , server, domain, server)
+	out, err = execute_cmd_out(ssh_session, etc_host_cmd)
+	etc_host_cmd = ('echo "%s %s >> /etc/hosts') % (ip , server)
+	out, err = execute_cmd_out(ssh_session, etc_host_cmd)
+
+	etc_host_cmd = ('echo "%s puppet" >> /etc/hosts') % (smgr_ip)
+	out, err = execute_cmd_out(ssh_session, etc_host_cmd)
+
 
         # close ssh session
         ssh_session.close()
@@ -320,6 +351,7 @@ contrail_vm_params =  {  'vm':"ContrailVM",
                          'vmdk':"ContrailVM",
                          'datastore':"/vmfs/volumes/cs_shared/",
                          'eth0_mac':"00:00:00:aa:bb:cc",
+                         'eth0_ip':"10.204.216.102",
                          'eth0_pg':"contrail-fab-pg",
                          'eth0_vswitch':'vSwitch0',
                          'eth0_vlan': None,
@@ -328,10 +360,15 @@ contrail_vm_params =  {  'vm':"ContrailVM",
                          'eth1_vlan':'4095',
                          'uplink_nic': 'vmnic0',
                          'uplink_vswitch':'vSwitch0',
-                         'server':"10.84.14.68",
+                         'server':"127.0.0.1",
                          'username':"root",
                          'passwd':"c0ntrail123",
-                         'thindisk':"/tmp/ContrailVM-disk.vmdk"
+                         'thindisk':"/tmp/ContrailVM-disk.vmdk",
+			 'domain':'englab.juniper.net',
+			 'smgr_ip':'10.204.217.59',
+			 'vm_server': 'contrail-vm',
+			 'vm_passwd': 'c0ntrail123',
+			 'vm_deb': '/root/contrail-install-packages_1.05-5440~havana_all.deb'
                       }
 
 def main(args_str=None):

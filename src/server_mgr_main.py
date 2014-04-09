@@ -149,7 +149,6 @@ class VncServerManager():
                 self._create_server_manager_config(self.config_data)
             except Exception as e:
                 print repr(e)
-
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
         self._pipe_start_app = bottle.app()
@@ -1216,6 +1215,7 @@ class VncServerManager():
 		
 		provision_params['rmq_master'] = role_ids['config'][0]
 		provision_params['uuid'] = vns_params['uuid']
+		provision_params['smgr_ip'] = self._args.listen_ip_addr
 		if role_ids['config'][0] == server['server_id']:
 	            provision_params['is_rmq_master'] = "yes"
 		else:
@@ -1237,7 +1237,7 @@ class VncServerManager():
                 provision_params['phy_interface'] = server_params['ifname']
                 provision_params['compute_non_mgmt_ip'] = server_params['compute_non_mgmt_ip']
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
-      		provision_params['passwd'] = server['passwd']
+      	provision_params['passwd'] = server['passwd']
 		provision_params['haproxy'] = vns_params['haproxy']
 		if 'execute_script' in server_params.keys():
 		   provision_params['execute_script'] = server_params['execute_script']
@@ -1250,6 +1250,7 @@ class VncServerManager():
                     provision_params['esx_vm_vswitch'] = server_params['esx_vm_vswitch']
                     provision_params['esx_fab_port_group'] = server_params['esx_fab_port_group']
                     provision_params['esx_vm_port_group'] = server_params['esx_vm_port_group']
+					provision_params['vm_deb'] = server_params['vm_deb'] if server_params.has_key('vm_deb') else ""
                     provision_params['esx_vmdk'] = server_params['esx_vmdk']
                     esx_servers = self._serverDb.get_server('server_id', server_params['esx_server'],
                                                             detail=True)
