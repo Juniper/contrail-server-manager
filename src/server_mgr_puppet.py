@@ -584,6 +584,7 @@ $__contrail_disc_backend_servers__
         "control": puppet_add_control_role,
         "collector": puppet_add_collector_role,
         "webui": puppet_add_webui_role,
+		"zookeeper", puppet_add_zk_role,
         "compute": puppet_add_compute_role
     }
 
