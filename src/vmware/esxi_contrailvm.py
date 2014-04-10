@@ -87,10 +87,10 @@ class ContrailVM(object):
 	self.vm_server = vm_params['vm_server']
 	self.vm_passwd = vm_params['vm_passwd']
 	self.vm_deb = vm_params['vm_deb']
-    #    self._create_networking()
-     #   print self._create_vm()
-        self._install_contrailvm_pkg(self.eth0_ip, "root", self.vm_passwd, self.vm_domain, self.vm_server,
-				 self.vm_deb, self.smgr_ip)
+        self._create_networking()
+        print self._create_vm()
+        print self._install_contrailvm_pkg(self.eth0_ip, "root", self.vm_passwd, self.vm_domain, self.vm_server,
+                                     self.vm_deb, self.smgr_ip)
         
     #end __init__    
 
@@ -307,9 +307,13 @@ class ContrailVM(object):
 
     def _install_contrailvm_pkg(self, ip, user, passwd, domain, server ,
 					pkg, smgr_ip):
-	ssh_session = paramiko.SSHClient()
-        ssh_session.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-	ssh_session.connect(ip, username=user, password=passwd, timeout=100)
+        try:
+            ssh_session = paramiko.SSHClient()
+            ssh_session.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh_session.connect(ip, username=user, password=passwd, timeout=100)
+        except socket.error, paramiko.SSHException:
+            ssh_session.close()
+            return (("Connection to %s failed") % (ip))
 
 	sftp = ssh_session.open_sftp()
 	sftp.put(pkg, "/root/contrail_pkg")
@@ -341,6 +345,7 @@ class ContrailVM(object):
 
         # close ssh session
         ssh_session.close()
+        print "Contrail package installed."
 
     # end _install_contrailvm_pkg
                          
