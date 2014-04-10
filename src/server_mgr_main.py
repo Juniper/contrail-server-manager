@@ -1237,7 +1237,7 @@ class VncServerManager():
                 provision_params['phy_interface'] = server_params['ifname']
                 provision_params['compute_non_mgmt_ip'] = server_params['compute_non_mgmt_ip']
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
-      	provision_params['passwd'] = server['passwd']
+      	        provision_params['passwd'] = server['passwd']
 		provision_params['haproxy'] = vns_params['haproxy']
 		if 'execute_script' in server_params.keys():
 		   provision_params['execute_script'] = server_params['execute_script']
