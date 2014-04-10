@@ -1250,10 +1250,7 @@ class VncServerManager():
                     provision_params['esx_vm_vswitch'] = server_params['esx_vm_vswitch']
                     provision_params['esx_fab_port_group'] = server_params['esx_fab_port_group']
                     provision_params['esx_vm_port_group'] = server_params['esx_vm_port_group']
-	            if server_params.has_key('vm_deb'):
-	                provision_params['vm_deb'] = server_params['vm_deb']
-                    else:
-	                provision_params['vm_deb'] = ""
+                    provision_params['vm_deb'] = server_params['vm_deb'] if server_params.has_key('vm_deb') else ""
                     provision_params['esx_vmdk'] = server_params['esx_vmdk']
                     esx_servers = self._serverDb.get_server('server_id', server_params['esx_server'],
                                                             detail=True)
