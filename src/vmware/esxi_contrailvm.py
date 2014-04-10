@@ -24,6 +24,7 @@ import paramiko
 import logging as LOG
 from collections import OrderedDict
 import pdb
+import socket
 
 def ssh(host, user, passwd, log=LOG):
     """ SSH to any host.
@@ -310,7 +311,7 @@ class ContrailVM(object):
         try:
             ssh_session = paramiko.SSHClient()
             ssh_session.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh_session.connect(ip, username=user, password=passwd, timeout=100)
+            ssh_session.connect(ip, username=user, password=passwd, timeout=300)
         except socket.error, paramiko.SSHException:
             ssh_session.close()
             return (("Connection to %s failed") % (ip))
@@ -326,7 +327,9 @@ class ContrailVM(object):
 	puppet_cmd = "echo \"[agent]\" >> /etc/puppet/puppet.conf; \
 			echo \"    pluginsync = true\" >> /etc/puppet/puppet.conf; \
 			echo \"    ignorecache = true\" >> /etc/puppet/puppet.conf; \
-			echo \"    usecacheonfailure = false\" >> /etc/puppet/puppet.conf"
+			echo \"    usecacheonfailure = false\" >> /etc/puppet/puppet.conf; \
+			echo \"[main]\" >> /etc/puppet/puppet.conf; \
+			echo \"runinterval=60\" >> /etc/puppet/puppet.conf"
 
  	out, err = execute_cmd_out(ssh_session, puppet_cmd)
 
@@ -342,6 +345,21 @@ class ContrailVM(object):
 	etc_host_cmd = ('echo "%s puppet" >> /etc/hosts') % (smgr_ip)
 	out, err = execute_cmd_out(ssh_session, etc_host_cmd)
 
+	ntp_cmd = ('''/bin/mv /etc/ntp.conf /etc/ntp.conf.orig
+/bin/touch /var/lib/ntp/drift
+cat << __EOT__ > /etc/ntp.conf
+driftfile /var/lib/ntp/drift
+server %s
+server 172.17.28.5
+server 66.129.255.62
+server 172.28.16.17
+restrict 127.0.0.1
+restrict -6 ::1
+includefile /etc/ntp/crypto/pw
+keys /etc/ntp/keys
+__EOT__
+ ''') % (smgr_ip)
+	out, err = execute_cmd_out(ssh_session, ntp_cmd)
 
         # close ssh session
         ssh_session.close()
@@ -356,7 +374,7 @@ contrail_vm_params =  {  'vm':"ContrailVM",
                          'vmdk':"ContrailVM",
                          'datastore':"/vmfs/volumes/cs_shared/",
                          'eth0_mac':"00:00:00:aa:bb:cc",
-                         'eth0_ip':"10.204.216.102",
+                         'eth0_ip':"10.204.216.101",
                          'eth0_pg':"contrail-fab-pg",
                          'eth0_vswitch':'vSwitch0',
                          'eth0_vlan': None,
