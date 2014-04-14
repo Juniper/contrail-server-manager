@@ -68,13 +68,17 @@ object_dict = {
 }
 
 def parse_arguments(args_str=None):
-    if not args_str:
-        args_str = sys.argv[1:]
-
     # Process the arguments
-    parser = argparse.ArgumentParser(
-        description='''Modify a Server Manager object''',
-    )
+    if __name__ == "__main__":
+        parser = argparse.ArgumentParser(
+            description='''Modify a Server Manager object'''
+        )
+    else:
+        parser = argparse.ArgumentParser(
+            description='''Modify a Server Manager object''',
+            prog="server-manager modify"
+        )
+    # end else
     group1 = parser.add_mutually_exclusive_group()
     group1.add_argument("--ip_port", "-i",
                         help=("ip addr & port of server manager "
@@ -84,9 +88,9 @@ def parse_arguments(args_str=None):
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               _DEF_SMGR_CFG_FILE)))
-    subparsers = parser.add_subparsers(title='subcommands',
-                                       description='valid subcommands',
-                                       help='help for subcommand',
+    subparsers = parser.add_subparsers(title='objects',
+                                       description='valid objects',
+                                       help='help for object',
                                        dest='object')
 
     # Subparser for server modify
@@ -117,7 +121,7 @@ def parse_arguments(args_str=None):
         "--file_name", "-f",
         help="json file containing image param values")
 
-    args = parser.parse_args()
+    args = parser.parse_args(args_str)
     return args
 
 def send_REST_request(ip, port, object, payload):
