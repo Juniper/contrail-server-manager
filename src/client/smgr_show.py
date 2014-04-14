@@ -1,0 +1,1 @@
+smgr_show

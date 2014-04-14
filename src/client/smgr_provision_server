@@ -22,14 +22,21 @@ _DEF_SMGR_PORT = 9001
 _DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
 
 def parse_arguments(args_str=None):
-    if not args_str:
-        args_str = sys.argv[1:]
     # Process the arguments
-    parser = argparse.ArgumentParser(
-        description='''Provision given server(s) for roles configured
-                    list of servers can be selected from DB config or
-                    in a json file or provided interactively '''
-    )
+    if __name__ == "__main__":
+        parser = argparse.ArgumentParser(
+            description='''Provision given server(s) for roles configured
+                        list of servers can be selected from DB config or
+                        in a json file or provided interactively '''
+        )
+    else:
+        parser = argparse.ArgumentParser(
+            description='''Provision given server(s) for roles configured
+                        list of servers can be selected from DB config or
+                        in a json file or provided interactively ''',
+            prog="server-manager modify"
+        )
+    # end else
     group1 = parser.add_mutually_exclusive_group()
     group1.add_argument("--ip_port", "-i",
                         help=("ip addr & port of server manager "
@@ -56,7 +63,7 @@ def parse_arguments(args_str=None):
     group.add_argument("--interactive", "-I", action="store_true", 
                         help=("flag that user wants to enter the server "
                              " parameters for provisioning manually"))
-    args = parser.parse_args()
+    args = parser.parse_args(args_str)
     return args
 
 # Function to accept parameters from user and then build payload to be

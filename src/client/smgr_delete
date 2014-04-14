@@ -18,14 +18,18 @@ import ConfigParser
 _DEF_SMGR_PORT = 9001
 _DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
 
-def parse_arguments(args_str=None):
-    if not args_str:
-        args_str = sys.argv[1:]
-
+def parse_arguments():
     # Process the arguments
-    parser = argparse.ArgumentParser(
-        description='''Delete a Server Manager object''',
-    )
+    if __name__ == "__main__":
+        parser = argparse.ArgumentParser(
+            description='''Delete a Server Manager object'''
+        )
+    else:
+        parser = argparse.ArgumentParser(
+            description='''Delete a Server Manager object''',
+            prog="server-manager delete"
+        )
+    # end else
     group1 = parser.add_mutually_exclusive_group()
     group1.add_argument("--ip_port", "-i",
                         help=("ip addr & port of server manager "
@@ -35,9 +39,9 @@ def parse_arguments(args_str=None):
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               _DEF_SMGR_CFG_FILE)))
-    subparsers = parser.add_subparsers(title='subcommands',
-                                       description='valid subcommands',
-                                       help='help for subcommand')
+    subparsers = parser.add_subparsers(title='objects',
+                                       description='valid objects',
+                                       help='help for object')
 
     # Subparser for server delete
     parser_server = subparsers.add_parser(
@@ -157,8 +161,8 @@ def delete_image(args):
 #end def delete_image
 
 def delete_config(args_str=None):
-    parser = parse_arguments(args_str)
-    args = parser.parse_args()
+    parser = parse_arguments()
+    args = parser.parse_args(args_str)
     if args.ip_port:
         smgr_ip, smgr_port = args.ip_port.split(":")
         if not smgr_port:
