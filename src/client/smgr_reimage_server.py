@@ -1,0 +1,1 @@
+smgr_reimage_server

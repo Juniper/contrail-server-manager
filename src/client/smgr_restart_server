@@ -22,14 +22,21 @@ _DEF_SMGR_PORT = 9001
 _DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
 
 def parse_arguments(args_str=None):
-    if not args_str:
-        args_str = sys.argv[1:]
     # Process the arguments
-    parser = argparse.ArgumentParser(
-        description='''Reboot given server(s). Servers can be
-                       specified by search in DB, or provided
-                       in a file or entered interactively.'''
-    )
+    if __name__ == "__main__":
+        parser = argparse.ArgumentParser(
+            description='''Reboot given server(s). Servers can be
+                           specified by search in DB, or provided
+                           in a file or entered interactively.'''
+        )
+    else:
+        parser = argparse.ArgumentParser(
+            description='''Reboot given server(s). Servers can be
+                           specified by search in DB, or provided
+                           in a file or entered interactively.''',
+            prog="server-manager modify"
+        )
+    # end else
     group1 = parser.add_mutually_exclusive_group()
     group1.add_argument("--ip_port", "-i",
                         help=("ip addr & port of server manager "
@@ -59,7 +66,7 @@ def parse_arguments(args_str=None):
     parser.add_argument("--net_boot", "-n", action="store_true",
                         help=("optional parameter to indicate"
                              " if server should be netbooted."))
-    args = parser.parse_args()
+    args = parser.parse_args(args_str)
     return args
 # end def parse_arguments
 
