@@ -49,6 +49,22 @@ def get_if_mtu(dev):
 # end if_mtu
 
 
+def get_secondary_device(primary):
+    for i in netifaces.interfaces ():
+        try:
+            if i == 'pkt1':
+                continue
+            if i == primary:
+                continue
+            if i == 'vhost0':
+                continue
+            if not netifaces.ifaddresses (i).has_key (netifaces.AF_INET):
+                return i
+        except ValueError,e:
+                print "Skipping interface %s" % i
+    raise RuntimeError, '%s not configured, rerun w/ --physical_interface' % ip
+
+
 def get_device_by_ip(ip):
     for i in netifaces.interfaces():
         try:
@@ -155,28 +171,21 @@ def migrate_routes(device):
     # end with open...
 # end def migrate_routes
 
-def rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gateway_ip):
+def rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gateway_ip, non_mgmt_ip):
     temp_intf_file = '%s/interfaces' %(temp_dir_name)
 
     # Save original network interfaces file
     if (os.path.isfile("/etc/network/interfaces")):
         subprocess.call("mv -f /etc/network/interfaces /etc/network/interfaces-orig", shell=True)
+	output = subprocess.Popen(['sed', '/'+dev+'/d' ,'/etc/network/interfaces-orig'], stdout=subprocess.PIPE).communicate()[0]
+        
 
     # replace with dev as manual and vhost0 as static
     with open(temp_intf_file, 'w') as f:
-        f.write("auto %s\n" %(dev))
-        f.write("iface %s inet manual\n" %(dev))
-        f.write("    pre-up ifconfig %s up\n" %(dev))
-        f.write("    post-down ifconfig %s down\n" %(dev))
-        f.write("\n")
+	f.write("\n")
         f.write("auto vhost0\n")
         f.write("iface vhost0 inet static\n")
-        f.write("    pre-up vif --create vhost0 --mac %s\n" %(mac))
-        f.write("    pre-up vif --add vhost0"
-                " --mac %s --vrf 0 --mode x --type vhost\n" \
-                                                       %(mac))
-        f.write("    pre-down /etc/contrail/vif-helper delete vhost0\n")
-        f.write("    post-down ip link del vhost0\n")
+        f.write("    pre-up /opt/contrail/bin/if-vhost0\n")
         f.write("    netmask %s\n" %(netmask))
         f.write("    network_name application\n")
         if vhost_ip:
@@ -193,6 +202,18 @@ def rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gate
                 f.write(" %s" %(dns))
             f.write("\n")
 
+	if not non_mgmt_ip:
+	    # remove entry from auto <dev> to auto excluding these pattern
+	    # then delete specifically auto <dev>
+	    #local("sed -i '/auto %s/,/auto/{/auto/!d}' %s" %(dev, temp_intf_file))
+	    #local("sed -i '/auto %s/d' %s" %(dev, temp_intf_file))
+	    # add manual entry for dev
+	    f.write("auto %s\n" %(dev))
+	    f.write("iface %s inet manual\n" %(dev))
+	    f.write("    pre-up ifconfig %s up\n" %(dev))
+	    f.write("    post-down ifconfig %s down\n" %(dev))
+	    f.write("\n")
+            f.write(output)
     # move it to right place
     cmd = "mv -f %s /etc/network/interfaces" %(temp_intf_file)
     subprocess.call(cmd, shell=True)
@@ -379,7 +400,7 @@ SUBCHANNELS=1,2,3
         if ((dist.lower() == "ubuntu") or
             (dist.lower() == "debian")):
             rewrite_net_interfaces_file(temp_dir_name, dev, macaddr,
-                                        vhost_ip, netmask, gateway)
+                                        vhost_ip, netmask, gateway, non_mgmt_ip)
     else:
         # allow for updating anything except self-ip/gw and eth-port
         cmd = "sed -i 's/COLLECTOR=.*/COLLECTOR=%s/g'" \

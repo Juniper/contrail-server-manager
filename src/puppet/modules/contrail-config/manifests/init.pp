@@ -49,7 +49,12 @@ define contrail-config (
         $contrail_redis_ip,
         $contrail_cfgm_index,
         $contrail_api_nworkers,
-        $contrail_supervisorctl_lines
+        $contrail_supervisorctl_lines,
+	$contrail_haproxy,
+	$contrail_uuid,
+	$contrail_rmq_master,
+	$contrail_rmq_is_master,
+	$contrail_region_name,
     ) {
 
     if $contrail_use_certs == "yes" {
@@ -117,7 +122,14 @@ define contrail-config (
     
     # Ensure ctrl-details file is present with right content.
     if ! defined(File["/etc/contrail/ctrl-details"]) {
-        $quantum_port = "9696"
+        $quantum_port = "9697"
+        #$contrail_compute_ip = ''
+        #$contrail_openstack_mgmt_ip = ''
+     	if $contrail_haproxy == "enable" {
+		$quantum_ip = "127.0.0.1"
+        } else {
+		$quantum_ip = $contrail_config_ip
+	}
         file { "/etc/contrail/ctrl-details" :
             ensure  => present,
             content => template("contrail-common/ctrl-details.erb"),
@@ -221,10 +233,29 @@ define contrail-config (
         require => Package["contrail-openstack-config"],
         source => "puppet:///modules/contrail-config/config-zk-files-setup.sh"
     }
+    $contrail_zk_ip_list_for_shell = inline_template('<%= contrail_zookeeper_ip_list.map{ |ip| "#{ip}" }.join(" ") %>')
     exec { "setup-config-zk-files-setup" :
-        command => "/bin/bash /etc/contrail/contrail_setup_utils/config-zk-files-setup.sh $operatingsystem $contrail_cfgm_index $contrail_zookeeper_ip_list && echo setup-config-zk-files-setup >> /etc/contrail/contrail-config-exec.out",
+        command => "/bin/bash /etc/contrail/contrail_setup_utils/config-zk-files-setup.sh $operatingsystem $contrail_cfgm_index $contrail_zk_ip_list_for_shell && echo setup-config-zk-files-setup >> /etc/contrail/contrail-config-exec.out",
         require => File["/etc/contrail/contrail_setup_utils/config-zk-files-setup.sh"],
         unless  => "grep -qx setup-config-zk-files-setup /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
+    file { "/etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+        require => Package["contrail-openstack-config"],
+        source => "puppet:///modules/contrail-config/setup_rabbitmq_cluster.sh"
+    }
+
+    exec { "setup-rabbitmq-cluster" :
+        command => "/bin/bash /etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh $operatingsystem $contrail_uuid $contrail_rmq_master $contrail_rmq_is_master && echo setup_rabbitmq_cluster >> /etc/contrail/contrail-config-exec.out",
+       # command => "echo rabbit && echo setup_rabbitmq_cluster >> /etc/contrail/contrail-config-exec.out",
+        require => File["/etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh"],
+        unless  => "grep -qx setup_rabbitmq_cluster /etc/contrail/contrail-config-exec.out",
         provider => shell,
         logoutput => "true"
     }
@@ -259,14 +290,14 @@ define contrail-config (
         group => root,
     }
     exec { "setup-quantum-in-keystone" :
-        command => "python /opt/contrail/contrail_installer/contrail_setup_utils/setup-quantum-in-keystone.py --ks_server_ip $contrail_openstack_ip --quant_server_ip $contrail_config_ip --tenant $contrail_ks_admin_tenant --user $contrail_ks_admin_user --password $contrail_ks_admin_passwd --svc_password $contrail_service_token && echo setup-quantum-in-keystone >> /etc/contrail/contrail-config-exec.out",
+        command => "python /opt/contrail/contrail_installer/contrail_setup_utils/setup-quantum-in-keystone.py --ks_server_ip $contrail_openstack_ip --quant_server_ip $contrail_config_ip --tenant $contrail_ks_admin_tenant --user $contrail_ks_admin_user --password $contrail_ks_admin_passwd --svc_password $contrail_service_token --region_name $contrail_region_name && echo setup-quantum-in-keystone >> /etc/contrail/contrail-config-exec.out",
         require => [ File["/opt/contrail/contrail_installer/contrail_setup_utils/setup-quantum-in-keystone.py"] ],
         unless  => "grep -qx setup-quantum-in-keystone /etc/contrail/contrail-config-exec.out",
         provider => shell,
         logoutput => "true"
     }
 
-    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]
+    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["setup-rabbitmq-cluster"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name

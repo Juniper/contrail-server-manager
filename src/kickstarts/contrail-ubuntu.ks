@@ -45,11 +45,36 @@ cd /opt/contrail/contrail_packages
 apt-get -f -y install
 apt-get -y install puppet
 #--------------------------------------------------------------------------
+#Set up the ntp client 
+apt-get -y install ntp
+/sbin/ntpdate $server
+/bin/mv /etc/ntp.conf /etc/ntp.conf.orig
+/bin/touch /var/lib/ntp/drift
+cat << __EOT__ > /etc/ntp.conf
+driftfile /var/lib/ntp/drift
+server $server
+server 172.17.28.5
+server 66.129.255.62
+server 172.28.16.17
+restrict 127.0.0.1
+restrict -6 ::1
+includefile /etc/ntp/crypto/pw
+keys /etc/ntp/keys
+__EOT__
+service ntp restart
+
+#--------------------------------------------------------------------------
+#
+
+#--------------------------------------------------------------------------
 # Enable puppet conf setting to allow custom facts
 echo "[agent]" >> /etc/puppet/puppet.conf
 echo "    pluginsync = true" >> /etc/puppet/puppet.conf
 echo "    ignorecache = true" >> /etc/puppet/puppet.conf
 echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
+echo "[main]" >> /etc/puppet/puppet.conf
+echo "runinterval=60" >> /etc/puppet/puppet.conf
+
 #--------------------------------------------------------------------------
 # Enable to start puppet agent on boot & Run Puppet agent
 sed -i 's/START=.*$/START=yes/' /etc/default/puppet

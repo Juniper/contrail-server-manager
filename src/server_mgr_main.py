@@ -23,12 +23,13 @@ import ConfigParser
 import paramiko
 import base64
 import shutil
+import string
 from urlparse import urlparse, parse_qs
 from time import gmtime, strftime
 import pdb
 import server_mgr_db
 import ast
-
+import uuid
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
@@ -93,7 +94,8 @@ class VncServerManager():
 
         # Connect to the cluster-servers database
         try:
-            self._serverDb = db(self._args.db_name)
+            self._serverDb = db(
+                self._args.smgr_base_dir+self._args.db_name)
         except:
             print ("Error Connecting to Server Database %s"
                    ) % (self._args.db_name)
@@ -147,7 +149,6 @@ class VncServerManager():
                 self._create_server_manager_config(self.config_data)
             except Exception as e:
                 print repr(e)
-
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
         self._pipe_start_app = bottle.app()
@@ -343,6 +344,8 @@ class VncServerManager():
             for cur_vns in vns:
                 if ('vns_id' not in cur_vns):
                     abort(404, 'Error : No vns_id specified')
+		str_uuid = str(uuid.uuid4())
+		cur_vns["vns_params"].update({"uuid":str_uuid})
                 self._serverDb.add_vns(cur_vns)
         except Exception as e:
             abort(404, repr(e))
@@ -1136,6 +1139,7 @@ class VncServerManager():
             # end if req_provision_params
             role_servers = {}
             role_ips = {}
+	    role_ids = {}
             servers = self._serverDb.get_server(match_key, match_value,
                                                 detail=True)
             for server in servers:
@@ -1154,11 +1158,12 @@ class VncServerManager():
                 if not role_servers:
                     for role in ['database', 'openstack',
                                  'config', 'control',
-                                 'collector', 'webui',
+                                 'collector', 'webui', 'zookeeper',
                                  'compute']:
                         role_servers[role] = self.role_get_servers(
                             vns_servers, role)
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
+			role_ids[role] = [x["server_id"] for x in role_servers[role]]
                 provision_params = {}
                 provision_params['roles'] = role_ips
                 provision_params['server_id'] = server['server_id']
@@ -1166,6 +1171,15 @@ class VncServerManager():
                     provision_params['domain'] = server['domain']
                 else:
                     provision_params['domain'] = vns_params['domain']
+		
+		provision_params['rmq_master'] = role_ids['config'][0]
+		provision_params['uuid'] = vns_params['uuid']
+		provision_params['smgr_ip'] = self._args.listen_ip_addr
+		if role_ids['config'][0] == server['server_id']:
+	            provision_params['is_rmq_master'] = "yes"
+		else:
+		    provision_params['is_rmq_master'] = "no"
+
                 provision_params['server_ip'] = server['ip']
                 provision_params['database_dir'] = vns_params['database_dir']
                 provision_params['db_initial_token'] = vns_params['db_initial_token']
@@ -1181,6 +1195,16 @@ class VncServerManager():
                 provision_params['phy_interface'] = server_params['ifname']
                 provision_params['compute_non_mgmt_ip'] = server_params['compute_non_mgmt_ip']
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
+                provision_params['haproxy'] = vns_params['haproxy']
+                if 'region_name' in vns_params.keys():
+                    provision_params['region_name'] = vns_params['region_name']
+                else:
+                    provision_params['region_name'] = "RegionOne"
+                if 'execute_script' in server_params.keys():
+                    provision_params['execute_script'] = server_params['execute_script']
+                else:
+                    provision_params['execute_script'] = ""
+
                 self._do_provision_server(provision_params)
         except Exception as e:
             abort(404, repr(e))
