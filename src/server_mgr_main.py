@@ -950,8 +950,6 @@ class VncServerManager():
                     reimage_params['server_gway'] = gway
                     reimage_params['server_domain'] = domain
                     reimage_params['server_ifname'] = server_params['ifname']
-<<<<<<< HEAD
-=======
                     reimage_params['power_type'] = server.get('power_type')
                     if not reimage_params['power_type']:
                         reimage_params['power_type'] = self._args.power_type
@@ -963,13 +961,7 @@ class VncServerManager():
                         reimage_params['power_pass'] = self._args.power_pass
                     reimage_params['power_address'] = server.get(
                         'power_address', '')
-                    if base_image['image_type'] == 'esxi5.5':
-                        reimage_params['server_license'] = server_params.get(
-                            'server_license', '')
-                        reimage_params['esx_nicname'] = server_params.get(
-                            'esx_nicname', 'vmnic0')
                     # end if
->>>>>>> 4bbba98... Provide IPMI interface (via cobbler) for rebooting servers. Before this
                     self._do_reimage_server(
                         base_image, repo_image_id, reimage_params)
                 # end for server in servers
@@ -1447,15 +1439,10 @@ class VncServerManager():
                 reimage_params['server_mask'], reimage_params['server_gway'],
                 reimage_params['server_domain'], reimage_params['server_ifname'],
                 reimage_params['server_passwd'],
-<<<<<<< HEAD
-=======
-                reimage_params.get('server_license', ''),
-                reimage_params.get('esx_nicname', 'vmnic0'),
                 reimage_params.get('power_type',self._args.power_type),
                 reimage_params.get('power_user',self._args.power_user),
                 reimage_params.get('power_pass',self._args.power_pass),
                 reimage_params.get('power_address',''),
->>>>>>> 4bbba98... Provide IPMI interface (via cobbler) for rebooting servers. Before this
                 base_image, self._args.listen_ip_addr)
 
             # Sync the above information
