@@ -142,7 +142,12 @@ class ServerMgrCobbler:
                                            'ubuntu', self._token)
                 self._server.modify_distro(distro_id, 'os_version',
                                            'precise', self._token)
-            elif (image_type == 'esxi5.5'):
+            elif ((image_type == 'esxi5.1') or
+                  (image_type == 'esxi5.5')):
+                if (image_type == 'esxi5.1'):
+                    os_version = 'esxi51'
+                else:
+                    os_version = 'esxi55'
                 self._server.modify_distro(
                     distro_id, 'ksmeta',
                     'tree=http://' + cobbler_ip_address +
@@ -153,14 +158,15 @@ class ServerMgrCobbler:
                 self._server.modify_distro(
                     distro_id, 'breed', 'vmware', self._token)
                 self._server.modify_distro(
-                    distro_id, 'os_version', 'esxi55', self._token)
+                    distro_id, 'os_version', os_version, self._token)
                 self._server.modify_distro(
                     distro_id, 'boot_files',
                     '$local_img_path/*.*=' + path + '/*.*',
                     self._token)
                 self._server.modify_distro(
                     distro_id, 'template_files',
-                    '/etc/cobbler/pxe/bootcfg_esxi55.template=' +
+                    '/etc/cobbler/pxe/bootcfg_%s.template=' %(
+                        os_version) +
                     '$local_img_path/cobbler-boot.cfg',
                     self._token)
             else:
@@ -246,7 +252,8 @@ class ServerMgrCobbler:
             ks_metadata += ' ip_address=' + ip
             ks_metadata += ' system_name=' + system_name
             ks_metadata += ' system_domain=' + system_domain
-            if (base_image['image_type'] == 'esxi5.5'):
+            if ((base_image['image_type'] == 'esxi5.1') or
+                (base_image['image_type'] == 'esxi5.5')):
                 ks_metadata += ' server_license=' + server_license
                 ks_metadata += ' esx_nicname=' + esx_nicname
 

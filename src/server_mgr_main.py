@@ -526,7 +526,7 @@ class VncServerManager():
                     abort(404, "image id or location not specified")
                 if (image_type not in [
                         "centos", "fedora", "ubuntu",
-                        "contrail-ubuntu-repo", "esxi5.5"]):
+                        "contrail-ubuntu-repo", "esxi5.1", "esxi5.5"]):
                     abort(404, "image type not specified or invalid")
                 # For repo, simply copy file to base directory,
                 # no cobbler operation is needed.
@@ -616,10 +616,10 @@ class VncServerManager():
                     "kickstarts/contrail-centos.ks"
                 kernel_options = ''
                 ks_meta = ''
-            elif (image_type == "esxi5.5"):
+            elif ((image_type == "esxi5.1") or
+                  (image_type == "esxi5.5")):
                 kernel_file = "/mboot.c32"
                 initrd_file = "/imgpayld.tgz"
-                # Abhay TBD change to real kick start file
                 ks_file = self._args.html_root_dir + \
                     "kickstarts/contrail-esxi.ks"
                 kernel_options = ''
@@ -999,7 +999,8 @@ class VncServerManager():
                         reimage_params['power_pass'] = self._args.power_pass
                     reimage_params['power_address'] = server.get(
                         'power_address', '')
-                    if base_image['image_type'] == 'esxi5.5':
+                    if ((base_image['image_type'] == 'esxi5.1') or
+                        (base_image['image_type'] == 'esxi5.5')):
                         reimage_params['server_license'] = server_params.get(
                             'server_license', '')
                         reimage_params['esx_nicname'] = server_params.get(
