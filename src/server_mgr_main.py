@@ -43,8 +43,10 @@ _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = None
 _DEF_COBBLER_USER = 'cobbler'
 _DEF_COBBLER_PASSWD = 'cobbler'
+_DEF_POWER_USER = 'ADMIN'
+_DEF_POWER_PASSWD = 'ADMIN'
+_DEF_POWER_TOOL = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
-
 
 @bottle.error(403)
 def error_403(err):
@@ -948,6 +950,26 @@ class VncServerManager():
                     reimage_params['server_gway'] = gway
                     reimage_params['server_domain'] = domain
                     reimage_params['server_ifname'] = server_params['ifname']
+<<<<<<< HEAD
+=======
+                    reimage_params['power_type'] = server.get('power_type')
+                    if not reimage_params['power_type']:
+                        reimage_params['power_type'] = self._args.power_type
+                    reimage_params['power_user'] = server.get('power_user')
+                    if not reimage_params['power_user']:
+                        reimage_params['power_user'] = self._args.power_user
+                    reimage_params['power_pass'] = server.get('power_pass')
+                    if not reimage_params['power_pass']:
+                        reimage_params['power_pass'] = self._args.power_pass
+                    reimage_params['power_address'] = server.get(
+                        'power_address', '')
+                    if base_image['image_type'] == 'esxi5.5':
+                        reimage_params['server_license'] = server_params.get(
+                            'server_license', '')
+                        reimage_params['esx_nicname'] = server_params.get(
+                            'esx_nicname', 'vmnic0')
+                    # end if
+>>>>>>> 4bbba98... Provide IPMI interface (via cobbler) for rebooting servers. Before this
                     self._do_reimage_server(
                         base_image, repo_image_id, reimage_params)
                 # end for server in servers
@@ -968,7 +990,25 @@ class VncServerManager():
             req_restart_params = entity.pop("restart_params", None)
             # if no restart params are specified, there needs to be
             # server selection criteria provided.
-            if (req_restart_params == None):
+            if req_restart_params:
+                if (type(req_restart_params) != type({})):
+                    abort(404, "Incorrect server restart parameters")
+                servers = req_restart_params.pop("servers", None)
+                if ((not servers) or
+                    (type(servers) != type([]))):
+                    abort(404, "No servers specified")
+                reboot_server_list = []
+                for server in servers:
+                     reboot_server = {
+                         'server_id' : server.get('server_id', ''),
+                         'domain' : server.get('server_domain', ''),
+                         'ip' : server.get('server_ip', ''),
+                         'passwd' : server.get('server_passwd', ''),
+                         'power_address' : server.get('power_address', '') }
+                     reboot_server_list.append(
+                         reboot_server)
+                # end for server in servers
+            else:
                 if len(entity) == 0:
                     abort(404, "No servers specified")
                 elif len(entity) == 1:
@@ -980,52 +1020,47 @@ class VncServerManager():
                 else:
                     abort(404, "Invalid Query arguments")
                 # end else
-            else:
-                if (type(req_restart_params) != type({})):
-                    abort(404, "Incorrect server restart parameters")
-                servers = req_restart_params.pop("servers", None)
-                if ((not servers) or
-                    (type(servers) != type([]))):
-                    abort(404, "No servers specified")
+                reboot_server_list = []
+                servers = self._serverDb.get_server(
+                    match_key, match_value, detail=True)
                 for server in servers:
-                    self._power_cycle_server(
-                        server.get('server_id', ''),
-                        server.get('server_domain', ''),
-                        server.get('server_ip', ''),
-                        server.get('server_passwd', ''),
-                        net_boot)
+                    vns = self._serverDb.get_vns(server['vns_id'],
+                                                 detail=True)[0]
+                    vns_params = {}
+                    if vns['vns_params']:
+                        vns_params = eval(vns['vns_params'])
+
+                    if server['passwd']:
+                        passwd = server['passwd']
+                    elif vns_params:
+                        passwd = vns_params['passwd']
+                    else:
+                        abort(404, "Missing password")
+
+                    if server['domain']:
+                        domain = server['domain']
+                    elif vns_params:
+                        domain = vns_params['domain']
+                    else:
+                        abort(404, "Missing Domain")
+
+                    # Build list of servers to be rebooted.
+                    reboot_server = {
+                        'server_id' : server['server_id'],
+                        'domain' : domain,
+                        'ip' : server['ip'],
+                        'passwd' : passwd,
+                        'power_address' : server['power_address'] }
+                    reboot_server_list.append(
+                        reboot_server)
                 # end for server in servers
-                return "Server(s) restarted"
-            # end if req_provision_params
-            servers = self._serverDb.get_server(match_key, match_value,
-                                                detail=True)
-            for server in servers:
-                vns = self._serverDb.get_vns(server['vns_id'],
-                                             detail=True)[0]
-                vns_params = {}
-                if vns['vns_params']:
-                    vns_params = eval(vns['vns_params'])
+            # end else req_restart_params
 
-                if server['passwd']:
-                    passwd = server['passwd']
-                elif vns_params:
-                    passwd = vns_params['passwd']
-                else:
-                    abort(404, "Missing password")
-
-                if server['domain']:
-                    domain = server['domain']
-                elif vns_params:
-                    domain = vns_params['domain']
-                else:
-                    abort(404, "Missing Domain")
-
-                self._power_cycle_server(
-                    server['server_id'], domain, server['ip'],
-                    passwd, net_boot)
+            status_msg = self._power_cycle_servers(
+                reboot_server_list, net_boot)
         except Exception as e:
             abort(404, repr(e))
-        return "server(s) restarted"
+        return status_msg
     # end restart_server
 
     # Function to get all servers in a VNS configured for given role.
@@ -1214,16 +1249,19 @@ class VncServerManager():
         args, remaining_argv = conf_parser.parse_known_args(args_str)
 
         serverMgrCfg = {
-            'listen_ip_addr': _WEB_HOST,
-            'listen_port': _WEB_PORT,
-            'db_name': _DEF_CFG_DB,
-            'smgr_base_dir': _DEF_SMGR_BASE_DIR,
-            'html_root_dir': _DEF_HTML_ROOT_DIR,
-            'cobbler_ip': _DEF_COBBLER_IP,
-            'cobbler_port': _DEF_COBBLER_PORT,
-            'cobbler_user': _DEF_COBBLER_USER,
-            'cobbler_passwd': _DEF_COBBLER_PASSWD,
-            'puppet_dir': _DEF_PUPPET_DIR
+            'listen_ip_addr'   : _WEB_HOST,
+            'listen_port'      : _WEB_PORT,
+            'db_name'          : _DEF_CFG_DB,
+            'smgr_base_dir'    : _DEF_SMGR_BASE_DIR,
+            'html_root_dir'    : _DEF_HTML_ROOT_DIR,
+            'cobbler_ip'       : _DEF_COBBLER_IP,
+            'cobbler_port'     : _DEF_COBBLER_PORT,
+            'cobbler_user'     : _DEF_COBBLER_USER,
+            'cobbler_passwd'   : _DEF_COBBLER_PASSWD,
+            'power_user'       : _DEF_POWER_USER,
+            'power_pass'       : _DEF_POWER_PASSWD,
+            'power_type'       : _DEF_POWER_TOOL,
+            'puppet_dir'       : _DEF_PUPPET_DIR
         }
 
         if args.config_file:
@@ -1323,41 +1361,68 @@ class VncServerManager():
     # end _mount_and_copy_iso
 
     # Private method to reboot the server after cobbler config is setup.
-    # For now this function does SSH to server and executes reboot command.
-    # If remote power cycler is available, then the function would be
-    # modified to connect to remote power cycler using paramiko and
-    # powercycle the server. Also, for now for SSH, we are using hard-coded
-    # values of user-name/password for server.
-    def _power_cycle_server(self, server_id, domain,
-                            server_ip, passwd, net_boot="n"):
-        try:
-            # Enable net boot flag in cobbler for the system.
-            # Also if netbooting, delete the old puppet cert. This is
-            # temporary. Need # to figure out way for cobbler to do it
-            # automatically TBD Abhay
-            if (net_boot == "y"):
-                self._smgr_cobbler.enable_system_netboot(server_id)
-                cmd = "puppet cert clean %s.%s" % (server_id,
-                                                   domain)
-                subprocess.call(cmd, shell=True)
+    # If power address is provided and power management system is configured
+    # with cobbler, that is used to power cycle the server, else if SSH
+    # connectivity is available to the server, that is used to login and reboot
+    # the server.
+    def _power_cycle_servers(
+        self, reboot_server_list, net_boot="n"):
+        success_list = []
+        failed_list = []
+        power_reboot_list = []
+        for server in reboot_server_list:
             try:
-                client = paramiko.SSHClient()
-                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                client.connect(
-                    server_ip, username='root', password=passwd)
-                stdin, stdout, stderr = client.exec_command('reboot')
-            except:
-                print (
-                    "could not reach server %s to reboot, "
-                    "please reboot manually") % (server_id)
+                # Enable net boot flag in cobbler for the system.
+                # Also if netbooting, delete the old puppet cert. This is
+                # temporary. Need # to figure out way for cobbler to do it
+                # automatically TBD Abhay
+                if (net_boot == "y"):
+                    self._smgr_cobbler.enable_system_netboot(
+                        server['server_id'])
+                    cmd = "puppet cert clean %s.%s" % (
+                        server['server_id'], server['domain'])
+                    subprocess.call(cmd, shell=True)
+                # end if
+                if server['power_address']:
+                    power_reboot_list.append(
+                        server['server_id'])
+                else:
+                    client = paramiko.SSHClient()
+                    client.set_missing_host_key_policy(
+                        paramiko.AutoAddPolicy())
+                    client.connect(
+                        server_ip, username='root', password=passwd)
+                    stdin, stdout, stderr = client.exec_command('reboot')
+                # end else
+                # Update Server table to update time.
+                update = {'server_id': server['server_id'],
+                          'update_time': strftime(
+                             "%Y-%m-%d %H:%M:%S", gmtime())}
+                self._serverDb.modify_server(update)
+                success_list.append(server['server_id'])
+            except Exception as e:
+                failed_list.append(server['server_id'])
+        #end for
+        if power_reboot_list:
+            try:
+                self._smgr_cobbler.reboot_system(
+                    power_reboot_list)
+                status_msg = (
+                    "OK : IPMI reboot operation"
+                    " initiated for specified servers")
+            except Exception as e:
+                status_msg = ("Error : IPMI reboot operation"
+                              " failed for some servers")
+        else:
+            status_msg = (
+                "Reboot Successful for (%s),"
+                "failed for (%s)" %(
+                ",".join(success_list),
+                ",".join(failed_list)))
+        # End if power_reboot_list
+        return status_msg
 
-            # Update Server table to update time.
-            update = {'server_id': server_id,
-                      'update_time': strftime("%Y-%m-%d %H:%M:%S", gmtime())}
-            self._serverDb.modify_server(update)
-        except Exception as e:
-            raise e
-    # end _power_cycle_server
+    # end _power_cycle_servers
 
     def _encrypt_passwd(self, server_passwd):
         try:
@@ -1373,7 +1438,7 @@ class VncServerManager():
     def _do_reimage_server(self, base_image,
                            repo_image_id, reimage_params):
         try:
-            # Profile name is based on image name (appended with -P).
+            # Profile name is based on image name.
             profile_name = base_image['image_id']
             # Setup system information in cobbler
             self._smgr_cobbler.create_system(
@@ -1382,6 +1447,15 @@ class VncServerManager():
                 reimage_params['server_mask'], reimage_params['server_gway'],
                 reimage_params['server_domain'], reimage_params['server_ifname'],
                 reimage_params['server_passwd'],
+<<<<<<< HEAD
+=======
+                reimage_params.get('server_license', ''),
+                reimage_params.get('esx_nicname', 'vmnic0'),
+                reimage_params.get('power_type',self._args.power_type),
+                reimage_params.get('power_user',self._args.power_user),
+                reimage_params.get('power_pass',self._args.power_pass),
+                reimage_params.get('power_address',''),
+>>>>>>> 4bbba98... Provide IPMI interface (via cobbler) for rebooting servers. Before this
                 base_image, self._args.listen_ip_addr)
 
             # Sync the above information
