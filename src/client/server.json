@@ -15,7 +15,8 @@
             "mask": "255.255.255.0",
             "gway": "10.84.51.254",
             "passwd": "juniper",
-            "domain": "demo.juniper.net"
+            "domain": "demo.juniper.net",
+            "power_address": "10.84.6.63"
         }
     ]
 }

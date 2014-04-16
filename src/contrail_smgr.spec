@@ -38,6 +38,8 @@ Requires: python >= 2.6.6
 Requires: httpd
 Requires: sqlite
 Requires: cobbler
+Requires: cobbler-web
+Requires:fence-agents
 Requires: puppet
 Requires: puppet-server
 Requires: python-devel
@@ -49,6 +51,7 @@ Requires: gcc
 Requires: bind
 Requires: tftp
 Requires: ntp
+Requires: wget
 
 %description
 A Server manager description

@@ -96,8 +96,9 @@ class ServerMgrDb:
                          vns_id TEXT, cloud_id TEXT, base_image_id TEXT,
                          repo_image_id TEXT, passwd TEXT,
                          update_time TEXT, disc_flag varchar default 'N',
-                         server_params TEXT, roles TEXT,
-                         UNIQUE (server_id))""")
+                         server_params TEXT, roles TEXT, power_user TEXT,
+                         power_pass TEXT, power_address TEXT,
+                         power_type TEXT, UNIQUE (server_id))""")
             self._get_table_columns()
         except e:
             raise e

@@ -209,6 +209,7 @@ class ServerMgrCobbler:
     def create_system(self, system_name, profile_name, repo_image_id,
                       mac, ip, subnet, gway, system_domain,
                       ifname, enc_passwd, server_license, esx_nicname,
+                      power_type, power_user, power_pass, power_address,
                       base_image, server_ip):
         try:
             system = self._server.find_system({"name":  system_name})
@@ -221,6 +222,14 @@ class ServerMgrCobbler:
                                            system_name, self._token)
             self._server.modify_system(
                 system_id, "hostname", system_name, self._token)
+            self._server.modify_system(
+                system_id, "power_type", power_type, self._token)
+            self._server.modify_system(
+                system_id, "power_user", power_user, self._token)
+            self._server.modify_system(
+                system_id, "power_pass", power_pass, self._token)
+            self._server.modify_system(
+                system_id, "power_address", power_address, self._token)
             self._server.modify_system(
                 system_id, "profile", profile_name, self._token)
             interface = {}
@@ -293,6 +302,25 @@ class ServerMgrCobbler:
         except Exception as e:
             raise e
     # End of enable_system_netboot
+
+    def reboot_system(self, reboot_system_list):
+        try:
+            power = {
+                "power" : "reboot",
+                "systems" : reboot_system_list }
+            task_id = self._server.background_power_system(power, self._token)
+            # Alternate way using direct cobbler api, not needed, but commented
+            # and kept for reference.
+            # system = self._capi_handle.get_item(
+            #     "system", system_name)
+            # if not system:
+            #     raise Exception(
+            #         "cobbler error : System %s not found" % system_name)
+            # else:
+            #     self._capi_handle.reboot(system)
+        except Exception as e:
+            raise e
+    # End of reboot_system
 
     def delete_distro(self, distro_name):
         try:
