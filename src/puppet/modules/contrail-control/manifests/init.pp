@@ -68,7 +68,7 @@ define contrail-control (
     $router_asn = "64512"
     $mt_options = ""
     exec { "provision-control" :
-        command => "/bin/bash -c \"source /opt/contrail/api-venv/bin/activate && python provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name $hostname --host_ip $contrail_control_ip --router_asn $router_asn $mt_options && echo provision-control >> /etc/contrail/contrail-control-exec.out\"",
+        command => "/bin/bash -c \"python provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name $hostname --host_ip $contrail_control_ip --router_asn $router_asn $mt_options && echo provision-control >> /etc/contrail/contrail-control-exec.out\"",
         cwd => "/opt/contrail/utils",
         unless  => "grep -qx provision-control /etc/contrail/contrail-control-exec.out",
         provider => shell,
