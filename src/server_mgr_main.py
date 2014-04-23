@@ -1213,6 +1213,8 @@ class VncServerManager():
                 provision_params['openstack_mgmt_ip'] = vns_params['openstack_mgmt_ip']
                 provision_params['use_certs'] = vns_params['use_certs']
                 provision_params['multi_tenancy'] = vns_params['multi_tenancy']
+                provision_params['router_asn'] = vns_params['router_asn']
+                provision_params['encap_priority'] = vns_params['encap_priority']
                 provision_params['service_token'] = vns_params['service_token']
                 provision_params['ks_user'] = vns_params['ks_user']
                 provision_params['ks_passwd'] = vns_params['ks_passwd']

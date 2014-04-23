@@ -193,6 +193,24 @@ define contrail-compute-part-2 (
             content => template("contrail-compute/ctrl-details.erb"),
         }
     }
+    #Ensure Ha-proxy cfg file is set
+    if (!defined(File["/etc/haproxy/haproxy.cfg"])) and ( $contrail_haproxy == "enable" )  {
+    	file { "/etc/haproxy/haproxy.cfg":
+       	   ensure  => present,
+           mode => 0755,
+           owner => root,
+           group => root,
+           source => "puppet:///modules/contrail-common/$hostname.cfg"
+        }
+        exec { "haproxy-exec":
+                command => "sudo sed -i 's/ENABLED=.*/ENABLED=1/g' /etc/default/haproxy; chkconfig haproxy on; service haproxy restart",
+                provider => shell,
+                logoutput => "true",
+                require => File["/etc/haproxy/haproxy.cfg"]
+        }
+
+     }
+
     # Ensure service.token file is present with right content.
     if ! defined(File["/etc/contrail/service.token"]) {
         file { "/etc/contrail/service.token" :

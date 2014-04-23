@@ -55,6 +55,8 @@ define contrail-config (
 	$contrail_rmq_master,
 	$contrail_rmq_is_master,
 	$contrail_region_name,
+	$contrail_router_asn,
+	$contrail_encap_priority,
     ) {
 
     if $contrail_use_certs == "yes" {
@@ -296,8 +298,55 @@ define contrail-config (
         provider => shell,
         logoutput => "true"
     }
+#    if ($contrail_multi_tenancy == "True") {
+#	$mt_options = " --admin_user root --admin_password $contrail_ --admin_tenant_name $contrail_"
+#    } else {
+#        $mt_options = ""
+#    }
 
-    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["setup-rabbitmq-cluster"]
+ #   exec { "provision-external-bgp" :
+#        command => "python /opt/contrail/utils/provision_mx.py --api_server_ip $contrail_config_ip --api_server_port 8082 --router_name $contrail_ext_bgp_name --router_ip $contrail_ext_bgp_ip --router_asn $contrail_router_asn $mt_options && echo provision-external-bgp >> /etc/contrail/contrail-config-exec.out",
+#        require => [ File["/opt/contrail/utils/provision_mx.py"] ],
+#        unless  => "grep -qx provision-external-bgp /etc/contrail/contrail-config-exec.out",
+#        provider => shell,
+#        logoutput => "true"
+#    }
+
+    exec { "provision-metadata-services" :
+        command => "python /opt/contrail/utils/provision_linklocal.py --admin_user $contrail_ks_admin_user --admin_password $contrail_ks_admin_passwd --linklocal_service_name metadata --linklocal_service_ip 169.254.169.254 --linklocal_service_port 80 --ipfabric_service_ip $contrail_openstack_ip --ipfabric_service_port 8775 --oper add && echo provision-metadata-services >> /etc/contrail/contrail-config-exec.out",
+        require => [ File["/etc/haproxy/haproxy.cfg"] ],
+        unless  => "grep -qx provision-metadata-services /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
+    exec { "provision-encap-type" :
+        command => "python /opt/contrail/utils/provision_encap.py --admin_user $contrail_ks_admin_user --admin_password $contrail_ks_admin_passwd --encap_priority $contrail_encap_priority --oper add && echo provision-encap-type >> /etc/contrail/contrail-config-exec.out",
+        require => [ File["/etc/haproxy/haproxy.cfg"],  ],
+        unless  => "grep -qx provision-encap-type /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
+
+ if ! defined(File["/etc/haproxy/haproxy.cfg"]) {
+    file { "/etc/haproxy/haproxy.cfg":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+        source => "puppet:///modules/contrail-common/$hostname.cfg"
+    }
+        exec { "haproxy-exec":
+                command => "sudo sed -i 's/ENABLED=.*/ENABLED=1/g' /etc/default/haproxy; chkconfig haproxy on; service haproxy restart",
+                provider => shell,
+                logoutput => "true",
+                require => File["/etc/haproxy/haproxy.cfg"]
+        }
+
+   }
+
+    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["setup-rabbitmq-cluster"]->Exec["provision-metadata-services"]->Exec["provision-encap-type"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name

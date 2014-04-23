@@ -132,11 +132,11 @@ class ServerMgrPuppet:
     def puppet_add_openstack_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
         data = ''
-	if provision_params['haproxy'] == 'enable':
-            data += '''         #Source HA Proxy CFG
-        contrail-common::haproxy-cfg{haproxy_cfg:
-            server_id => "%s"}\n\n
-''' % (server["server_id"])
+#	if provision_params['haproxy'] == 'enable':
+ #           data += '''         #Source HA Proxy CFG
+  #      contrail-common::haproxy-cfg{haproxy_cfg:
+   #         server_id => "%s"}\n\n
+#''' % (server["server_id"])
 
 
         if (provision_params['openstack_mgmt_ip'] == ''):
@@ -169,6 +169,11 @@ class ServerMgrPuppet:
                 provision_params["service_token"],
                 provision_params["ks_passwd"], provision_params["haproxy"],
 		last_res_added)
+
+
+        if provision_params["haproxy"] == "enable":
+			create_openstack_ha_proxy(provision_params)
+
         return data
     # end puppet_add_openstack_role
 
@@ -346,6 +351,8 @@ $__contrail_disc_backend_servers__
 	contrail_rmq_master => "%s",
 	contrail_rmq_is_master => "%s",
 		contrail_region_name => "%s",
+		contrail_router_asn => "%s",
+		contrail_encap_priority => "%s",
         require => %s
     }\n\n''' % (openstack_server, contrail_openstack_mgmt_ip, compute_server,
 		provision_params["use_certs"], provision_params["multi_tenancy"],
@@ -358,17 +365,18 @@ $__contrail_disc_backend_servers__
         nworkers, sctl_lines, "enable",
 	provision_params['uuid'], provision_params['rmq_master'],
 	provision_params['is_rmq_master'], provision_params['region_name'],
+	provision_params['router_asn'], provision_params['encap_priority'],
 	last_res_added)
 	#add Ha Proxy
 	self.create_config_ha_proxy(provision_params)
 
 
-        data += '''         #Source HA Proxy CFG
-        contrail-common::haproxy-cfg{haproxy_cfg:
-            server_id => "%s",
-	    require => Contrail-config::Contrail-config[\"contrail_config\"]
-	}\n
-''' % (provision_params['server_id'])
+#        data += '''         #Source HA Proxy CFG
+#        contrail-common::haproxy-cfg{haproxy_cfg:
+#            server_id => "%s",
+#	    require => Contrail-config::Contrail-config[\"contrail_config\"]
+#	}\n
+#''' % (provision_params['server_id'])
 
 
         return data
@@ -483,6 +491,218 @@ $__contrail_disc_backend_servers__
         return data
     # end puppet_add_webui_role
 
+    #Function to create haproxy cfg file for compute nodes
+    def create_compute_ha_proxy(self, provision_params):
+
+        smgr_dir = "/etc/contrail/"
+        staging_dir = "/etc/puppet/modules/contrail-common/files/"
+
+        compute_haproxy_template = string.Template("""
+#contrail-compute-marker-start
+listen contrail-compute-stats :5938
+   mode http
+   stats enable
+   stats uri /
+   stats auth $__contrail_hap_user__:$__contrail_hap_passwd__
+
+$__contrail_disc_stanza__
+
+$__contrail_quantum_stanza__
+
+$__contrail_qpid_stanza__
+
+$__contrail_glance_api_stanza__
+
+#contrail-compute-marker-end
+""")
+
+
+        ds_stanza_template = string.Template("""
+$__contrail_disc_frontend__
+
+backend discovery-server-backend
+    balance     roundrobin
+$__contrail_disc_servers__
+    #server  10.84.14.2 10.84.14.2:5998 check
+""")
+
+        q_stanza_template = string.Template("""
+$__contrail_quantum_frontend__
+
+backend quantum-server-backend
+    balance     roundrobin
+$__contrail_quantum_servers__
+    #server  10.84.14.2 10.84.14.2:9696 check
+""")
+
+        g_api_stanza_template = string.Template("""
+$__contrail_glance_api_frontend__
+
+backend glance-api-backend
+    balance     roundrobin
+$__contrail_glance_apis__
+    #server  10.84.14.2 10.84.14.2:9292 check
+""")
+
+        ds_frontend = textwrap.dedent("""\
+        frontend discovery-server 127.0.0.1:5998
+            default_backend discovery-server-backend
+        """)
+
+        q_frontend = textwrap.dedent("""\
+        frontend quantum-server 127.0.0.1:9696
+            default_backend quantum-server-backend
+        """)
+
+        g_api_frontend = textwrap.dedent("""\
+        frontend glance-api 127.0.0.1:9292
+            default_backend glance-api-backend
+        """)
+
+        haproxy_config = ''
+
+        # if this compute is also config, skip quantum and discovery
+        # stanza as they would have been generated in config context
+        ds_stanza = ''
+        q_stanza = ''
+
+        config_ip_list = provision_params['roles']['config']
+        openstack_ip_list = provision_params['roles']['openstack']
+        compute_ip = provision_prams['server_ip']
+
+        if compute_ip not in config_ip_list:
+            # generate discovery service stanza
+            ds_server_lines = ''
+            for config_ip in config_ip_list:
+                host_ip = config_ip
+
+                ds_server_lines = ds_server_lines + \
+                '    server %s %s:5998 check\n' %(host_ip, host_ip)
+
+                ds_stanza = ds_stanza_template.safe_substitute({
+                    '__contrail_disc_frontend__': ds_frontend,
+                    '__contrail_disc_servers__': ds_server_lines,
+                    })
+
+            # generate  quantum stanza
+            q_server_lines = ''
+            for config_ip in config_ip_list:
+                host_ip = config_ip
+
+                q_server_lines = q_server_lines + \
+                '    server %s %s:9696 check\n' %(host_ip, host_ip)
+
+                q_stanza = q_stanza_template.safe_substitute({
+                    '__contrail_quantum_frontend__': q_frontend,
+                    '__contrail_quantum_servers__': q_server_lines,
+                    })
+
+        # if this compute is also openstack, skip glance-api stanza
+        # as that would have been generated in openstack context
+        g_api_stanza = ''
+        if compute_ip not in openstack_ip_list:
+            # generate a glance-api stanza
+            g_api_server_lines = ''
+            for openstack_ip in openstack_ip_list:
+                host_ip = openstack_ip
+
+                g_api_server_lines = g_api_server_lines + \
+                '    server %s %s:9292 check\n' %(host_ip, host_ip)
+
+                g_api_stanza = g_api_stanza_template.safe_substitute({
+                    '__contrail_glance_api_frontend__': g_api_frontend,
+                    '__contrail_glance_apis__': g_api_server_lines,
+                    })
+                # HACK: for now only one openstack
+                break
+
+        compute_haproxy = compute_haproxy_template.safe_substitute({
+               '__contrail_hap_user__': 'haproxy',
+            '__contrail_hap_passwd__': 'contrail123',
+            '__contrail_disc_stanza__': ds_stanza,
+            '__contrail_quantum_stanza__': q_stanza,
+            '__contrail_glance_api_stanza__': g_api_stanza,
+            '__contrail_qpid_stanza__': '',
+            })
+
+        ha_proxy_cfg = staging_dir + compute_host_string + ".cfg"
+
+        shutil.copy2(smgr_dir + "haproxy.cfg", ha_proxy_cfg)
+        cfg_file = open(ha_proxy_cfg, 'a')
+        cfg_file.write(compute_haproxy)
+        cfg_file.close()
+
+    #Function to create haproxy cfg for openstack nodes
+    def create_openstack_ha_proxy(self, roles, server_index, servers):
+        smgr_dir = "/etc/contrail/"
+        staging_dir = "/etc/puppet/modules/contrail-common/files/"
+        openstack_haproxy_template = string.Template("""
+#contrail-openstack-marker-start
+listen contrail-openstack-stats :5936
+   mode http
+   stats enable
+   stats uri /
+   stats auth $__contrail_hap_user__:$__contrail_hap_passwd__
+
+$__contrail_quantum_stanza__
+
+#contrail-openstack-marker-end
+""")
+
+        q_stanza_template = string.Template("""
+$__contrail_quantum_frontend__
+
+backend quantum-server-backend
+    balance     roundrobin
+$__contrail_quantum_servers__
+    #server  10.84.14.2 10.84.14.2:9696 check
+""")
+
+        q_frontend = textwrap.dedent("""\
+        frontend quantum-server 127.0.0.1:9696
+            default_backend quantum-server-backend
+        """)
+
+        config_ip_list = provision_params['roles']['config']
+        openstack_ip_list = provision_params['roles']['openstack']	
+        openstack_ip = provision_prams['server_ip']
+
+
+        # for all openstack, set appropriate haproxy stanzas
+        for openstack_ip in openstack_ip_list:
+            haproxy_config = ''
+
+            # if this openstack is also config, skip quantum stanza
+            # as that would have been generated in config context
+            q_stanza = ''
+            if openstack_ip not in openstack_ip_list:
+                # generate a quantum stanza
+                q_server_lines = ''
+                for config_ip in config_ip_list:
+                    host_ip = config_ip
+
+                    q_server_lines = q_server_lines + \
+                    '    server %s %s:9696 check\n' %(host_ip, host_ip)
+
+                    q_stanza = q_stanza_template.safe_substitute({
+                        '__contrail_quantum_frontend__': q_frontend,
+                        '__contrail_quantum_servers__': q_server_lines,
+                        })
+
+            # ...generate new ones
+            openstack_haproxy = openstack_haproxy_template.safe_substitute({
+                '__contrail_hap_user__': 'haproxy',
+                '__contrail_hap_passwd__': 'contrail123',
+                '__contrail_quantum_stanza__': q_stanza,
+                })
+
+            ha_proxy_cfg = staging_dir + openstack_host_string + ".cfg"
+
+            shutil.copy2(smgr_dir + "haproxy.cfg", ha_proxy_cfg)
+            cfg_file = open(ha_proxy_cfg, 'a')
+            cfg_file.write(openstack_haproxy)
+            cfg_file.close()
+
     def puppet_add_compute_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
         data = ''
@@ -507,11 +727,11 @@ $__contrail_disc_backend_servers__
             contrail_openstack_mgmt_ip = provision_params['roles']['openstack'][0]
         else:
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
-	if provision_params['haproxy'] == 'enable':
-            data += '''         #Source HA Proxy CFG
-        contrail-common::haproxy-cfg{haproxy_cfg:
-            server_id => "%s"}\n\n
-''' % (server["server_id"])
+#	if provision_params['haproxy'] == 'enable':
+#            data += '''         #Source HA Proxy CFG
+#        contrail-common::haproxy-cfg{haproxy_cfg:
+#            server_id => "%s"}\n\n
+#''' % (server["server_id"])
         data += '''    # contrail-compute role.
     contrail-compute::contrail-compute{contrail_compute:
         contrail_config_ip => "%s",
@@ -542,6 +762,11 @@ $__contrail_disc_backend_servers__
         provision_params["ks_user"], provision_params["ks_passwd"],
         provision_params["ks_tenant"], provision_params["haproxy"],
 	    last_res_added)
+
+
+        if provision_params["haproxy"] == "enable":
+            create_compute_ha_proxy(provision_params)
+
         return data
     # end puppet_add_compute_role
 
@@ -580,9 +805,9 @@ $__contrail_disc_backend_servers__
                 provision_params['roles'][role]:
                 data += self._roles_function_map[role](
                     self, provision_params, last_res_added)
-		if role == "config":
-		    last_res_added =  "Contrail-common::Haproxy-cfg[\"haproxy_cfg\"]"
-  		elif role == "zookeeper":
+#		if role == "config":
+#		    last_res_added =  "Contrail-common::Haproxy-cfg[\"haproxy_cfg\"]"
+  		if role == "zookeeper":
 		    last_res_added =  "Contrail-common::Contrail-cfg-zk[\"contrail_cfg_zk\"]"
 		else:
                     last_res_added = (
