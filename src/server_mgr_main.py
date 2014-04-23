@@ -100,7 +100,7 @@ class VncServerManager():
                 self._args.smgr_base_dir+self._args.db_name)
         except:
             print ("Error Connecting to Server Database %s"
-                   ) % (self._args.db_name)
+                   ) % (self._args.smgr_base_dir+self._args.db_name)
             exit()
 
         # Create an instance of cobbler interface class and connect to it.
@@ -526,18 +526,16 @@ class VncServerManager():
                     abort(404, "image id or location not specified")
                 if (image_type not in [
                         "centos", "fedora", "ubuntu",
-                        "contrail-ubuntu-repo"]):
+                        "contrail-ubuntu-package", "contrail-centos-package"]):
                     abort(404, "image type not specified or invalid")
-                # For repo, simply copy file to base directory,
-                # no cobbler operation is needed.
-                if (image_type == "contrail-ubuntu-repo"):
-                    extn = ".deb"
-                else:
-                    extn = ".iso"
+                extn = os.path.splitext(image_path)[1]
                 dest = self._args.smgr_base_dir + 'images/' + \
                     image_id + extn
                 subprocess.call(["cp", "-f", image_path, dest])
-                if (image_type == "contrail-ubuntu-repo"):
+                if ((image_type == "contrail-ubuntu-package") or
+                    (image_type == "contrail-centos-package")):
+                    # Abhay TBD - Add code to create repo for this
+                    # package in cobbler.
                     subprocess.call(
                         ["cp", "-f", dest,
                          self._args.html_root_dir + "contrail/images"])
@@ -562,10 +560,10 @@ class VncServerManager():
         image_type = bottle.request.forms.image_type
         if (image_type not in [
                 "centos", "fedora", "ubuntu",
-                "contrail-ubuntu-repo"]):
+                "contrail-ubuntu-package"]):
             abort(404, "image type not specified or invalid")
         file_name = bottle.request.files.file_name
-        if (image_type == "contrail-ubuntu-repo"):
+        if (image_type == "contrail-ubuntu-package"):
             extn = ".deb"
         else:
             extn = ".iso"
@@ -575,7 +573,7 @@ class VncServerManager():
             if file_name.file:
                 with open(dest, 'w') as open_file:
                     open_file.write(file_name.file.read())
-            if (image_type == "contrail-ubuntu-repo"):
+            if (image_type == "contrail-ubuntu-package"):
                 subprocess.call(["cp", "-f", dest,
                                  self._args.html_root_dir +
                                  "contrail/images"])
@@ -715,7 +713,7 @@ class VncServerManager():
             if not images:
                 abort(404, "Image not found")
             image = images[0]
-            if (image['image_type'] == 'contrail-ubuntu-repo'):
+            if (image['image_type'] == 'contrail-ubuntu-package'):
                 # remove the file
                 os.remove(self._args.smgr_base_dir + 'images/' +
                           image_id + '.deb')
@@ -858,7 +856,7 @@ class VncServerManager():
             base_image_id = entity.pop("base_image_id", None)
             if not base_image_id:
                 abort(404, "No base image id specified")
-            repo_image_id = entity.pop("repo_image_id", '')
+            package_image_id = entity.pop("package_image_id", '')
             req_reimage_params = entity.pop("reimage_params", None)
             # Now process other parameters there should be only one more
             if (req_reimage_params == None):
@@ -904,7 +902,7 @@ class VncServerManager():
                         ('server_domain' not in reimage_params)):
                         abort(404, "missing reimage parameters")
                     self._do_reimage_server(
-                        base_image, repo_image_id, reimage_params)
+                        base_image, package_image_id, reimage_params)
                 # end for server in servers
             # end if not servers
             else:
@@ -966,7 +964,7 @@ class VncServerManager():
                         'power_address', '')
                     # end if
                     self._do_reimage_server(
-                        base_image, repo_image_id, reimage_params)
+                        base_image, package_image_id, reimage_params)
                 # end for server in servers
             # end else
         except Exception as e:
@@ -1454,13 +1452,13 @@ class VncServerManager():
     # Internal private call to upgrade server. This is called by REST
     # API update_server and upgrade_cluster
     def _do_reimage_server(self, base_image,
-                           repo_image_id, reimage_params):
+                           package_image_id, reimage_params):
         try:
             # Profile name is based on image name.
             profile_name = base_image['image_id']
             # Setup system information in cobbler
             self._smgr_cobbler.create_system(
-                reimage_params['server_id'], profile_name, repo_image_id,
+                reimage_params['server_id'], profile_name, package_image_id,
                 reimage_params['server_mac'], reimage_params['server_ip'],
                 reimage_params['server_mask'], reimage_params['server_gway'],
                 reimage_params['server_domain'], reimage_params['server_ifname'],
@@ -1478,7 +1476,7 @@ class VncServerManager():
             update = {
                 'mac': reimage_params['server_mac'],
                 'base_image_id': base_image['image_id'],
-                'repo_image_id': repo_image_id}
+                'package_image_id': package_image_id}
             self._serverDb.modify_server(update)
 
             # TBD Need to add a way to confirm that server came up with

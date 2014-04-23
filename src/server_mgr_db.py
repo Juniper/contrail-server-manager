@@ -94,7 +94,7 @@ class ServerMgrDb:
                          ip TEXT, mask TEXT, gway TEXT, domain TEXT,
                          pod_id TEXT, rack_id TEXT, cluster_id TEXT,
                          vns_id TEXT, cloud_id TEXT, base_image_id TEXT,
-                         repo_image_id TEXT, passwd TEXT,
+                         package_image_id TEXT, passwd TEXT,
                          update_time TEXT, disc_flag varchar default 'N',
                          server_params TEXT, roles TEXT, power_user TEXT,
                          power_pass TEXT, power_address TEXT,
