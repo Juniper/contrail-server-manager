@@ -5,7 +5,7 @@
    Name : smgr_reimage_server.py
    Author : Abhay Joshi
    Description : This program is a simple cli interface that
-   provides reimaging a server with given iso and repo.
+   provides reimaging a server with given iso and package.
 """
 import argparse
 import pdb
@@ -24,14 +24,14 @@ def parse_arguments(args_str=None):
     if __name__ == "__main__":
         parser = argparse.ArgumentParser(
             description='''Reimage given server(s) with provided
-                           base ISO and repository. Servers can be
+                           base ISO and package. Servers can be
                            specified by search in DB, or provided
                            in a file or entered interactively.'''
         )
     else:
         parser = argparse.ArgumentParser(
             description='''Reimage given server(s) with provided
-                           base ISO and repository. Servers can be
+                           base ISO and package. Servers can be
                            specified by search in DB, or provided
                            in a file or entered interactively.''',
             prog="server-manager reimage"
@@ -48,8 +48,8 @@ def parse_arguments(args_str=None):
                               _DEF_SMGR_CFG_FILE)))
     parser.add_argument("base_image_id",
                         help="image id for base image to be used")
-    parser.add_argument("--repo_image_id", "-r",
-                        help=("Optional contrail repo to be copied"
+    parser.add_argument("--package_image_id", "-p",
+                        help=("Optional contrail package to be used"
                              " on reimaged server"))
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--server_id",
@@ -181,7 +181,7 @@ def reimage_server(args_str=None):
     
     payload = {}
     payload['base_image_id'] = args.base_image_id
-    payload['repo_image_id'] = args.repo_image_id
+    payload['package_image_id'] = args.package_image_id
     if match_key:
         payload[match_key] = match_value
     if reimage_params:
