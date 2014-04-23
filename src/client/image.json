@@ -14,7 +14,7 @@
         }, 
         {
             "image_id": "contrail-ubuntu-150", 
-            "image_type": "contrail-ubuntu-repo", 
+            "image_type": "contrail-ubuntu-package", 
             "image_version": "contrail-ubuntu-150",
             "image_path": "/iso/contrail-install-packages_1.03-150_all.deb"
         }

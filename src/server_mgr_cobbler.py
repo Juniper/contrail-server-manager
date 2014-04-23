@@ -212,7 +212,7 @@ class ServerMgrCobbler:
             raise e
     # End of create_profile
 
-    def create_system(self, system_name, profile_name, repo_image_id,
+    def create_system(self, system_name, profile_name, package_image_id,
                       mac, ip, subnet, gway, system_domain,
                       ifname, enc_passwd, server_license, esx_nicname,
                       power_type, power_user, power_pass, power_address,
@@ -279,7 +279,7 @@ class ServerMgrCobbler:
                 kernel_options += ' ip_address=' + ip
                 kernel_options += ' server=' + server_ip
                 kernel_options += ' contrail_repo_name=' + \
-                    repo_image_id + ".deb"
+                    package_image_id + ".deb"
                 self._server.modify_system(system_id, 'kernel_options',
                                            kernel_options, self._token)
 
