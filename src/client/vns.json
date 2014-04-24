@@ -1,7 +1,7 @@
 {
     "vns" : [
         {  
-            "vns_id" : "demo-vns",
+            "vns_id" : "vns-1",
             "vns_params" : {
                 "router_asn": "64512",
                 "database_dir": "/home/cassandra",
@@ -19,6 +19,8 @@
                 "mask": "255.255.255.0",
                 "gway": "10.84.51.254",
                 "passwd": "juniper",
+		"haproxy": "disable",
+		"ext_bgp": "[('blr-mx2', '10.204.216.245')]",
                 "domain": "demo.juniper.net"
                 }
         }

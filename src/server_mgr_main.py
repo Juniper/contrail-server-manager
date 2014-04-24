@@ -1213,7 +1213,7 @@ class VncServerManager():
                 provision_params['multi_tenancy'] = vns_params['multi_tenancy']
                 provision_params['router_asn'] = vns_params['router_asn']
                 provision_params['encap_priority'] = vns_params['encap_priority']
-                provision_params['service_token'] = vns_params['service_token']
+		provision_params['service_token'] = vns_params['service_token']
                 provision_params['ks_user'] = vns_params['ks_user']
                 provision_params['ks_passwd'] = vns_params['ks_passwd']
                 provision_params['ks_tenant'] = vns_params['ks_tenant']
@@ -1231,6 +1231,10 @@ class VncServerManager():
                     provision_params['execute_script'] = server_params['execute_script']
                 else:
                     provision_params['execute_script'] = ""
+		if 'ext_bgp' in vns_params.keys():
+		    provision_params['ext_bgp'] = vns_params['ext_bgp']
+		else:
+		    provision_params['ext_bgp'] = ""
 
                 self._do_provision_server(provision_params)
         except Exception as e:

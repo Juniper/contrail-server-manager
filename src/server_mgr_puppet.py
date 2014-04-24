@@ -350,9 +350,10 @@ $__contrail_disc_backend_servers__
         contrail_uuid => "%s",
 	contrail_rmq_master => "%s",
 	contrail_rmq_is_master => "%s",
-		contrail_region_name => "%s",
-		contrail_router_asn => "%s",
-		contrail_encap_priority => "%s",
+	contrail_region_name => "%s",
+	contrail_router_asn => "%s",
+	contrail_encap_priority => "%s",
+	contrail_bgp_params => "%s",
         require => %s
     }\n\n''' % (openstack_server, contrail_openstack_mgmt_ip, compute_server,
 		provision_params["use_certs"], provision_params["multi_tenancy"],
@@ -366,6 +367,7 @@ $__contrail_disc_backend_servers__
 	provision_params['uuid'], provision_params['rmq_master'],
 	provision_params['is_rmq_master'], provision_params['region_name'],
 	provision_params['router_asn'], provision_params['encap_priority'],
+	provision_params['ext_bgp'],
 	last_res_added)
 	#add Ha Proxy
 	self.create_config_ha_proxy(provision_params)

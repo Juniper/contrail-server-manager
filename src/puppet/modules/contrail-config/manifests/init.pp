@@ -57,6 +57,7 @@ define contrail-config (
 	$contrail_region_name,
 	$contrail_router_asn,
 	$contrail_encap_priority,
+	$contrail_bgp_params,
     ) {
 
     if $contrail_use_certs == "yes" {
@@ -298,19 +299,27 @@ define contrail-config (
         provider => shell,
         logoutput => "true"
     }
-#    if ($contrail_multi_tenancy == "True") {
-#	$mt_options = " --admin_user root --admin_password $contrail_ --admin_tenant_name $contrail_"
-#    } else {
-#        $mt_options = ""
-#    }
+    if ($contrail_multi_tenancy == "True") {
+	$mt_options = " --admin_user root --admin_password $contrail_ --admin_tenant_name $contrail_"
+    } else {
+        $mt_options = ""
+    }
 
- #   exec { "provision-external-bgp" :
-#        command => "python /opt/contrail/utils/provision_mx.py --api_server_ip $contrail_config_ip --api_server_port 8082 --router_name $contrail_ext_bgp_name --router_ip $contrail_ext_bgp_ip --router_asn $contrail_router_asn $mt_options && echo provision-external-bgp >> /etc/contrail/contrail-config-exec.out",
-#        require => [ File["/opt/contrail/utils/provision_mx.py"] ],
-#        unless  => "grep -qx provision-external-bgp /etc/contrail/contrail-config-exec.out",
-#        provider => shell,
-#        logoutput => "true"
-#    }
+    file { "/etc/contrail/contrail_setup_utils/setup_external_bgp.py" :
+            ensure  => present,
+            mode => 0755,
+#            user => root,
+            group => root,
+            source => "puppet:///modules/contrail-config/setup_external_bgp.py"
+    }
+
+   exec { "provision-external-bgp" :
+        command => "python /etc/contrail/contrail_setup_utils/setup_external_bgp.py --bgp_params \"$contrail_bgp_params\" --api_server_ip $contrail_config_ip --api_server_port 8082 --router_asn $contrail_router_asn --mt_options \"$mt_options\" && echo provision-external-bgp >> /etc/contrail/contrail-config-exec.out",
+        require => [ File["/etc/contrail/contrail_setup_utils/setup_external_bgp.py"] ],
+        unless  => "grep -qx provision-external-bgp /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
 
     exec { "provision-metadata-services" :
         command => "python /opt/contrail/utils/provision_linklocal.py --admin_user $contrail_ks_admin_user --admin_password $contrail_ks_admin_passwd --linklocal_service_name metadata --linklocal_service_ip 169.254.169.254 --linklocal_service_port 80 --ipfabric_service_ip $contrail_openstack_ip --ipfabric_service_port 8775 --oper add && echo provision-metadata-services >> /etc/contrail/contrail-config-exec.out",
