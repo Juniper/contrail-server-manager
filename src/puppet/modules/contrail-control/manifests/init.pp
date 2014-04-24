@@ -75,7 +75,22 @@ define contrail-control (
         logoutput => 'true'
     }
 
-    Package["contrail-openstack-control"]->Exec['control-venv']->Control-template-scripts["control_param"]->Control-template-scripts["dns_param"]->Exec["provision-control"]
+    file { "/opt/contrail/contrail_installer/contrail_setup_utils/control-server-setup.sh":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+    }
+    exec { "control-server-setup" :
+        command => "/opt/contrail/contrail_installer/contrail_setup_utils/control-server-setup.sh; echo control-server-setup >> /etc/contrail/contrail-control-exec.out",
+        require => File["/opt/contrail/contrail_installer/contrail_setup_utils/control-server-setup.sh"],
+        unless  => "grep -qx control-server-setup /etc/contrail/contrail-control-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
+
+    Package["contrail-openstack-control"]->Exec['control-venv']->Control-template-scripts["control_param"]->Control-template-scripts["dns_param"]->Exec["provision-control"]->Exec["control-server-setup"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name
