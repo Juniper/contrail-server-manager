@@ -5,6 +5,8 @@ import sys
 
 def provision_bgp(bgp_params, api_server_ip, api_server_port, router_asn , mt_options):
 #    pdb.set_trace()
+    if bgp_params == '':
+        sys.exit(0)
     bgp_peer_list = eval(bgp_params)
     for bgp_peer in bgp_peer_list:
         cmd = "python /opt/contrail/utils/provision_mx.py --api_server_ip %s --api_server_port %s --router_name %s --router_ip %s --router_asn %s %s" % (api_server_ip, api_server_port, bgp_peer[0], bgp_peer[1], router_asn, mt_options)
