@@ -171,7 +171,7 @@ class VncServerManager():
         bottle.route('/image', 'PUT', self.add_image)
         bottle.route('/image/upload', 'PUT', self.upload_image)
         bottle.route('/vns', 'PUT', self.add_vns)
-	    bottle.route('/status', 'PUT', self.put_status)
+        bottle.route('/status', 'PUT', self.put_status)
 
         # REST calls for DELETE methods (Remove records)
         bottle.route('/cluster', 'DELETE', self.delete_cluster)
