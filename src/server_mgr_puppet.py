@@ -89,15 +89,105 @@ class ServerMgrPuppet:
                 script_args.replace('"','\''), last_res_added)
         return data
 
-
+    #API to return control interfaces IP address 
+    # else return MGMT IP address
+    def get_control_ip(self, provision_params, mgmt_ip):
+	intf_control = {}
+	if provision_params['control_net'] [mgmt_ip]:
+	    intf_control = eval(provision_params['control_net'] [mgmt_ip])        
+	for intf,values in intf_control.items():
+	    if intf:
+		return str(IPNetwork(values['ip']).ip)
+	    else:
+		return provision_params['server_ip']	
+	return mgmt_ip
 
     def puppet_add_common_role(self, provision_params, last_res_added=None):
-        data = '''    # custom type common for all roles.
+
+	#add Interface Steps
+	intf_bonds = {}
+	intf_control = {}
+	intf_data = {}
+	if provision_params['intf_bond']:
+	    intf_bonds = eval(provision_params['intf_bond'])
+	data = ""
+	requires_cmd = ""
+	require_list = []
+	if provision_params['intf_control']:
+	    intf_control = eval(provision_params['intf_control'])
+	for intf,values in intf_control.items():
+	    members = ""
+	    mode = ""
+	    if intf in intf_bonds.keys():
+		bond = intf_bonds[intf]
+		members = bond['member']
+	        mode = bond['mode']	
+            require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
+	    require_list.append(require_cmd)
+	    data += '''     # Setup Interface
+    contrail-common::contrail-setup-interface{%s:
+	contrail_device => "%s",
+	contrail_members => "%s",
+	contrail_mode => "%s",
+	contrail_ip => "%s",
+	contrail_gw => "%s"
+    }\n\n''' % (intf, intf, members , mode,
+	values['ip'], values['gw'])
+	    
+
+	if provision_params['intf_data']:
+	    intf_data = eval(provision_params['intf_data'])
+	for intf,values in intf_data.items():
+	    members = ""
+	    mode = ""
+	    if intf in intf_bonds.keys():
+		bond = intf_bonds[intf]
+		members = bond['member']
+	        mode = bond['mode']	
+            require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
+	    require_list.append(require_cmd)
+	    data += '''     # Setup Interface
+    contrail-common::contrail-setup-interface{%s:
+	contrail_device => "%s",
+	contrail_members => "%s",
+	contrail_mode => "%s",
+	contrail_ip => "%s",
+	contrail_gw => "%s"
+    }\n\n''' % (intf, intf, members , mode,
+	values['ip'], values['gw'])
+
+        data += '''    # custom type common for all roles.
     contrail-common::contrail-common{contrail_common:
        self_ip => "%s",
        system_name => "%s",
+       require => %s
     }\n\n''' % (provision_params["server_ip"],
-                provision_params["server_id"])
+                provision_params["server_id"],
+		'[%s]' % ','.join(map(str, require_list)) )
+
+
+#	intf_bond = eval(provision_params['intf_bond'])
+#	for bond in intf_bond:
+#	    data += '''     # Setup Interface
+#    contrail-common::contrail-setup-interface{%s:
+#	contrail_device => "%s",
+#	contrail_members => "%s",
+#	contrail_mode => "%s",
+#	contrail_ip => "%s",
+#	contrail_gw => "%s"
+#    }\n\n''' % (bond['dev_id'], bond['dev_id'],
+#	 bond['member'] , bond['mode'],
+#	values['ip'], values['gw'])
+
+#	data += '''     # Setup Interface
+#    contrail-common::contrail-setup-interface{%s:
+#	contrail_device => %s,
+#	contrail_members => %s,
+#	contrail_mode => %s,
+#	contrail_ip => %s,
+#	contrail_gw => %s
+#    }\n\n''' % ()
+
         return data
     # end puppet_add_common_role
 
@@ -109,6 +199,7 @@ class ServerMgrPuppet:
         else:
             config_server = provision_params['roles']['config'][0]
 
+        database_ip = self.get_control_ip(provision_params, provision_params['server_ip'])
         cassandra_seeds = ["\"%s\""%(x) for x in \
             provision_params['roles']['database']]
         data += '''    # contrail-database role.
@@ -120,7 +211,7 @@ class ServerMgrPuppet:
         system_name => "%s",
         contrail_config_ip => "%s", 
         require => %s
-    }\n\n''' % (provision_params["server_ip"],
+    }\n\n''' % (database_ip,
                 provision_params["database_dir"],
                 provision_params["db_initial_token"],
                 ','.join(cassandra_seeds),

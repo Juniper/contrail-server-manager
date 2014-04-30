@@ -89,7 +89,6 @@ define contrail-control (
         logoutput => "true"
     }
 
-
     Package["contrail-openstack-control"]->Exec['control-venv']->Control-template-scripts["control_param"]->Control-template-scripts["dns_param"]->Exec["provision-control"]->Exec["control-server-setup"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails

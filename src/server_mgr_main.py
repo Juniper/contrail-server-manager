@@ -162,6 +162,7 @@ class VncServerManager():
         bottle.route('/vns', 'GET', self.get_vns)
         bottle.route('/server', 'GET', self.get_server)
         bottle.route('/image', 'GET', self.get_image)
+        bottle.route('/status', 'GET', self.get_status)
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
@@ -170,6 +171,7 @@ class VncServerManager():
         bottle.route('/image', 'PUT', self.add_image)
         bottle.route('/image/upload', 'PUT', self.upload_image)
         bottle.route('/vns', 'PUT', self.add_vns)
+	    bottle.route('/status', 'PUT', self.put_status)
 
         # REST calls for DELETE methods (Remove records)
         bottle.route('/cluster', 'DELETE', self.delete_cluster)
@@ -353,6 +355,22 @@ class VncServerManager():
             abort(404, repr(e))
         return entity
     # end add_vns
+
+    def put_status(self):
+	server_id = bottle.request.query['server_id']
+	body = bottle.request.body.read()
+	server_data = {}
+	server_data['server_id'] = server_id
+	server_data['server_status'] = body
+	servers = self._serverDb.put_status(
+                    server_data)
+
+
+    def get_status(self):
+	server_id = bottle.request.query['server_id']		
+	servers = self._serverDb.get_status('server_id',
+                    server_id, True)
+	return servers[0]	
 
     def config_cluster(self):
         role_compute = {
@@ -1064,6 +1082,14 @@ class VncServerManager():
                 servers.append(server)
         return servers
 
+    #Function to get control section for all servers
+    # belonging to the same VN
+    def get_control_net(self, vns_servers):
+	server_control_list = {}
+	for server in vns_servers:
+	    server_control_list[server['ip']] = server['intf_control']
+	return server_control_list
+
     # Function to get map server name to server ip
     # accepts list of server names and returns list of
     # server ips
@@ -1204,7 +1230,16 @@ class VncServerManager():
 	            provision_params['is_rmq_master'] = "yes"
 		else:
 		    provision_params['is_rmq_master'] = "no"
-
+		provision_params['intf_control'] = ""
+		provision_params['intf_bond'] = ""
+		provision_params['intf_data'] = ""
+		if server['intf_control']:
+		    provision_params['intf_control'] = server['intf_control']
+		if server['intf_data']:
+		    provision_params['intf_data'] = server['intf_data']
+		if server['intf_bond']:
+		    provision_params['intf_bond'] = server['intf_bond']
+		provision_params['control_net'] = self.get_control_net(vns_servers)
                 provision_params['server_ip'] = server['ip']
                 provision_params['database_dir'] = vns_params['database_dir']
                 provision_params['db_initial_token'] = vns_params['db_initial_token']

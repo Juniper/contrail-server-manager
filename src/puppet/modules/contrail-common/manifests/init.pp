@@ -91,6 +91,27 @@ define contrail-exec-script($script_name, $args) {
 	}
 }
 
+define contrail-setup-interface(
+	$contrail_device,
+	$contrail_members,
+	$contrail_mode,
+	$contrail_ip,
+	$contrail_gw
+    ) {
+#$contrail_intf_member_list_for_shell = inline_template('<%= contrail_members.map{ |ip| "#{ip}" }.join_with_prefix("\"", ",\"") %>')
+$contrail_intf_member_list_for_shell = inline_template('<%= contrail_members.map{ |ip| "\'#{ip}\'" }.join(",") %>')
+#$contrail_intf_member_list_for_shell = inline_template('<%= contrail_members.map(&:to_s) %>')
+
+	exec { "setup-intf-$contrail_device":
+                command => "/opt/contrail/contrail_installer/setup-vnc-interfaces.py --device $contrail_device --members \"[$contrail_intf_member_list_for_shell]\" --mode $contrail_mode --ip $contrail_ip --gw $contrail_gw && echo setup-intf${contrail_device} >> /etc/contrail/contrail-common-exec.out",
+                provider => shell,
+                logoutput => "true",
+                unless  => "grep -qx setup-intf${contrail_device} /etc/contrail/contrail-common-exec.out"
+        }
+
+
+}
+
 # macro to perform common functions
 define contrail-common (
         $self_ip,
@@ -239,6 +260,13 @@ define contrail-common (
     
 
     }
+
+    exec { "contrail-status" :
+        command => "(contrail-status > /tmp/contrail_status || echo re-images > /tmp/contrail_status) &&  curl -v -X PUT -d @/tmp/contrail_status http://$serverip:9001/status?server_id=$hostname && echo contrail-status >> /etc/contrail/contrail-common-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
 
 }
 
