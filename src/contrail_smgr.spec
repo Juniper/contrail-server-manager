@@ -134,7 +134,7 @@ cp %{_contrail_smgr_src}third_party/bottle.py %{buildroot}%{_contrailopt}%{_cont
 
 cp %{_contrail_smgr_src}contrail_smgrd %{buildroot}%{_initdetc}
 cp -r %{_contrail_smgr_src}/puppet %{buildroot}%{_contrailetc}
-cp -r %{_contrail_smgr_src}repos/puppet-repo %{buildroot}%{_contrailetc}
+cp -r %{_contrail_smgr_src}repos/contrail-centos-repo %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}cobbler %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}kickstarts %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}client/smgr_client_config.ini %{buildroot}%{_contrailetc}

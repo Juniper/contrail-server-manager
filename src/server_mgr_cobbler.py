@@ -12,7 +12,7 @@ _DEF_COBBLER_PORT = ''
 _DEF_USERNAME = 'cobbler'
 _DEF_PASSWORD = 'cobbler'
 _DEF_BASE_DIR = '/etc/contrail/'
-_CONTRAIL_PUPP_REPO = 'contrail-puppet-repo'
+_CONTRAIL_CENTOS_REPO = 'contrail-centos-repo'
 
 
 class cobTokenCheckThread(threading.Thread):
@@ -78,18 +78,18 @@ class ServerMgrCobbler:
             self._token = self._server.login(self._cobbler_username,
                                              self._cobbler_password)
 
-            # Copy puppet repo to cobber repos, so that target systems
-            # can install and run puppet agent from kickstart.
-            repo = self._server.find_repo({"name": _CONTRAIL_PUPP_REPO})
+            # Copy contrail centos repo to cobber repos, so that target
+            # systems can install and run puppet agent from kickstart.
+            repo = self._server.find_repo({"name": _CONTRAIL_CENTOS_REPO})
             if repo:
                 rid = self._server.get_repo_handle(
-                    _CONTRAIL_PUPP_REPO, self._token)
+                    _CONTRAIL_CENTOS_REPO, self._token)
             else:
                 rid = self._server.new_repo(self._token)
             self._server.modify_repo(rid, "arch", "x86_64", self._token)
-            repo_dir = base_dir + "puppet-repo"
+            repo_dir = base_dir + "contrail-centos-repo"
             self._server.modify_repo(
-                rid, "name", _CONTRAIL_PUPP_REPO, self._token)
+                rid, "name", _CONTRAIL_CENTOS_REPO, self._token)
             self._server.modify_repo(rid, "mirror", repo_dir, self._token)
             self._server.modify_repo(rid, "keep_updated", True, self._token)
             self._server.modify_repo(rid, "priority", "99", self._token)
@@ -100,7 +100,7 @@ class ServerMgrCobbler:
             self._server.modify_repo(rid, "comment", "...", self._token)
             self._server.save_repo(rid, self._token)
             # Issue cobbler reposync for this repo
-            cmd = "cobbler reposync --only=" + _CONTRAIL_PUPP_REPO
+            cmd = "cobbler reposync --only=" + _CONTRAIL_CENTOS_REPO
             subprocess.call(cmd, shell=True)
             # Start a thread to keep cobbler token active. Comment out when
             # needed for testing...
@@ -162,7 +162,7 @@ class ServerMgrCobbler:
             self._server.modify_profile(profile_id, "kernel_options",
                                         kernel_options, self._token)
             if ((image_type == "centos") or (image_type == "fedora")):
-                repo_list = [_CONTRAIL_PUPP_REPO]
+                repo_list = [_CONTRAIL_CENTOS_REPO]
                 self._server.modify_profile(profile_id, "repos",
                                             repo_list, self._token)
             self._server.save_profile(profile_id, self._token)
@@ -218,8 +218,9 @@ class ServerMgrCobbler:
                 kernel_options += ' system_domain=' + system_domain
                 kernel_options += ' ip_address=' + ip
                 kernel_options += ' server=' + server_ip
-                kernel_options += ' contrail_repo_name=' + \
-                    package_image_id + ".deb"
+                if package_image_id:
+                    kernel_options += ' contrail_repo_name=' + \
+                        package_image_id + ".deb"
                 self._server.modify_system(system_id, 'kernel_options',
                                            kernel_options, self._token)
 

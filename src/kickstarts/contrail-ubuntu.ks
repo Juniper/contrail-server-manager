@@ -28,30 +28,33 @@ APT
   };
 }
 EOF
-#--------------------------------------------------------------------------
-# Create directory to copy the package file
-mkdir -p /tmp
-cd /tmp
-wget http://$server/contrail/images/$contrail_repo_name
-#--------------------------------------------------------------------------
-# Install the package file
-dpkg -i $contrail_repo_name
-#--------------------------------------------------------------------------
-# Execute shell script to create repo
-cd /opt/contrail/contrail_packages
-./setup.sh
-#--------------------------------------------------------------------------
-# Install puppet
-apt-get -f -y install
-apt-get -y install puppet
-#--------------------------------------------------------------------------
-# Enable puppet conf setting to allow custom facts
-echo "[agent]" >> /etc/puppet/puppet.conf
-echo "    pluginsync = true" >> /etc/puppet/puppet.conf
-echo "    ignorecache = true" >> /etc/puppet/puppet.conf
-echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
-#--------------------------------------------------------------------------
-# Enable to start puppet agent on boot & Run Puppet agent
-sed -i 's/START=.*$/START=yes/' /etc/default/puppet
-puppet agent --waitforcert 60 --test
+if [ "$contrail_repo_name" != "" ];
+then
+    #--------------------------------------------------------------------------
+    # Create directory to copy the package file
+    mkdir -p /tmp
+    cd /tmp
+    wget http://$server/contrail/images/$contrail_repo_name
+    #--------------------------------------------------------------------------
+    # Install the package file
+    dpkg -i $contrail_repo_name
+    #--------------------------------------------------------------------------
+    # Execute shell script to create repo
+    cd /opt/contrail/contrail_packages
+    ./setup.sh
+    #--------------------------------------------------------------------------
+    # Install puppet
+    apt-get -f -y install
+    apt-get -y install puppet
+    #--------------------------------------------------------------------------
+    # Enable puppet conf setting to allow custom facts
+    echo "[agent]" >> /etc/puppet/puppet.conf
+    echo "    pluginsync = true" >> /etc/puppet/puppet.conf
+    echo "    ignorecache = true" >> /etc/puppet/puppet.conf
+    echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
+    #--------------------------------------------------------------------------
+    # Enable to start puppet agent on boot & Run Puppet agent
+    sed -i 's/START=.*$/START=yes/' /etc/default/puppet
+    puppet agent --waitforcert 60 --test
+fi
 %end
