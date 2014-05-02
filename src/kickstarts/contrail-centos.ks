@@ -54,13 +54,34 @@ openssh-clients
 ntpdate
 ntp
 puppet
+#if $getVar("contrail_repo_name","") != ""
+contrail-install-packages
+#end if
+
 
 $SNIPPET('func_install_if_enabled')
 ## $SNIPPET('puppet_install_if_enabled')
 
 %post
 $SNIPPET('log_ks_post')
-$SNIPPET('contrail_centos_ntp_config')
+
+## Configure NTP to access cobbler/puppet master as NTP server
+/usr/sbin/ntpdate $http_server
+/sbin/hwclock --systohc
+/bin/mv /etc/ntp.conf /etc/ntp.conf.orig
+/bin/touch /var/lib/ntp/drift
+cat << __EOT__ > /etc/ntp.conf
+driftfile /var/lib/ntp/drift
+server $http_server  iburst
+restrict 127.0.0.1
+restrict -6 ::1
+includefile /etc/ntp/crypto/pw
+keys /etc/ntp/keys
+__EOT__
+/sbin/chkconfig ntpd on
+/sbin/chkconfig
+/sbin/service ntpd start
+
 # Start yum configuration 
 $yum_config_stanza
 # End yum configuration
@@ -68,6 +89,22 @@ $SNIPPET('post_install_kernel_options')
 ## $SNIPPET('post_install_network_config')
 $SNIPPET('func_register_if_enabled')
 ##$SNIPPET('puppet_register_if_enabled')
+## Configure puppet agent and start it
+echo "$server puppet" >> /etc/hosts
+echo "$ip_address $system_name.$system_domain $system_name" >> /etc/hosts
+#if $str($getVar('puppet_auto_setup','')) == "1"
+## Tmp fix, copy the init.d script for puppet agent. This should be included in puppet package install.
+wget -O /etc/init.d/puppet "http://$server:$http_port/cobbler/aux/puppet"
+chmod 755 /etc/init.d/puppet
+echo "[agent]" >> /etc/puppet/puppet.conf
+echo "    pluginsync = true" >> /etc/puppet/puppet.conf
+## generate puppet certificates and trigger a signing request, but
+## don't wait for signing to complete
+/usr/sbin/puppetd --test --waitforcert 0
+## turn puppet service on for reboot
+/sbin/chkconfig puppet on
+#end if
+
 $SNIPPET('download_config_files')
 $SNIPPET('koan_environment')
 $SNIPPET('redhat_register')

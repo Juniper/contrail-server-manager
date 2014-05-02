@@ -525,15 +525,28 @@ class VncServerManager():
                 if (image_type not in [
                         "centos", "fedora", "ubuntu",
                         "contrail-ubuntu-package", "contrail-centos-package"]):
-                    abort(404, "image type not specified or invalid")
+                    abort(
+                        404,
+                        "image type not specified or invalid for image %s" %(
+                            image_id))
+                db_images = self._serverDb.get_image(
+                    'image_id', image_id, False)
+                if db_images:
+                    abort(
+                        404,
+                        "image %s already exists" %(
+                            image_id))
                 extn = os.path.splitext(image_path)[1]
                 dest = self._args.smgr_base_dir + 'images/' + \
                     image_id + extn
                 subprocess.call(["cp", "-f", image_path, dest])
-                if ((image_type == "contrail-ubuntu-package") or
-                    (image_type == "contrail-centos-package")):
-                    # Abhay TBD - Add code to create repo for this
-                    # package in cobbler.
+                if (image_type == "contrail-centos-package"):
+                    subprocess.call(
+                        ["cp", "-f", dest,
+                         self._args.html_root_dir + "contrail/images"])
+                    self._create_repo(
+                        image_id, image_type, image_version, dest)
+                elif (image_type == "contrail-ubuntu-package"):
                     subprocess.call(
                         ["cp", "-f", dest,
                          self._args.html_root_dir + "contrail/images"])
@@ -588,6 +601,50 @@ class VncServerManager():
         except Exception as e:
             abort(404, repr(e))
     # End of upload_image
+
+    # Given a package, create repo for it on cobbler. The repo created is
+    # modified to include the wrapper package too (!!). This is needed as
+    # setup.sh and other scripts needed on target can be easily installed.
+    def _create_repo(
+        self, image_id, image_type, image_version, dest):
+        try:
+            # create a repo-dir where we will create the repo
+            mirror = self._args.smgr_base_dir+"repo/"+image_id
+            cmd = "mkdir -p %s" %(mirror)
+            subprocess.call(cmd, shell=True)
+            # change directory to the new one created
+            cwd = os.getcwd()
+            os.chdir(mirror)
+            # add wrapper package itself to the repo
+            cmd = "cp -f %s %s" %(
+                dest, mirror)
+            subprocess.call(cmd, shell=True)
+            # Extract .tgz of other packages from the repo
+            cmd = (
+                "rpm2cpio %s | cpio -ivd ./opt/contrail/contrail_packages/"
+                "contrail_rpms.tgz" %(dest))
+            subprocess.call(cmd, shell=True)
+            cmd = ("mv ./opt/contrail/contrail_packages/contrail_rpms.tgz .")
+            subprocess.call(cmd, shell=True)
+            cmd = ("rm -rf opt")
+            subprocess.call(cmd, shell=True)
+            # untar tgz to get all packages
+            cmd = ("tar xvzf contrail_rpms.tgz")
+            subprocess.call(cmd, shell=True)
+            # remove the tgz file itself, not needed any more
+            cmd = ("rm -f contrail_rpms.tgz")
+            subprocess.call(cmd, shell=True)
+            # build repo using createrepo
+            cmd = ("createrepo .")
+            subprocess.call(cmd, shell=True)
+            # change directory back to original
+            os.chdir(cwd)
+            # cobbler add repo
+            self._smgr_cobbler.create_repo(
+                image_id, mirror)
+        except Exception as e:
+            raise(e)
+    # end create repo
 
     # Copy to Cobbler as a distro and profile.
     # Distro related stuff. Check if distro for given ISO exists already.
@@ -701,7 +758,7 @@ class VncServerManager():
         return "Server deleted"
     # end delete_server
 
-    # API Call to delete an ISO image
+    # API Call to delete an image
     def delete_image(self):
         try:
             image_id = bottle.request.query.image_id
@@ -711,13 +768,24 @@ class VncServerManager():
             if not images:
                 abort(404, "Image not found")
             image = images[0]
-            if (image['image_type'] == 'contrail-ubuntu-package'):
+            if ((image['image_type'] == 'contrail-ubuntu-package') or
+                (image['image_type'] == 'contrail-centos-package')):
+                ext_dir = {
+                    "contrail-ubuntu-package" : ".deb",
+                    "contrail-centos-package": ".rpm" }
                 # remove the file
                 os.remove(self._args.smgr_base_dir + 'images/' +
-                          image_id + '.deb')
+                          image_id + ext_dir[image['image_type']])
                 os.remove(self._args.html_root_dir +
                           'contrail/images/' +
-                          image_id + '.deb')
+                          image_id + ext_dir[image['image_type']])
+
+                # remove repo dir
+                shutil.rmtree(
+                    self._args.smgr_base_dir + "repo/" +
+                    image_id, True)
+                # delete repo from cobbler
+                self._smgr_cobbler.delete_repo(image_id)
             else:
                 # delete corresponding distro from cobbler
                 self._smgr_cobbler.delete_distro(image_id)
@@ -729,7 +797,7 @@ class VncServerManager():
                 # Remove the tree copied under cobbler.
                 dir_path = self._args.html_root_dir + \
                     'contrail/images/' + image_id
-                shutil.rmtree(dir_path)
+                shutil.rmtree(dir_path, True)
             # remove the entry from DB
             self._serverDb.delete_image(image_id)
         except Exception as e:

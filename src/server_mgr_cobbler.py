@@ -170,6 +170,27 @@ class ServerMgrCobbler:
             raise e
     # End of create_profile
 
+    def create_repo(self, repo_name, mirror):
+        try:
+            repo = self._server.find_repo({"name": repo_name})
+            if repo:
+                rid = self._server.get_repo_handle(
+                    repo_name, self._token)
+            else:
+                rid = self._server.new_repo(self._token)
+            self._server.modify_repo(rid, "arch", "x86_64", self._token)
+            self._server.modify_repo(
+                rid, "name", repo_name, self._token)
+            self._server.modify_repo(rid, "mirror", mirror, self._token)
+            self._server.modify_repo(rid, "mirror_locally", True, self._token)
+            self._server.save_repo(rid, self._token)
+            # Issue cobbler reposync for this repo
+            cmd = "cobbler reposync --only=" + repo_name
+            subprocess.call(cmd, shell=True)
+        except Exception as e:
+            raise e
+    # End of create_repo
+
     def create_system(self, system_name, profile_name, package_image_id,
                       mac, ip, subnet, gway, system_domain,
                       ifname, enc_passwd,
@@ -210,6 +231,9 @@ class ServerMgrCobbler:
             ks_metadata += ' ip_address=' + ip
             ks_metadata += ' system_name=' + system_name
             ks_metadata += ' system_domain=' + system_domain
+            if package_image_id:
+                ks_metadata += ' contrail_repo_name=' + \
+                    package_image_id
             self._server.modify_system(system_id, 'ksmeta',
                                        ks_metadata, self._token)
 
@@ -220,7 +244,7 @@ class ServerMgrCobbler:
                 kernel_options += ' server=' + server_ip
                 if package_image_id:
                     kernel_options += ' contrail_repo_name=' + \
-                        package_image_id + ".deb"
+                        package_image_id
                 self._server.modify_system(system_id, 'kernel_options',
                                            kernel_options, self._token)
 
@@ -274,14 +298,21 @@ class ServerMgrCobbler:
         try:
             self._server.remove_distro(distro_name, self._token)
         except Exception as e:
-            raise e
+            pass
     # End of delete_distro
+
+    def delete_repo(self, repo_name):
+        try:
+            self._server.remove_repo(repo_name, self._token)
+        except Exception as e:
+            pass
+    # End of delete_repo
 
     def delete_profile(self, profile_name):
         try:
             self._server.remove_profile(profile_name, self._token)
         except Exception as e:
-            raise e
+            pass
     # End of delete_profile
 
     def delete_system(self, system_name):

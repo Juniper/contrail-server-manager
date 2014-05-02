@@ -34,10 +34,10 @@ then
     # Create directory to copy the package file
     mkdir -p /tmp
     cd /tmp
-    wget http://$server/contrail/images/$contrail_repo_name
+    wget http://$server/contrail/images/$contrail_repo_name.deb
     #--------------------------------------------------------------------------
     # Install the package file
-    dpkg -i $contrail_repo_name
+    dpkg -i $contrail_repo_name.deb
     #--------------------------------------------------------------------------
     # Execute shell script to create repo
     cd /opt/contrail/contrail_packages
