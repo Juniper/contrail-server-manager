@@ -231,7 +231,7 @@ class ServerMgrDb:
         try:
             # Store vns_params dictionary as a text field
             vns_params = vns_data.pop("vns_params", None)
-            if vns_params:
+            if vns_params is not None:
                 vns_data['vns_params'] = str(vns_params)
             self._add_row(vns_table, vns_data)
         except Exception as e:
@@ -245,11 +245,11 @@ class ServerMgrDb:
                     EUI(server_data['mac'])).replace("-", ":")
             # Store roles list as a text field
             roles = server_data.pop("roles", None)
-            if roles:
+            if roles is not None:
                 server_data['roles'] = str(roles)
             # Store server_params dictionary as a text field
             server_params = server_data.pop("server_params", None)
-            if server_params:
+            if server_params is not None:
                 server_data['server_params'] = str(server_params)
             self._add_row(server_table, server_data)
             # Create an entry for cluster, pod, rack etc if needed.
@@ -350,7 +350,7 @@ class ServerMgrDb:
                 raise Exception("No vns id specified")
             # Store vns_params dictionary as a text field
             vns_params = vns_data.pop("vns_params", None)
-            if vns_params:
+            if vns_params is not None:
                 vns_data['vns_params'] = str(vns_params)
             self._modify_row(vns_table, vns_data,
                              'vns_id', vns_id)
@@ -384,11 +384,11 @@ class ServerMgrDb:
                     server_mac = self.get_server_mac(server_id)
             # Store roles list as a text field
             roles = server_data.pop("roles", None)
-            if roles:
+            if roles is not None:
                 server_data['roles'] = str(roles)
             # Store server_params dictionary as a text field
             server_params = server_data.pop("server_params", None)
-            if server_params:
+            if server_params is not None:
                 server_data['server_params'] = str(server_params)
             self._modify_row(server_table, server_data,
                              'mac', server_mac)

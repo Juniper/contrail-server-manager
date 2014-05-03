@@ -827,7 +827,10 @@ class VncServerManager():
                         'roles',
                         'server_params',
                         'domain']:
-                        abort(404, 'invalid field in vns')
+                        abort(
+                            404,
+                            "invalid field %s in server json" %(
+                                key))
                 self._serverDb.modify_server(server)
         except Exception as e:
             abort(404, repr(e))
@@ -920,119 +923,82 @@ class VncServerManager():
             entity = bottle.request.json
             # Get image version parameter
             base_image_id = entity.pop("base_image_id", None)
-            if not base_image_id:
+            if base_image_id is None:
                 abort(404, "No base image id specified")
             package_image_id = entity.pop("package_image_id", '')
-            req_reimage_params = entity.pop("reimage_params", None)
             # Now process other parameters there should be only one more
-            if (req_reimage_params == None):
-                if (len(entity) == 0):
-                    abort(404, "No servers specified")
-                elif len(entity) == 1:
-                    match_key, match_value = entity.popitem()
-                    # check that match key is a valid one
-                    if (match_key not in ("server_id", "mac", "cluster_id",
-                                          "rack_id", "pod_id", "vns_id")):
-                        abort(404, "Invalid Query arguments")
-                else:
-                    match_key = None
-                    match_value = None
-                # end else
-            # end if req_reimage_params == None
+            if (len(entity) == 0):
+                abort(404, "No servers specified")
+            elif len(entity) == 1:
+                match_key, match_value = entity.popitem()
+                # check that match key is a valid one
+                if (match_key not in ("server_id", "mac", "cluster_id",
+                                      "rack_id", "pod_id", "vns_id")):
+                    abort(404, "Invalid Query arguments")
+            else:
+                abort(404, "No servers specified")
+            # end else
             images = self._serverDb.get_image("image_id", base_image_id, True)
             base_image = images[0]
-            # Check if user specified reimage parameters with
-            # the request. If so, allow reimage using those.
-            if req_reimage_params:
-                if (type(req_reimage_params) != type({})):
-                    abort(404, "Incorrect server reimage parameters")
-                servers = req_reimage_params.pop("servers", None)
-                if ((not servers) or
-                    (type(servers) != type([]))):
-                    abort(404, "No servers specified")
-                for server in servers:
-                    if (type(server) != type({})):
-                        continue
-                    reimage_params = server.copy()
-                    if ('server_passwd' not in reimage_params):
-                        reimage_params['server_passwd'] = "c0ntrail123"
-                    reimage_params['server_passwd'] = self._encrypt_passwd(
-                        reimage_params['server_passwd'])
-                    if ('server_ifname' not in reimage_params):
-                        reimage_params['server_ifname'] = "eth0"
-                    if (('server_ip' not in reimage_params) or
-                        ('server_id' not in reimage_params) or
-                        ('server_mac' not in reimage_params) or
-                        ('server_mask' not in reimage_params) or
-                        ('server_gway' not in reimage_params) or
-                        ('server_domain' not in reimage_params)):
-                        abort(404, "missing reimage parameters")
-                    self._do_reimage_server(
-                        base_image, package_image_id, reimage_params)
-                # end for server in servers
-            # end if not servers
-            else:
-                servers = self._serverDb.get_server(
-                    match_key, match_value, detail=True)
-                for server in servers:
-                    server_params = eval(server['server_params'])
-                    # build all parameters needed for re-imaging
-                    vns = self._serverDb.get_vns(server['vns_id'],
-                                                 detail=True)[0]
-                    vns_params = {}
-                    if vns['vns_params']:
-                        vns_params = eval(vns['vns_params'])
-                    if server['passwd']:
-                        passwd = server['passwd']
-                    elif vns_params:
-                        passwd = vns_params['passwd']
-                    else:
-                        abort(404, "Missing Password")
-                    if server['mask']:
-                        mask = server['mask']
-                    elif vns_params:
-                        mask = vns_params['mask']
-                    else:
-                        abort(404, "Missing Mask")
-                    if server['gway']:
-                        gway = server['gway']
-                    elif vns_params:
-                        gway = vns_params['gway']
-                    else:
-                        abort(404, "Missing Gateway")
-                    if server['domain']:
-                        domain = server['domain']
-                    elif vns_params:
-                        domain = vns_params['domain']
-                    else:
-                        abort(404, "Missing Domain")
+            servers = self._serverDb.get_server(
+                match_key, match_value, detail=True)
+            for server in servers:
+                server_params = eval(server['server_params'])
+                # build all parameters needed for re-imaging
+                vns = self._serverDb.get_vns(server['vns_id'],
+                                             detail=True)[0]
+                vns_params = {}
+                if vns['vns_params']:
+                    vns_params = eval(vns['vns_params'])
+                if server['passwd']:
+                    passwd = server['passwd']
+                elif vns_params:
+                    passwd = vns_params['passwd']
+                else:
+                    abort(404, "Missing Password")
+                if server['mask']:
+                    mask = server['mask']
+                elif vns_params:
+                    mask = vns_params['mask']
+                else:
+                    abort(404, "Missing Mask")
+                if server['gway']:
+                    gway = server['gway']
+                elif vns_params:
+                    gway = vns_params['gway']
+                else:
+                    abort(404, "Missing Gateway")
+                if server['domain']:
+                    domain = server['domain']
+                elif vns_params:
+                    domain = vns_params['domain']
+                else:
+                    abort(404, "Missing Domain")
 
-                    reimage_params = {}
-                    reimage_params['server_id'] = server['server_id']
-                    reimage_params['server_ip'] = server['ip']
-                    reimage_params['server_mac'] = server['mac']
-                    reimage_params['server_passwd'] = self._encrypt_passwd(
-                        passwd)
-                    reimage_params['server_mask'] = mask
-                    reimage_params['server_gway'] = gway
-                    reimage_params['server_domain'] = domain
-                    reimage_params['server_ifname'] = server_params['ifname']
-                    reimage_params['power_type'] = server.get('power_type')
-                    if not reimage_params['power_type']:
-                        reimage_params['power_type'] = self._args.power_type
-                    reimage_params['power_user'] = server.get('power_user')
-                    if not reimage_params['power_user']:
-                        reimage_params['power_user'] = self._args.power_user
-                    reimage_params['power_pass'] = server.get('power_pass')
-                    if not reimage_params['power_pass']:
-                        reimage_params['power_pass'] = self._args.power_pass
-                    reimage_params['power_address'] = server.get(
-                        'power_address', '')
-                    # end if
-                    self._do_reimage_server(
-                        base_image, package_image_id, reimage_params)
-                # end for server in servers
-            # end else
+                reimage_params = {}
+                reimage_params['server_id'] = server['server_id']
+                reimage_params['server_ip'] = server['ip']
+                reimage_params['server_mac'] = server['mac']
+                reimage_params['server_passwd'] = self._encrypt_passwd(
+                    passwd)
+                reimage_params['server_mask'] = mask
+                reimage_params['server_gway'] = gway
+                reimage_params['server_domain'] = domain
+                reimage_params['server_ifname'] = server_params['ifname']
+                reimage_params['power_type'] = server.get('power_type')
+                if not reimage_params['power_type']:
+                    reimage_params['power_type'] = self._args.power_type
+                reimage_params['power_user'] = server.get('power_user')
+                if not reimage_params['power_user']:
+                    reimage_params['power_user'] = self._args.power_user
+                reimage_params['power_pass'] = server.get('power_pass')
+                if not reimage_params['power_pass']:
+                    reimage_params['power_pass'] = self._args.power_pass
+                reimage_params['power_address'] = server.get(
+                    'power_address', '')
+                self._do_reimage_server(
+                    base_image, package_image_id, reimage_params)
+            # end for server in servers
         except Exception as e:
             abort(404, repr(e))
         return "server(s) upgraded"
@@ -1044,76 +1010,54 @@ class VncServerManager():
             entity = bottle.request.json
             # Get parameter to check if netboot should be enabled.
             net_boot = entity.pop("net_boot", None)
-            if ((not net_boot) or (net_boot != "y")):
+            if ((not net_boot) or
+                (net_boot not in ["y","Y","1"])):
                 net_boot = "n"
-            req_restart_params = entity.pop("restart_params", None)
-            # if no restart params are specified, there needs to be
-            # server selection criteria provided.
-            if req_restart_params:
-                if (type(req_restart_params) != type({})):
-                    abort(404, "Incorrect server restart parameters")
-                servers = req_restart_params.pop("servers", None)
-                if ((not servers) or
-                    (type(servers) != type([]))):
-                    abort(404, "No servers specified")
-                reboot_server_list = []
-                for server in servers:
-                     reboot_server = {
-                         'server_id' : server.get('server_id', ''),
-                         'domain' : server.get('server_domain', ''),
-                         'ip' : server.get('server_ip', ''),
-                         'passwd' : server.get('server_passwd', ''),
-                         'power_address' : server.get('power_address', '') }
-                     reboot_server_list.append(
-                         reboot_server)
-                # end for server in servers
-            else:
-                if len(entity) == 0:
-                    abort(404, "No servers specified")
-                elif len(entity) == 1:
-                    match_key, match_value = entity.popitem()
-                    # check that match key is a valid one
-                    if (match_key not in ("server_id", "mac", "cluster_id",
-                                          "rack_id", "pod_id", "vns_id")):
-                        abort(404, "Invalid Query arguments")
-                else:
+            if len(entity) == 0:
+                abort(404, "No servers specified")
+            elif len(entity) == 1:
+                match_key, match_value = entity.popitem()
+                # check that match key is a valid one
+                if (match_key not in ("server_id", "mac", "cluster_id",
+                                      "rack_id", "pod_id", "vns_id")):
                     abort(404, "Invalid Query arguments")
-                # end else
-                reboot_server_list = []
-                servers = self._serverDb.get_server(
-                    match_key, match_value, detail=True)
-                for server in servers:
-                    vns = self._serverDb.get_vns(server['vns_id'],
-                                                 detail=True)[0]
-                    vns_params = {}
-                    if vns['vns_params']:
-                        vns_params = eval(vns['vns_params'])
+            else:
+                abort(404, "Invalid Query arguments")
+            # end else
+            reboot_server_list = []
+            servers = self._serverDb.get_server(
+                match_key, match_value, detail=True)
+            for server in servers:
+                vns = self._serverDb.get_vns(server['vns_id'],
+                                             detail=True)[0]
+                vns_params = {}
+                if vns['vns_params']:
+                    vns_params = eval(vns['vns_params'])
 
-                    if server['passwd']:
-                        passwd = server['passwd']
-                    elif vns_params:
-                        passwd = vns_params['passwd']
-                    else:
-                        abort(404, "Missing password")
+                if server['passwd']:
+                    passwd = server['passwd']
+                elif vns_params:
+                    passwd = vns_params['passwd']
+                else:
+                    abort(404, "Missing password")
 
-                    if server['domain']:
-                        domain = server['domain']
-                    elif vns_params:
-                        domain = vns_params['domain']
-                    else:
-                        abort(404, "Missing Domain")
+                if server['domain']:
+                    domain = server['domain']
+                elif vns_params:
+                    domain = vns_params['domain']
+                else:
+                    abort(404, "Missing Domain")
 
-                    # Build list of servers to be rebooted.
-                    reboot_server = {
-                        'server_id' : server['server_id'],
-                        'domain' : domain,
-                        'ip' : server['ip'],
-                        'passwd' : passwd,
-                        'power_address' : server['power_address'] }
-                    reboot_server_list.append(
-                        reboot_server)
-                # end for server in servers
-            # end else req_restart_params
+                # Build list of servers to be rebooted.
+                reboot_server = {
+                    'server_id' : server['server_id'],
+                    'domain' : domain,
+                    'ip' : server['ip'],
+                    'passwd' : passwd,
+                    'power_address' : server['power_address'] }
+                reboot_server_list.append(
+                    reboot_server)
+            # end for server in servers
 
             status_msg = self._power_cycle_servers(
                 reboot_server_list, net_boot)
@@ -1129,6 +1073,7 @@ class VncServerManager():
             if role_type in server['roles']:
                 servers.append(server)
         return servers
+    # end role_get_servers
 
     # Function to get map server name to server ip
     # accepts list of server names and returns list of
@@ -1155,9 +1100,55 @@ class VncServerManager():
         try:
             entity = bottle.request.json
             req_provision_params = entity.pop("provision_params", None)
-            # if no provision params are specified, there needs to be
-            # server selection criteria provided.
-            if (req_provision_params == None):
+            # if req_provision_params are specified, check contents for
+            # validity, store the info in DB and proceed with the
+            # provisioning step.
+            role_servers = {}
+            role_ips = {}
+            if req_provision_params is not None:
+                role_list = [
+                    "database", "openstack", "config",
+                    "control", "collector", "webui", "compute"]
+                roles = req_provision_params.get("roles", None)
+                if roles is None:
+                    abort(404, "No provisioning roles specified")
+                if (type(roles) != type({})):
+                    abort(404, "Invalid roles definition")
+                prov_servers = {}
+                for key, value in roles.iteritems():
+                    if key not in role_list:
+                        abort(404, "invalid role %s in provision file" %(
+                            key))
+                    if type(value) != type ([]):
+                        abort(404, "role %s needs to have server list" %(
+                            key))
+                    for server in value:
+                        if server not in prov_servers:
+                            prov_servers[server] = [key]
+                        else:
+                            prov_servers[server].append(key)
+                    # end for server
+                # end for key
+                vns_id = None
+                servers = []
+                for key in prov_servers:
+                    server = self._serverDb.get_server(
+                        "server_id", key, detail=True)
+                    if server:
+                        server = server[0]
+                    servers.append(server)
+                    if ((vns_id != None) and
+                        (server['vns_id'] != vns_id)):
+                        abort(404, "all servers must belong to same vns")
+                    vns_id = server['vns_id']
+                # end for
+                for key, value in prov_servers.iteritems():
+                    new_server = {
+                        'server_id' : key,
+                        'roles' : value }
+                    self._serverDb.modify_server(new_server)
+                # end for
+            else:
                 if (len(entity) == 0):
                     abort(404, "No servers specified")
                 elif len(entity) == 1:
@@ -1168,70 +1159,12 @@ class VncServerManager():
                         "rack_id", "pod_id", "vns_id")):
                         abort(404, "Invalid Query arguments")
                 else:
-                    match_key = None
-                    match_value = None
-                # end else
-            # end if req_provision_params == None
-            # Check if user specified provision params with the
-            # request. If so, allow provisioning using those.
-            if (req_provision_params):
-                if (type(req_provision_params) != type({})):
-                    abort(404, "Incorrect server provision parameters")
-                servers = req_provision_params.pop("servers", None)
-                if ((not servers) or
-                    (type(servers) != type([]))):
                     abort(404, "No servers specified")
-                roles = req_provision_params.pop("roles", None)
-                if ((not roles) or
-                    (type(roles) != type ({}))):
-                    abort(404, "No roles specified")
-                # set default values in provision params
-                provision_params = {
-                    "database_dir" : "/home/cassandra",
-                    "db_initial_token" : "",
-                    "openstack_mgmt_ip" : "",
-                    "use_certs" : "False",
-                    "multi_tenancy" : "False",
-                    "service_token" : "contrail123",
-                    "ks_user" : "admin",
-                    "ks_passwd" : "contrail123",
-                    "ks_tenant" : "admin",
-                    "openstack_passwd" : "contrail123",
-                    "analytics_data_ttl" : "168"
-                }
-                params = req_provision_params.pop(
-                    "params", None)
-                if ((not params) or
-                    (type(params) != type ({}))):
-                    abort(404, "No params specified")
-                for key, value in params.iteritems():
-                    provision_params[key] = value 
-                for key, value in roles.iteritems():
-                    if (type(value) != type([])):
-                        abort(404, "roles format error")
-                    roles[key] = self.get_server_ip_list(
-                        value, servers)
-                provision_params['roles'] = roles
-                for server in servers:
-                    provision_params['server_id'] = server[
-                        'server_id']
-                    provision_params['server_ip'] = server[
-                        'server_ip']
-                    provision_params['phy_interface'] = server[
-                        'ifname']
-                    provision_params[
-                        'compute_non_mgmt_ip'] = server.get(
-                            'compute_non_mgmt_ip', '')
-                    provision_params[
-                        'compute_non_mgmt_gway'] = server.get(
-                            'compute_non_mgmt_gway', '')
-                    self._do_provision_server(provision_params)
-                return "Server(s) provisioned"
-            # end if req_provision_params
-            role_servers = {}
-            role_ips = {}
-            servers = self._serverDb.get_server(match_key, match_value,
-                                                detail=True)
+                # end else
+                servers = self._serverDb.get_server(
+                    match_key, match_value, detail=True)
+            # end else .. req_provision_params
+
             for server in servers:
                 server_params = eval(server['server_params'])
                 vns = self._serverDb.get_vns(server['vns_id'],

@@ -34,7 +34,7 @@ def parse_arguments(args_str=None):
             description='''Provision given server(s) for roles configured
                         list of servers can be selected from DB config or
                         in a json file or provided interactively ''',
-            prog="server-manager modify"
+            prog="server-manager provision"
         )
     # end else
     group1 = parser.add_mutually_exclusive_group()
@@ -70,27 +70,6 @@ def parse_arguments(args_str=None):
 # sent with REST API request for reimaging server.
 def get_provision_params():
     provision_params = {}
-    params = OrderedDict ([
-        ("domain" , " (Domain name) : "),
-        ("database_dir" , " (Datbase directory - default /home/cassandra) : "),
-        ("db_initial_token" , " (Database initial token - default none) : "),
-        ("openstack_mgmt_ip" , " (Openstack node mgmt IP address - default server IP) : "),
-        ("use_certs" , " (Openstack use certificates (True/False) - default false) : "),
-        ("multi_tenancy" , " (Openstack multi tenancy (True/False) - default false) : "),
-        ("service_token" , " (Service Token for openstack) : "),
-        ("ks_user" , " (Keystone username - default admin) : "),
-        ("ks_passwd" , " (Keystone password - default contrail123) : "),
-        ("ks_tenant" , " (Keystone Tenant - default admin) : "),
-        ("openstack_passwd" , " (Openstack node password - default contrail123) : "),
-        ("analytics_data_ttl" , " (Analytics data TTL - Default 168) : ")
-    ])
-    servers = OrderedDict ([
-        ("server_id" , " (Server Name - <Enter> to end) : "),
-        ("server_ip" , " (Server IP) : "),
-        ("ifname" , " (physical interface name for compute - default eth0) : "),
-        ("compute_non_mgmt_ip" , " (Compute node non mgmt IP - default none) : "),
-        ("compute_non_mgmt_gway" , " (Compute node non mgmt gway - default none) : ")
-    ])
     roles = OrderedDict ([
         ("database" , " (Comma separated list of server names for this role) : "),
         ("openstack" , " (Comma separated list of server names for this role) : "),
@@ -100,41 +79,6 @@ def get_provision_params():
         ("webui" , " (Comma separated list of server names for this role) : "),
         ("compute" , " (Comma separated list of server names for this role) : ")
     ])
-    # Accept all the vns level parameter values
-    param_dict = {}
-    print "****** VNS Params to be provided ******"
-    for field in params:
-       msg = field + params[field] 
-       user_input = raw_input(msg)
-       if user_input:
-           param_dict[field] = user_input
-    # end for field in params
-    provision_params['params'] = param_dict
-
-    # Accept all the servers
-    print "****** List of servers to be provisioned ******"
-    server_list = []
-    while True:
-        server = {}
-        done = False
-        for field in servers:
-            msg = field + servers[field] 
-            user_input = raw_input(msg)
-            if user_input:
-                server[field] = user_input
-            else:
-                if field == 'server_id':
-                    done = True
-                    break
-                # end if field ==
-            # end else user_input
-        # end for field in params
-        if done:
-            break
-        server_list.append(server)
-    # End while True
-    provision_params['servers'] = server_list
-
     # Accept all the role definitions
     print "****** List of role definitions ******"
     role_dict = {}
