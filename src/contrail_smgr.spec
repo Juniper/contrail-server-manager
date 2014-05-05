@@ -16,9 +16,9 @@
 %define		_puppetetc /etc/puppet/
 %define		_contrailopt /opt/contrail/
 %define		_sbinusr    /usr/sbin/
-%define         _lbinusr    /usr/local/bin
-%define         _pyver      %( %{__python} -c "import sys; print '%s.%s' % sys.version_info[0:2]" )
-%define         _pysitepkg  /usr/local/lib/python%{_pyver}/dist-packages
+#%define         _lbinusr    /usr/local/bin
+#%define         _pyver      %( %{__python} -c "import sys; print '%s.%s' % sys.version_info[0:2]" )
+#%define         _pysitepkg  /usr/local/lib/python%{_pyver}/dist-packages
 
 
 Name: contrail_smgr
@@ -166,9 +166,9 @@ rm -rf %{buildroot}
 #/etc/cobbler/dhcp.template
 #/etc/cobbler/dhcp.template
 #/etc/puppet/*
-%{_pysitepkg}/server_manager*
-%{_lbinusr}/server-manager
-%{_lbinusr}/reimage
+%{python_sitelib}/server_manager*
+%{_bindir}/server-manager
+%{_bindir}/reimage
 %changelog
 * Thu Nov 29 2013  Thilak Raj S <tsurendra@juniper.net> 1.0-1
 - First Build

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 """
@@ -11,14 +11,14 @@
 import argparse
 import pdb
 import sys
-import smgr_create
-import smgr_modify
-import smgr_delete
-import smgr_show
-import smgr_upload_image
-import smgr_reimage_server
-import smgr_provision_server
-import smgr_restart_server
+import server_manager.client.smgr_create as smgr_create
+import server_manager.client.smgr_modify as smgr_modify
+import server_manager.client.smgr_delete as smgr_delete
+import server_manager.client.smgr_show as smgr_show
+import server_manager.client.smgr_upload_image as smgr_upload_image
+import server_manager.client.smgr_reimage_server as smgr_reimage_server
+import server_manager.client.smgr_provision_server as smgr_provision_server
+import server_manager.client.smgr_restart_server as smgr_restart_server
 
 commands_dict = {
     'create' : smgr_create.create_config,
