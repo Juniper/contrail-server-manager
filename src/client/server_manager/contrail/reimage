@@ -38,6 +38,7 @@ def reimage_server(server, image_id, package_image_id, conf_file, log=LOG):
        return
     if not out:
        print "image_id " + image_id + " not present in server manager"
+       return
     
 
     # Check package_image_id
@@ -48,6 +49,7 @@ def reimage_server(server, image_id, package_image_id, conf_file, log=LOG):
             return
         if not out:
             print "package_image_id " + package_image_id + " not present in server manager"
+            return
 
     # Issue reimage
     if package_image_id != '':
@@ -90,12 +92,15 @@ def parse_args(args_str):
         'conf_file': '/etc/contrail_smgr/smgr_client_config.ini',
         'image_type': 'centos',
         'package_image_id': '',
+        'image':'',
         }
     parser.set_defaults(**defaults)
     parser.add_argument(
         "--conf_file", "-c", help="client config file")
     parser.add_argument(
         "--image_type", "-i", help="image type centos/ubuntu")
+    parser.add_argument(
+        "--image", "-I", help="image id")
     parser.add_argument(
         "--package_image_id", "-p", help="package image id")
     parser.add_argument("server", help="server name")
@@ -108,13 +113,17 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
     image_type = args.image_type.lower() 
-    if image_type == 'ubuntu':
-        image_id = _DEF_UBUNTU_STOCK_IMAGE
-    elif image_type == 'centos':
-        image_id = _DEF_CENTOS_STOCK_IMAGE
+    image = args.image.lower()
+    if image == '':
+        if image_type == 'ubuntu':
+            image_id = _DEF_UBUNTU_STOCK_IMAGE
+        elif image_type == 'centos':
+            image_id = _DEF_CENTOS_STOCK_IMAGE
+        else:
+            print "Unknown image type " + image_type
+            return
     else:
-        print "Unknown image type " + image_type
-        return
+        image_id = image
 
     reimage_server(args.server, image_id, args.package_image_id, args.conf_file)
 # end main
