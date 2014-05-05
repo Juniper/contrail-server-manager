@@ -1,0 +1,124 @@
+#!/usr/bin/python
+
+import argparse
+import subprocess
+import cgitb
+import logging as LOG
+import sys
+
+_DEF_CENTOS_STOCK_IMAGE="centos-6.4"
+_DEF_UBUNTU_STOCK_IMAGE="ubuntu-12.04.3"
+_DEF_INI="./smgr_client_config.ini"
+
+def execute_cmd_out(cmd, log=LOG):
+    log.debug("Executing command: %s" % cmd)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    (out, err) = p.communicate()
+    if out:
+        log.debug("STDOUT: %s", out)
+    if err:
+        log.debug("STDERR: %s", err)
+    return (out, err)
+# end execute_cmd_out
+
+def reimage_server(server, image_id, package_image_id, conf_file, log=LOG):
+    # Check server
+    (out, err) = execute_cmd_out(("server-manager show --config_file %s server --server_id=%s | grep server_id") % (conf_file, server))
+    if err:
+       print err
+       return
+    if not out:
+       print "server " + server + " not present in server manager"
+       return
+
+    # Check image_id
+    (out, err) = execute_cmd_out(("server-manager show --config_file %s image --image_id=%s | grep image_id") % (conf_file, image_id))
+    if err:
+       print err
+       return
+    if not out:
+       print "image_id " + image_id + " not present in server manager"
+    
+
+    # Check package_image_id
+    if package_image_id != '':
+        (out, err) = execute_cmd_out(("server-manager show --config_file %s image --image_id=%s | grep image_id") % (conf_file, package_image_id))
+        if err:
+            print err
+            return
+        if not out:
+            print "package_image_id " + package_image_id + " not present in server manager"
+
+    # Issue reimage
+    if package_image_id != '':
+        reimage_cmd = ("server-manager reimage --config_file %s --package_image_id %s --server_id %s %s") % (conf_file, package_image_id, server, image_id)
+    else:
+        reimage_cmd = ("server-manager reimage --config_file %s --server_id %s %s") % (conf_file, server, image_id)
+    (out, err) = execute_cmd_out(reimage_cmd)
+    if err:
+        print err
+        return
+    if out:
+        if package_image_id:
+            print "Issued reimage of server " + server + " with " + image_id + " and package id " + package_image_id 
+        else:
+            print "Issued reimage of server " + server + " with " + image_id
+
+    # Issure restart
+    restart_cmd = ("server-manager restart --config_file %s --net_boot --server_id %s") % (conf_file, server)
+    (out, err) = execute_cmd_out(restart_cmd)
+    if err:
+        print err
+        return
+    if out:
+        print "Issued restart of server " + server
+# end reimage_server 
+
+def parse_args(args_str):
+    conf_parser = argparse.ArgumentParser(add_help=False)
+    args, remaining_argv = conf_parser.parse_known_args(args_str.split())
+    parser = argparse.ArgumentParser(
+        # Inherit options from config_parser
+        parents=[conf_parser],
+        # script description with -h/--help
+        description=__doc__,
+        # Don't mess with format of description
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    defaults = {
+        'conf_file': '/etc/contrail_smgr/smgr_client_config.ini',
+        'image_type': 'centos',
+        'package_image_id': '',
+        }
+    parser.set_defaults(**defaults)
+    parser.add_argument(
+        "--conf_file", "-c", help="client config file")
+    parser.add_argument(
+        "--image_type", "-i", help="image type centos/ubuntu")
+    parser.add_argument(
+        "--package_image_id", "-p", help="package image id")
+    parser.add_argument("server", help="server name")
+    args = parser.parse_args(remaining_argv)       
+    return args
+# end parse_args
+
+def main(args_str=None):
+    if not args_str:
+        args_str = ' '.join(sys.argv[1:])
+    args = parse_args(args_str)
+    image_type = args.image_type.lower() 
+    if image_type == 'ubuntu':
+        image_id = _DEF_UBUNTU_STOCK_IMAGE
+    elif image_type == 'centos':
+        image_id = _DEF_CENTOS_STOCK_IMAGE
+    else:
+        print "Unknown image type " + image_type
+        return
+
+    reimage_server(args.server, image_id, args.package_image_id, args.conf_file)
+# end main
+
+if __name__ == '__main__':
+    cgitb.enable(format='text')
+    main()

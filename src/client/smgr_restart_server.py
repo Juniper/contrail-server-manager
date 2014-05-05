@@ -1,1 +1,0 @@
-smgr_restart_server

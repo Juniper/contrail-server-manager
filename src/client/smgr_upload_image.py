@@ -1,1 +1,0 @@
-smgr_upload_image

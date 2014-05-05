@@ -16,6 +16,10 @@
 %define		_puppetetc /etc/puppet/
 %define		_contrailopt /opt/contrail/
 %define		_sbinusr    /usr/sbin/
+%define         _lbinusr    /usr/local/bin
+%define         _pyver      %( %{__python} -c "import sys; print '%s.%s' % sys.version_info[0:2]" )
+%define         _pysitepkg  /usr/local/lib/python%{_pyver}/dist-packages
+
 
 Name: contrail_smgr
 Version: 1.0
@@ -99,7 +103,8 @@ chkconfig puppet on
 
 service contrail_smgrd restart
 %build
-
+cd %{_contrail_smgr_src}client/
+%{__python} setup.py sdist
 
 %install
 rm -rf %{buildroot}
@@ -126,8 +131,12 @@ cp %{_contrail_smgr_src}server_mgr_puppet.py %{buildroot}%{_contrailopt}%{_contr
 cp %{_contrail_smgr_src}smgr_dhcp_event.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
-cp -r %{_contrail_smgr_src}client %{buildroot}%{_contrailopt}%{_contrail_smgr}
-
+#Install the server-manager-client python package.
+install -p -m 755 %{_contrail_smgr_src}/client/dist/server-manager-client-1.0.tar.gz %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cd %{buildroot}%{_contrailopt}%{_contrail_smgr}
+tar -zxvf server-manager-client-1.0.tar.gz
+cd server-manager-client-1.0
+%{__python} setup.py install --root=%{buildroot}
 
 cp %{_contrail_smgr_src}third_party/bottle.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
@@ -137,8 +146,7 @@ cp -r %{_contrail_smgr_src}/puppet %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}repos/contrail-centos-repo %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}cobbler %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}kickstarts %{buildroot}%{_contrailetc}
-cp -r %{_contrail_smgr_src}client/smgr_client_config.ini %{buildroot}%{_contrailetc}
-
+cp -r %{_contrail_smgr_src}client/server_manager/client/smgr_client_config.ini %{buildroot}%{_contrailetc}
 cp %{_contrail_smgr_src}contrail_smgrd.start %{buildroot}%{_sbinusr}contrail_smgrd
 
 #install -p -m 755 %{_contrail_smgr_src}cobbler/dhcp.template %{buildroot}%{_bindir}%{_contrail_smgr}
@@ -158,8 +166,9 @@ rm -rf %{buildroot}
 #/etc/cobbler/dhcp.template
 #/etc/cobbler/dhcp.template
 #/etc/puppet/*
-
-
+%{_pysitepkg}/server_manager*
+%{_lbinusr}/server-manager
+%{_lbinusr}/reimage
 %changelog
 * Thu Nov 29 2013  Thilak Raj S <tsurendra@juniper.net> 1.0-1
 - First Build

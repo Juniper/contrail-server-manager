@@ -1,0 +1,59 @@
+<servers>
+    <server>
+        <svr_id>283</svr_id>
+        <hostname>a3s15</hostname>
+        <ipaddr>10.84.17.2</ipaddr>
+        <ipmi>10.84.6.215</ipmi>
+        <rack>A3</rack>
+        <rack_row>15</rack_row>
+        <userid>pmiriyala</userid>
+        <mac>00:25:90:a5:3b:34</mac>
+        <role>Setup 5</role>
+        <model_num>SUPERMICRO X9SCL/X9SCM</model_num>
+        <os>Ubuntu 12.04.3</os>
+        <sn></sn>
+        <cpu>Intel i3-2120 CPU @ 3.30GHz</cpu>
+        <cores>4</cores>
+        <memory>32G</memory>
+        <disks>SSD-240G</disks>
+        <comments></comments>
+    </server>
+    <server>
+        <svr_id>284</svr_id>
+        <hostname>a3s16</hostname>
+        <ipaddr>10.84.17.3</ipaddr>
+        <ipmi>10.84.6.216</ipmi>
+        <rack>A3</rack>
+        <rack_row>16</rack_row>
+        <userid>pmiriyala</userid>
+        <mac>00:25:90:a4:24:46</mac>
+        <role>Setup 5</role>
+        <model_num>SUPERMICRO X9SCL/X9SCM</model_num>
+        <os>CentOS 6.4</os>
+        <sn></sn>
+        <cpu>Intel i3-2120 CPU @ 3.30GHz</cpu>
+        <cores>4</cores>
+        <memory>32G</memory>
+        <disks>SSD-240G</disks>
+        <comments></comments>
+    </server>
+    <server>
+        <svr_id>285</svr_id>
+        <hostname>a3s18</hostname>
+        <ipaddr>10.84.17.4</ipaddr>
+        <ipmi>10.84.6.218</ipmi>
+        <rack>A3</rack>
+        <rack_row>18</rack_row>
+        <userid>pmiriyala</userid>
+        <mac>00:25:90:7e:12:b8</mac>
+        <role>Setup 5</role>
+        <model_num>SUPERMICRO X9SCL/X9SCM</model_num>
+        <os>Ubuntu 12.04.3</os>
+        <sn></sn>
+        <cpu>Intel i3-2100 CPU @ 3.10GHz</cpu>
+        <cores>4</cores>
+        <memory>32G</memory>
+        <disks>SSD-240G</disks>
+        <comments></comments>
+    </server>
+</servers>
