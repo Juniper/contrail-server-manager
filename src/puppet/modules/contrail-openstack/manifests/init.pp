@@ -124,6 +124,14 @@ define contrail-openstack (
             ensure  => present,
             content => template("contrail-common/ctrl-details.erb"),
         }
+
+    }
+
+    if (!defined(File["/etc/haproxy/haproxy.cfg"])) and ( $contrail_haproxy == "enable" )  {
+    	file { "/etc/haproxy/haproxy.cfg":
+       	   ensure  => present,
+           mode => 0755,
+           owner => root,
            group => root,
            source => "puppet:///modules/contrail-common/$hostname.cfg"
         }
