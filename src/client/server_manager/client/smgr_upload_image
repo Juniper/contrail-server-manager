@@ -15,6 +15,7 @@ import sys
 import pycurl
 from StringIO import StringIO
 import json
+import ConfigParser
 
 _DEF_SMGR_PORT = 9001
 _DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
@@ -47,7 +48,8 @@ def parse_arguments(args_str=None):
                         help="version number of the image")
     parser.add_argument(
         "image_type",
-        help="type of the image (fedora/centos/ubuntu/contrail-ubuntu-repo)")
+        help=("type of the image (fedora/centos/ubuntu/"
+              "contrail-ubuntu-package/contrail-centos-package)"))
     parser.add_argument("file_name",
                         help="complete path for the file")
     args = parser.parse_args(args_str)
@@ -62,11 +64,9 @@ def send_REST_request(ip, port, payload, file_name):
             ip, port)
         conn = pycurl.Curl()
         conn.setopt(pycurl.URL, url)
-        conn.setopt(pycurl.HTTPHEADER, headers)
         conn.setopt(pycurl.POST, 1)
-        #conn.setopt(pycurl.POSTFIELDS, '%s'%json.dumps(payload))
-        conn.setopt(pycurl.HTTPPOST, payload)
-        #conn.setopt(pycurl.HTTPPOST, [("file_name", (pycurl.FORM_FILE, file_name))])
+        payload["file"] = (pycurl.FORM_FILE, file_name)
+        conn.setopt(pycurl.HTTPPOST, payload.items())
         conn.setopt(pycurl.CUSTOMREQUEST, "PUT")
         conn.setopt(pycurl.WRITEFUNCTION, response.write)
         conn.perform()

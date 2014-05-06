@@ -571,23 +571,34 @@ class VncServerManager():
         image_type = bottle.request.forms.image_type
         if (image_type not in [
                 "centos", "fedora", "ubuntu",
-                "contrail-ubuntu-package"]):
+                "contrail-ubuntu-package", "contrail-centos-package"]):
             abort(404, "image type not specified or invalid")
-        file_name = bottle.request.files.file_name
-        if (image_type == "contrail-ubuntu-package"):
-            extn = ".deb"
-        else:
-            extn = ".iso"
+        file_obj = bottle.request.files.file
+        file_name = file_obj.filename
+        db_images = self._serverDb.get_image(
+            'image_id', image_id, False)
+        if db_images:
+            abort(
+                404,
+                "image %s already exists" %(
+                    image_id))
+        extn = os.path.splitext(file_name)[1]
         dest = self._args.smgr_base_dir + 'images/' + \
             image_id + extn
         try:
-            if file_name.file:
+            if file_obj.file:
                 with open(dest, 'w') as open_file:
-                    open_file.write(file_name.file.read())
-            if (image_type == "contrail-ubuntu-package"):
-                subprocess.call(["cp", "-f", dest,
-                                 self._args.html_root_dir +
-                                 "contrail/images"])
+                    open_file.write(file_obj.file.read())
+            if (image_type == "contrail-centos-package"):
+                subprocess.call(
+                    ["cp", "-f", dest,
+                     self._args.html_root_dir + "contrail/images"])
+                self._create_repo(
+                    image_id, image_type, image_version, dest)
+            elif (image_type == "contrail-ubuntu-package"):
+                subprocess.call(
+                    ["cp", "-f", dest,
+                     self._args.html_root_dir + "contrail/images"])
             else:
                 self._add_image_to_cobbler(image_id, image_type,
                                            image_version, dest)
@@ -596,8 +607,6 @@ class VncServerManager():
                 'image_version': image_version,
                 'image_type': image_type}
             self._serverDb.add_image(image_data)
-            self._add_image_to_cobbler(image_id, image_type,
-                                       image_version, dest)
         except Exception as e:
             abort(404, repr(e))
     # End of upload_image
@@ -622,20 +631,20 @@ class VncServerManager():
             # Extract .tgz of other packages from the repo
             cmd = (
                 "rpm2cpio %s | cpio -ivd ./opt/contrail/contrail_packages/"
-                "contrail_rpms.tgz" %(dest))
+                "contrail_rpms.tgz > /dev/null" %(dest))
             subprocess.call(cmd, shell=True)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_rpms.tgz .")
             subprocess.call(cmd, shell=True)
             cmd = ("rm -rf opt")
             subprocess.call(cmd, shell=True)
             # untar tgz to get all packages
-            cmd = ("tar xvzf contrail_rpms.tgz")
+            cmd = ("tar xvzf contrail_rpms.tgz > /dev/null")
             subprocess.call(cmd, shell=True)
             # remove the tgz file itself, not needed any more
             cmd = ("rm -f contrail_rpms.tgz")
             subprocess.call(cmd, shell=True)
             # build repo using createrepo
-            cmd = ("createrepo .")
+            cmd = ("createrepo . > /dev/null")
             subprocess.call(cmd, shell=True)
             # change directory back to original
             os.chdir(cwd)
