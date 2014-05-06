@@ -90,17 +90,17 @@ def parse_args(args_str):
 
     defaults = {
         'conf_file': '/etc/contrail_smgr/smgr_client_config.ini',
-        'image_type': 'centos',
+        'distro': 'centos',
         'package_image_id': '',
-        'image':'',
+        'image_id':'',
         }
     parser.set_defaults(**defaults)
     parser.add_argument(
         "--conf_file", "-c", help="client config file")
     parser.add_argument(
-        "--image_type", "-i", help="image type centos/ubuntu")
+        "--distro", "-d", help="image type centos/ubuntu")
     parser.add_argument(
-        "--image", "-I", help="image id")
+        "--image_id", "-i", help="image id")
     parser.add_argument(
         "--package_image_id", "-p", help="package image id")
     parser.add_argument("server", help="server name")
@@ -112,18 +112,16 @@ def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
-    image_type = args.image_type.lower() 
-    image = args.image.lower()
-    if image == '':
-        if image_type == 'ubuntu':
+    distro = args.distro.lower() 
+    image_id = args.image_id.lower()
+    if image_id == '':
+        if  distro == 'ubuntu':
             image_id = _DEF_UBUNTU_STOCK_IMAGE
-        elif image_type == 'centos':
+        elif distro == 'centos':
             image_id = _DEF_CENTOS_STOCK_IMAGE
         else:
-            print "Unknown image type " + image_type
+            print "Unknown distribution " + distro
             return
-    else:
-        image_id = image
 
     reimage_server(args.server, image_id, args.package_image_id, args.conf_file)
 # end main
