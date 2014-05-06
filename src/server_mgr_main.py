@@ -1109,7 +1109,11 @@ class VncServerManager():
     def get_control_net(self, vns_servers):
 	server_control_list = {}
 	for server in vns_servers:
-	    server_control_list[server['ip']] = server['intf_control']
+	    if 'intf_control' not in server:
+                intf_control = ""
+            else:
+		intf_control = server['intf_control']
+	    server_control_list[server['ip']] = intf_control
 	return server_control_list
 
     # Function to get map server name to server ip
@@ -1224,6 +1228,7 @@ class VncServerManager():
                         role_servers[role] = self.role_get_servers(
                             vns_servers, role)
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
+                        role_ids[role] = [x["server_id"] for x in role_servers[role]]
                 provision_params = {}
                 provision_params['roles'] = role_ips
                 provision_params['server_id'] = server['server_id']
@@ -1242,11 +1247,11 @@ class VncServerManager():
 		provision_params['intf_control'] = ""
 		provision_params['intf_bond'] = ""
 		provision_params['intf_data'] = ""
-		if server['intf_control']:
+		if 'intf_control' in server:
 		    provision_params['intf_control'] = server['intf_control']
-		if server['intf_data']:
+		if 'intf_data' in server:
 		    provision_params['intf_data'] = server['intf_data']
-		if server['intf_bond']:
+		if 'intf_bond' in server:
 		    provision_params['intf_bond'] = server['intf_bond']
 		provision_params['control_net'] = self.get_control_net(vns_servers)
                 provision_params['server_ip'] = server['ip']

@@ -73,7 +73,6 @@ class ServerMgrPuppet:
     # end __init__
 
     def puppet_add_script_end_role(self, provision_params, last_res_added=None):
-#        pdb.set_trace()
 	if 'execute_script' in provision_params.keys():
             script_data = eval(provision_params["execute_script"])
             script_name = script_data["script_name"]
@@ -382,10 +381,11 @@ $__contrail_disc_backend_servers__
 	    compute_server = provision_params['server_ip']
         else:
             compute_server = provision_params['roles']['compute'][0]
-
         config_servers = provision_params['roles']['config']
-	zk_servers = provision_params['roles']['zookeeper']
-
+	if 'zookeeper' in provision_params['roles']:
+	    zk_servers = provision_params['roles']['zookeeper']
+	else:
+	    zk_servers = []
         cfgm_ip_list = ["\"%s\""%(x) for x in config_servers]
 	zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
 	zk_ip_list = cfgm_ip_list + zoo_ip_list
@@ -894,8 +894,8 @@ $__contrail_quantum_servers__
         roles = ['database', 'openstack', 'config', 'control',
                  'collector', 'webui', 'zookeeper', 'compute']
         for role in roles:
-            if provision_params['server_ip'] in \
-                provision_params['roles'][role]:
+            if provision_params['roles'].get(role) and  provision_params['server_ip'] in \
+                provision_params['roles'] [role]:
                 data += self._roles_function_map[role](
                     self, provision_params, last_res_added)
 #		if role == "config":
