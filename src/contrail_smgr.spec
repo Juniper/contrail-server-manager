@@ -55,6 +55,7 @@ Requires: bind
 Requires: tftp
 Requires: ntp
 Requires: wget
+Requires: sendmail
 
 %description
 A Server manager description
@@ -69,6 +70,7 @@ echo $HOST_IP
 cp -r %{_contrailetc}/cobbler /etc/
 cp -r %{_contrailetc}/puppet /etc/
 cp -r %{_contrailetc}/kickstarts /var/www/html/
+cp %{_contrailetc}/sendmail.cf /etc/mail/
 
 cp /usr/bin/server_manager/dhcp.template /etc/cobbler/
 cp -r /usr/bin/server_manager/kickstarts /var/www/html/
@@ -88,6 +90,9 @@ service cobblerd start
 
 service puppetmaster start
 service puppet start
+
+service postfix stop
+service sendmail restart
 
 sed -i "s/10.84.51.11/$HOST_IP/" /etc/cobbler/settings
 /sbin/chkconfig --add contrail_smgrd
@@ -148,6 +153,7 @@ cp -r %{_contrail_smgr_src}cobbler %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}kickstarts %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}client/server_manager/client/smgr_client_config.ini %{buildroot}%{_contrailetc}
 cp %{_contrail_smgr_src}contrail_smgrd.start %{buildroot}%{_sbinusr}contrail_smgrd
+cp %{_contrail_smgr_src}utils/sendmail.cf %{buildroot}%{_contrailetc}
 
 #install -p -m 755 %{_contrail_smgr_src}cobbler/dhcp.template %{buildroot}%{_bindir}%{_contrail_smgr}
 #install -p -m 755 %{_contrail_smgr_src}cobbler/settings %{buildroot}%{_bindir}%{_contrail_smgr}
