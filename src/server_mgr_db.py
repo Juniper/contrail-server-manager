@@ -427,6 +427,35 @@ class ServerMgrDb:
         return images
     # End of get_image
 
+
+
+    def get_status(self, match_key=None, match_value=None,
+                  detail=False):
+        try:
+            status = self._get_items(server_status_table, match_key,
+                                     match_value, detail, "server_id")
+        except Exception as e:
+            raise e
+        return status
+    # End of get_status
+
+    def put_status(self, server_data):
+        try:
+            server_id = server_data.get('server_id', None)
+            if not server_id:
+                raise Exception("No server id specified")
+            # Store vns_params dictionary as a text field
+            servers = self._get_items(server_status_table, "server_id", server_id, True)
+            if servers:
+                self._modify_row(server_status_table, server_data,
+                             'server_id', server_id)
+	    else:
+		self._add_row(server_status_table, server_data)
+        except Exception as e:
+            raise e
+    # End of put_status
+
+
     def get_server(self, match_key=None, match_value=None,
                    detail=False):
         try:

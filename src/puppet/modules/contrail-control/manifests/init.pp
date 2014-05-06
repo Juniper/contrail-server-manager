@@ -62,20 +62,34 @@ define contrail-control (
     }
 
     # Ensure all config files with correct content are present.
-    control-template-scripts { ["control_param", "dns_param"]: }
+    control-template-scripts { ["control_param", "dns_param", "control-node.conf"]: }
 
     # Hard-coded to be taken as parameter of vnsi and multi-tenancy options need to be passed to contrail-control too.
     $router_asn = "64512"
     $mt_options = ""
     exec { "provision-control" :
-        command => "/bin/bash -c \"source /opt/contrail/api-venv/bin/activate && python provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name $hostname --host_ip $contrail_control_ip --router_asn $router_asn $mt_options && echo provision-control >> /etc/contrail/contrail-control-exec.out\"",
+        command => "/bin/bash -c \"python provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name $hostname --host_ip $contrail_control_ip --router_asn $router_asn $mt_options && echo provision-control >> /etc/contrail/contrail-control-exec.out\"",
         cwd => "/opt/contrail/utils",
         unless  => "grep -qx provision-control /etc/contrail/contrail-control-exec.out",
         provider => shell,
         logoutput => 'true'
     }
 
-    Package["contrail-openstack-control"]->Exec['control-venv']->Control-template-scripts["control_param"]->Control-template-scripts["dns_param"]->Exec["provision-control"]
+    file { "/opt/contrail/contrail_installer/contrail_setup_utils/control-server-setup.sh":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+    }
+    exec { "control-server-setup" :
+        command => "/opt/contrail/contrail_installer/contrail_setup_utils/control-server-setup.sh; echo control-server-setup >> /etc/contrail/contrail-control-exec.out",
+        require => File["/opt/contrail/contrail_installer/contrail_setup_utils/control-server-setup.sh"],
+        unless  => "grep -qx control-server-setup /etc/contrail/contrail-control-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
+    Package["contrail-openstack-control"]->Exec['control-venv']->Control-template-scripts["control-node.conf"]->Control-template-scripts["dns_param"]->Exec["provision-control"]->Exec["control-server-setup"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name
@@ -101,9 +115,10 @@ define contrail-control (
         enable => true,
         require => [ Package['contrail-openstack-control'],
                      Exec['control-venv'] ],
-        subscribe => File['/etc/contrail/control_param'],
+        subscribe => File['/etc/contrail/control-node.conf'],
         ensure => running,
     }
+if ($operatingsystem == "Ubuntu") {
     service { "supervisor-dns" :
         enable => true,
         require => [ Package['contrail-openstack-control'],
@@ -111,6 +126,7 @@ define contrail-control (
         subscribe => File['/etc/contrail/dns_param'],
         ensure => running,
     }
+}
     service { "contrail-named" :
         enable => true,
         require => [ Package['contrail-openstack-control'],

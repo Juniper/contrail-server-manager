@@ -7,6 +7,14 @@ var config = {};
 config.orchestration = {};
 config.orchestration.Manager = 'openstack'
 
+/* Below are the config options for all Orchestration Modules below */
+// authProtocol:        
+//      Specify authProtocol either 'http' or 'https'
+// strictSSL:
+//      If true, requires certificates to be valid
+// ca: 
+//      An authority certificate to check the remote host against,
+//      if you do not want to specify then use ''
 config.networkManager = {};
 config.networkManager.ip = '<%= contrail_config_ip %>';
 config.networkManager.port = '9696'
@@ -22,6 +30,9 @@ config.computeManager.port = '8774';
 config.identityManager = {};
 config.identityManager.ip = '<%= contrail_openstack_ip %>';
 config.identityManager.port = '5000';
+config.identityManager.authProtocol = 'http';
+config.identityManager.strictSSL = false;
+config.identityManager.ca = '';
 
 config.storageManager = {};
 config.storageManager.ip = '<%= contrail_openstack_ip %>';
@@ -31,16 +42,26 @@ config.storageManager.port = '8776';
 config.cnfg = {};
 config.cnfg.server_ip = '<%= contrail_config_ip %>';
 config.cnfg.server_port = '8082';
+config.cnfg.authProtocol = 'http';
+config.cnfg.strictSSL = false;
+config.cnfg.ca = '';
 
 // Analytics API server and port.
 config.analytics = {};
 config.analytics.server_ip = '<%= contrail_collector_ip %>';
 config.analytics.server_port = '8081';
+config.analytics.authProtocol = 'http';
+config.analytics.strictSSL = false;
+config.analytics.ca = '';
 
 /* Discovery Service */
 config.discoveryService = {};
 config.discoveryService.server_ip = '127.0.0.1';
 config.discoveryService.server_port = '5998';
+/* Specifiy true if subscription to discovery server should be enabled, else
+ * specify false. Other than true/false value here is treated as true
+ */
+config.discoveryService.enable = true;
 
 /* Job Server */
 config.jobServer = {};
@@ -97,6 +118,7 @@ config.redisDBIndex = 1;
 /* WebUI Redis Server */
 config.redis_server_port = '6383';
 config.redis_server_ip = '127.0.0.1';
+config.redis_dump_file = '/var/lib/redis/dump-webui.rdb';
 
 /* Cache Expiry Time */
 config.cacheExpire = {};
@@ -109,6 +131,10 @@ config.logo_file = '/usr/src/contrail/contrail-webui/webroot/img/juniper-network
 /* Enable/disable Stat Query Links in Sidebar*/
 config.qe = {};
 config.qe.enable_stat_queries = false;
+
+/* Configure level of logs */
+config.logs = {};
+config.logs.level = 'debug';
 
 // Export this as a module.
 module.exports = config;

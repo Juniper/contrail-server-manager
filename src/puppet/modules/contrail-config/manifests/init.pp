@@ -49,7 +49,15 @@ define contrail-config (
         $contrail_redis_ip,
         $contrail_cfgm_index,
         $contrail_api_nworkers,
-        $contrail_supervisorctl_lines
+        $contrail_supervisorctl_lines,
+	$contrail_haproxy,
+	$contrail_uuid,
+	$contrail_rmq_master,
+	$contrail_rmq_is_master,
+	$contrail_region_name,
+	$contrail_router_asn,
+	$contrail_encap_priority,
+	$contrail_bgp_params,
     ) {
 
     if $contrail_use_certs == "yes" {
@@ -117,7 +125,14 @@ define contrail-config (
     
     # Ensure ctrl-details file is present with right content.
     if ! defined(File["/etc/contrail/ctrl-details"]) {
-        $quantum_port = "9696"
+        $quantum_port = "9697"
+        #$contrail_compute_ip = ''
+        #$contrail_openstack_mgmt_ip = ''
+     	if $contrail_haproxy == "enable" {
+		$quantum_ip = "127.0.0.1"
+        } else {
+		$quantum_ip = $contrail_config_ip
+	}
         file { "/etc/contrail/ctrl-details" :
             ensure  => present,
             content => template("contrail-common/ctrl-details.erb"),
@@ -221,10 +236,29 @@ define contrail-config (
         require => Package["contrail-openstack-config"],
         source => "puppet:///modules/contrail-config/config-zk-files-setup.sh"
     }
+    $contrail_zk_ip_list_for_shell = inline_template('<%= contrail_zookeeper_ip_list.map{ |ip| "#{ip}" }.join(" ") %>')
     exec { "setup-config-zk-files-setup" :
-        command => "/bin/bash /etc/contrail/contrail_setup_utils/config-zk-files-setup.sh $operatingsystem $contrail_cfgm_index $contrail_zookeeper_ip_list && echo setup-config-zk-files-setup >> /etc/contrail/contrail-config-exec.out",
+        command => "/bin/bash /etc/contrail/contrail_setup_utils/config-zk-files-setup.sh $operatingsystem $contrail_cfgm_index $contrail_zk_ip_list_for_shell && echo setup-config-zk-files-setup >> /etc/contrail/contrail-config-exec.out",
         require => File["/etc/contrail/contrail_setup_utils/config-zk-files-setup.sh"],
         unless  => "grep -qx setup-config-zk-files-setup /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
+    file { "/etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+        require => Package["contrail-openstack-config"],
+        source => "puppet:///modules/contrail-config/setup_rabbitmq_cluster.sh"
+    }
+
+    exec { "setup-rabbitmq-cluster" :
+        command => "/bin/bash /etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh $operatingsystem $contrail_uuid $contrail_rmq_master $contrail_rmq_is_master && echo setup_rabbitmq_cluster >> /etc/contrail/contrail-config-exec.out",
+       # command => "echo rabbit && echo setup_rabbitmq_cluster >> /etc/contrail/contrail-config-exec.out",
+        require => File["/etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh"],
+        unless  => "grep -qx setup_rabbitmq_cluster /etc/contrail/contrail-config-exec.out",
         provider => shell,
         logoutput => "true"
     }
@@ -259,14 +293,69 @@ define contrail-config (
         group => root,
     }
     exec { "setup-quantum-in-keystone" :
-        command => "python /opt/contrail/contrail_installer/contrail_setup_utils/setup-quantum-in-keystone.py --ks_server_ip $contrail_openstack_ip --quant_server_ip $contrail_config_ip --tenant $contrail_ks_admin_tenant --user $contrail_ks_admin_user --password $contrail_ks_admin_passwd --svc_password $contrail_service_token && echo setup-quantum-in-keystone >> /etc/contrail/contrail-config-exec.out",
+        command => "python /opt/contrail/contrail_installer/contrail_setup_utils/setup-quantum-in-keystone.py --ks_server_ip $contrail_openstack_ip --quant_server_ip $contrail_config_ip --tenant $contrail_ks_admin_tenant --user $contrail_ks_admin_user --password $contrail_ks_admin_passwd --svc_password $contrail_service_token --region_name $contrail_region_name && echo setup-quantum-in-keystone >> /etc/contrail/contrail-config-exec.out",
         require => [ File["/opt/contrail/contrail_installer/contrail_setup_utils/setup-quantum-in-keystone.py"] ],
         unless  => "grep -qx setup-quantum-in-keystone /etc/contrail/contrail-config-exec.out",
         provider => shell,
         logoutput => "true"
     }
+    if ($contrail_multi_tenancy == "True") {
+	$mt_options = " --admin_user root --admin_password $contrail_ --admin_tenant_name $contrail_"
+    } else {
+        $mt_options = ""
+    }
 
-    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]
+    file { "/etc/contrail/contrail_setup_utils/setup_external_bgp.py" :
+            ensure  => present,
+            mode => 0755,
+#            user => root,
+            group => root,
+            source => "puppet:///modules/contrail-config/setup_external_bgp.py"
+    }
+
+   exec { "provision-external-bgp" :
+        command => "python /etc/contrail/contrail_setup_utils/setup_external_bgp.py --bgp_params \"$contrail_bgp_params\" --api_server_ip $contrail_config_ip --api_server_port 8082 --router_asn $contrail_router_asn --mt_options \"$mt_options\" && echo provision-external-bgp >> /etc/contrail/contrail-config-exec.out",
+        require => [ File["/etc/contrail/contrail_setup_utils/setup_external_bgp.py"] ],
+        unless  => "grep -qx provision-external-bgp /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
+    exec { "provision-metadata-services" :
+        command => "python /opt/contrail/utils/provision_linklocal.py --admin_user $contrail_ks_admin_user --admin_password $contrail_ks_admin_passwd --linklocal_service_name metadata --linklocal_service_ip 169.254.169.254 --linklocal_service_port 80 --ipfabric_service_ip $contrail_openstack_ip --ipfabric_service_port 8775 --oper add && echo provision-metadata-services >> /etc/contrail/contrail-config-exec.out",
+        require => [ File["/etc/haproxy/haproxy.cfg"] ],
+        unless  => "grep -qx provision-metadata-services /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
+    exec { "provision-encap-type" :
+        command => "python /opt/contrail/utils/provision_encap.py --admin_user $contrail_ks_admin_user --admin_password $contrail_ks_admin_passwd --encap_priority $contrail_encap_priority --oper add && echo provision-encap-type >> /etc/contrail/contrail-config-exec.out",
+        require => [ File["/etc/haproxy/haproxy.cfg"],  ],
+        unless  => "grep -qx provision-encap-type /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
+
+ if ! defined(File["/etc/haproxy/haproxy.cfg"]) {
+    file { "/etc/haproxy/haproxy.cfg":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+        source => "puppet:///modules/contrail-common/$hostname.cfg"
+    }
+        exec { "haproxy-exec":
+                command => "sudo sed -i 's/ENABLED=.*/ENABLED=1/g' /etc/default/haproxy; chkconfig haproxy on; service haproxy restart",
+                provider => shell,
+                logoutput => "true",
+                require => File["/etc/haproxy/haproxy.cfg"]
+        }
+
+   }
+
+    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["setup-rabbitmq-cluster"]->Exec["provision-metadata-services"]->Exec["provision-encap-type"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name

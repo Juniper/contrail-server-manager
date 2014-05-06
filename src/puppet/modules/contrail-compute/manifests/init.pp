@@ -109,6 +109,7 @@ define contrail-compute-part-2 (
         $contrail_ks_admin_user,
         $contrail_ks_admin_passwd,
         $contrail_ks_admin_tenant,
+	$contrail_haproxy,
     ) {
     # Ensure all needed packages are present
     package { 'contrail-openstack-vrouter' : ensure => present,}
@@ -162,12 +163,7 @@ define contrail-compute-part-2 (
     }
     ## For compute node, additional processing to be done for enable_kernel_core (TBD Abhay)
 
-    if ($operatingsystem == "Ubuntu") {
-        $novaconf_hostname_str = "rabbit_host"
-    }
-    else {
-        $novaconf_hostname_str = "qpid_hostname"
-    }
+    $novaconf_hostname_str = "rabbit_host"
     exec { "exec-compute-qpid-rabbitmq-hostname" :
         command => "echo \"$novaconf_hostname_str = $contrail_openstack_ip\" >> /etc/nova/nova.conf && echo exec-compute-qpid-rabbitmq-hostname >> /etc/contrail/contrail-compute-exec.out",
         unless  => ["grep -qx exec-compute-qpid-rabbitmq-hostname /etc/contrail/contrail-compute-exec.out",
@@ -186,12 +182,35 @@ define contrail-compute-part-2 (
     
     # Ensure ctrl-details file is present with right content.
     if ! defined(File["/etc/contrail/ctrl-details"]) {
-        $quantum_port = "9696"
+        $quantum_port = "9697"
+     	if ($contrail_haproxy == "enable") {
+                $quantum_ip = "127.0.0.1"
+	} else {
+		$quantum_ip = $contrail_config_ip
+	}
         file { "/etc/contrail/ctrl-details" :
             ensure  => present,
-            content => template("contrail-common/ctrl-details.erb"),
+            content => template("contrail-compute/ctrl-details.erb"),
         }
     }
+    #Ensure Ha-proxy cfg file is set
+    if (!defined(File["/etc/haproxy/haproxy.cfg"])) and ( $contrail_haproxy == "enable" )  {
+    	file { "/etc/haproxy/haproxy.cfg":
+       	   ensure  => present,
+           mode => 0755,
+           owner => root,
+           group => root,
+           source => "puppet:///modules/contrail-common/$hostname.cfg"
+        }
+        exec { "haproxy-exec":
+                command => "sudo sed -i 's/ENABLED=.*/ENABLED=1/g' /etc/default/haproxy; chkconfig haproxy on; service haproxy restart",
+                provider => shell,
+                logoutput => "true",
+                require => File["/etc/haproxy/haproxy.cfg"]
+        }
+
+     }
+
     # Ensure service.token file is present with right content.
     if ! defined(File["/etc/contrail/service.token"]) {
         file { "/etc/contrail/service.token" :
@@ -215,6 +234,12 @@ define contrail-compute-part-2 (
     }
 
     # Ensure all config files with correct content are present.
+    if ($contrail_haproxy == "enable") {
+	$discovery_ip = "127.0.0.1"
+    } else {
+	$discovery_ip = $contrail_config_ip
+    }
+
     compute-template-scripts {"vrouter_nodemgr_param":}
 
     if  ($contrail_non_mgmt_ip != "") and
@@ -268,7 +293,8 @@ define contrail-compute-part-2 (
         # Ensure all config files with correct content are present.
         compute-template-scripts { ["default_pmac",
                                     "agent_param.tmpl",
-                                    "rpm_agent.conf"]: 
+                                    "rpm_agent.conf",
+				    "vnswad.conf"]: 
         }
 
         file { "/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py":
@@ -280,7 +306,7 @@ define contrail-compute-part-2 (
         }
 
         exec { "update-dev-net-config" :
-            command => "/bin/bash -c \"source /opt/contrail/api-venv/bin/activate && python /etc/contrail/contrail_setup_utils/update_dev_net_config_files.py --compute_ip $contrail_compute_ip --physical_interface \'$contrail_physical_interface\' --non_mgmt_ip \'$contrail_non_mgmt_ip\' --non_mgmt_gw \'$contrail_non_mgmt_gw\' --collector_ip $contrail_collector_ip --discovery_ip $contrail_config_ip --ncontrols $contrail_num_controls --mac $contrail_macaddr && echo update-dev-net-config >> /etc/contrail/contrail-compute-exec.out\"",
+            command => "/bin/bash -c \"python /etc/contrail/contrail_setup_utils/update_dev_net_config_files.py --compute_ip $contrail_compute_ip --physical_interface \'$contrail_physical_interface\' --non_mgmt_ip \'$contrail_non_mgmt_ip\' --non_mgmt_gw \'$contrail_non_mgmt_gw\' --collector_ip $contrail_collector_ip --discovery_ip $contrail_config_ip --ncontrols $contrail_num_controls --mac $contrail_macaddr && echo update-dev-net-config >> /etc/contrail/contrail-compute-exec.out\"",
             require => [ File["/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py"] ],
             unless  => "grep -qx update-dev-net-config /etc/contrail/contrail-compute-exec.out",
             provider => shell,
@@ -295,7 +321,7 @@ define contrail-compute-part-2 (
             source => "puppet:///modules/contrail-compute/provision_vrouter.py"
         }
         exec { "add-vnc-config" :
-            command => "/bin/bash -c \"source /opt/contrail/api-venv/bin/activate && python /etc/contrail/contrail_setup_utils/provision_vrouter.py --host_name $contrail_compute_hostname --host_ip $contrail_compute_ip --api_server_ip $contrail_config_ip --oper add --admin_user $contrail_ks_admin_user --admin_password $contrail_ks_admin_passwd --admin_tenant_name $contrail_ks_admin_tenant && echo add-vnc-config >> /etc/contrail/contrail-compute-exec.out\"",
+            command => "/bin/bash -c \"python /etc/contrail/contrail_setup_utils/provision_vrouter.py --host_name $contrail_compute_hostname --host_ip $contrail_compute_ip --api_server_ip $contrail_config_ip --oper add --admin_user $contrail_ks_admin_user --admin_password $contrail_ks_admin_passwd --admin_tenant_name $contrail_ks_admin_tenant && echo add-vnc-config >> /etc/contrail/contrail-compute-exec.out\"",
             require => File["/etc/contrail/contrail_setup_utils/provision_vrouter.py"],
             unless  => "grep -qx add-vnc-config /etc/contrail/contrail-compute-exec.out",
             provider => shell,
@@ -310,6 +336,13 @@ define contrail-compute-part-2 (
             mode => 0644,
             content => "2"
         }
+    	exec { "exec-compute-update-nova-conf" :
+        	command => "sed -i \"s/^rpc_backend = nova.openstack.common.rpc.impl_qpid/#rpc_backend = nova.openstack.common.rpc.impl_qpid/g\" /etc/nova/nova.conf && echo exec-update-nova-conf >> /etc/contrail/contrail-common-exec.out",
+        	unless  => ["[ ! -f /etc/nova/nova.conf ]",
+                        "grep -qx exec-update-nova-conf /etc/contrail/contrail-common-exec.out"],
+        	provider => shell,
+        	logoutput => "true"
+    	}
 
         # Now reboot the system
         if ($operatingsystem == "Centos" or $operatingsystem == "Fedora") {
@@ -329,7 +362,7 @@ define contrail-compute-part-2 (
             provider => "shell",
             logoutput => 'true'
         }
-        Package['contrail-openstack-vrouter'] -> File["/etc/libvirt/qemu.conf"] -> Compute-template-scripts["vrouter_nodemgr_param"] -> Compute-template-scripts["default_pmac"] ->  Compute-template-scripts["agent_param.tmpl"] ->  Compute-template-scripts["rpm_agent.conf"] -> File["/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py"] -> Exec["update-dev-net-config"] -> File["/etc/contrail/contrail_setup_utils/provision_vrouter.py"] -> Exec["add-vnc-config"] -> Compute-scripts["compute-server-setup"] -> File["/etc/contrail/interface_renamed"] -> Exec["reboot-server"]
+        Package['contrail-openstack-vrouter'] -> File["/etc/libvirt/qemu.conf"] -> Compute-template-scripts["vrouter_nodemgr_param"] -> Compute-template-scripts["default_pmac"] ->  Compute-template-scripts["agent_param.tmpl"] ->  Compute-template-scripts["rpm_agent.conf"] -> File["/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py"] -> Exec["update-dev-net-config"] ->  Compute-template-scripts["vnswad.conf"] -> File["/etc/contrail/contrail_setup_utils/provision_vrouter.py"] -> Exec["add-vnc-config"] -> Compute-scripts["compute-server-setup"] -> File["/etc/contrail/interface_renamed"] -> Exec["reboot-server"]
     }
     else {
         file { "/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py":
@@ -341,7 +374,7 @@ define contrail-compute-part-2 (
         }
 
         exec { "update-dev-net-config" :
-            command => "/bin/bash \"source /opt/contrail/api-venv/bin/activate && python /etc/contrail/contrail_setup_utils/update_dev_net_config_files.py --compute_ip $contrail_compute_ip --physical_interface \'$contrail_physical_interface\' --non_mgmt_ip \'$contrail_non_mgmt_ip\' --non_mgmt_gw \'$contrail_non_mgmt_gw\' --collector_ip $contrail_collector_ip --discovery_ip $contrail_config_ip --ncontrols $contrail_num_controls --mac $contrail_macaddr && echo update-dev-net-config >> /etc/contrail/contrail-compute-exec.out\"",
+            command => "/bin/bash \"python /etc/contrail/contrail_setup_utils/update_dev_net_config_files.py --compute_ip $contrail_compute_ip --physical_interface \'$contrail_physical_interface\' --non_mgmt_ip \'$contrail_non_mgmt_ip\' --non_mgmt_gw \'$contrail_non_mgmt_gw\' --collector_ip $contrail_collector_ip --discovery_ip $contrail_config_ip --ncontrols $contrail_num_controls --mac $contrail_macaddr && echo update-dev-net-config >> /etc/contrail/contrail-compute-exec.out\"",
             require => [ File["/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py"] ],
             unless  => "grep -qx update-dev-net-config /etc/contrail/contrail-compute-exec.out",
             provider => shell,
@@ -363,8 +396,10 @@ define contrail-compute (
         $contrail_non_mgmt_ip,
         $contrail_non_mgmt_gw,
         $contrail_ks_admin_user,
+        $contrail_ks_admin_user,
         $contrail_ks_admin_passwd,
         $contrail_ks_admin_tenant,
+	$contrail_haproxy,
     ) {
 
     if ($operatingsystem == "Ubuntu") {
@@ -384,6 +419,8 @@ define contrail-compute (
                 contrail_ks_admin_user => $contrail_ks_admin_user,
                 contrail_ks_admin_passwd => $contrail_ks_admin_passwd,
                 contrail_ks_admin_tenant => $contrail_ks_admin_tenant,
+		contrail_haproxy => $contrail_haproxy,
+
             }
         }
         else {
@@ -425,6 +462,7 @@ define contrail-compute (
                 contrail_ks_admin_user => $contrail_ks_admin_user,
                 contrail_ks_admin_passwd => $contrail_ks_admin_passwd,
                 contrail_ks_admin_tenant => $contrail_ks_admin_tenant,
+		contrail_haproxy => $contrail_haproxy,
             }
         }
         else {

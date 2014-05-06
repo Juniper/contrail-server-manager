@@ -23,12 +23,13 @@ import ConfigParser
 import paramiko
 import base64
 import shutil
+import string
 from urlparse import urlparse, parse_qs
 from time import gmtime, strftime
 import pdb
 import server_mgr_db
 import ast
-
+import uuid
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
@@ -162,6 +163,7 @@ class VncServerManager():
         bottle.route('/vns', 'GET', self.get_vns)
         bottle.route('/server', 'GET', self.get_server)
         bottle.route('/image', 'GET', self.get_image)
+        bottle.route('/status', 'GET', self.get_status)
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
@@ -170,6 +172,7 @@ class VncServerManager():
         bottle.route('/image', 'PUT', self.add_image)
         bottle.route('/image/upload', 'PUT', self.upload_image)
         bottle.route('/vns', 'PUT', self.add_vns)
+        bottle.route('/status', 'PUT', self.put_status)
 
         # REST calls for DELETE methods (Remove records)
         bottle.route('/cluster', 'DELETE', self.delete_cluster)
@@ -346,11 +349,29 @@ class VncServerManager():
             for cur_vns in vns:
                 if ('vns_id' not in cur_vns):
                     abort(404, 'Error : No vns_id specified')
+		str_uuid = str(uuid.uuid4())
+		cur_vns["vns_params"].update({"uuid":str_uuid})
                 self._serverDb.add_vns(cur_vns)
         except Exception as e:
             abort(404, repr(e))
         return entity
     # end add_vns
+
+    def put_status(self):
+	server_id = bottle.request.query['server_id']
+	body = bottle.request.body.read()
+	server_data = {}
+	server_data['server_id'] = server_id
+	server_data['server_status'] = body
+	servers = self._serverDb.put_status(
+                    server_data)
+
+
+    def get_status(self):
+	server_id = bottle.request.query['server_id']		
+	servers = self._serverDb.get_status('server_id',
+                    server_id, True)
+	return servers[0]	
 
     def config_cluster(self):
         role_compute = {
@@ -1082,7 +1103,14 @@ class VncServerManager():
             if role_type in server['roles']:
                 servers.append(server)
         return servers
-    # end role_get_servers
+
+    #Function to get control section for all servers
+    # belonging to the same VN
+    def get_control_net(self, vns_servers):
+	server_control_list = {}
+	for server in vns_servers:
+	    server_control_list[server['ip']] = server['intf_control']
+	return server_control_list
 
     # Function to get map server name to server ip
     # accepts list of server names and returns list of
@@ -1114,6 +1142,7 @@ class VncServerManager():
             # provisioning step.
             role_servers = {}
             role_ips = {}
+            role_ids = {}
             if req_provision_params is not None:
                 role_list = [
                     "database", "openstack", "config",
@@ -1202,13 +1231,33 @@ class VncServerManager():
                     provision_params['domain'] = server['domain']
                 else:
                     provision_params['domain'] = vns_params['domain']
+		
+		provision_params['rmq_master'] = role_ids['config'][0]
+		provision_params['uuid'] = vns_params['uuid']
+		provision_params['smgr_ip'] = self._args.listen_ip_addr
+		if role_ids['config'][0] == server['server_id']:
+	            provision_params['is_rmq_master'] = "yes"
+		else:
+		    provision_params['is_rmq_master'] = "no"
+		provision_params['intf_control'] = ""
+		provision_params['intf_bond'] = ""
+		provision_params['intf_data'] = ""
+		if server['intf_control']:
+		    provision_params['intf_control'] = server['intf_control']
+		if server['intf_data']:
+		    provision_params['intf_data'] = server['intf_data']
+		if server['intf_bond']:
+		    provision_params['intf_bond'] = server['intf_bond']
+		provision_params['control_net'] = self.get_control_net(vns_servers)
                 provision_params['server_ip'] = server['ip']
                 provision_params['database_dir'] = vns_params['database_dir']
                 provision_params['db_initial_token'] = vns_params['db_initial_token']
                 provision_params['openstack_mgmt_ip'] = vns_params['openstack_mgmt_ip']
                 provision_params['use_certs'] = vns_params['use_certs']
                 provision_params['multi_tenancy'] = vns_params['multi_tenancy']
-                provision_params['service_token'] = vns_params['service_token']
+                provision_params['router_asn'] = vns_params['router_asn']
+                provision_params['encap_priority'] = vns_params['encap_priority']
+		provision_params['service_token'] = vns_params['service_token']
                 provision_params['ks_user'] = vns_params['ks_user']
                 provision_params['ks_passwd'] = vns_params['ks_passwd']
                 provision_params['ks_tenant'] = vns_params['ks_tenant']
@@ -1217,6 +1266,20 @@ class VncServerManager():
                 provision_params['phy_interface'] = server_params['ifname']
                 provision_params['compute_non_mgmt_ip'] = server_params['compute_non_mgmt_ip']
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
+                provision_params['haproxy'] = vns_params['haproxy']
+                if 'region_name' in vns_params.keys():
+                    provision_params['region_name'] = vns_params['region_name']
+                else:
+                    provision_params['region_name'] = "RegionOne"
+                if 'execute_script' in server_params.keys():
+                    provision_params['execute_script'] = server_params['execute_script']
+                else:
+                    provision_params['execute_script'] = ""
+		if 'ext_bgp' in vns_params.keys():
+		    provision_params['ext_bgp'] = vns_params['ext_bgp']
+		else:
+		    provision_params['ext_bgp'] = ""
+
                 self._do_provision_server(provision_params)
         except Exception as e:
             abort(404, repr(e))

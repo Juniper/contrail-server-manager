@@ -10,6 +10,7 @@ log_file=/var/log/contrail/svc-monitor.log
 cassandra_server_list=<%= contrail_cassandra_ip_list.map{ |ip| "#{ip}:#{@contrail_cassandra_ip_port}" }.join(',') %>
 disc_server_ip=<%= contrail_config_ip %>
 disc_server_port=5998
+region_name=<%= contrail_region_name %>
 
 [SECURITY]
 use_certs=<%= contrail_use_certs %>
@@ -22,3 +23,4 @@ auth_host=<%= contrail_openstack_ip %>
 admin_user=<%= contrail_ks_admin_user %>
 admin_password=<%= contrail_ks_admin_passwd %>
 admin_tenant_name=<%= contrail_ks_admin_tenant %>
+admin_token=<%= contrail_service_token %>
