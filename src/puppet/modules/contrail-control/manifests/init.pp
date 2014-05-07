@@ -62,7 +62,7 @@ define contrail-control (
     }
 
     # Ensure all config files with correct content are present.
-    control-template-scripts { ["control_param", "dns_param", "control-node.conf"]: }
+    control-template-scripts { ["control_param", "dns_param", "dns.conf", "control-node.conf"]: }
 
     # Hard-coded to be taken as parameter of vnsi and multi-tenancy options need to be passed to contrail-control too.
     $router_asn = "64512"

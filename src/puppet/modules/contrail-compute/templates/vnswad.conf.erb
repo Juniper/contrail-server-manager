@@ -105,7 +105,7 @@ control_network_ip=<%= contrail_collector_ip %>
 name=vhost0
 
 # IP address and prefix in ip/prefix_len format
-ip=<%= contrail_non_mgmt_ip %>
+ip=<%= contrail_non_mgmt_ip %>/<%= contrail_cidr %>
 
 # Gateway IP address for virtual host
 gateway=<%= contrail_non_mgmt_gw %>

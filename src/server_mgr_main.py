@@ -1271,6 +1271,7 @@ class VncServerManager():
                 provision_params['phy_interface'] = server_params['ifname']
                 provision_params['compute_non_mgmt_ip'] = server_params['compute_non_mgmt_ip']
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
+                provision_params['server_gway'] = server['gway']
                 provision_params['haproxy'] = vns_params['haproxy']
                 if 'region_name' in vns_params.keys():
                     provision_params['region_name'] = vns_params['region_name']

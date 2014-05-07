@@ -890,14 +890,20 @@ $__contrail_quantum_servers__
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
         contrail_openstack_mgmt_ip_control= self.get_control_ip(provision_params,contrail_openstack_mgmt_ip)
         server_ip_control= self.get_control_ip(provision_params,provision_params["server_ip"])
+		#TODO Check
+        if provision_params["compute_non_mgmt_ip"] == "":
+            provision_params["compute_non_mgmt_ip"] = provision_params["server_ip"]
+        if provision_params["compute_non_mgmt_gway"] == "":
+            provision_params["compute_non_mgmt_gway"] = provision_params['server_gway']
+
         if provision_params['intf_control']:
             intf_control = eval(provision_params['intf_control'])
             for intf,values in intf_control.items():
                 non_mgmt_ip= values['ip'].split("/")[0]
                 non_mgmt_gw= values['gw']
         else:
-            non_mgmt_ip = ""
-            non_mgmt_gw = "" 
+            non_mgmt_ip = provision_params["compute_non_mgmt_ip"]
+            non_mgmt_gw = provision_params["compute_non_mgmt_gway"] 
          
 #	if provision_params['haproxy'] == 'enable':
 #            data += '''         #Source HA Proxy CFG
