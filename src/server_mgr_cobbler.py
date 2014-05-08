@@ -215,8 +215,34 @@ class ServerMgrCobbler:
                 system_id, "power_pass", power_pass, self._token)
             self._server.modify_system(
                 system_id, "power_address", power_address, self._token)
+            # For centos, create a sub-profile that has the repo for
+            # package_image_id also made available for this system.
+            if (base_image['image_type'] == "centos"):
+                sub_profile_name = profile_name + "-" + package_image_id
+                sub_profile = self._server.find_profile(
+                    {"name":  sub_profile_name})
+                if not sub_profile:
+                    sub_profile_id = self._server.new_subprofile(self._token)
+                    self._server.modify_profile(
+                        sub_profile_id, 'name',
+                        sub_profile_name, self._token)
+                    self._server.modify_profile(
+                        sub_profile_id, 'parent',
+                        profile_name, self._token)
+                    repos = [
+                        package_image_id,
+                        _CONTRAIL_CENTOS_REPO ]
+                    self._server.modify_profile(
+                        sub_profile_id, 'repos',
+                        repos, self._token)
+                    self._server.save_profile(
+                        sub_profile_id, self._token)
+                # end if sub_profile
+            else:
+                sub_profile_name = profile_name
+            #end if
             self._server.modify_system(
-                system_id, "profile", profile_name, self._token)
+                system_id, "profile", sub_profile_name, self._token)
             interface = {}
             if mac:
                 interface['macaddress-%s' % (ifname)] = mac
