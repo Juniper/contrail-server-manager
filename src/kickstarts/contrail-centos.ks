@@ -98,6 +98,18 @@ wget -O /etc/init.d/puppet "http://$server:$http_port/cobbler/aux/puppet"
 chmod 755 /etc/init.d/puppet
 echo "[agent]" >> /etc/puppet/puppet.conf
 echo "    pluginsync = true" >> /etc/puppet/puppet.conf
+echo "    ignorecache = true" >> /etc/puppet/puppet.conf
+echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
+echo "    listen = true" >> /etc/puppet/puppet.conf
+cat >/tmp/puppet-auth.conf <<EOF
+# Allow puppet kick access
+path    /run
+method  save
+auth    any
+allow   $server.$system_domain
+EOF
+cat /etc/puppet/auth.conf >> /tmp/puppet-auth.conf
+cp -f /tmp/puppet-auth.conf /etc/puppet/auth.conf
 ## generate puppet certificates and trigger a signing request, but
 ## don't wait for signing to complete
 /usr/sbin/puppetd --test --waitforcert 0
