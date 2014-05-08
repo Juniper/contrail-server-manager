@@ -282,11 +282,7 @@ define contrail-compute-part-2 (
     if ($contrail_dev != undef and $contrail_dev != "vhost0") {
         $contrail_macaddr = inline_template("<%= scope.lookupvar('macaddress_' + @contrail_dev) %>")
         $contrail_netmask = inline_template("<%= scope.lookupvar('netmask_' + @contrail_dev) %>")
-        $contrail_cidra = convert_netmask_to_cidr($contrail_netmask)
-# 	$contrail_cidr = inline_template("<%= require 'ipaddr';puts IPAddr.new(@acontrail_netmask).to_i.to_s(2).count(\"1\") %>")
- 	$contrail_cidr = "24"
-
-        notify {"Running with $contrail_cidr, $contrail_cidra , $contrail_dev, $contrail_netmask ID defined":}
+        $contrail_cidr = convert_netmask_to_cidr($contrail_netmask)
 
         if ($contrail_multinet == "true") {
             $contrail_gway = $contrail_non_mgmt_gw
