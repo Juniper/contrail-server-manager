@@ -1,0 +1,2 @@
+recursive-include server_manager/client *.json *.ini
+recursive-include server_manager/contrail *.xml
