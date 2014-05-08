@@ -13,6 +13,7 @@ vns_table = 'vns_table'
 cloud_table = 'cloud_table'
 server_table = 'server_table'
 image_table = 'image_table'
+server_status_table = 'status_table'
 _DUMMY_STR = "DUMMY_STR"
 
 
@@ -25,6 +26,7 @@ class ServerMgrDb:
     _cloud_table_cols = []
     _server_table_cols = []
     _image_table_cols = []
+    _status_table_cols = []
 
     # Keep list of table columns
     def _get_table_columns(self):
@@ -56,6 +58,10 @@ class ServerMgrDb:
                     "SELECT * FROM " +
                     cloud_table + " WHERE cloud_id=?", (_DUMMY_STR,))
                 self._cloud_table_cols = [x[0] for x in cursor.description]
+                cursor.execute(
+                    "SELECT * FROM " +
+                    server_status_table + " WHERE server_id=?", (_DUMMY_STR,))
+                self._status_table_cols = [x[0] for x in cursor.description]
         except Exception as e:
             raise e
     # end _get_table_columns
@@ -86,6 +92,10 @@ class ServerMgrDb:
                 cursor.execute("CREATE TABLE IF NOT EXISTS " +
                                image_table + """ (image_id TEXT PRIMARY KEY,
                     image_version TEXT, image_type TEXT)""")
+                # Create status table
+                cursor.execute("CREATE TABLE IF NOT EXISTS " +
+                               server_status_table + """ (server_id TEXT PRIMARY KEY,
+			server_status TEXT)""")
                 # Create server table
                 cursor.execute(
                     "CREATE TABLE IF NOT EXISTS " + server_table +
@@ -115,6 +125,7 @@ class ServerMgrDb:
                 .DELETE FROM """ + vns_table + """;
                 .DELETE FROM """ + cloud_table + """;
                 .DELETE FROM """ + server_table + """;
+		.DELETE FROM """ + server_status_table + """;
                 .DELETE FROM """ + image_table + ";")
         except:
             raise e
