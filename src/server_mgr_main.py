@@ -841,22 +841,26 @@ class VncServerManager():
         entity = bottle.request.json
         if (not entity):
             abort(404, 'Server MAC or server_id not specified')
+        restricted_fields = ['mac']
+        allowed_fields = ['server_id', 'ip', 'mask', 'gway',
+                          'passwd', 'roles', 'vns_id', 'cluster_id',
+                          'server_params', 'power_address', 'domain']
         try:
             servers = entity.get("server", None)
             for server in servers:
                 if (('server_id' not in server) and ('mac' not in server)):
                     abort(404, 'Server MAC or server_id not specified')
-                # Restrict modification of certain fields only
+                # Get the server table from the db.
+                db_server = self._serverDb.get_server('server_id', server['server_id'], detail=True)
                 for key in server:
-                    if key not in [
-                        'server_id',
-                        'ip',
-                        'mask',
-                        'gway',
-                        'passwd',
-                        'roles',
-                        'server_params',
-                        'domain']:
+                    # Do not allow modification of restricted fields
+                    if key in restricted_fields:
+                        if server[key] != db_server[0][key]:
+                            abort(404,
+                                  "Server field [%s] cannot be modified" % (key))
+                        continue
+                    # Restrict modification of certain fields only
+                    if key not in allowed_fields:
                         abort(
                             404,
                             "invalid field %s in server json" %(
