@@ -68,17 +68,35 @@ sed -i 's/START=.*$/START=yes/' /etc/default/puppet
 puppet agent --waitforcert 60 --test
 if [ "$contrail_repo_name" != "" ];
 then
+    cd /etc/apt
+    datetime_string=`date +%Y_%m_%d__%H_%M_%S`
+    cp sources.list sources.list.$datetime_string
+    echo "deb http://$server/contrail/repo/$contrail_repo_name ./" > new_repo
+
+    #modify /etc/apt/soruces.list/ to add new repo on the top
+    grep "deb http://$server/contrail/repo/$contrail_repo_name ./" sources.list
+
+    if [ $? != 0 ]; then
+         cat new_repo sources.list > new_sources.list
+         mv new_sources.list sources.list
+    fi
+    apt-get update
+    # Kept for now to create local /opt/contrail on target, should be removed
+    # later - Abhay
+    apt-get -y install contrail-install-packages
     #--------------------------------------------------------------------------
+    # below was to create local repo on target, commented out as we create a
+    # repo on cobbler. Kept the commented below for reference.
     # Create directory to copy the package file
-    mkdir -p /tmp
-    cd /tmp
-    wget http://$server/contrail/images/$contrail_repo_name.deb
+    # mkdir -p /tmp
+    # cd /tmp
+    # wget http://$server/contrail/images/$contrail_repo_name.deb
     #--------------------------------------------------------------------------
     # Install the package file
-    dpkg -i $contrail_repo_name.deb
+    # dpkg -i $contrail_repo_name.deb
     #--------------------------------------------------------------------------
     # Execute shell script to create repo
-    cd /opt/contrail/contrail_packages
-    ./setup.sh
+    # cd /opt/contrail/contrail_packages
+    # ./setup.sh
 fi
 %end
