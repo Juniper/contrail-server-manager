@@ -98,7 +98,9 @@ class ServerMgrDb:
                          update_time TEXT, disc_flag varchar default 'N',
                          server_params TEXT, roles TEXT, power_user TEXT,
                          power_pass TEXT, power_address TEXT,
-                         power_type TEXT, UNIQUE (server_id))""")
+                         power_type TEXT, intf_control TEXT,
+			 intf_data TEXT, intf_bond TEXT,
+			 UNIQUE (server_id))""")
             self._get_table_columns()
         except e:
             raise e
@@ -247,6 +249,16 @@ class ServerMgrDb:
             roles = server_data.pop("roles", None)
             if roles is not None:
                 server_data['roles'] = str(roles)
+            intf_control = server_data.pop("control", None)
+	    if intf_control:
+                server_data['intf_control'] = str(intf_control)
+            intf_data = server_data.pop("data", None)
+            if intf_data:
+                server_data['intf_data'] = str(intf_data)
+	    intf_bond = server_data.pop("bond", None)
+            if intf_bond:
+                server_data['intf_bond'] = str(intf_bond)
+
             # Store server_params dictionary as a text field
             server_params = server_data.pop("server_params", None)
             if server_params is not None:
