@@ -1,5 +1,15 @@
 class contrail-database {
 
+define database-template-scripts {
+
+    # Ensure template param file is present with right content.
+    file { "/etc/contrail/${title}" : 
+        ensure  => present,
+	before => Service["supervisord-contrail-database"],
+        content => template("contrail-database/${title}.erb"),
+    }
+}
+
 define contrail-database (
         $contrail_database_ip,
         $contrail_database_dir,
@@ -78,7 +88,11 @@ define contrail-database (
                        File["$contrail_cassandra_dir/cassandra-env.sh"] ],
         ensure => running,
     }
-}
+
+    database-template-scripts {"supervisord_contrail_database.conf":}
+
+ }
+	
 # end of user defined type contrail-database.
 
 }
