@@ -194,7 +194,7 @@ define contrail-config (
     }
 
     exec { "create-contrail-plugin-neutron":
-        command => "cp /etc/contrail/contrail_plugin.ini /etc/neutron/plugins/juniper/contrail/ContrailPlugin.ini",
+        command => "cp /etc/contrail/contrail_plugin.ini /etc/neutron/plugins/opencontrail/ContrailPlugin.ini",
         require => File["/etc/contrail/contrail_plugin.ini"],
         onlyif => "test -d /etc/neutron/",
         provider => shell,
