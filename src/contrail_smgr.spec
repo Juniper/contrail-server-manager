@@ -56,6 +56,8 @@ Requires: tftp
 Requires: ntp
 Requires: wget
 Requires: sendmail
+Requires: dpkg
+Requires: dpkg-devel
 
 %description
 A Server manager description
