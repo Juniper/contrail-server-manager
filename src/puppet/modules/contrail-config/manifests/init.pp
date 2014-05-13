@@ -7,7 +7,7 @@ define config-scripts {
         mode => 0755,
         owner => root,
         group => root,
-        require => File["/etc/contrail/ctrl-details"], 
+        require => [File["/etc/contrail/ctrl-details"],Config-template-scripts["schema_transformer.conf"],Config-template-scripts["svc_monitor.conf"]]
     }
     exec { "setup-${title}" :
         command => "/bin/bash /opt/contrail/contrail_installer/contrail_setup_utils/${title}.sh $operatingsystem && echo setup-${title} >> /etc/contrail/contrail-config-exec.out",
