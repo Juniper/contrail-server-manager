@@ -912,7 +912,8 @@ class VncServerManager():
                 for key in server:
                     # Do not allow modification of restricted fields
                     if key in restricted_fields:
-                        if server[key] != db_server[0][key]:
+                        # server key is added as upper case mac string
+                        if server[key].upper() != db_server[0][key].upper():
                             abort(404,
                                   "Server field [%s] cannot be modified" % (key))
                         continue
@@ -1037,34 +1038,40 @@ class VncServerManager():
                 server_params = eval(server['server_params'])
                 # build all parameters needed for re-imaging
                 vns = self._serverDb.get_vns(server['vns_id'],
-                                             detail=True)[0]
+                                             detail=True)
                 vns_params = {}
-                if vns['vns_params']:
-                    vns_params = eval(vns['vns_params'])
-                if server['passwd']:
+                if vns and vns[0]['vns_params']:
+                    vns_params = eval(vns[0]['vns_params'])
+
+                passwd = mask = gway = domain = None
+                server_id = server['server_id']
+                if 'passwd' in server:
                     passwd = server['passwd']
-                elif vns_params:
+                elif 'passwd' in vns_params:
                     passwd = vns_params['passwd']
                 else:
-                    abort(404, "Missing Password")
-                if server['mask']:
+                    abort(404, "Missing Password for " + server_id)
+
+                if 'mask' in server and server['mask']:
                     mask = server['mask']
-                elif vns_params:
+                elif 'mask' in vns_params and vns_params['mask']:
                     mask = vns_params['mask']
                 else:
-                    abort(404, "Missing Mask")
-                if server['gway']:
+                    abort(404, "Missing prefix/mask for " + server_id)
+
+                if 'gway' in server and server['gway']:
                     gway = server['gway']
-                elif vns_params:
+                elif 'gway' in vns_params and vns_params['gway']:
                     gway = vns_params['gway']
                 else:
-                    abort(404, "Missing Gateway")
-                if server['domain']:
+                    abort(404, "Missing gateway for " + server_id)
+
+                if 'domain' in server and server['domain']:
                     domain = server['domain']
-                elif vns_params:
+                elif 'domain' in vns_params and vns_params['domain']:
                     domain = vns_params['domain']
                 else:
-                    abort(404, "Missing Domain")
+                    abort(404, "Missing domain for " + server_id)
 
                 reimage_params = {}
                 reimage_params['server_id'] = server['server_id']
@@ -1120,24 +1127,25 @@ class VncServerManager():
                 match_key, match_value, detail=True)
             for server in servers:
                 vns = self._serverDb.get_vns(server['vns_id'],
-                                             detail=True)[0]
+                                             detail=True)
                 vns_params = {}
-                if vns['vns_params']:
-                    vns_params = eval(vns['vns_params'])
-
-                if server['passwd']:
+                if vns and vns[0]['vns_params']:
+                    vns_params = eval(vns[0]['vns_params'])
+                
+                server_id = server['server_id']
+                if 'passwd' in server:
                     passwd = server['passwd']
-                elif vns_params:
+                elif 'passwd' in vns_params:
                     passwd = vns_params['passwd']
                 else:
-                    abort(404, "Missing password")
+                    abort(404, "Missing password for " + server_id)
 
-                if server['domain']:
+                if 'domain' in server and server['domain']:
                     domain = server['domain']
-                elif vns_params:
+                elif 'domain' in vns_params and vns_params['domain']:
                     domain = vns_params['domain']
                 else:
-                    abort(404, "Missing Domain")
+                    abort(404, "Missing Domain for " + server_id)
 
                 # Build list of servers to be rebooted.
                 reboot_server = {
