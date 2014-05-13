@@ -58,7 +58,7 @@ cat >/tmp/puppet-auth.conf <<EOF
 path    /run
 method  save
 auth    any
-allow   $server.$system_domain
+allow   *
 EOF
 cat /etc/puppet/auth.conf >> /tmp/puppet-auth.conf
 cp -f /tmp/puppet-auth.conf /etc/puppet/auth.conf

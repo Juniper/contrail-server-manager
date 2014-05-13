@@ -46,6 +46,9 @@ def parse_arguments(args_str=None):
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               _DEF_SMGR_CFG_FILE)))
+    parser.add_argument(
+        "package_image_id",
+        help="contrail package image id to be used for provisioning")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--server_id",
                         help=("server id for the server to be provisioned"))
@@ -162,6 +165,7 @@ def provision_server(args_str=None):
         pass
 
     payload = {}
+    payload['package_image_id'] = args.package_image_id
     if match_key:
         payload[match_key] = match_value
     if provision_params:

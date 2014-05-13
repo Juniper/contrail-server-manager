@@ -60,7 +60,7 @@ define contrail-cfg-zk($zk_ip_list, $zk_index) {
         source => "puppet:///modules/contrail-config/config-zk-files-setup.sh"
     }
 
-$contrail_zk_ip_list_for_shell = inline_template('<%= zk_ip_list.map{ |ip| "#{ip}" }.join(" ") %>')
+    $contrail_zk_ip_list_for_shell = inline_template('<%= zk_ip_list.map{ |ip| "#{ip}" }.join(" ") %>')
 
      exec { "setup-config-zk-files-setup" :
         command => "/bin/bash /etc/contrail/contrail_setup_utils/config-zk-files-setup.sh $operatingsystem $zk_index $contrail_zk_ip_list_for_shell && echo setup-config-zk-files-setup >> /etc/contrail/contrail-config-exec.out",
@@ -110,6 +110,29 @@ $contrail_intf_member_list_for_shell = inline_template('<%= contrail_members.map
         }
 
 
+}
+
+define contrail-setup-repo(
+	$contrail_repo_name,
+        $contrail_server_mgr_ip
+    ) {
+    if ($operatingsystem == "Centos" or $operatingsystem == "Fedora") {
+        file { "/etc/yum.repos.d/cobbler-config.repo" :
+            ensure  => present,
+            content => template("contrail-common/contrail-yum-repo.erb")
+        }
+    }
+    if ($operatingsystem == "Ubuntu") {
+        $pattern1 = "deb http:\/\/$contrail_server_mgr_ip\/contrail\/repo\/$contrail_repo_name .\/"
+        $pattern2 = "deb http://$contrail_server_mgr_ip/contrail/repo/$contrail_repo_name ./"
+        $repo_cfg_file = "/etc/apt/sources.list"
+        exec { "update-sources-list" :
+            command   => "sed -i \"/$pattern1/d\" $repo_cfg_file && echo \"$pattern2\"|cat - $repo_cfg_file > /tmp/out && mv /tmp/out $repo_cfg_file",
+            unless  => "head -1 $repo_cfg_file | grep -qx \"$pattern2\"",
+            provider => shell,
+            logoutput => "true"
+        }
+    }
 }
 
 # macro to perform common functions

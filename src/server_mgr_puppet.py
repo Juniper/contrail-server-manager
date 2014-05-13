@@ -100,9 +100,22 @@ class ServerMgrPuppet:
 	    else:
 		return provision_params['server_ip']	
 	return mgmt_ip
+    # end get_control_ip
+
+    def _repository_config(self, provision_params):
+        # Get all the parameters needed to send to puppet manifest.
+        data = '''    # Create repository config on target.
+    contrail-common::contrail-setup-repo{contrail_repo:
+        contrail_repo_name => "%s",
+        contrail_server_mgr_ip => "%s",
+        before => %s
+    }\n\n''' % (provision_params['package_image_id'],
+                provision_params["server_mgr_ip"],
+                "Contrail-common::Contrail-common[\"contrail_common\"]")
+        return data
+    # end puppet_add_database_role
 
     def puppet_add_common_role(self, provision_params, last_res_added=None):
-
 	#add Interface Steps
 	intf_bonds = {}
 	intf_control = {}
@@ -967,6 +980,11 @@ $__contrail_quantum_servers__
         data = '''node '%s.%s' {\n''' % (
             provision_params["server_id"],
             provision_params["domain"])
+
+        # Create resource to have repository configuration setup on the
+        # target
+        data += self._repository_config(provision_params)
+
         # Always call common function for all the roles
         data += self._roles_function_map["common"](self, provision_params)
         last_res_added =\

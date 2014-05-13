@@ -1201,6 +1201,10 @@ class VncServerManager():
     def provision_server(self):
         try:
             entity = bottle.request.json
+            package_image_id = entity.pop("package_image_id", None)
+            if package_image_id is None:
+                abort(
+                    404, "No contrail package specified for provisioning")
             req_provision_params = entity.pop("provision_params", None)
             # if req_provision_params are specified, check contents for
             # validity, store the info in DB and proceed with the
@@ -1291,6 +1295,8 @@ class VncServerManager():
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
                         role_ids[role] = [x["server_id"] for x in role_servers[role]]
                 provision_params = {}
+                provision_params['package_image_id'] = package_image_id
+		provision_params['server_mgr_ip'] = self._args.listen_ip_addr
                 provision_params['roles'] = role_ips
                 provision_params['server_id'] = server['server_id']
                 if server['domain']:
@@ -1300,7 +1306,6 @@ class VncServerManager():
 		
 		provision_params['rmq_master'] = role_ids['config'][0]
 		provision_params['uuid'] = vns_params['uuid']
-		provision_params['smgr_ip'] = self._args.listen_ip_addr
 		if role_ids['config'][0] == server['server_id']:
 	            provision_params['is_rmq_master'] = "yes"
 		else:
@@ -1513,6 +1518,10 @@ class VncServerManager():
                     cmd = "puppet cert clean %s.%s" % (
                         server['server_id'], server['domain'])
                     subprocess.call(cmd, shell=True)
+                    # Remove manifest file for this server
+                    cmd = "rm -f /etc/puppet/manifests/%s.%s.pp" %(
+                        server['server_id'], server['domain']) 
+                    subprocess.call(cmd, shell=True)
                 # end if
                 if server['power_address']:
                     power_reboot_list.append(
@@ -1609,6 +1618,12 @@ class VncServerManager():
             # Now call puppet to provision the server.
             self._smgr_puppet.provision_server(
                 provision_params)
+            # Now kickstart agent run on the target
+            host_name = provision_params['server_id'] + "." + \
+                provision_params.get('domain', '')
+            rc = subprocess.call(
+                ["puppet", "kick", "--host", host_name])
+            # Log, return error if return code is non-null - TBD Abhay
 
             # TBD Update Server table to stamp provisioned time.
             # update = {'server_id':server_id,

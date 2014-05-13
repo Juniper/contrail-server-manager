@@ -217,7 +217,8 @@ class ServerMgrCobbler:
                 system_id, "power_address", power_address, self._token)
             # For centos, create a sub-profile that has the repo for
             # package_image_id also made available for this system.
-            if (base_image['image_type'] == "centos"):
+            if ((base_image['image_type'] == "centos") and
+                (package_image_id)):
                 sub_profile_name = profile_name + "-" + package_image_id
                 sub_profile = self._server.find_profile(
                     {"name":  sub_profile_name})

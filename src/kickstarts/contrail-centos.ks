@@ -106,10 +106,15 @@ cat >/tmp/puppet-auth.conf <<EOF
 path    /run
 method  save
 auth    any
-allow   $server.$system_domain
+# allow   $server.$system_domain
+allow   *
 EOF
 cat /etc/puppet/auth.conf >> /tmp/puppet-auth.conf
 cp -f /tmp/puppet-auth.conf /etc/puppet/auth.conf
+# disable selinux and iptables
+sed -i 's/SELINUX=.*/SELINUX=disabled/g' /etc/selinux/config
+service iptables stop
+/sbin/chkconfig iptables off
 ## generate puppet certificates and trigger a signing request, but
 ## don't wait for signing to complete
 /usr/sbin/puppetd --test --waitforcert 0
