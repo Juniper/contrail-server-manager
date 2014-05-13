@@ -9,16 +9,21 @@
                 "openstack_mgmt_ip": "",
                 "use_certs": "False",
                 "multi_tenancy": "False",
+                "encap_priority": "MPLSoUDP,MPLSoGRE,VXLAN",
                 "service_token": "contrail123",
                 "ks_user": "admin",
                 "ks_passwd": "contrail123",
                 "ks_tenant": "admin",
                 "openstack_passwd": "juniper",
                 "analytics_data_ttl": "168",
-                "mask": "255.255.255.0",
-                "gway": "10.84.51.254",
-                "passwd": "juniper",
-                "domain": "demo.juniper.net"
+                "compute_non_mgmt_ip": "",
+                "compute_non_mgmt_gway": "",
+                "haproxy": "disable",
+                "mask": "255.255.255.240",
+                "gway": "10.204.221.46",
+                "passwd": "c0ntrail123",
+                "ext_bgp": "",
+                "domain": "englab.juniper.net"
                 }
         }
     ]
