@@ -1018,6 +1018,14 @@ class VncServerManager():
             if base_image_id is None:
                 abort(404, "No base image id specified")
             package_image_id = entity.pop("package_image_id", '')
+            # Get parameter to check server(s) are to be rebooted
+            # following reimage configuration in cobbler. Default is yes.
+            do_reboot = True
+            no_reboot = entity.pop("no_reboot", None)
+            if ((no_reboot) and
+                (no_reboot in ["y","Y","1"])):
+                do_reboot = False
+            reboot_server_list = []
             # Now process other parameters there should be only one more
             if (len(entity) == 0):
                 abort(404, "No servers specified")
@@ -1096,7 +1104,22 @@ class VncServerManager():
                     'power_address', '')
                 self._do_reimage_server(
                     base_image, package_image_id, reimage_params)
+
+                # Build list of servers to be rebooted.
+                reboot_server = {
+                    'server_id' : server['server_id'],
+                    'domain' : domain,
+                    'ip' : server.get("ip", ""),
+                    'passwd' : passwd,
+                    'power_address' : server.get('power_address',"") }
+                reboot_server_list.append(
+                    reboot_server)
             # end for server in servers
+
+            # now reboot the servers, if no_reboot is not specified by user.
+            if do_reboot:
+                status_msg = self._power_cycle_servers(
+                    reboot_server_list, True)
         except Exception as e:
             abort(404, repr(e))
         return "server(s) upgraded"
@@ -1110,7 +1133,9 @@ class VncServerManager():
             net_boot = entity.pop("net_boot", None)
             if ((not net_boot) or
                 (net_boot not in ["y","Y","1"])):
-                net_boot = "n"
+                do_net_boot = False
+            else:
+                do_net_boot = True
             if len(entity) == 0:
                 abort(404, "No servers specified")
             elif len(entity) == 1:
@@ -1151,15 +1176,15 @@ class VncServerManager():
                 reboot_server = {
                     'server_id' : server['server_id'],
                     'domain' : domain,
-                    'ip' : server['ip'],
+                    'ip' : server.get("ip", ""),
                     'passwd' : passwd,
-                    'power_address' : server['power_address'] }
+                    'power_address' : server.get('power_address',"") }
                 reboot_server_list.append(
                     reboot_server)
             # end for server in servers
 
             status_msg = self._power_cycle_servers(
-                reboot_server_list, net_boot)
+                reboot_server_list, do_net_boot)
         except Exception as e:
             abort(404, repr(e))
         return status_msg
@@ -1510,7 +1535,7 @@ class VncServerManager():
     # connectivity is available to the server, that is used to login and reboot
     # the server.
     def _power_cycle_servers(
-        self, reboot_server_list, net_boot="n"):
+        self, reboot_server_list, net_boot=False):
         success_list = []
         failed_list = []
         power_reboot_list = []
@@ -1520,7 +1545,7 @@ class VncServerManager():
                 # Also if netbooting, delete the old puppet cert. This is
                 # temporary. Need # to figure out way for cobbler to do it
                 # automatically TBD Abhay
-                if (net_boot == "y"):
+                if net_boot:
                     self._smgr_cobbler.enable_system_netboot(
                         server['server_id'])
                     cmd = "puppet cert clean %s.%s" % (

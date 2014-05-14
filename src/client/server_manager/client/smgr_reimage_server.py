@@ -51,6 +51,10 @@ def parse_arguments(args_str=None):
     parser.add_argument("--package_image_id", "-p",
                         help=("Optional contrail package to be used"
                              " on reimaged server"))
+    parser.add_argument("--no_reboot", "-n", action="store_true",
+                        help=("optional parameter to indicate"
+                             " that server should NOT be rebooted"
+                             " following the reimage setup."))
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--server_id",
                         help=("server id for the server to be reimaged"))
@@ -132,6 +136,8 @@ def reimage_server(args_str=None):
     payload = {}
     payload['base_image_id'] = args.base_image_id
     payload['package_image_id'] = args.package_image_id
+    if (args.no_reboot):
+        payload['no_reboot'] = "y"
     if match_key:
         payload[match_key] = match_value
  
