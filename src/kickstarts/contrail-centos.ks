@@ -115,6 +115,11 @@ cp -f /tmp/puppet-auth.conf /etc/puppet/auth.conf
 sed -i 's/SELINUX=.*/SELINUX=disabled/g' /etc/selinux/config
 service iptables stop
 /sbin/chkconfig iptables off
+#if $getVar("contrail_repo_name","") != ""
+cd /opt/contrail/contrail_packages
+./setup.sh
+echo "exec-contrail-setup-sh" >> exec-contrail-setup-sh.out
+#end if
 ## generate puppet certificates and trigger a signing request, but
 ## don't wait for signing to complete
 /usr/sbin/puppetd --test --waitforcert 0

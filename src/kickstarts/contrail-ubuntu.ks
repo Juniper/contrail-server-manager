@@ -96,7 +96,8 @@ then
     # dpkg -i $contrail_repo_name.deb
     #--------------------------------------------------------------------------
     # Execute shell script to create repo
-    # cd /opt/contrail/contrail_packages
-    # ./setup.sh
+    cd /opt/contrail/contrail_packages
+    ./setup.sh
+    echo "exec-contrail-setup-sh" >> exec-contrail-setup-sh.out
 fi
 %end
