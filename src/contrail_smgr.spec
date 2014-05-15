@@ -136,7 +136,11 @@ cp %{_contrail_smgr_src}server_mgr_db.py %{buildroot}%{_contrailopt}%{_contrail_
 cp %{_contrail_smgr_src}server_mgr_cobbler.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}server_mgr_puppet.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_dhcp_event.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}server_mgr_logger.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}server_mgr_exception.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}logger.conf %{buildroot}%{_contrailopt}%{_contrail_smgr}
+
 
 #Install the server-manager-client python package.
 install -p -m 755 %{_contrail_smgr_src}/client/dist/server-manager-client-1.0.tar.gz %{buildroot}%{_contrailopt}%{_contrail_smgr}
