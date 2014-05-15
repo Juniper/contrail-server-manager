@@ -4,6 +4,7 @@ import sqlite3 as lite
 import sys
 import pdb
 from netaddr import *
+from server_mgr_exception import ServerMgrException as ServerMgrException
 
 def_server_db_file = 'smgr_data.db'
 pod_table = 'pod_table'
@@ -95,7 +96,7 @@ class ServerMgrDb:
                 # Create status table
                 cursor.execute("CREATE TABLE IF NOT EXISTS " +
                                server_status_table + """ (server_id TEXT PRIMARY KEY,
-			server_status TEXT)""")
+                                server_status TEXT)""")
                 # Create server table
                 cursor.execute(
                     "CREATE TABLE IF NOT EXISTS " + server_table +
@@ -109,8 +110,8 @@ class ServerMgrDb:
                          server_params TEXT, roles TEXT, power_user TEXT,
                          power_pass TEXT, power_address TEXT,
                          power_type TEXT, intf_control TEXT,
-			 intf_data TEXT, intf_bond TEXT,
-			 UNIQUE (server_id))""")
+                         intf_data TEXT, intf_bond TEXT,
+                         UNIQUE (server_id))""")
             self._get_table_columns()
         except e:
             raise e
@@ -127,7 +128,7 @@ class ServerMgrDb:
                 .DELETE FROM """ + vns_table + """;
                 .DELETE FROM """ + cloud_table + """;
                 .DELETE FROM """ + server_table + """;
-		.DELETE FROM """ + server_status_table + """;
+                .DELETE FROM """ + server_status_table + """;
                 .DELETE FROM """ + image_table + ";")
         except:
             raise e
@@ -253,6 +254,15 @@ class ServerMgrDb:
 
     def add_server(self, server_data):
         try:
+            ret = self.check_obj("server", "server_id", server_data['server_id'])
+            #If object exists modify
+            if ret == 0:
+                self.modify_server(server_data)
+        except ServerMgrException as e:
+            #If object doesnt exist add it
+            pass
+        try:
+
             if 'mac' in server_data:
                 server_data['mac'] = str(
                     EUI(server_data['mac'])).replace("-", ":")
@@ -261,12 +271,12 @@ class ServerMgrDb:
             if roles is not None:
                 server_data['roles'] = str(roles)
             intf_control = server_data.pop("control", None)
-	    if intf_control:
+            if intf_control:
                 server_data['intf_control'] = str(intf_control)
             intf_data = server_data.pop("data", None)
             if intf_data:
                 server_data['intf_data'] = str(intf_data)
-	    intf_bond = server_data.pop("bond", None)
+            intf_bond = server_data.pop("bond", None)
             if intf_bond:
                 server_data['intf_bond'] = str(intf_bond)
 
@@ -335,6 +345,7 @@ class ServerMgrDb:
 
     def delete_cluster(self, cluster_id):
         try:
+            self.check_obj("cluster", "cluster_id", cluster_id)
             self._delete_row(server_table, "cluster_id", cluster_id)
             self._delete_row(cluster_table, "cluster_id", cluster_id)
         except Exception as e:
@@ -343,17 +354,39 @@ class ServerMgrDb:
 
     def delete_vns(self, vns_id):
         try:
+            self.check_obj("vns", "vns_id", vns_id)
             self._delete_row(server_table, "vns_id", vns_id)
             self._delete_row(vns_table, "vns_id", vns_id)
         except Exception as e:
             raise e
     # End of delete_vns
 
+    def check_obj(self, type, match_key, match_value):
+        if type == "server":
+           cb = self.get_server
+           db_obj = cb(match_key, match_value, detail=False)
+        elif type == "vns":
+           cb = self.get_vns
+           db_obj = cb(match_value, detail=False)
+        elif type == "cluster":
+           cb = self.get_cluster
+           db_obj = cb(match_value, detail=False)
+        elif type == "image":
+           cb = self.get_image
+           db_obj = cb(match_key, match_value, detail=False)
+
+        if not db_obj:
+           msg = "%s %s not found" % (type, match_value)
+           raise ServerMgrException(msg)
+        return 0
+        #end of check_obj
+
     def delete_server(self, match_key, match_value):
         try:
             if (match_key.lower() == "mac"):
                 if match_value:
                     match_value = str(EUI(match_value)).replace("-", ":")
+            self.check_obj("server", match_key, match_value)
             self._delete_row(server_table, match_key, match_value)
         except Exception as e:
             raise e
@@ -371,6 +404,7 @@ class ServerMgrDb:
             vns_id = vns_data.get('vns_id', None)
             if not vns_id:
                 raise Exception("No vns id specified")
+            self.check_obj("vns", "vns_id", vns_id)
             # Store vns_params dictionary as a text field
             vns_params = vns_data.pop("vns_params", None)
             if vns_params is not None:
@@ -386,7 +420,19 @@ class ServerMgrDb:
             image_id = image_data.get('image_id', None)
             if not image_id:
                 raise Exception("No image id specified")
-            # Store vns_params dictionary as a text field
+            #Reject if non mutable field changes
+            db_image = self.get_image('image_id', image_data['image_id'],
+                                                    detail=True)
+            #if image_data['image_path'] != db_image[0]['image_path']:
+        #	raise ServerMgrException('Image path cannnot be modified')
+        #TODO image path can be added in the db
+            image_data.pop("image_path", None) 
+            self.check_obj('image', 'image_id',
+                                image_data['image_id'])
+            if image_data['image_type'] != db_image[0]['image_type']:
+                raise ServerMgrException('Image path cannnot be modified')
+            self.check_obj('image', 'image_id',
+                                image_data['image_id'])
             self._modify_row(image_table, image_data,
                              'image_id', image_id)
         except Exception as e:
@@ -405,10 +451,31 @@ class ServerMgrDb:
                     raise Exception("No server MAC or id specified")
                 else:
                     server_mac = self.get_server_mac(server_id)
+            #Check if object exists
+            if 'server_id' in server_data.keys() and \
+                    'server_mac' in server_data.keys():
+                self.check_obj('server', 'server_id',
+                                        server_data['server_id'])
+                #Reject if primary key values change
+                db_server = self.get_server('server_id', server_data['server_id'],
+                                                    detail=True)
+                if server_data['mac'] != db_server[0]['mac']:
+                    raise ServerMgrException('MAC address cannnot be modified')
+
             # Store roles list as a text field
             roles = server_data.pop("roles", None)
             if roles is not None:
                 server_data['roles'] = str(roles)
+            intf_control = server_data.pop("control", None)
+            if intf_control:
+                server_data['intf_control'] = str(intf_control)
+            intf_data = server_data.pop("data", None)
+            if intf_data:
+                server_data['intf_data'] = str(intf_data)
+            intf_bond = server_data.pop("bond", None)
+            if intf_bond:
+                server_data['intf_bond'] = str(intf_bond)
+
             # Store server_params dictionary as a text field
             server_params = server_data.pop("server_params", None)
             if server_params is not None:
@@ -472,8 +539,8 @@ class ServerMgrDb:
             if servers:
                 self._modify_row(server_status_table, server_data,
                              'server_id', server_id)
-	    else:
-		self._add_row(server_status_table, server_data)
+            else:
+                self._add_row(server_status_table, server_data)
         except Exception as e:
             raise e
     # End of put_status
