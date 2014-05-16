@@ -1251,11 +1251,11 @@ class VncServerManager():
             image_id = bottle.request.query.image_id
             if not image_id:
                 msg = "Image Id not specified"
-                raise ServermgrException(msg)
+                raise ServerMgrException(msg)
             images = self._serverDb.get_image("image_id", image_id, True)
             if not images:
                 msg = "Image %s doesn't exist" % (image_id)
-                raise ServermgrException(msg)
+                raise ServerMgrException(msg)
                 self._smgr_log.log(self._smgr_log.ERROR,
                         msg)
             image = images[0]
@@ -1295,7 +1295,7 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE,
                                      False)
-            abort(404, repr(e))
+            abort(404, e.value)
         except Exception as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE,

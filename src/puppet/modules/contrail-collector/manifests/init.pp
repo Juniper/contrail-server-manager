@@ -40,7 +40,7 @@ define contrail-collector (
     }
 
     # Ensure all config files with correct content are present.
-    collector-template-scripts { ["vizd_param", "qe_param", "opserver_param", "collector.conf", "query-engine.conf"]: }
+    collector-template-scripts { ["vizd_param", "qe_param", "contrail-analytics-api.conf" , "collector.conf", "query-engine.conf"]: }
 
     if ($contrail_num_collector_nodes > 0) {
         if ($contrail_num_collector_nodes > 1) {
@@ -79,7 +79,7 @@ define contrail-collector (
                      Exec['analytics-venv'] ],
         subscribe => [ File['/etc/contrail/collector.conf'],
                        File['/etc/contrail/query-engine.conf'],
-                       File['/etc/contrail/opserver_param'] ],
+                       File['/etc/contrail/contrail-analytics-api.conf'] ],
         ensure => running,
     }
 }

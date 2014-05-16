@@ -16,7 +16,7 @@ class ServerMgrlogger:
     _smgr_log = None   
     def __init__(self):
         print "Logger init" 
-        logging.config.fileConfig('logger.conf')
+#        logging.config.fileConfig('logger.conf')
 
         #create logger
         self._smgr_log = logging.getLogger('SMGR')

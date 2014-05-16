@@ -119,7 +119,8 @@ define contrail-setup-repo(
     if ($operatingsystem == "Centos" or $operatingsystem == "Fedora") {
         file { "/etc/yum.repos.d/cobbler-config.repo" :
             ensure  => present,
-            content => template("contrail-common/contrail-yum-repo.erb")
+            content => template("contrail-common/contrail-yum-repo.erb"),
+            before => Package["contrail-install-packages"]
         }
     }
     if ($operatingsystem == "Ubuntu") {
@@ -127,11 +128,23 @@ define contrail-setup-repo(
         $pattern2 = "deb http://$contrail_server_mgr_ip/contrail/repo/$contrail_repo_name ./"
         $repo_cfg_file = "/etc/apt/sources.list"
         exec { "update-sources-list" :
-            command   => "sed -i \"/$pattern1/d\" $repo_cfg_file && echo \"$pattern2\"|cat - $repo_cfg_file > /tmp/out && mv /tmp/out $repo_cfg_file",
+            command   => "sed -i \"/$pattern1/d\" $repo_cfg_file && echo \"$pattern2\"|cat - $repo_cfg_file > /tmp/out && mv /tmp/out $repo_cfg_file && apt-get update",
             unless  => "head -1 $repo_cfg_file | grep -qx \"$pattern2\"",
             provider => shell,
-            logoutput => "true"
+            logoutput => "true",
+            before => Package["contrail-install-packages"]
         }
+    }
+    # Setup contrail-install-packages
+    package {'contrail-install-packages': ensure => present}
+    # run setup.sh for now. To be modified with only logic needed later.
+    exec { "exec-contrail-setup-sh" :
+        command => "./setup.sh && echo exec-contrail-setup-sh >> exec-contrail-setup-sh.out",
+        cwd => "/opt/contrail/contrail_packages",
+        require => Package["contrail-install-packages"],
+        unless  => "grep -qx exec-contrail-setup-sh /opt/contrail/contrail_packages/exec-contrail-setup-sh.out",
+        provider => shell,
+        logoutput => "true"
     }
 }
 
