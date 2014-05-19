@@ -1,6 +1,8 @@
 ostype=$1; shift
 cfgm_index=$1; shift
-zk_ip_list=("$@")
+zk_ip_str=$1; shift
+zk_ips=${zk_ip_str//,/ }
+zk_ip_list=($zk_ips)
 if [ $ostype == "Fedora" -o $ostype == "CentOS" ]; then
     zk_cfg="/etc/zookeeper/zoo.cfg"
     log4j=" /etc/zookeeper/log4j.properties"
@@ -11,6 +13,10 @@ elif [ $ostype == "Ubuntu" ]; then
     myid="/var/lib/zookeeper/myid"
 fi
 
+
+echo $ostype
+echo $cfg_index
+echo $zk_ip_list
 
 echo "maxSessionTimeout=120000" >> $zk_cfg
 export ZOO_LOG4J_PROP="INFO,CONSOLE,ROLLINGFILE" >> /etc/zookeeper/zookeeper-env.sh
