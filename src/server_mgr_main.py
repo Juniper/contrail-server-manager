@@ -132,7 +132,6 @@ class VncServerManager():
 
     def __init__(self, args_str=None):
         self._args = None
-
         #Create an instance of logger
         try:
             self._smgr_log = ServerMgrlogger()
@@ -615,8 +614,15 @@ class VncServerManager():
     def validate_smgr_reimage(self, validation_data, request , data=None):
         ret_data = {}
         ret_data['status'] = 1
-
         entity = request.json
+        # Get parameter to check server(s) are to be rebooted
+        # following reimage configuration in cobbler. Default is yes.
+        do_reboot = True
+        no_reboot = entity.pop("no_reboot", None)
+        if ((no_reboot) and
+            (no_reboot in ["y","Y","1"])):
+            do_reboot = False
+
         # Get image version parameter
         base_image_id = entity.pop("base_image_id", None)
         if base_image_id is None:
@@ -642,6 +648,7 @@ class VncServerManager():
         ret_data['match_value'] = match_value
         ret_data['base_image_id'] = base_image_id
         ret_data['package_image_id'] = package_image_id
+        ret_data['do_reboot'] = do_reboot
         return ret_data
         # end else
 
@@ -1440,7 +1447,8 @@ class VncServerManager():
                 package_image_id = ret_data['package_image_id']
                 match_key = ret_data['match_key']
                 match_value = ret_data['match_value']
-
+                do_reboot = ret_data['do_reboot']
+            reboot_server_list = []
             images = self._serverDb.get_image("image_id", base_image_id, True)
             packages = self._serverDb.get_image("image_id", package_image_id, True)
             if len(images) == 0:
@@ -1542,6 +1550,7 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
+            abort(404, "Error in upgrading Server")
         return "server(s) upgraded"
     # end reimage_server
 
@@ -1997,7 +2006,6 @@ class VncServerManager():
     # API update_server and upgrade_cluster
     def _do_reimage_server(self, base_image,
                            package_image_id, reimage_params):
-#        pdb.set_trace()
         try:
             # Profile name is based on image name.
             profile_name = base_image['image_id']
