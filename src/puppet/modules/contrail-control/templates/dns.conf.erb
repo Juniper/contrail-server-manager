@@ -24,8 +24,8 @@
   server=<%= contrail_discovery_ip %> # discovery-server IP address
 
 [IFMAP]
-  certs_store=<%= cert_ops %>
-  password=<%= contrail_config_passwd %>
+  certs_store=
+  password=<%= contrail_config_passwd %>.dns
 # server_url= # Provided by discovery server, e.g. https://127.0.0.1:8443
   user=<%= contrail_config_user %>.dns
 
