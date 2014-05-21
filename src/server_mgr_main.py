@@ -1328,64 +1328,64 @@ class VncServerManager():
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
                         role_ids[role] = [x["server_id"] for x in role_servers[role]]
 
-            provision_params = {}
-            provision_params['package_image_id'] = package_image_id
-            provision_params['server_mgr_ip'] = self._args.listen_ip_addr
-            provision_params['roles'] = role_ips
-            provision_params['role_ids'] = role_ids
-            provision_params['server_id'] = server['server_id']
-            if server['domain']:
-                provision_params['domain'] = server['domain']
-            else:
-                provision_params['domain'] = vns_params['domain']
-            
-            provision_params['rmq_master'] = role_ids['config'][0]
-            provision_params['uuid'] = vns_params['uuid']
-            if role_ids['config'][0] == server['server_id']:
-                    provision_params['is_rmq_master'] = "yes"
-            else:
-                provision_params['is_rmq_master'] = "no"
-            provision_params['intf_control'] = ""
-            provision_params['intf_bond'] = ""
-            provision_params['intf_data'] = ""
-            if 'intf_control' in server:
-                provision_params['intf_control'] = server['intf_control']
-            if 'intf_data' in server:
-                provision_params['intf_data'] = server['intf_data']
-            if 'intf_bond' in server:
-                provision_params['intf_bond'] = server['intf_bond']
-            provision_params['control_net'] = self.get_control_net(vns_servers)
-            provision_params['server_ip'] = server['ip']
-            provision_params['database_dir'] = vns_params['database_dir']
-            provision_params['db_initial_token'] = vns_params['db_initial_token']
-            provision_params['openstack_mgmt_ip'] = vns_params['openstack_mgmt_ip']
-            provision_params['use_certs'] = vns_params['use_certs']
-            provision_params['multi_tenancy'] = vns_params['multi_tenancy']
-            provision_params['router_asn'] = vns_params['router_asn']
-            provision_params['encap_priority'] = vns_params['encap_priority']
-            provision_params['service_token'] = vns_params['service_token']
-            provision_params['ks_user'] = vns_params['ks_user']
-            provision_params['ks_passwd'] = vns_params['ks_passwd']
-            provision_params['ks_tenant'] = vns_params['ks_tenant']
-            provision_params['openstack_passwd'] = vns_params['openstack_passwd']
-            provision_params['analytics_data_ttl'] = vns_params['analytics_data_ttl']
-            provision_params['phy_interface'] = server_params['ifname']
-            provision_params['compute_non_mgmt_ip'] = server_params['compute_non_mgmt_ip']
-            provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
-            provision_params['server_gway'] = server['gway']
-            provision_params['haproxy'] = vns_params['haproxy']
-            if 'region_name' in vns_params.keys():
-                provision_params['region_name'] = vns_params['region_name']
-            else:
-                provision_params['region_name'] = "RegionOne"
-            if 'execute_script' in server_params.keys():
-                provision_params['execute_script'] = server_params['execute_script']
-            else:
-                provision_params['execute_script'] = ""
-            if 'ext_bgp' in vns_params.keys():
-                provision_params['ext_bgp'] = vns_params['ext_bgp']
-            else:
-                provision_params['ext_bgp'] = ""
+                provision_params = {}
+                provision_params['package_image_id'] = package_image_id
+                provision_params['server_mgr_ip'] = self._args.listen_ip_addr
+                provision_params['roles'] = role_ips
+                provision_params['role_ids'] = role_ids
+                provision_params['server_id'] = server['server_id']
+                if server['domain']:
+                    provision_params['domain'] = server['domain']
+                else:
+                    provision_params['domain'] = vns_params['domain']
+                
+                provision_params['rmq_master'] = role_ids['config'][0]
+                provision_params['uuid'] = vns_params['uuid']
+                if role_ids['config'][0] == server['server_id']:
+                        provision_params['is_rmq_master'] = "yes"
+                else:
+                    provision_params['is_rmq_master'] = "no"
+                provision_params['intf_control'] = ""
+                provision_params['intf_bond'] = ""
+                provision_params['intf_data'] = ""
+                if 'intf_control' in server:
+                    provision_params['intf_control'] = server['intf_control']
+                if 'intf_data' in server:
+                    provision_params['intf_data'] = server['intf_data']
+                if 'intf_bond' in server:
+                    provision_params['intf_bond'] = server['intf_bond']
+                provision_params['control_net'] = self.get_control_net(vns_servers)
+                provision_params['server_ip'] = server['ip']
+                provision_params['database_dir'] = vns_params['database_dir']
+                provision_params['db_initial_token'] = vns_params['db_initial_token']
+                provision_params['openstack_mgmt_ip'] = vns_params['openstack_mgmt_ip']
+                provision_params['use_certs'] = vns_params['use_certs']
+                provision_params['multi_tenancy'] = vns_params['multi_tenancy']
+                provision_params['router_asn'] = vns_params['router_asn']
+                provision_params['encap_priority'] = vns_params['encap_priority']
+                provision_params['service_token'] = vns_params['service_token']
+                provision_params['ks_user'] = vns_params['ks_user']
+                provision_params['ks_passwd'] = vns_params['ks_passwd']
+                provision_params['ks_tenant'] = vns_params['ks_tenant']
+                provision_params['openstack_passwd'] = vns_params['openstack_passwd']
+                provision_params['analytics_data_ttl'] = vns_params['analytics_data_ttl']
+                provision_params['phy_interface'] = server_params['ifname']
+                provision_params['compute_non_mgmt_ip'] = server_params['compute_non_mgmt_ip']
+                provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
+                provision_params['server_gway'] = server['gway']
+                provision_params['haproxy'] = vns_params['haproxy']
+                if 'region_name' in vns_params.keys():
+                    provision_params['region_name'] = vns_params['region_name']
+                else:
+                    provision_params['region_name'] = "RegionOne"
+                if 'execute_script' in server_params.keys():
+                    provision_params['execute_script'] = server_params['execute_script']
+                else:
+                    provision_params['execute_script'] = ""
+                if 'ext_bgp' in vns_params.keys():
+                    provision_params['ext_bgp'] = vns_params['ext_bgp']
+                else:
+                    provision_params['ext_bgp'] = ""
 
                 self._do_provision_server(provision_params)
         except Exception as e:
