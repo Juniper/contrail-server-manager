@@ -415,6 +415,8 @@ $__contrail_disc_backend_servers__
             compute_server = provision_params['roles']['compute'][0]
         compute_server_control= self.get_control_ip(provision_params,compute_server)
 
+        control_server_id_lst = provision_params['role_ids'] ['control']
+
         config_servers = provision_params['roles']['config']
 	if 'zookeeper' in provision_params['roles']:
 	    zk_servers = provision_params['roles']['zookeeper']
@@ -478,6 +480,7 @@ $__contrail_disc_backend_servers__
         contrail_multi_tenancy => "%s",
         contrail_config_ip => "%s",
         contrail_control_ip_list => "%s",
+        contrail_control_name_list => "%s",
         contrail_collector_ip => "%s",
         contrail_service_token => "%s",
         contrail_ks_admin_user => "%s",
@@ -504,7 +507,7 @@ $__contrail_disc_backend_servers__
     }\n\n''' % (openstack_server_control, contrail_openstack_mgmt_ip_control, compute_server_control,
 		provision_params["use_certs"], provision_params["multi_tenancy"],
         self.get_control_ip(provision_params,provision_params["server_ip"]), ','.join(control_ip_list_control),
-        collector_server_control, provision_params["service_token"],
+        ','.join(control_server_id_lst), collector_server_control, provision_params["service_token"],
         provision_params["ks_user"], provision_params["ks_passwd"],
         provision_params["ks_tenant"], provision_params["openstack_passwd"],
         ','.join(cassandra_ip_list_control), ','.join(zk_ip_list_control),

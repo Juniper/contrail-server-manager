@@ -33,6 +33,7 @@ define contrail-config (
         $contrail_openstack_mgmt_ip,
         $contrail_compute_ip,
         $contrail_control_ip_list,
+	$contrail_control_name_list,
         $contrail_collector_ip,
         $contrail_cassandra_ip_list,
         $contrail_cassandra_ip_port,
@@ -304,11 +305,30 @@ define contrail-config (
     } else {
         $mt_options = ""
     }
+    # Hard-coded to be taken as parameter of vnsi and multi-tenancy options need to be passed to contrail-control too.
+    $router_asn = "64512"
+    #$mt_options = ""
+
+    file { "/etc/contrail/contrail_setup_utils/exec_provision_control.py" :
+        ensure  => present,
+        mode => 0755,
+    #    user => root,
+        group => root,
+        source => "puppet:///modules/contrail-config/exec_provision_control.py"
+    }
+    exec { "exec-provision-control" :
+        command => "python  exec_provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name_list [$contrail_control_name_list] --host_ip [$contrail_control_ip_list] --router_asn $router_asn $mt_options && echo exec-provision-control >> /etc/contrail/contrail-config-exec.out",
+        cwd => "/etc/contrail/contrail_setup_utils/",
+        unless  => "grep -qx exec-provision-control /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+	require => [ File["/etc/contrail/contrail_setup_utils/exec_provision_control.py"] ],
+        logoutput => 'true'
+    }
+    
 
     file { "/etc/contrail/contrail_setup_utils/setup_external_bgp.py" :
             ensure  => present,
             mode => 0755,
-#            user => root,
             group => root,
             source => "puppet:///modules/contrail-config/setup_external_bgp.py"
     }
@@ -355,7 +375,7 @@ define contrail-config (
 
    }
 
-    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["setup-rabbitmq-cluster"]->Exec["provision-metadata-services"]->Exec["provision-encap-type"]
+    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["setup-rabbitmq-cluster"]->Exec["provision-metadata-services"]->Exec["provision-encap-type"]->Exec["exec-provision-control"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name

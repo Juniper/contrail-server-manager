@@ -65,15 +65,6 @@ define contrail-control (
     control-template-scripts { ["control_param", "dns_param", "dns.conf", "control-node.conf"]: }
 
     # Hard-coded to be taken as parameter of vnsi and multi-tenancy options need to be passed to contrail-control too.
-    $router_asn = "64512"
-    $mt_options = ""
-    exec { "provision-control" :
-        command => "/bin/bash -c \"python provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name $hostname --host_ip $contrail_control_ip --router_asn $router_asn $mt_options && echo provision-control >> /etc/contrail/contrail-control-exec.out\"",
-        cwd => "/opt/contrail/utils",
-        unless  => "grep -qx provision-control /etc/contrail/contrail-control-exec.out",
-        provider => shell,
-        logoutput => 'true'
-    }
 
     file { "/opt/contrail/contrail_installer/contrail_setup_utils/control-server-setup.sh":
         ensure  => present,
@@ -89,7 +80,7 @@ define contrail-control (
         logoutput => "true"
     }
 
-    Package["contrail-openstack-control"]->Exec['control-venv']->Control-template-scripts["control-node.conf"]->Control-template-scripts["dns_param"]->Exec["provision-control"]->Exec["control-server-setup"]
+    Package["contrail-openstack-control"]->Exec['control-venv']->Control-template-scripts["control-node.conf"]->Control-template-scripts["dns_param"]->Exec["control-server-setup"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name

@@ -1329,8 +1329,9 @@ class VncServerManager():
                         role_ids[role] = [x["server_id"] for x in role_servers[role]]
                 provision_params = {}
                 provision_params['package_image_id'] = package_image_id
-		provision_params['server_mgr_ip'] = self._args.listen_ip_addr
+		        provision_params['server_mgr_ip'] = self._args.listen_ip_addr
                 provision_params['roles'] = role_ips
+                provision_params['role_ids'] = role_ids
                 provision_params['server_id'] = server['server_id']
                 if server['domain']:
                     provision_params['domain'] = server['domain']
