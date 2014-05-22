@@ -62,7 +62,7 @@ define contrail-control (
     }
 
     # Ensure all config files with correct content are present.
-    control-template-scripts { ["control_param", "dns_param", "dns.conf", "control-node.conf"]: }
+    control-template-scripts { ["dns.conf", "control-node.conf"]: }
 
     # Hard-coded to be taken as parameter of vnsi and multi-tenancy options need to be passed to contrail-control too.
 
@@ -80,7 +80,7 @@ define contrail-control (
         logoutput => "true"
     }
 
-    Package["contrail-openstack-control"]->Exec['control-venv']->Control-template-scripts["control-node.conf"]->Control-template-scripts["dns_param"]->Exec["control-server-setup"]
+    Package["contrail-openstack-control"]->Exec['control-venv']->Control-template-scripts["control-node.conf"]->Control-template-scripts["dns.conf"]->Exec["control-server-setup"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name
@@ -114,7 +114,7 @@ if ($operatingsystem == "Ubuntu") {
         enable => true,
         require => [ Package['contrail-openstack-control'],
                      Exec['control-venv'] ],
-        subscribe => File['/etc/contrail/dns_param'],
+        subscribe => File['/etc/contrail/dns.conf'],
         ensure => running,
     }
 }
@@ -122,7 +122,7 @@ if ($operatingsystem == "Ubuntu") {
         enable => true,
         require => [ Package['contrail-openstack-control'],
                      Exec['control-venv'] ],
-        subscribe => File['/etc/contrail/dns_param'],
+        subscribe => File['/etc/contrail/dns.conf'],
         ensure => running,
     }
 }

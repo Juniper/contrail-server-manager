@@ -367,10 +367,12 @@ define contrail-config (
         source => "puppet:///modules/contrail-common/$hostname.cfg"
     }
         exec { "haproxy-exec":
-                command => "sudo sed -i 's/ENABLED=.*/ENABLED=1/g' /etc/default/haproxy; chkconfig haproxy on; service haproxy restart",
+                command => "sudo sed -i 's/ENABLED=.*/ENABLED=1/g' /etc/default/haproxy && chkconfig haproxy on && service haproxy restart && echo haproxy-exec >> /etc/contrail/contrail-config-exec.out",
+
+                require => File["/etc/haproxy/haproxy.cfg"],
+		unless  => "grep -qx haproxy-exec /etc/contrail/contrail-config-exec.out",
                 provider => shell,
-                logoutput => "true",
-                require => File["/etc/haproxy/haproxy.cfg"]
+                logoutput => "true"
         }
 
    }
