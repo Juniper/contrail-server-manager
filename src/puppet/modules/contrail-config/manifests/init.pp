@@ -375,7 +375,8 @@ define contrail-config (
 
    }
 
-    Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["setup-rabbitmq-cluster"]->Exec["provision-metadata-services"]->Exec["provision-encap-type"]->Exec["exec-provision-control"]
+    #Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["setup-rabbitmq-cluster"]->Exec["provision-metadata-services"]->Exec["provision-encap-type"]->Exec["exec-provision-control"]
+    Exec["setup-rabbitmq-cluster"]->Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["provision-metadata-services"]->Exec["provision-encap-type"]->Exec["exec-provision-control"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name
