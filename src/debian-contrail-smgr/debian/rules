@@ -12,6 +12,7 @@ export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):debian/contrail-control/usr/lib64/c
 export BUILDTIME := $(shell date -u +%y%m%d%H%M)
 export src_path := ./../
 export build_root := debian/contrail-smgr
+export contrail_smgr := opt/contrail/server_manager
 BUILDTAG =
 ifdef TAG
 BUILDTAG = $(TAG)
@@ -19,39 +20,46 @@ else
 BUILDTAG = $(BUILDTIME)
 endif
 
+__python ?= /usr/bin/python
+
 %:
 	dh $@
 
 override_dh_auto_build: 
 	echo "auto_build"
+	(cd $(src_path)/client/; $(__python) setup.py sdist)
 override_dh_auto_install: 
 	# Cleanup directories
 	rm -rf $(build_root)/opt/contrail/server_manager
 	rm -rf $(build_root)/etc
 	
 	# Install directories
-	install -d -m 755 $(build_root)/opt/contrail/server_manager/
+	install -d -m 755 $(build_root)/$(contrail_smgr)
 	install -d -m 754 $(build_root)/etc/init.d/
 	install -d -m 754 $(build_root)/etc/contrail_smgr/
 	install -d -m 754 $(build_root)/usr/sbin/
 	
 	# Copy/install files
-	cp -r $(src_path)/server_mgr_main.py $(WS)/$(build_root)/opt/contrail/server_manager/
-	cp -r $(src_path)/server_mgr_db.py  $(WS)/$(build_root)/opt/contrail/server_manager/
-	cp -r $(src_path)/server_mgr_cobbler.py  $(WS)/$(build_root)/opt/contrail/server_manager/
-	cp -r $(src_path)/server_mgr_puppet.py  $(WS)/$(build_root)/opt/contrail/server_manager/
-	cp -r $(src_path)/smgr_dhcp_event.py  $(WS)/$(build_root)/opt/contrail/server_manager/
-	cp -r $(src_path)/smgr_config.ini  $(WS)/$(build_root)/opt/contrail/server_manager/
-	cp -r $(src_path)/client  $(WS)/$(build_root)/opt/contrail/server_manager/
+	cp -r $(src_path)/server_mgr_main.py $(WS)/$(build_root)/$(contrail_smgr)
+	cp -r $(src_path)/server_mgr_db.py  $(WS)/$(build_root)/$(contrail_smgr)
+	cp -r $(src_path)/server_mgr_cobbler.py  $(WS)/$(build_root)/$(contrail_smgr)
+	cp -r $(src_path)/server_mgr_puppet.py  $(WS)/$(build_root)/$(contrail_smgr)
+	cp -r $(src_path)/smgr_dhcp_event.py  $(WS)/$(build_root)/$(contrail_smgr)
+	cp -r $(src_path)/smgr_config.ini  $(WS)/$(build_root)/$(contrail_smgr)
+	cp -r $(src_path)/client  $(WS)/$(build_root)/$(contrail_smgr)
 	cp -r $(src_path)/contrail_smgrd.start  $(WS)/$(build_root)/usr/sbin/contrail_smgrd
-	cp -r $(src_path)/third_party/bottle.py  $(WS)/$(build_root)/opt/contrail/server_manager/
+	cp -r $(src_path)/third_party/bottle.py  $(WS)/$(build_root)/$(contrail_smgr)
 	cp $(src_path)/contrail_smgrd.u  $(WS)/$(build_root)/etc/init.d/contrail_smgrd
 #	cp $(src_path)/contrail_smgrd.sbin $(WS)/$(build_root)/usr/sbin/contrail_smgrd
 	cp -r $(src_path)/puppet  $(WS)/$(build_root)/etc/contrail_smgr/
-	cp -r $(src_path)/repos/contrail-ubuntu-repo  $(WS)/$(build_root)/etc/contrail_smgr/
+	#cp -r $(src_path)/repos/contrail-ubuntu-repo  $(WS)/$(build_root)/etc/contrail_smgr/
 	cp -r $(src_path)/cobbler  $(WS)/$(build_root)/etc/contrail_smgr/
 	cp -r $(src_path)/kickstarts  $(WS)/$(build_root)/etc/contrail_smgr/
-	cp -r $(src_path)/client/smgr_client_config.ini  $(WS)/$(build_root)/etc/contrail_smgr/
+	cp -r $(src_path)/client/server_manager/client/smgr_client_config.ini  $(WS)/$(build_root)/etc/contrail_smgr/
+	#Install the server-manager-client python package.
+	install -p -m 755 $(src_path)/client/dist/server-manager-client-1.0.tar.gz $(build_root)/$(contrail_smgr)
+	(cd $(build_root)/$(contrail_smgr); tar -zxvf server-manager-client-1.0.tar.gz)
+	(cd $(build_root)/$(contrail_smgr)/server-manager-client-1.0; $(__python) setup.py install --root=$(build_root))
 
 	echo "auto_install"
 get-orig-source:
