@@ -46,6 +46,6 @@ setup(name = "server-manager-client",
       include_package_data=True,
       packages=['server_manager', 'server_manager.client', 'server_manager.contrail'],
       package_data={'': ['*.ini', 'server_manager/client/*.json', '*.xml']},
-      scripts=['server_manager/client/server-manager', 'server_manager/contrail/reimage'],
-      install_requires=['pycurl',],
+      scripts=['server_manager/client/server-manager'],
+      #install_requires=['pycurl',],
 )
