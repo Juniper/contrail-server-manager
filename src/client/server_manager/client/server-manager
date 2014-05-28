@@ -19,6 +19,7 @@ import server_manager.client.smgr_upload_image as smgr_upload_image
 import server_manager.client.smgr_reimage_server as smgr_reimage_server
 import server_manager.client.smgr_provision_server as smgr_provision_server
 import server_manager.client.smgr_restart_server as smgr_restart_server
+import server_manager.client.smgr_status as smgr_status
 
 commands_dict = {
     'create' : smgr_create.create_config,
