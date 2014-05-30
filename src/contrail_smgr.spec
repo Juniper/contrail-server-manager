@@ -176,7 +176,6 @@ rm -rf %{buildroot}
 #/etc/puppet/*
 %{python_sitelib}/server_manager*
 %{_bindir}/server-manager
-%{_bindir}/reimage
 %changelog
 * Thu Nov 29 2013  Thilak Raj S <tsurendra@juniper.net> 1.0-1
 - First Build
