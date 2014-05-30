@@ -169,6 +169,7 @@ class VncServerManager():
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
         bottle.route('/cluster', 'PUT', self.add_cluster)
         bottle.route('/server', 'PUT', self.add_server)
+        bottle.route('/update_server', 'PUT', self.update_server)
         bottle.route('/image', 'PUT', self.add_image)
         bottle.route('/image/upload', 'PUT', self.upload_image)
         bottle.route('/vns', 'PUT', self.add_vns)
@@ -523,6 +524,25 @@ class VncServerManager():
             abort(404, repr(e))
         return entity
     # end add_server
+
+
+    # API to add a new server to config DB. Along with server parameters,
+    # user can also specify the roles to be configured on the server.
+    def update_server(self):
+        entity = bottle.request.json
+        if (not entity):
+            abort(404, 'Server MAC or server_id not specified')
+        try:
+            servers = entity.get("server", None)
+            for server in servers:
+                if (('server_id' not in server) or ('mac' not in server)):
+                    abort(404, 'Server MAC or server_id not specified')
+                self._serverDb.update_server(server)
+        except Exception as e:
+            abort(404, repr(e))
+        return entity
+    # end update_server
+
 
     # API Call to add image file to server manager (file is copied at
     # <default_base_path>/images/filename.iso and distro, profile

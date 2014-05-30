@@ -4,6 +4,7 @@ import sqlite3 as lite
 import sys
 import pdb
 from netaddr import *
+from server_mgr_exception import ServerMgrException as ServerMgrException
 
 def_server_db_file = 'smgr_data.db'
 pod_table = 'pod_table'
@@ -250,6 +251,89 @@ class ServerMgrDb:
         except Exception as e:
             raise e
     # End of add_vns
+
+    def check_obj(self, type, match_key, match_value):
+        if type == "server":
+           cb = self.get_server
+           db_obj = cb(match_key, match_value, detail=False)
+        elif type == "vns":
+           cb = self.get_vns
+           db_obj = cb(match_value, detail=False)
+        elif type == "cluster":
+           cb = self.get_cluster
+           db_obj = cb(match_value, detail=False)
+        elif type == "image":
+           cb = self.get_image
+           db_obj = cb(match_key, match_value, detail=False)
+
+        if not db_obj:
+           msg = "%s %s not found" % (type, match_value)
+           raise ServerMgrException(msg)
+        return 0
+    #end of check_obj
+
+
+
+    def update_server(self, server_data):
+        try:
+            ret = self.check_obj("server", "server_id",
+                                 server_data['server_id'])
+            #If object exists modify
+            if ret == 0:
+                self.modify_server(server_data)
+        except ServerMgrException as e:
+            #If object doesnt exist add it
+            pass
+
+        try:
+            if 'mac' in server_data:
+                server_data['mac'] = str(
+                    EUI(server_data['mac'])).replace("-", ":")
+            # Store roles list as a text field
+            roles = server_data.pop("roles", None)
+            if roles is not None:
+                server_data['roles'] = str(roles)
+            intf_control = server_data.pop("control", None)
+            if intf_control:
+                server_data['intf_control'] = str(intf_control)
+            intf_data = server_data.pop("data", None)
+            if intf_data:
+                server_data['intf_data'] = str(intf_data)
+            intf_bond = server_data.pop("bond", None)
+            if intf_bond:
+                server_data['intf_bond'] = str(intf_bond)
+
+            # Store server_params dictionary as a text field
+            server_params = server_data.pop("server_params", None)
+            if server_params is not None:
+                server_data['server_params'] = str(server_params)
+            self._add_row(server_table, server_data)
+            # Create an entry for cluster, pod, rack etc if needed.
+            pod_id = server_data.get('pod_id', None)
+            if pod_id:
+                pod_data = {"pod_id": pod_id}
+                self._add_row(pod_table, pod_data)
+            rack_id = server_data.get('rack_id', None)
+            if rack_id:
+                rack_data = {"rack_id": rack_id}
+                self._add_row(rack_table, rack_data)
+            cluster_id = server_data.get('cluster_id', None)
+            if cluster_id:
+                cluster_data = {"cluster_id": cluster_id}
+                self._add_row(cluster_table, cluster_data)
+            vns_id = server_data.get('vns_id', None)
+            if vns_id:
+                vns_data = {"vns_id": vns_id}
+                self._add_row(vns_table, vns_data)
+            cloud_id = server_data.get('cloud_id', None)
+            if cloud_id:
+                cloud_data = {"cloud_id": cloud_id}
+                self._add_row(cloud_table, cloud_data)
+        except Exception as e:
+            raise e
+        return 0
+    # End of update_server
+
 
     def add_server(self, server_data):
         try:
@@ -511,6 +595,7 @@ class ServerMgrDb:
             raise e
         return vns
     # End of get_vns
+
 
 # End class ServerMgrDb
 
