@@ -135,6 +135,7 @@ cp %{_contrail_smgr_src}server_mgr_main.py %{buildroot}%{_contrailopt}%{_contrai
 cp %{_contrail_smgr_src}server_mgr_db.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}server_mgr_cobbler.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}server_mgr_puppet.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}server_mgr_exception.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_dhcp_event.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
