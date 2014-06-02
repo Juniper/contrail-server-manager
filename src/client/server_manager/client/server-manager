@@ -29,7 +29,8 @@ commands_dict = {
     'upload_image' : smgr_upload_image.upload_image,
     'reimage' : smgr_reimage_server.reimage_server,
     'provision' : smgr_provision_server.provision_server,
-    'restart' : smgr_restart_server.restart_server }
+    'restart' : smgr_restart_server.restart_server,
+    'status' : smgr_status.show_status }
 
 def server_manager(args_str=None):
     if not args_str:
@@ -49,7 +50,8 @@ The server manager commands are:
    reimage        Prepare servers for reimaging with given image
    provision      Provision servers to provide configured roles
    restart        Restart servers so that any reimage or provision
-                  commands can take effect.
+                  commands can take effect
+   status         status of servers.
 '''
     )
     parser.add_argument(
@@ -57,7 +59,7 @@ The server manager commands are:
         help='server manager command to run',
         choices=['create', 'modify', 'delete',
                  'show', 'reimage', 'provision',
-                 'restart', 'upload_image'])
+                 'restart', 'upload_image', 'status'])
     args = parser.parse_args(sys.argv[1:2])
     commands_dict[args.command](sys.argv[2:])
 # End of server_manager
