@@ -24,10 +24,12 @@ class ExecControlProvisioner(object):
         contrail_config_ip='127.0.0.1'
         host_ip_list= self._args.host_ip_list[1:-1].split(",")
         host_name_list= self._args.host_name_list[1:-1].split(",")
-        if  self._args.mt_options != "":
+        if  self._args.mt_options != "None":
             mt_options=self._args.mt_options[1:-1]
             multi_tenancy_list= mt_options.split(",")
             mt_options= "--admin_user %s --admin_password %s --admin_tenant_name %s" %(multi_tenancy_list[0],multi_tenancy_list[1],multi_tenancy_list[2])
+        else :
+            mt_options = ""
       
         for control_ip,hostname in itertools.izip(host_ip_list, host_name_list):
             output= commands.getstatusoutput('python /opt/contrail/utils/provision_control.py --api_server_ip %s --api_server_port %s --host_name %s  --host_ip %s --router_asn %s %s' %(contrail_config_ip, api_server_port, hostname, control_ip, self._args.router_asn, mt_options))

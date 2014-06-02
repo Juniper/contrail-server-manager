@@ -302,9 +302,10 @@ define contrail-config (
     }
 
     # Initialize the multi tenancy option will update latter based on vns argument
-    $mt_options = ""
     if ($contrail_multi_tenancy == "True") {
 	$mt_options = "[admin,$contrail_ks_admin_passwd,$contrail_ks_admin_tenant]"
+    } else {
+        $mt_options = "None" 
     } 
 
     # Hard-coded to be taken as parameter of vnsi and multi-tenancy options need to be passed to contrail-control too.

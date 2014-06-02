@@ -8,10 +8,12 @@ def provision_bgp(bgp_params, api_server_ip, api_server_port, router_asn , mt_op
     if bgp_params == '':
         sys.exit(0)
 
-    if  self._args.mt_options != "":
-        mt_options=self._args.mt_options[1:-1]
+    if  mt_options != "None":
+        mt_options=mt_options[1:-1]
         multi_tenancy_list= mt_options.split(",")
         mt_options= "--admin_user %s --admin_password %s --admin_tenant_name %s" %(multi_tenancy_list[0],multi_tenancy_list[1],multi_tenancy_list[2])
+    else :
+        mt_options = ""
     bgp_peer_list = eval(bgp_params)
     for bgp_peer in bgp_peer_list:
         cmd = "python /opt/contrail/utils/provision_mx.py --api_server_ip %s --api_server_port %s --router_name %s --router_ip %s --router_asn %s %s" % (api_server_ip, api_server_port, bgp_peer[0], bgp_peer[1], router_asn, mt_options)
