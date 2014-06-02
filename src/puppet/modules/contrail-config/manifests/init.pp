@@ -300,11 +300,13 @@ define contrail-config (
         provider => shell,
         logoutput => "true"
     }
+
+    # Initialize the multi tenancy option will update latter based on vns argument
+    $mt_options = ""
     if ($contrail_multi_tenancy == "True") {
-	$mt_options = " --admin_user root --admin_password $contrail_ --admin_tenant_name $contrail_"
-    } else {
-        $mt_options = ""
-    }
+	$mt_options = "[admin,$contrail_ks_admin_passwd,$contrail_ks_admin_tenant]"
+    } 
+
     # Hard-coded to be taken as parameter of vnsi and multi-tenancy options need to be passed to contrail-control too.
     $router_asn = "64512"
     #$mt_options = ""
@@ -317,7 +319,7 @@ define contrail-config (
         source => "puppet:///modules/contrail-config/exec_provision_control.py"
     }
     exec { "exec-provision-control" :
-        command => "python  exec_provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name_list [$contrail_control_name_list] --host_ip [$contrail_control_ip_list] --router_asn $router_asn $mt_options && echo exec-provision-control >> /etc/contrail/contrail-config-exec.out",
+        command => "python  exec_provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name_list [$contrail_control_name_list] --host_ip [$contrail_control_ip_list] --router_asn $router_asn --mt_options $mt_options && echo exec-provision-control >> /etc/contrail/contrail-config-exec.out",
         cwd => "/etc/contrail/contrail_setup_utils/",
         unless  => "grep -qx exec-provision-control /etc/contrail/contrail-config-exec.out",
         provider => shell,

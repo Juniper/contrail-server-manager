@@ -20,11 +20,14 @@ class ExecControlProvisioner(object):
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
-        mt_options = ""
         api_server_port="8082"
         contrail_config_ip='127.0.0.1'
         host_ip_list= self._args.host_ip_list[1:-1].split(",")
         host_name_list= self._args.host_name_list[1:-1].split(",")
+        if  self._args.mt_options != "":
+            mt_options=self._args.mt_options[1:-1]
+            multi_tenancy_list= mt_options.split(",")
+            mt_options= "--admin_user %s --admin_password %s --admin_tenant_name %s" %(multi_tenancy_list[0],multi_tenancy_list[1],multi_tenancy_list[2])
       
         for control_ip,hostname in itertools.izip(host_ip_list, host_name_list):
             output= commands.getstatusoutput('python /opt/contrail/utils/provision_control.py --api_server_ip %s --api_server_port %s --host_name %s  --host_ip %s --router_asn %s %s' %(contrail_config_ip, api_server_port, hostname, control_ip, self._args.router_asn, mt_options))
@@ -53,9 +56,6 @@ class ExecControlProvisioner(object):
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
             'oper': 'add',
-            'admin_user': None,
-            'admin_password': None,
-            'admin_tenant_name': None
         }
 
         if args.conf_file:
@@ -82,16 +82,12 @@ class ExecControlProvisioner(object):
             "--router_asn", help="AS Number the control-node is in")
         parser.add_argument(
             "--api_server_ip", help="IP address of api server")
+        parser.add_argument(
+            "--mt_options", help="Multi tenancy option")
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument(
             "--oper", default='add',
             help="Provision operation to be done(add or del)")
-        parser.add_argument(
-            "--admin_user", help="Name of keystone admin user")
-        parser.add_argument(
-            "--admin_password", help="Password of keystone admin user")
-        parser.add_argument(
-            "--admin_tenant_name", help="Tenamt name for keystone admin user")
 
         self._args = parser.parse_args(remaining_argv)
 
