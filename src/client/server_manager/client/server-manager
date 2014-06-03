@@ -20,6 +20,7 @@ import server_manager.client.smgr_reimage_server as smgr_reimage_server
 import server_manager.client.smgr_provision_server as smgr_provision_server
 import server_manager.client.smgr_restart_server as smgr_restart_server
 import server_manager.client.smgr_status as smgr_status
+import server_manager.client.smgr_add as smgr_add
 
 commands_dict = {
     'create' : smgr_create.create_config,
@@ -30,7 +31,8 @@ commands_dict = {
     'reimage' : smgr_reimage_server.reimage_server,
     'provision' : smgr_provision_server.provision_server,
     'restart' : smgr_restart_server.restart_server,
-    'status' : smgr_status.show_status }
+    'status' : smgr_status.show_status,
+    'add' : smgr_add.add_config }
 
 def server_manager(args_str=None):
     if not args_str:
@@ -52,6 +54,8 @@ The server manager commands are:
    restart        Restart servers so that any reimage or provision
                   commands can take effect
    status         status of servers.
+   add            add a server manager object(create or modify a server manager
+object)
 '''
     )
     parser.add_argument(
@@ -59,7 +63,7 @@ The server manager commands are:
         help='server manager command to run',
         choices=['create', 'modify', 'delete',
                  'show', 'reimage', 'provision',
-                 'restart', 'upload_image', 'status'])
+                 'restart', 'upload_image', 'status', 'add'])
     args = parser.parse_args(sys.argv[1:2])
     commands_dict[args.command](sys.argv[2:])
 # End of server_manager
