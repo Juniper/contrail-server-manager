@@ -85,7 +85,8 @@ class ServerMgrDb:
                 # Create vns table.
                 cursor.execute("CREATE TABLE IF NOT EXISTS " + vns_table +
                                """ (vns_id TEXT PRIMARY KEY,
-                                    vns_params TEXT)""")
+                                    vns_params TEXT,
+                                    email TEXT)""")
                 # Create cloud table.
                 cursor.execute("CREATE TABLE IF NOT EXISTS " + cloud_table +
                                """ (cloud_id TEXT PRIMARY KEY)""")
@@ -111,6 +112,7 @@ class ServerMgrDb:
                          power_pass TEXT, power_address TEXT,
                          power_type TEXT, intf_control TEXT,
 			 intf_data TEXT, intf_bond TEXT,
+                         email TEXT,
 			 UNIQUE (server_id))""")
             self._get_table_columns()
         except e:
@@ -247,6 +249,9 @@ class ServerMgrDb:
             vns_params = vns_data.pop("vns_params", None)
             if vns_params is not None:
                 vns_data['vns_params'] = str(vns_params)
+            email = vns_data.pop("email", None)
+            if email is not None:
+                vns_data['email'] = str(email)
             self._add_row(vns_table, vns_data)
         except Exception as e:
             raise e
@@ -302,6 +307,9 @@ class ServerMgrDb:
             intf_bond = server_data.pop("bond", None)
             if intf_bond:
                 server_data['intf_bond'] = str(intf_bond)
+            email = server_data.pop("email", None)
+            if email:
+                server_data['email'] = str(email)
 
             # Store server_params dictionary as a text field
             server_params = server_data.pop("server_params", None)
@@ -353,6 +361,10 @@ class ServerMgrDb:
 	    intf_bond = server_data.pop("bond", None)
             if intf_bond:
                 server_data['intf_bond'] = str(intf_bond)
+            email = server_data.pop("email", None)
+            if email:
+                server_data['email'] = str(email)
+
 
             # Store server_params dictionary as a text field
             server_params = server_data.pop("server_params", None)
@@ -459,6 +471,9 @@ class ServerMgrDb:
             vns_params = vns_data.pop("vns_params", None)
             if vns_params is not None:
                 vns_data['vns_params'] = str(vns_params)
+            email = vns_data.pop("email", None)
+            if email is not None:
+                vns_data['email'] = str(email)
             self._modify_row(vns_table, vns_data,
                              'vns_id', vns_id)
         except Exception as e:
@@ -497,6 +512,9 @@ class ServerMgrDb:
             server_params = server_data.pop("server_params", None)
             if server_params is not None:
                 server_data['server_params'] = str(server_params)
+            email = server_data.pop("email", None)
+            if email is not None:
+                server_data['email'] = str(email)
             self._modify_row(server_table, server_data,
                              'mac', server_mac)
             # Create an entry for cluster, pod, rack etc if needed.

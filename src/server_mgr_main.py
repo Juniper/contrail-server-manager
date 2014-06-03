@@ -378,7 +378,8 @@ class VncServerManager():
             if 'email' in vns:
                 email_to.append(vns['email'])
             else:
-                email_to.append('pmiriyala@juniper.net')
+                #email_to.append('pmiriyala@juniper.net')
+                return
         send_mail(event, message, '', email_to, self._smgr_cobbler._cobbler_ip, '25')
     # send_status_mail
 
@@ -956,7 +957,8 @@ class VncServerManager():
         restricted_fields = ['mac']
         allowed_fields = ['server_id', 'ip', 'mask', 'gway',
                           'passwd', 'roles', 'vns_id', 'cluster_id',
-                          'server_params', 'power_address', 'domain']
+                          'server_params', 'power_address', 'domain',
+                          'email']
         try:
             servers = entity.get("server", None)
             for server in servers:
@@ -998,7 +1000,8 @@ class VncServerManager():
                 for key in vns:
                     if key not in [
                         'vns_id',
-                        'vns_params']:
+                        'vns_params',
+                        'email']:
                         abort(404, 'invalid field in vns')
                 self._serverDb.modify_vns(vns)
         except Exception as e:

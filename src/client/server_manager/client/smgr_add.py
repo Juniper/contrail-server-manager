@@ -27,6 +27,7 @@ _DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
 object_dict = {
     "vns" : OrderedDict ([
         ("vns_id", "Specify unique vns_id for this vns cluster"),
+        ("email", "Email id for notifications"),
         ("vns_params", OrderedDict ([
              ("router_asn", "Router asn value"),
              ("mask", "Subnet mask"),
@@ -63,6 +64,7 @@ object_dict = {
         ("gway", "gateway (default use value from vns table)"),
         ("domain", "domain name (default use value from vns table)"),
         ("passwd", "root password (default use value from vns table)"),
+        ("email", "email id for notifications (default use value from vns table)"),
     ]),
     "image" : OrderedDict ([
         ("image_id", "Specify unique image id for this image"),
@@ -139,7 +141,7 @@ def send_REST_request(ip, port, object, payload):
         response = StringIO()
         headers = ["Content-Type:application/json"]
         url = "http://%s:%s/%s" %(
-            ip, port, "update_server")
+            ip, port, object)
         conn = pycurl.Curl()
         conn.setopt(pycurl.URL, url)
         conn.setopt(pycurl.HTTPHEADER, headers)

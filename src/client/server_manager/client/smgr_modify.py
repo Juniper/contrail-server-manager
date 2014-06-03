@@ -27,6 +27,7 @@ _DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
 object_dict = {
     "vns" : OrderedDict ([
         ("vns_id", "vns_id for vns to be modfied"),
+        ("email", "Email id for notifications"),
         ("vns_params", OrderedDict ([
              ("router_asn", "Router asn value"),
              ("mask", "Subnet mask"),
@@ -57,6 +58,7 @@ object_dict = {
         ("gway", "gateway (default use value from vns table)"),
         ("domain", "domain name (default use value from vns table)"),
         ("passwd", "root password (default use value from vns table)"),
+        ("email", "email id for notifications (default use value from vns table)"),
     ]),
     "image" : OrderedDict ([
         ("image_id", "Image id of image to be modified"),
