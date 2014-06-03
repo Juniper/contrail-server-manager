@@ -33,6 +33,7 @@ import uuid
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
+from send_mail import send_mail
 
 _WEB_HOST = '127.0.0.1'
 _WEB_PORT = 9001
@@ -357,15 +358,49 @@ class VncServerManager():
         return entity
     # end add_vns
 
+    def send_status_mail(self, server_id, event, message):
+        # Get server entry and find configured e-mail
+        servers = self._serverDb.get_server("server_id", server_id, True)
+        if not servers:
+            # Send/log an error
+            return
+        server = servers[0]
+	email_to = []
+        if 'email' in server:
+            email_to.append(server['email'])
+        else:
+            # Get VNS entry to find configured e-mail
+            if 'vns_id' not in server:
+                return
+            vns_id = server['vns_id']
+            vns = self._serverDb.get_vns(vns_id, True)
+            if 'email' in vns:
+                email_to.append(vns['email'])
+            else:
+                email_to.append('pmiriyala@juniper.net')
+        send_mail(event, message, '', email_to, self._smgr_cobbler._cobbler_ip, '25')
+    # send_status_mail
+
+    def get_obj(self, resp):
+        try:
+            data = json.loads(resp)
+            return data
+        except ValueError:
+            return ''
+    #end def get_obj    
+
     def put_status(self):
 	server_id = bottle.request.query['server_id']
 	body = bottle.request.body.read()
 	server_data = {}
 	server_data['server_id'] = server_id
 	server_data['server_status'] = body
+        resp = self.get_obj(body)
+        if str(resp) == 'reimage':
+            message = server_id + ' reimage completed.'
+            self.send_status_mail(server_id, message, message)
 	servers = self._serverDb.put_status(
                     server_data)
-
 
     def get_status(self):
 	server_id = bottle.request.query['server_id']		

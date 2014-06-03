@@ -14,7 +14,7 @@ def send_mail(subject, message, mail_sender, mail_to, smtp_server, smtp_port='25
         return
 
     if mail_sender == '':
-        mail_sender = mail_to
+        mail_sender = mail_to[0]
 
     if subject == '' and message == '':
         print "email subject and message are empty."
@@ -28,7 +28,7 @@ def send_mail(subject, message, mail_sender, mail_to, smtp_server, smtp_port='25
 
 
     msg = MIMEText(message)
-    msg['Subject'] = 'The contents of %s' % message
+    msg['Subject'] = '%s' % subject
     msg['From'] = mail_sender
     msg['To'] = ', '.join(mail_to)
 

@@ -16,9 +16,8 @@
 %define		_puppetetc /etc/puppet/
 %define		_contrailopt /opt/contrail/
 %define		_sbinusr    /usr/sbin/
-#%define         _lbinusr    /usr/local/bin
-#%define         _pyver      %( %{__python} -c "import sys; print '%s.%s' % sys.version_info[0:2]" )
-#%define         _pysitepkg  /usr/local/lib/python%{_pyver}/dist-packages
+%define         _pyver        %( %{__python} -c "import sys; print '%s.%s' % sys.version_info[0:2]" )
+%define         _pysitepkg    /usr/lib/python%{_pyver}/site-packages
 
 
 Name: contrail_smgr
@@ -137,6 +136,7 @@ cp %{_contrail_smgr_src}server_mgr_cobbler.py %{buildroot}%{_contrailopt}%{_cont
 cp %{_contrail_smgr_src}server_mgr_puppet.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}server_mgr_exception.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_dhcp_event.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}utils/send_mail.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
 #Install the server-manager-client python package.
@@ -161,6 +161,8 @@ cp %{_contrail_smgr_src}utils/sendmail.cf %{buildroot}%{_contrailetc}
 #install -p -m 755 %{_contrail_smgr_src}cobbler/dhcp.template %{buildroot}%{_bindir}%{_contrail_smgr}
 #install -p -m 755 %{_contrail_smgr_src}cobbler/settings %{buildroot}%{_bindir}%{_contrail_smgr}
 
+install -d -m 755 %{buildroot}%{_pysitepkg}/cobbler/modules
+cp %{_contrail_smgr_src}third_party/server_post_install.py %{buildroot}%{_pysitepkg}/cobbler/modules/
 
 %clean
 rm -rf %{buildroot}
@@ -177,6 +179,7 @@ rm -rf %{buildroot}
 #/etc/puppet/*
 %{python_sitelib}/server_manager*
 %{_bindir}/server-manager
+%{_pysitepkg}/cobbler/modules/server_post_install*
 %changelog
 * Thu Nov 29 2013  Thilak Raj S <tsurendra@juniper.net> 1.0-1
 - First Build
