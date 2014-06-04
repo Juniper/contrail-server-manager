@@ -22,6 +22,9 @@ define contrail-collector (
 
     # Ensure all needed packages are present
     package { 'contrail-openstack-analytics' : ensure => present,}
+    # The above wrapper package should be broken down to the below packages
+    # For Debian/Ubuntu - supervisor, python-contrail, contrail-analytics, contrail-setup, contrail-nodemgr
+    # For Centos/Fedora - contrail-api-pib, contrail-analytics, contrail-setup, contrail-nodemgr
 
     if ($operatingsystem == "Ubuntu"){
         file {"/etc/init/supervisor-analytics.override": ensure => absent, require => Package['contrail-openstack-analytics']}
@@ -40,28 +43,31 @@ define contrail-collector (
     }
 
     # Ensure all config files with correct content are present.
-    collector-template-scripts { ["vizd_param", "qe_param", "contrail-analytics-api.conf" , "collector.conf", "query-engine.conf"]: }
+    collector-template-scripts { ["contrail-analytics-api.conf" , "collector.conf", "query-engine.conf"]: }
 
-    if ($contrail_num_collector_nodes > 0) {
-        if ($contrail_num_collector_nodes > 1) {
-            $sentinel_quoram = $contrail_num_collector_nodes - 1
-        }
-        else {
-            $sentinel_quoram = 1
-        }
-        file { "/etc/contrail/sentinel.conf" : 
-            ensure  => present,
-            require => Package["contrail-openstack-analytics"],
-            content => template("contrail-collector/sentinel.conf.erb"),
-        }
-        if ($contrail_redis_role == "slave") {
-            file { "/etc/contrail/redis-uve.conf" : 
-                ensure  => present,
-                require => Package["contrail-openstack-analytics"],
-                content => template("contrail-collector/redis-uve.conf.erb"),
-            }
-        }
-    }
+    # The below commented code is not used in latest fab. Need to check with analytics team and then remove
+    # if not needed.
+    # if ($contrail_num_collector_nodes > 0) {
+    #     if ($contrail_num_collector_nodes > 1) {
+    #         $sentinel_quoram = $contrail_num_collector_nodes - 1
+    #     }
+    #     else {
+    #         $sentinel_quoram = 1
+    #     }
+    #     file { "/etc/contrail/sentinel.conf" : 
+    #         ensure  => present,
+    #         require => Package["contrail-openstack-analytics"],
+    #         content => template("contrail-collector/sentinel.conf.erb"),
+    #     }
+    #     if ($contrail_redis_role == "slave") {
+    #         file { "/etc/contrail/redis-uve.conf" : 
+    #             ensure  => present,
+    #             require => Package["contrail-openstack-analytics"],
+    #             content => template("contrail-collector/redis-uve.conf.erb"),
+    #         }
+    #     }
+    # }
+    # end commented out code.
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name

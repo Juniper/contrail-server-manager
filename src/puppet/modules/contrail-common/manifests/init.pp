@@ -27,6 +27,7 @@ define line($file, $line, $ensure = 'present') {
 }
 # End of macro line
 
+# To be reviewed - Abhay
 #source ha proxy files
 define haproxy-cfg($server_id) {
     file { "/etc/haproxy/haproxy.cfg":
@@ -45,6 +46,7 @@ define haproxy-cfg($server_id) {
 }
 
 
+# To be reviewed - Abhay
 define contrail-cfg-zk($zk_ip_list, $zk_index) {
     package { 'zookeeper' : ensure => present,}
     package { 'zookeeperd' : ensure => present,}
@@ -73,6 +75,7 @@ define contrail-cfg-zk($zk_ip_list, $zk_index) {
 
 }
 
+# To be reviewed - Abhay
 #source ha proxy files
 define contrail-exec-script($script_name, $args) {
     file { "/etc/contrail/${script_name}":
@@ -91,6 +94,7 @@ define contrail-exec-script($script_name, $args) {
 	}
 }
 
+# To be reviewed - Abhay
 define contrail-setup-interface(
 	$contrail_device,
 	$contrail_members,
@@ -153,6 +157,8 @@ define contrail-common (
         $self_ip,
         $system_name
     ) {
+
+    # Ensure /etc/hosts has an entry for self to map dns name to ip address
     host { "$system_name" :
         ensure => present,
         ip => "$self_ip"
@@ -272,7 +278,7 @@ define contrail-common (
         logoutput => "true"
     }
 
-
+    # Why is this here ?? - Abhay
     if ($operatingsystem == "Ubuntu"){
 
         exec { "exec-update-neutron-conf" :
@@ -284,6 +290,7 @@ define contrail-common (
         }
     }
 
+    # Why is this here ?? - Abhay
     if ($operatingsystem == "Centos" or $operatingsystem == "Fedora") {
 
         exec { "exec-update-quantum-conf" :

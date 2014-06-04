@@ -21,6 +21,9 @@ define contrail-database (
 
     # Ensure all needed packages are present
     package { 'contrail-openstack-database' : ensure => present,}
+    # The above wrapper package should be broken down to the below packages
+    # For Debian/Ubuntu - cassandra (>= 1.1.12) , contrail-setup, supervisor
+    # For Centos/Fedora - contrail-api-lib, contrail-database, contrail-setup, openstack-quantum-contrail, supervisor
 
     exec { "exec-config-host-entry" :
         command   => 'echo \"$contrail_config_ip   $system_name\" >> /etc/hosts && echo exec-config-host-entry >> /etc/contrail/contrail-database-exec.out',
@@ -89,7 +92,7 @@ define contrail-database (
         ensure => running,
     }
 
-    database-template-scripts {"supervisord_contrail_database.conf":}
+    database-template-scripts { ["contrail-nodemgr-database.conf", "database_nodemgr_param"]: }
 
  }
 	

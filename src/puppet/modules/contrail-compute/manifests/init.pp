@@ -114,26 +114,8 @@ define contrail-compute-part-2 (
     # Ensure all needed packages are present
     package { 'contrail-openstack-vrouter' : ensure => present,}
 
-    # Handle qpidd.conf changes
-    if ($operatingsystem == "Ubuntu") {
-        $conf_file = "/etc/rabbitmq/rabbitmq.config"
-    }
-    else {
-        $conf_file = "/etc/qpid/qpidd.conf"
-    }
-
-    if ! defined(File["/etc/contrail/contrail_setup_utils/cfg-qpidd-rabbitmq.sh"]) {
-        file { "/etc/contrail/contrail_setup_utils/cfg-qpidd-rabbitmq.sh" : 
-            ensure  => present,
-            mode => 0755,
-            owner => root,
-            group => root,
-            source => "puppet:///modules/contrail-openstack/cfg-qpidd-rabbitmq.sh"
-        }
-    }
-
     if ($operatingsystem == "Ubuntu"){
-        file {"/etc/init/upervisor-vrouter.override": ensure => absent, require => Package['contrail-openstack-vrouter']}
+        file {"/etc/init/supervisor-vrouter.override": ensure => absent, require => Package['contrail-openstack-vrouter']}
     }
 
     # vrouter venv installation
@@ -161,13 +143,34 @@ define contrail-compute-part-2 (
             logoutput => "true"
         }
     }
-    ## For compute node, additional processing to be done for enable_kernel_core (TBD Abhay)
 
-    $novaconf_hostname_str = "rabbit_host"
+    #Ensure Ha-proxy cfg file is set
+    if (!defined(File["/etc/haproxy/haproxy.cfg"])) and ( $contrail_haproxy == "enable" )  {
+    	file { "/etc/haproxy/haproxy.cfg":
+       	   ensure  => present,
+           mode => 0755,
+           owner => root,
+           group => root,
+           source => "puppet:///modules/contrail-common/$hostname.cfg"
+        }
+        exec { "haproxy-exec":
+                command => "sudo sed -i 's/ENABLED=.*/ENABLED=1/g' /etc/default/haproxy",
+                provider => shell,
+                logoutput => "true",
+                require => File["/etc/haproxy/haproxy.cfg"]
+        }
+        service { "haproxy" :
+            enable => true;
+            require => [File["/etc/default/haproxy"],
+                        File["/etc/haproxy/haproxy.cfg"]];
+            ensure => running
+        }
+     }
+
     exec { "exec-compute-qpid-rabbitmq-hostname" :
-        command => "echo \"$novaconf_hostname_str = $contrail_openstack_ip\" >> /etc/nova/nova.conf && echo exec-compute-qpid-rabbitmq-hostname >> /etc/contrail/contrail-compute-exec.out",
+        command => "echo \"rabbit_host = $contrail_openstack_ip\" >> /etc/nova/nova.conf && echo exec-compute-qpid-rabbitmq-hostname >> /etc/contrail/contrail-compute-exec.out",
         unless  => ["grep -qx exec-compute-qpid-rabbitmq-hostname /etc/contrail/contrail-compute-exec.out",
-                    "grep -qx \"$novaconf_hostname_str = $contrail_openstack_ip\" /etc/nova/nova.conf"],
+                    "grep -qx \"rabbit_host = $contrail_openstack_ip\" /etc/nova/nova.conf"],
         provider => shell,
         logoutput => 'true'
     }
@@ -178,6 +181,14 @@ define contrail-compute-part-2 (
                     "grep -qx \"neutron_admin_auth_url = http://$contrail_openstack_ip/v2.0\" /etc/nova/nova.conf"],
         provider => shell,
         logoutput => 'true'
+    }
+
+    exec { "exec-compute-update-nova-conf" :
+        command => "sed -i \"s/^rpc_backend = nova.openstack.common.rpc.impl_qpid/#rpc_backend = nova.openstack.common.rpc.impl_qpid/g\" /etc/nova/nova.conf && echo exec-update-nova-conf >> /etc/contrail/contrail-common-exec.out",
+       	unless  => ["[ ! -f /etc/nova/nova.conf ]",
+                    "grep -qx exec-update-nova-conf /etc/contrail/contrail-common-exec.out"],
+        provider => shell,
+       	logoutput => "true"
     }
     
     # Ensure ctrl-details file is present with right content.
@@ -193,29 +204,32 @@ define contrail-compute-part-2 (
             content => template("contrail-compute/ctrl-details.erb"),
         }
     }
-    #Ensure Ha-proxy cfg file is set
-    if (!defined(File["/etc/haproxy/haproxy.cfg"])) and ( $contrail_haproxy == "enable" )  {
-    	file { "/etc/haproxy/haproxy.cfg":
-       	   ensure  => present,
-           mode => 0755,
-           owner => root,
-           group => root,
-           source => "puppet:///modules/contrail-common/$hostname.cfg"
-        }
-        exec { "haproxy-exec":
-                command => "sudo sed -i 's/ENABLED=.*/ENABLED=1/g' /etc/default/haproxy; chkconfig haproxy on; service haproxy restart",
-                provider => shell,
-                logoutput => "true",
-                require => File["/etc/haproxy/haproxy.cfg"]
-        }
-
-     }
 
     # Ensure service.token file is present with right content.
     if ! defined(File["/etc/contrail/service.token"]) {
         file { "/etc/contrail/service.token" :
             ensure  => present,
             content => template("contrail-common/service.token.erb"),
+        }
+    }
+
+    if ! defined(Exec["neutron-conf-exec"]) {
+        exec { "neutron-conf-exec":
+            command => "sudo sed -i 's/rpc_backend\s*=\s*neutron.openstack.common.rpc.impl_qpid/#rpc_backend = neutron.openstack.common.rpc.impl_qpid/g' /etc/neutron/neutron.conf && echo neutron-conf-exec >> /etc/contrail/contrail-openstack-exec.out",
+            onlyif => "test -f /etc/neutron/neutron.conf",
+            unless  => "grep -qx neutron-conf-exec /etc/contrail/contrail-openstack-exec.out",
+            provider => shell,
+            logoutput => "true"
+        }
+    }
+
+    if ! defined(Exec["quantum-conf-exec"]) {
+        exec { "quantum-conf-exec":
+            command => "sudo sed -i 's/rpc_backend\s*=\s*quantum.openstack.common.rpc.impl_qpid/#rpc_backend = quantum.openstack.common.rpc.impl_qpid/g' /etc/quantum/quantum.conf && echo quantum-conf-exec >> /etc/contrail/contrail-openstack-exec.out",
+            onlyif => "test -f /etc/quantum/quantum.conf",
+            unless  => "grep -qx quantum-conf-exec /etc/contrail/contrail-openstack-exec.out",
+            provider => shell,
+            logoutput => "true"
         }
     }
 
@@ -337,13 +351,6 @@ define contrail-compute-part-2 (
             mode => 0644,
             content => "2"
         }
-    	exec { "exec-compute-update-nova-conf" :
-        	command => "sed -i \"s/^rpc_backend = nova.openstack.common.rpc.impl_qpid/#rpc_backend = nova.openstack.common.rpc.impl_qpid/g\" /etc/nova/nova.conf && echo exec-update-nova-conf >> /etc/contrail/contrail-common-exec.out",
-        	unless  => ["[ ! -f /etc/nova/nova.conf ]",
-                        "grep -qx exec-update-nova-conf /etc/contrail/contrail-common-exec.out"],
-        	provider => shell,
-        	logoutput => "true"
-    	}
 
         # Now reboot the system
         if ($operatingsystem == "Centos" or $operatingsystem == "Fedora") {
