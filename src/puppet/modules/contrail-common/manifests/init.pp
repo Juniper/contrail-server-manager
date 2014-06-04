@@ -37,14 +37,19 @@ define haproxy-cfg($server_id) {
         group => root,
         source => "puppet:///modules/contrail-common/$server_id.cfg"
     }
-	exec { "haproxy-exec":
-		command => "sudo sed -i 's/ENABLED=.*/ENABLED=1/g' /etc/default/haproxy; chkconfig haproxy on; service haproxy restart",
-		provider => shell,
-		logoutput => "true",
-		require => File["/etc/haproxy/haproxy.cfg"]
-	}
+    exec { "haproxy-exec":
+        command => "sudo sed -i 's/ENABLED=.*/ENABLED=1/g' /etc/default/haproxy",
+        provider => shell,
+        logoutput => "true",
+        require => File["/etc/haproxy/haproxy.cfg"]
+    }
+    service { "haproxy" :
+        enable => true;
+        require => [File["/etc/default/haproxy"],
+                    File["/etc/haproxy/haproxy.cfg"]];
+        ensure => running
+        }
 }
-
 
 # To be reviewed - Abhay
 define contrail-cfg-zk($zk_ip_list, $zk_index) {
@@ -71,8 +76,6 @@ define contrail-cfg-zk($zk_ip_list, $zk_index) {
         provider => shell,
         logoutput => "true"
     }
-
-
 }
 
 # To be reviewed - Abhay
@@ -85,13 +88,13 @@ define contrail-exec-script($script_name, $args) {
         group => root,
         source => "puppet:///modules/contrail-common/$script_name"
     }
-	exec { "script-exec":
-		command => "/etc/contrail/${script_name} $args; echo script-exec${script_name} >> /etc/contrail/contrail-common-exec.out",
-		provider => shell,
-		logoutput => "true",
-		unless  => "grep -qx script-exec${script_name} /etc/contrail/contrail-common-exec.out",
-		require => File["/etc/contrail/${script_name}"]
-	}
+    exec { "script-exec":
+        command => "/etc/contrail/${script_name} $args; echo script-exec${script_name} >> /etc/contrail/contrail-common-exec.out",
+        provider => shell,
+        logoutput => "true",
+        unless  => "grep -qx script-exec${script_name} /etc/contrail/contrail-common-exec.out",
+        require => File["/etc/contrail/${script_name}"]
+    }
 }
 
 # To be reviewed - Abhay
@@ -102,18 +105,14 @@ define contrail-setup-interface(
 	$contrail_ip,
 	$contrail_gw
     ) {
-#$contrail_intf_member_list_for_shell = inline_template('<%= contrail_members.map{ |ip| "#{ip}" }.join_with_prefix("\"", ",\"") %>')
-$contrail_intf_member_list_for_shell = inline_template('<%= contrail_members.map{ |ip| "\'#{ip}\'" }.join(",") %>')
-#$contrail_intf_member_list_for_shell = inline_template('<%= contrail_members.map(&:to_s) %>')
+        $contrail_intf_member_list_for_shell = inline_template('<%= contrail_members.map{ |ip| "\'#{ip}\'" }.join(",") %>')
 
-	exec { "setup-intf-$contrail_device":
-                command => "/opt/contrail/contrail_installer/setup-vnc-interfaces.py --device $contrail_device --members \"[$contrail_intf_member_list_for_shell]\" --mode $contrail_mode --ip $contrail_ip --gw $contrail_gw && echo setup-intf${contrail_device} >> /etc/contrail/contrail-common-exec.out",
-                provider => shell,
-                logoutput => "true",
-                unless  => "grep -qx setup-intf${contrail_device} /etc/contrail/contrail-common-exec.out"
+        exec { "setup-intf-$contrail_device":
+            command => "/opt/contrail/contrail_installer/setup-vnc-interfaces.py --device $contrail_device --members \"[$contrail_intf_member_list_for_shell]\" --mode $contrail_mode --ip $contrail_ip --gw $contrail_gw && echo setup-intf${contrail_device} >> /etc/contrail/contrail-common-exec.out",
+            provider => shell,
+            logoutput => "true",
+            unless  => "grep -qx setup-intf${contrail_device} /etc/contrail/contrail-common-exec.out"
         }
-
-
 }
 
 define contrail-setup-repo(

@@ -601,7 +601,7 @@ $__contrail_disc_backend_servers__
             redis_role = "slave"
         redis_master_ip_control=self.get_control_ip(provision_params,redis_master_ip)
         server_ip_control=self.get_control_ip(provision_params,provision_params["server_ip"])
-       if server_ip_control in cassandra_ip_list_control:
+        if server_ip_control in cassandra_ip_list_control:
             cassandra_ip_list_control.remove(server_ip_control)
             cassandra_ip_list_control.insert(0, server_ip_control)
         data += '''    # contrail-collector role.
