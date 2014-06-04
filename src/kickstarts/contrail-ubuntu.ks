@@ -103,4 +103,5 @@ then
     ./setup.sh
     echo "exec-contrail-setup-sh" >> exec-contrail-setup-sh.out
 fi
+wget http://$server/cblr/svc/op/trig/mode/post/system/$system_name
 %end
