@@ -160,9 +160,9 @@ define contrail-compute-part-2 (
                 require => File["/etc/haproxy/haproxy.cfg"]
         }
         service { "haproxy" :
-            enable => true;
+            enable => true,
             require => [File["/etc/default/haproxy"],
-                        File["/etc/haproxy/haproxy.cfg"]];
+                        File["/etc/haproxy/haproxy.cfg"]],
             ensure => running
         }
      }

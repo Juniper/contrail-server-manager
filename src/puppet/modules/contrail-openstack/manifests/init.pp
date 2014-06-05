@@ -44,7 +44,7 @@ define contrail-openstack (
         exec { "dashboard-local-settings-1" :
             command => "sudo sed -i 's/ALLOWED_HOSTS =/#ALLOWED_HOSTS =/g' /etc/openstack_dashboard/local_settings && echo dashboard-local-settings-1 >> /etc/contrail/contrail-openstack-exec.out",
             require =>  package["contrail-openstack"],
-            onlyif => "test -f /etc/openstack_dashboard/local_settings"
+            onlyif => "test -f /etc/openstack_dashboard/local_settings",
             unless  => "grep -qx dashboard-local-settings-1 /etc/contrail/contrail-openstack-exec.out",
             provider => shell,
             logoutput => 'true'
@@ -52,7 +52,7 @@ define contrail-openstack (
         exec { "dashboard-local-settings-2" :
             command => "sudo sed -i 's/ALLOWED_HOSTS =/#ALLOWED_HOSTS =/g' /etc/openstack-dashboard/local_settings && echo dashboard-local-settings-2 >> /etc/contrail/contrail-openstack-exec.out",
             require =>  package["contrail-openstack"],
-            onlyif => "test -f /etc/openstack-dashboard/local_settings"
+            onlyif => "test -f /etc/openstack-dashboard/local_settings",
             unless  => "grep -qx dashboard-local-settings-2 /etc/contrail/contrail-openstack-exec.out",
             provider => shell,
             logoutput => 'true'
@@ -62,7 +62,7 @@ define contrail-openstack (
     exec { "update-nova-conf-file" :
         command => "sudo sed -i 's/rpc_backend = nova.openstack.common.rpc.impl_qpid/#rpc_backend = nova.openstack.common.rpc.impl_qpid/g' /etc/nova/nova.conf && echo update-nova-conf-file >> /etc/contrail/contrail-openstack-exec.out",
         require =>  package["contrail-openstack"],
-        onlyif => "test -f /etc/nova/nova.conf"
+        onlyif => "test -f /etc/nova/nova.conf",
         unless  => "grep -qx update-nova-conf-file /etc/contrail/contrail-openstack-exec.out",
         provider => shell,
         logoutput => 'true'
@@ -71,7 +71,7 @@ define contrail-openstack (
     exec { "update-cinder-conf-file" :
         command => "sudo sed -i 's/rpc_backend = cinder.openstack.common.rpc.impl_qpid/#rpc_backend = cinder.openstack.common.rpc.impl_qpid/g' /etc/cinder/cinder.conf && echo update-cinder-conf-file >> /etc/contrail/contrail-openstack-exec.out",
         require =>  package["contrail-openstack"],
-        onlyif => "test -f /etc/cinder/cinder.conf"
+        onlyif => "test -f /etc/cinder/cinder.conf",
         unless  => "grep -qx update-cinder-conf-file /etc/contrail/contrail-openstack-exec.out",
         provider => shell,
         logoutput => 'true'
@@ -183,9 +183,9 @@ define contrail-openstack (
                 require => File["/etc/haproxy/haproxy.cfg"]
         }
         service { "haproxy" :
-            enable => true;
+            enable => true,
             require => [File["/etc/default/haproxy"],
-                        File["/etc/haproxy/haproxy.cfg"]];
+                        File["/etc/haproxy/haproxy.cfg"]],
             ensure => running
         }
     }
@@ -233,7 +233,7 @@ define contrail-openstack (
         ensure => running,
     }
 
-    Package['contrail-openstack']->File['/etc/contrail/contrail_setup_utils/django-admin.sh']->Exec['exec-django-admin']->File['/etc/contrail/contrail_setup_utils/api-paste.sh']->Exec['exec-api-paste']->Exec['exec-openstack-qpid-rabbitmq-hostname']->File["/etc/contrail/ctrl-details"]->File["/etc/contrail/service.token"]->Exec['exec-update-nova-conf']->Openstack-scripts["keystone-server-setup"]->Openstack-scripts["glance-server-setup"]->Openstack-scripts["cinder-server-setup"]->Openstack-scripts["nova-server-setup"]->Service['mysqld']->Service['openstack-keystone']->Service['memcached']
+    Package['contrail-openstack']->File['/etc/contrail/contrail_setup_utils/api-paste.sh']->Exec['exec-api-paste']->Exec['exec-openstack-qpid-rabbitmq-hostname']->File["/etc/contrail/ctrl-details"]->File["/etc/contrail/service.token"]->Exec['exec-update-nova-conf']->Openstack-scripts["keystone-server-setup"]->Openstack-scripts["glance-server-setup"]->Openstack-scripts["cinder-server-setup"]->Openstack-scripts["nova-server-setup"]->Service['mysqld']->Service['openstack-keystone']->Service['memcached']
 }
 # end of user defined type contrail-openstack.
 

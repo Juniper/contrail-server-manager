@@ -31,7 +31,7 @@ define contrail-control (
     package { 'contrail-openstack-control' : ensure => present,}
     # The above wrapper package should be broken down to the below packages
     # For Debian/Ubuntu - supervisor, contrail-api-lib, contrail-control, contrail-dns,
-                          contrail-setup, contrail-nodemgr
+    #                      contrail-setup, contrail-nodemgr
     # For Centos/Fedora - contrail-api-lib, contrail-control, contrail-setup, contrail-libs
     #                     contrail-dns, supervisor
 

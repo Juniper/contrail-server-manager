@@ -464,9 +464,9 @@ define contrail-config (
             logoutput => "true"
         }
         service { "haproxy" :
-            enable => true;
+            enable => true,
             require => [File["/etc/default/haproxy"],
-                        File["/etc/haproxy/haproxy.cfg"]];
+                        File["/etc/haproxy/haproxy.cfg"]],
             ensure => running
         }
    }
