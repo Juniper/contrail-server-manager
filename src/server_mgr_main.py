@@ -408,7 +408,8 @@ class VncServerManager():
 	server_id = bottle.request.query['server_id']		
 	servers = self._serverDb.get_status('server_id',
                     server_id, True)
-	return servers[0]	
+        if servers:
+            return servers[0]	
 
     def config_cluster(self):
         role_compute = {
