@@ -33,6 +33,9 @@ import uuid
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
+from server_mgr_exception import ServerMgrException as ServerMgrException
 from send_mail import send_mail
 
 _WEB_HOST = '127.0.0.1'
@@ -88,9 +91,77 @@ class VncServerManager():
     processes cluster, server and nodes classes in accordance with information
     provided in the REST calls.
     '''
+    _smgr_log = None
+    _smgr_trans_log = None 
+
+    #fileds here except match_keys, obj_name and primary_key should
+    #match with the db columns
+
+    #validation DS
+    server_fields = {
+        "match_keys": "['server_id', 'mac', 'cluster_id', 'rack_id', 'pod_id', 'vns_id', 'ip']",
+        "obj_name": "server",
+        "primary_keys": "['server_id', 'mac']",
+        "server_id": "",
+        "mac": "",
+        "ip": "",
+        "server_params": "",
+        "roles": "",
+        "cluster_id": "",
+        "vns_id": "",
+        "mask": "",
+        "gway": "",
+        "passwd": "",
+        "domain": "",
+        "email": "",
+        "power_address": ""
+    }
+
+    vns_fields = {
+        "match_keys": "['vns_id']",
+        "obj_name": "vns",
+        "vns_id": "",
+        "email": "",
+        "primary_keys": "['vns_id']",
+        "vns_params": ""
+    }
+
+    cluster_fields = {
+        "match_keys": "['cluster_id']",
+        "obj_name": "cluster",
+        "primary_keys": "['cluster_id']",
+        "cluster_id": ""
+    }
+
+    image_fields = {
+        "match_keys": "['image_id']",
+        "obj_name": "image",
+        "primary_keys": "['image_id']",
+        "image_id": "",
+        "image_type": "",
+        "image_version": "",
+        "image_path": ""
+    }
 
     def __init__(self, args_str=None):
         self._args = None
+        #Create an instance of logger
+        try:
+            self._smgr_log = ServerMgrlogger()
+        except:
+            print "Error Creating logger object" 
+
+
+
+        self._smgr_log.log(self._smgr_log.INFO, "Starting Server Manager")
+
+
+        #Create an instance of Transaction logger
+        try:
+            self._smgr_trans_log = ServerMgrTlog()
+        except:
+            print "Error Creating Transaction logger object" 
+
         if not args_str:
             args_str = sys.argv[1:]
         self._parse_args(args_str)
@@ -100,8 +171,9 @@ class VncServerManager():
             self._serverDb = db(
                 self._args.smgr_base_dir+self._args.db_name)
         except:
-            print ("Error Connecting to Server Database %s"
-                   ) % (self._args.smgr_base_dir+self._args.db_name)
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                     "Error Connecting to Server Database %s"
+                    % (self._args.smgr_base_dir+self._args.db_name))
             exit()
 
         # Create an instance of cobbler interface class and connect to it.
@@ -121,7 +193,7 @@ class VncServerManager():
             self._smgr_puppet = ServerMgrPuppet(self._args.smgr_base_dir,
                                                 self._args.puppet_dir)
         except:
-            print "Error creating instance of puppet class"
+            self._smgr_log.log(self._smgr_log.DEBUG, "Error creating instance of puppet class")
             exit()
 
         # Read the JSON file, validate for correctness and add the entries to
@@ -132,15 +204,18 @@ class VncServerManager():
                 json_data = server_file.read()
                 server_file.close()
             except IOError:
-                print (
+                self._smgr_log.log(self._smgr_log.ERROR,
                     "Error reading initial config file %s") \
                     % (self._args.server_list)
                 exit()
             try:
                 self.config_data = json.loads(json_data)
+                self._smgr_log.log(self._smgr_log.DEBUG,
+                    "Server list is %s" % self.config_data)
+
             except Exception as e:
                 print repr(e)
-                print (
+                self._smgr_log.log(self._smgr_log.ERROR,
                     "Initial config file %s format error. "
                     "File should be in JSON format") \
                     % (self._args.server_list)
@@ -168,13 +243,15 @@ class VncServerManager():
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
-        bottle.route('/cluster', 'PUT', self.add_cluster)
-        bottle.route('/server', 'PUT', self.add_server)
-        bottle.route('/update_server', 'PUT', self.update_server)
-        bottle.route('/image', 'PUT', self.add_image)
         bottle.route('/image/upload', 'PUT', self.upload_image)
-        bottle.route('/vns', 'PUT', self.add_vns)
         bottle.route('/status', 'PUT', self.put_status)
+
+
+        #smgr_add
+        bottle.route('/cluster', 'PUT', self.put_cluster)
+        bottle.route('/server', 'PUT', self.put_server)
+        bottle.route('/image', 'PUT', self.put_image)
+        bottle.route('/vns', 'PUT', self.put_vns)
 
         # REST calls for DELETE methods (Remove records)
         bottle.route('/cluster', 'DELETE', self.delete_cluster)
@@ -207,6 +284,7 @@ class VncServerManager():
     # REST API call to get sever manager config - configuration of all
     # clusters, VNSs & all servers is returned.
     def get_server_mgr_config(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_server_mgr_config")
         config = {}
         try:
             query_args = parse_qs(urlparse(bottle.request.url).query,
@@ -218,7 +296,11 @@ class VncServerManager():
             config['server'] = self._serverDb.get_server(detail=detail)
             config['image'] = self._serverDb.get_image(detail=detail)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_ALL,
+                                     False)
             abort(404, repr(e))
+
+        self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_CFG_ALL)
         return config
     # end get_server_mgr_config
 
@@ -228,15 +310,27 @@ class VncServerManager():
     # above. This call additionally provides a way of getting all the
     # configuration for a particular cluster.
     def get_cluster(self):
-        cluster_id = bottle.request.query.cluster_id
-        query_args = parse_qs(urlparse(bottle.request.url).query,
-                              keep_blank_values=True)
-        # Check if request arguments has detail parameter
-        detail = ("detail" in query_args)
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_cluster")
         try:
-            entity = self._serverDb.get_cluster(cluster_id, detail)
+            ret_data = self.validate_smgr_request("CLUSTER", "GET",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                detail = ret_data["detail"]
+
+            entity = self._serverDb.get_cluster(match_value, detail)
+        except ServerMgrException as e:
+            abort(404, e.value)
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_CLUSTER, False)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_CLUSTER, False)
             abort(404, repr(e))
+
+        self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.GET_SMGR_CFG_CLUSTER)
         return {"cluster": entity}
     # end get_cluster
 
@@ -246,118 +340,436 @@ class VncServerManager():
     # above. This call additionally provides a way of getting all the
     # configuration for a particular vns.
     def get_vns(self):
-        vns_id = bottle.request.query.vns_id
-        query_args = parse_qs(urlparse(bottle.request.url).query,
-                              keep_blank_values=True)
-        # Check if request arguments has detail parameter
-        detail = ("detail" in query_args)
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_vns")
         try:
-            entity = self._serverDb.get_vns(vns_id, detail)
+            ret_data = self.validate_smgr_request("VNS", "GET",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                detail = ret_data["detail"]
+                entity = self._serverDb.get_vns(match_value, detail)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_VNS,
+                                     False)
+            abort(404, e.value)
         except Exception as e:
             abort(404, repr(e))
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_VNS,
+                                     False)
+            
+        self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.GET_SMGR_CFG_VNS)
         return {"vns": entity}
     # end get_vns
+    
+    def validate_smgr_entity(self, type, entity):
+        obj_list = entity.get(type, None)
+        if obj_list is None:
+           msg = "%s data not available in JSON" % \
+                        type
+           self._smgr_log.log(self._smgr_log.ERROR,
+                        msg )
+           raise ServerMgrException(msg)
+
+    def validate_smgr_get(self, validation_data, request, data=None):
+#        pdb.set_trace()
+        ret_data = {}
+        ret_data['status'] = 1
+        query_args = parse_qs(urlparse(request.url).query,
+                                    keep_blank_values=True)
+        detail = ("detail" in query_args)
+        query_args.pop("detail", None)
+
+        if len(query_args) == 0:
+            match_key = None
+            match_value = None
+            ret_data["status"] = 0
+            ret_data["match_key"] = match_key
+            ret_data["match_value"] = match_value
+            ret_data["detail"] = detail
+        elif len(query_args) == 1:
+            match_key, match_value = query_args.popitem()
+            match_keys_str = validation_data['match_keys']
+            match_keys = eval(match_keys_str)
+            if (match_key not in match_keys):
+                raise ServerMgrException("Match Key not present")
+            if match_value == None or match_value[0] == '':
+                raise ServerMgrException("Match Value not Specified")
+            ret_data["status"] = 0
+            ret_data["match_key"] = match_key
+            ret_data["match_value"] = match_value[0]
+            ret_data["detail"] = detail
+        return ret_data
+
+    def validate_smgr_put(self, validation_data, request, data=None):
+        ret_data = {}
+        ret_data['status'] = 1
+
+        entity = request.json
+        #check if json data is present
+        if (not entity):
+            msg = "No JSON data specified"
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               msg )
+            raise ServerMgrException(msg)
+        #Check if object is present
+        obj_name = validation_data['obj_name']
+        objs = entity.get(obj_name)
+        if len(objs) == 0:
+            msg = ("No %s data specified") % \
+                    (obj_name)
+            self._smgr_log.log(self._smgr_log.ERROR,
+            msg)
+            raise ServerMgrException(msg)
+        #check if primary_keys are present
+        primary_keys_str = validation_data['primary_keys']
+        primary_keys = eval(primary_keys_str)
+        for primary_key in primary_keys:
+            if primary_key not in data:
+                msg =  ("Primary Key %s not present") % (primary_key)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                msg)
+                raise ServerMgrException(msg)
+        #Parse for the JSON to find allowable fields
+        remove_list = []
+        for data_item_key, data_item_value in data.iteritems():
+            #If json data name is not present in list of 
+            #allowable fields silently ignore them.
+            if data_item_key not in validation_data:
+#                data.pop(data_item_key, None)           
+                remove_list.append(data_item_key)
+                msg =  ("Value %s is not an option") % (data_item_key)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                   msg)
+        for item in remove_list:
+            data.pop(item, None)
+        #not needed as of now
+        '''
+        for k,v in validation_data.items():
+            if k == "match_keys" or k == "primary_keys":
+                continue
+            if k not in data:
+                msg =  ("Field %s not present") % (k)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                   msg)
+                raise ServerMgrException(msg)
+            if v != '' and data[k] not in v:
+                msg =  ("Value %s is not an option") % (data[k])
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                   msg)
+                raise ServerMgrException(msg)
+        '''
+        return ret_data
+
+    def validate_smgr_delete(self, validation_data, request, data = None):
+        ret_data = {}
+        ret_data['status'] = 1
+
+        match_keys_str = validation_data['match_keys']
+        match_keys = eval(match_keys_str)
+        query_args = parse_qs(urlparse(request.url).query,
+                              keep_blank_values=True)
+         # Get the query argument.
+        if len(query_args) == 0:
+            msg = "No selection criteria specified"
+            self._smgr_log.log(self._smgr_log.ERROR,
+                     msg)
+            raise ServerMgrException(msg)
+        elif len(query_args) == 1:
+            match_key, match_value = query_args.popitem()
+            # check that match key is a valid one
+            if (match_key not in match_keys):
+                msg = "Invalid match key %s" % (match_key)
+                raise ServerMgrException(msg)
+            elif match_value[0] == '':
+                raise ServerMgrException("Match Value not Specified")
+            ret_data["status"] = 0
+            ret_data["match_key"] = match_key
+            ret_data["match_value"] = match_value[0]
+        return ret_data
+    
+    def validate_smgr_modify(self, validation_data, request, data = None):
+        ret_data = {}
+        ret_data['status'] = 1
+
+        entity = request.json
+        if (not entity):
+            self._smgr_log.log(self._smgr_log.ERROR,
+                     "No JSON data specified")
+            abort(404, 'No JSON data specified')
+        #check if match_keys are present
+        match_keys_str = validation_data['match_keys']
+        match_keys = eval(match_keys_str)
+        for match_key in match_keys:
+            if match_key not in data:
+                msg =  ("Match Key %s not present") % (match_key)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                     msg)
+                raise ServerMgrException(msg)
+        #TODO Handle replace
+        return ret_data
+
+    def validate_smgr_provision(self, validation_data, request , data=None):
+        ret_data = {}
+        ret_data['status'] = 1
+
+        entity = request.json
+        package_image_id = entity.pop("package_image_id", None)
+        if package_image_id is None:
+            msg = "No contrail package specified for provisioning"
+            raise ServerMgrException(msg)
+        req_provision_params = entity.pop("provision_params", None)
+        # if req_provision_params are specified, check contents for
+        # validity, store the info in DB and proceed with the
+        # provisioning step.
+        if req_provision_params is not None:
+            role_list = [
+                "database", "openstack", "config",
+                "control", "collector", "webui", "compute", "zookeeper"]
+            roles = req_provision_params.get("roles", None)
+            if roles is None:
+                msg = "No provisioning roles specified"	
+                raise ServerMgrException(msg)
+            if (type(roles) != type({})):
+                msg = "Invalid roles definition"
+                raise ServerMgrException(msg)
+            prov_servers = {}
+            for key, value in roles.iteritems():
+                if key not in role_list:
+                    msg = "invalid role %s in provision file" %(
+                            key)
+                    raise ServerMgrException(msg)
+                if type(value) != type ([]):
+                    msg = "role %s needs to have server list" %(
+                        key)
+                    raise ServerMgrException(msg)
+                for server in value:
+                    if server not in prov_servers:
+                        prov_servers[server] = [key]
+                    else:
+                        prov_servers[server].append(key)
+                # end for server
+            # end for key
+            vns_id = None
+            servers = []
+            for key in prov_servers:
+                server = self._serverDb.get_server(
+                    "server_id", key, detail=True)
+                if server:
+                    server = server[0]
+                servers.append(server)
+                if ((vns_id != None) and
+                    (server['vns_id'] != vns_id)):
+                    msg = "all servers must belong to same vns"
+                    raise ServerMgrException(msg)
+                vns_id = server['vns_id']
+            # end for
+            #Modify the roles
+            for key, value in prov_servers.iteritems():
+                new_server = {
+                    'server_id' : key,
+                    'roles' : value }
+                self._serverDb.modify_server(new_server)
+            # end for
+            if len(servers) == 0:
+                msg = "No servers found"
+                raise ServerMgrException(msg)
+            ret_data["status"] = 0
+            ret_data["servers"] = servers
+        else:
+            if (len(entity) == 0):
+                msg = "No servers specified"
+                raise ServerMgrException(msg)
+            elif len(entity) == 1:
+                match_key, match_value = entity.popitem()
+                # check that match key is a valid one
+                if (match_key not in (
+                    "server_id", "mac", "cluster_id",
+                    "rack_id", "pod_id", "vns_id")):
+                    msg = "Invalid Query arguments"
+                    raise ServerMgrException(msg)
+            else:
+                msg = "No servers specified"
+                raise ServerMgrException(msg)
+            # end else
+            servers = self._serverDb.get_server(
+                match_key, match_value, detail=True)
+            if len(servers) == 0:
+                msg = "No servers found for %s" % \
+                            (match_value)
+                raise ServerMgrException(msg)
+            ret_data["status"] = 0
+            ret_data["servers"] = servers
+            ret_data["package_image_id"] = package_image_id 
+        return ret_data              
+
+    def validate_smgr_reboot(self, validation_data, request , data=None):
+        ret_data = {}
+        ret_data['status'] = 1
+
+        entity = request.json
+        # Get parameter to check if netboot should be enabled.
+        net_boot = entity.pop("net_boot", None)
+        if ((not net_boot) or
+            (net_boot not in ["y","Y","1"])):
+            net_boot = False
+        else:
+            net_boot = True
+        if len(entity) == 0:
+            msg = "No servers specified"
+            raise ServerMgrException(msg)
+        elif len(entity) == 1:
+            match_key, match_value = entity.popitem()
+            # check that match key is a valid one
+            if (match_key not in ("server_id", "mac", "cluster_id",
+                                  "rack_id", "pod_id", "vns_id")):
+                msg = "Invalid Query arguments"
+                raise ServerMgrException(msg)
+        else:
+            msg = "Invalid Query arguments"
+            raise ServerMgrException(msg)
+        ret_data['status'] = 0
+        ret_data['match_key'] = match_key
+        ret_data['match_value'] = match_value
+        ret_data['net_boot'] = net_boot
+        return ret_data
+        # end else
+
+    def validate_smgr_reimage(self, validation_data, request , data=None):
+        ret_data = {}
+        ret_data['status'] = 1
+        entity = request.json
+        # Get parameter to check server(s) are to be rebooted
+        # following reimage configuration in cobbler. Default is yes.
+        do_reboot = True
+        no_reboot = entity.pop("no_reboot", None)
+        if ((no_reboot) and
+            (no_reboot in ["y","Y","1"])):
+            do_reboot = False
+
+        # Get image version parameter
+        base_image_id = entity.pop("base_image_id", None)
+        if base_image_id is None:
+            msg = "No base image id specified"
+            raise ServerMgrException(msg)
+        package_image_id = entity.pop("package_image_id", '')
+        # Now process other parameters there should be only one more
+        if (len(entity) == 0):
+            msg = "No servers specified"
+            raise ServerMgrException(msg)
+        elif len(entity) == 1:
+            match_key, match_value = entity.popitem()
+            # check that match key is a valid one
+            if (match_key not in ("server_id", "mac", "cluster_id",
+                                  "rack_id", "pod_id", "vns_id")):
+                msg = "Invalid Query arguments"
+                raise ServerMgrException(msg)
+        else:
+            msg = "No servers specified"
+            raise ServerMgrException(msg)
+        ret_data['status'] = 0
+        ret_data['match_key'] = match_key
+        ret_data['match_value'] = match_value
+        ret_data['base_image_id'] = base_image_id
+        ret_data['package_image_id'] = package_image_id
+        ret_data['do_reboot'] = do_reboot
+        return ret_data
+        # end else
+
+
+
+    def validate_smgr_request(self, type, oper, request, data = None):
+        ret_data = {}
+        ret_data['status'] = 1
+
+#        pdb.set_trace()
+        ret_data = {}
+        ret_data['status'] = 1
+        if type == "SERVER":
+            validation_data = self.server_fields
+        elif type == "VNS":
+            validation_data = self.vns_fields
+        elif type == "CLUSTER":
+            validation_data = self.cluster_fields
+        elif type == "IMAGE":
+            validation_data = self.image_fields
+        else: 
+            validation_data = None
+
+        if oper == "GET":
+            return self.validate_smgr_get(validation_data, request, data)
+        elif oper == "PUT":
+            return self.validate_smgr_put(validation_data, request, data)
+        elif oper == "DELETE":
+            return self.validate_smgr_delete(validation_data, request, data)
+        elif oper == "MODIFY":
+            return self.validate_smgr_modify(validation_data, request, data)
+        elif oper == "PROVISION":
+            return self.validate_smgr_provision(validation_data, request, data)
+        elif oper == "REBOOT":
+            return self.validate_smgr_reboot(validation_data, request, data)
+        elif oper == "REIMAGE":
+            return self.validate_smgr_reimage(validation_data, request, data)
+
 
     # This call returns information about a provided server. If no server
     # if provided, information about all the servers in server manager
     # configuration is returned.
     def get_server(self):
+        ret_data = None
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_server")
         try:
-            query_args = parse_qs(urlparse(bottle.request.url).query,
-                                  keep_blank_values=True)
-            # Check if request arguments has detail parameter
-            detail = ("detail" in query_args)
-            query_args.pop("detail", None)
-            # Now process other parameters there should be only one more
-            if len(query_args) == 0:
-                match_key = None
-                match_value = None
-            elif len(query_args) == 1:
-                match_key, match_value = query_args.popitem()
-                # check that match key is a valid one
-                if ((match_key not in (
-                        "server_id", "mac", "cluster_id",
-                        "rack_id", "pod_id", "vns_id", 'ip')) or
-                        (len(match_value) != 1)):
-                    abort(404, "Invalid Query arguments")
-                match_value = match_value[0]
-            else:
-                abort(404, "Invalid Query arguments")
-            servers = self._serverDb.get_server(match_key, match_value,
-                                                detail)
+            ret_data = self.validate_smgr_request("SERVER", "GET",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                detail = ret_data["detail"]
+                servers = self._serverDb.get_server(match_key, match_value,
+                                                    detail)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
             abort(404, repr(e))
+        self._smgr_log.log(self._smgr_log.DEBUG, servers)
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER)
         return {"server": servers}
     # end get_server
 
     # API Call to list images
     def get_image(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_image")
         try:
-            query_args = parse_qs(urlparse(bottle.request.url).query,
-                                  keep_blank_values=True)
-            # Check if request arguments has detail parameter
-            detail = ("detail" in query_args)
-            query_args.pop("detail", None)
-            # Now process other parameters there should be only one more
-            if len(query_args) == 0:
-                match_key = None
-                match_value = None
-            elif len(query_args) == 1:
-                match_key, match_value = query_args.popitem()
-                # check that match key is a valid one
-                if ((match_key not in (
-                        "image_id", "image_version")) or
-                        (len(match_value) != 1)):
-                    abort(404, "Invalid Query arguments")
-                match_value = match_value[0]
-            else:
-                abort(404, "Invalid Query arguments")
+            ret_data = self.validate_smgr_request("IMAGE", "GET",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                detail = ret_data["detail"]
             images = self._serverDb.get_image(match_key, match_value,
                                               detail)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
             abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_IMAGE)
         return {"image": images}
     # end get_image
 
-    # API call to add a new cluster to server manager config DB. With the
-    # cluster, user can optionally specify information for the servers
-    # within the clusters including IP, MAC address for the server and also
-    # roles being configured on each.
-    def add_cluster(self):
-        entity = bottle.request.json
-        if (not entity):
-            abort(404, 'Error : No cluster specified')
-        try:
-            clusters = entity.get('cluster', None)
-            for cluster in clusters:
-                if ('cluster_id' not in cluster):
-                    abort(404, 'Error : No cluster_id specified')
-                self._serverDb.add_cluster(cluster)
-        except Exception as e:
-            abort(404, repr(e))
-        return entity
-    # end add_cluster
 
-    # API call to add a new vns to server manager config DB. With the
-    # vns, user can optionally specify information for the servers
-    # within the vnss including IP, MAC address for the server and also
-    # roles being configured on each.
-    def add_vns(self):
-        entity = bottle.request.json
-        if (not entity):
-            abort(404, 'Error : No vns specified')
-        try:
-            vns = entity.get('vns', None)
-            for cur_vns in vns:
-                if ('vns_id' not in cur_vns):
-                    abort(404, 'Error : No vns_id specified')
-		str_uuid = str(uuid.uuid4())
-		cur_vns["vns_params"].update({"uuid":str_uuid})
-                self._serverDb.add_vns(cur_vns)
-        except Exception as e:
-            abort(404, repr(e))
-        return entity
-    # end add_vns
 
     def send_status_mail(self, server_id, event, message):
         # Get server entry and find configured e-mail
@@ -366,19 +778,19 @@ class VncServerManager():
             # Send/log an error
             return
         server = servers[0]
-	email_to = []
-        if 'email' in server:
+        email_to = []
+        if 'email' in server and server['email']:
             email_to.append(server['email'])
         else:
             # Get VNS entry to find configured e-mail
-            if 'vns_id' not in server:
-                return
-            vns_id = server['vns_id']
-            vns = self._serverDb.get_vns(vns_id, True)
-            if 'email' in vns:
-                email_to.append(vns['email'])
+            if 'vns_id' in server and server['vns_id']:
+                vns_id = server['vns_id']
+                vns = self._serverDb.get_vns(vns_id, True)
+                if vns and 'email' in vns and vns['email']:
+                    email_to.append(vns['email'])
+                else:
+                    return
             else:
-                #email_to.append('pmiriyala@juniper.net')
                 return
         send_mail(event, message, '', email_to, self._smgr_cobbler._cobbler_ip, '25')
     # send_status_mail
@@ -392,258 +804,221 @@ class VncServerManager():
     #end def get_obj    
 
     def put_status(self):
-	server_id = bottle.request.query['server_id']
-	body = bottle.request.body.read()
-	server_data = {}
-	server_data['server_id'] = server_id
-	server_data['server_status'] = body
-        resp = self.get_obj(body)
-        if str(resp) == 'reimage completed':
-            message = server_id + ' reimage completed.'
-            self.send_status_mail(server_id, message, message)
-        elif str(resp) == 'reimage start':
-            message = server_id + ' reimage started.'
-            self.send_status_mail(server_id, message, message)
-	servers = self._serverDb.put_status(
-                    server_data)
+        query_args = parse_qs(urlparse(bottle.request.url).query,
+                                      keep_blank_values=True)
+        match_key, match_value = query_args.popitem()
+        if ((match_key not in (
+                            "server_id", "mac", "cluster_id",
+                            "rack_id", "pod_id", "vns_id", "ip")) or
+                            (len(match_value) != 1)):
+                self._smgr_log.log(self._smgr_log.ERROR, "Invalid Query data")
+                abort(404, "Invalid Query arguments")
+        if match_value[0] == '':
+            abort(404, "Match value not present")
+        server_id = match_value[0]
+        body = bottle.request.body.read()
+        server_data = {}
+        server_data['server_id'] = server_id
+        server_data['server_status'] = body
+        try:
+            resp = self.get_obj(body)
+            if str(resp) == 'reimage completed' or str(resp) == 'reimage start':
+                message = server_id + ' ' + str(resp)
+                self.send_status_mail(server_id, message, message)
+            self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
+            servers = self._serverDb.put_status(
+                            server_data)
+        except Exception as e:
+            self._smgr_log.log(self._smgr_log.ERROR, "Error adding to db %s" % repr(e))
+            abort(404, repr(e))
+
 
     def get_status(self):
-	server_id = bottle.request.query['server_id']		
-	servers = self._serverDb.get_status('server_id',
-                    server_id, True)
-        if servers:
-	    return servers[0]	
+        server_id = bottle.request.query['server_id']
+        servers = self._serverDb.get_status('server_id',
+                        server_id, True)
+        return servers[0]
 
-    def config_cluster(self):
-        role_compute = {
-            "role_id": "compute",
-            "role_params": "{"
-            "'phy_interface' : 'eth1',"
-            "'non_mgmt_ip' : '', 'non_mgmt_gway' : ''}"
-        }
-        role_control = {
-            "role_id": "control",
-            "role_params": "{}"
-        }
-        role_webui = {
-            "role_id": "webui",
-            "role_params": "{}"
-        }
-        role_config = {
-            "role_id": "config",
-            "role_params": "{"
-            "'use_certs' : 'False',"
-            " 'multi_tenancy' : 'False'"
-            "}"
-        }
-        role_collector = {
-            "role_id": "collector",
-            "role_params": "{"
-            " 'analytics_data_ttl': '168'}"
-        }
-        role_database = {
-            "role_id": "database",
-            "role_params": "{"
-            " 'database_dir': '/home/cassandra', 'db_initial_token' : ''"
-            "}"
-        }
-        role_openstack = {
-            "role_id": "openstack",
-            "role_params": "{"
-            " 'service_token' : 'contrail123',"
-            " 'ks_user' : 'admin', 'ks_passwd' : 'contrail123',"
-            " 'ks_tenant' : 'admin',"
-            " 'openstack_mgmt_ip' : ''}"
-        }
-#	role_temp = json.loads(role_str)
-        role_params_list = [
-            role_compute, role_control, role_webui, role_config,
-            role_collector, role_database, role_openstack]
+
+
+    def put_cluster(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "put_cluster")
         entity = bottle.request.json
-
-        if (not entity) or ('cluster_id' not in entity):
-            abort(404, 'Error: No cluster specified')
-        cluster_id = entity['cluster_id']
-        cluster_mask = entity['mask']
-        cluster_gway = entity['gway']
-        cluster_domain = entity['domain']
-        vns_id = entity['vns_id']
-        cluster_passwd = entity['passwd']
-
-        # Parse Cluster
-
-        # Parse roles
         try:
-            roles = entity.get("roles", None)
-            host_role = dict()
-            for role in roles:
-                # Build a dictionary with host attached to roles
-                roleItems = role.items()
-                for roleItem in roleItems:
-                    # Get a dictionary
-                    role_name = roleItem[0]
-                    host_list = roleItem[1]
-                    # print "*********************"
-                    # print role_name
-                    # print "*********************"
-
-                    for host in host_list:
-                        if host not in host_role.keys():
-                            host_role[host] = []
-                        hosts = host_role[host]
-                        hosts.append(role_name)
-                           #		host_role[] =
-                # print role
+            self.validate_smgr_entity("cluster", entity)
+            clusters = entity.get('cluster', None)
+            for cluster in clusters:
+                self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
+                                                cluster)
+                if self._serverDb.check_obj("cluster", "cluster_id",
+                                            cluster['cluster_id'], False):
+                    #nothing to do for now
+                    return
+                else:
+                    self._serverDb.add_cluster(cluster)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER, False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER, False)
             abort(404, repr(e))
-
-        # Parse server
-        try:
-            servers = entity.get("servers", None)
-            for server in servers:
-                if (('server_id' not in server) or
-                   ('mac' not in server)):
-                    abort(404, 'Server MAC or server_id not specified')
-
-                if ('mask' not in server):
-                    server['mask'] = cluster_mask
-
-                if ('gway' not in server):
-                    server['gway'] = cluster_gway
-
-                if ('domain' not in server):
-                    server['domain'] = cluster_domain
-
-                if ('cluster_id' not in server):
-                    server['cluster_id'] = cluster_id
-
-                if ('vns_id' not in server):
-                    server['vns_id'] = vns_id
-
-                if ('passwd' not in server):
-                    server['passwd'] = cluster_passwd
-
-                if server['server_id'] in host_role.keys():
-                    server_roles = host_role[server['server_id']]
-                    server['roles'] = []
-                    for server_role in server_roles:
-                        if server_role == "config":
-                            server['roles'].append(role_config)
-                        elif server_role == "openstack":
-                            server['roles'].append(role_openstack)
-                        elif server_role == "control":
-                            server['roles'].append(role_control)
-                        elif server_role == "compute":
-                            server['roles'].append(role_compute)
-                        elif server_role == "collector":
-                            server['roles'].append(role_collector)
-                        elif server_role == "webui":
-                            server['roles'].append(role_webui)
-                        elif server_role == "database":
-                            server['roles'].append(role_database)
-
-                self._serverDb.add_server(server)
-        except Exception as e:
-            abort(404, repr(e))
-
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER)
         return entity
+ 
+        return
 
-    # API to add a new server to config DB. Along with server parameters,
-    # user can also specify the roles to be configured on the server.
-    def add_server(self):
+    def put_image(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "add_image")
         entity = bottle.request.json
-        if (not entity):
-            abort(404, 'Server MAC or server_id not specified')
         try:
-            servers = entity.get("server", None)
-            for server in servers:
-                if (('server_id' not in server) or ('mac' not in server)):
-                    abort(404, 'Server MAC or server_id not specified')
-                self._serverDb.add_server(server)
-        except Exception as e:
-            abort(404, repr(e))
-        return entity
-    # end add_server
-
-
-    # API to add a new server to config DB. Along with server parameters,
-    # user can also specify the roles to be configured on the server.
-    def update_server(self):
-        entity = bottle.request.json
-        if (not entity):
-            abort(404, 'Server MAC or server_id not specified')
-        try:
-            servers = entity.get("server", None)
-            for server in servers:
-                if (('server_id' not in server) or ('mac' not in server)):
-                    abort(404, 'Server MAC or server_id not specified')
-                self._serverDb.update_server(server)
-        except Exception as e:
-            abort(404, repr(e))
-        return entity
-    # end update_server
-
-
-    # API Call to add image file to server manager (file is copied at
-    # <default_base_path>/images/filename.iso and distro, profile
-    # created in cobbler. The ISO is assumed to be available on the Server
-    # where SM is running. This function DOES NOT upload image from REST client
-    # For that use upload_image call instead.
-    def add_image(self):
-        entity = bottle.request.json
-        if (not entity):
-            abort(404, 'Error : No images specified')
-        try:
+            self.validate_smgr_entity("image", entity)
             images = entity.get("image", None)
             for image in images:
-                image_id = image.get("image_id", None)
-                image_version = image.get("image_version", None)
-                # Get Image type
-                image_type = image.get("image_type", None)
-                image_path = image.get("image_path", None)
-                if (not image_id) or (not image_path):
-                    abort(404, "image id or location not specified")
-                if (image_type not in [
-                        "centos", "fedora", "ubuntu",
-                        "contrail-ubuntu-package", "contrail-centos-package"]):
-                    abort(
-                        404,
-                        "image type not specified or invalid for image %s" %(
-                            image_id))
-                db_images = self._serverDb.get_image(
-                    'image_id', image_id, False)
-                if db_images:
-                    abort(
-                        404,
-                        "image %s already exists" %(
-                            image_id))
-                extn = os.path.splitext(image_path)[1]
-                dest = self._args.smgr_base_dir + 'images/' + \
-                    image_id + extn
-                subprocess.call(["cp", "-f", image_path, dest])
-                if ((image_type == "contrail-centos-package") or
-                    (image_type == "contrail-ubuntu-package")):
-                    subprocess.call(
-                        ["cp", "-f", dest,
-                         self._args.html_root_dir + "contrail/images"])
-                    self._create_repo(
-                        image_id, image_type, image_version, dest)
+                #use macros for obj type
+                self.validate_smgr_request("IMAGE", "PUT", bottle.request,
+                                                image)
+                if self._serverDb.check_obj("image", "image_id",
+                                            image['image_id'], False):
+                    self._serverDb.modify_image(image)
                 else:
-                    self._add_image_to_cobbler(image_id, image_type,
-                                               image_version, dest)
-                image_data = {
-                    'image_id': image_id,
-                    'image_version': image_version,
-                    'image_type': image_type}
-                self._serverDb.add_image(image_data)
+                    image_id = image.get("image_id", None)
+                    image_version = image.get("image_version", None)
+                    # Get Image type
+                    image_type = image.get("image_type", None)
+                    image_path = image.get("image_path", None)
+                    if (not image_id) or (not image_path):
+                        self._smgr_log.log(self._smgr_log.ERROR,
+                                     "image id or location not specified")
+                        raise ServerMgrException("image id or location not specified")
+                    if (image_type not in [
+                            "centos", "fedora", "ubuntu",
+                            "contrail-ubuntu-package", "contrail-centos-package"]):
+                        self._smgr_log.log(self._smgr_log.ERROR,
+                                    "image type not specified or invalid for image %s" %(
+                                    image_id))
+                        raise ServerMgrException("image type not specified or invalid for image %s" %(
+                                image_id))
+                    #TODO:remove this
+                    '''
+                    db_images = self._serverDb.get_image(
+                        'image_id', image_id, False)
+                    if db_images:
+                        self._smgr_log.log(self._smgr_log.ERROR,
+                            "image %s already exists" %(
+                                image_id))
+                        raise ServerMgrException(
+                                "image %s already exists" %(
+                                image_id))
+                    '''
+                    if not os.path.exists(image_path):
+                        raise ServerMgrException("image not found at %s" % \
+                                                (image_path))
+                    extn = os.path.splitext(image_path)[1]
+                    dest = self._args.smgr_base_dir + 'images/' + \
+                        image_id + extn
+                    subprocess.call(["cp", "-f", image_path, dest])
+                    if ((image_type == "contrail-centos-package") or
+                        (image_type == "contrail-ubuntu-package")):
+                        subprocess.call(
+                            ["cp", "-f", dest,
+                             self._args.html_root_dir + "contrail/images"])
+                        self._create_repo(
+                            image_id, image_type, image_version, dest)
+                    else:
+                        self._add_image_to_cobbler(image_id, image_type,
+                                                   image_version, dest)
+                    image_data = {
+                        'image_id': image_id,
+                        'image_version': image_version,
+                        'image_type': image_type}
+                    self._serverDb.add_image(image_data)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
             abort(404, repr(e))
+
+        self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.PUT_SMGR_CFG_IMAGE)
+        return entity
+
+    def put_vns(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "put_vns")
+        entity = bottle.request.json
+        try:
+            self.validate_smgr_entity("vns", entity)
+            vns = entity.get('vns', None)
+            for cur_vns in vns:
+#                pdb.set_trace()
+                self.validate_smgr_request("VNS", "PUT", bottle.request,
+                                                cur_vns)
+                #use macros for obj type
+                if self._serverDb.check_obj("vns", "vns_id",
+                                            cur_vns['vns_id'], False):
+                    #TODO Handle uuid here
+                    self._serverDb.modify_vns(cur_vns)
+                else:
+                    str_uuid = str(uuid.uuid4())
+                    cur_vns["vns_params"].update({"uuid":str_uuid})
+                    self._smgr_log.log(self._smgr_log.INFO, "VNS Data %s" % cur_vns)
+                    self._serverDb.add_vns(cur_vns)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.PUT_SMGR_CFG_VNS,
+                                False)
+            abort(404, e.value)
+        except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.PUT_SMGR_CFG_VNS,
+                                False)
+            abort(404, repr(e))
+
+        self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.PUT_SMGR_CFG_VNS)
+        return entity
+
+    def put_server(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "add_server")
+        entity = bottle.request.json
+        if (not entity):
+            abort(404, 'Server MAC or server_id not specified')
+        try:
+            self.validate_smgr_entity("server", entity)
+            servers = entity.get("server", None)
+            for server in servers:
+                self.validate_smgr_request("SERVER", "PUT", bottle.request,
+                        server)
+                if self._serverDb.check_obj("server", "server_id",
+                                            server['server_id'], False):
+                    self._serverDb.modify_server(server)
+                else:
+                    self._serverDb.add_server(server)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
+            abort(404, e.value)
+        except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
+            abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+            self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
+        return entity
+       
+
 
     # API Call to add image file to server manager (file is copied at
     # <default_base_path>/images/filename.iso and distro, profile
     # created in cobbler. This is similar to function above (add_image),
     # but this call actually upload ISO image from client to the server.
     def upload_image(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "upload_image")
         image_id = bottle.request.forms.image_id
         image_version = bottle.request.forms.image_version
         image_type = bottle.request.forms.image_type
@@ -854,11 +1229,29 @@ class VncServerManager():
     # cluster, all servers in that cluster and associated roles are also
     # deleted.
     def delete_cluster(self):
-        cluster_id = bottle.request.query.cluster_id
+        self._smgr_log.log(self._smgr_log.DEBUG, "delete_cluster")
         try:
-            self._serverDb.delete_cluster(cluster_id)
+            ret_data = self.validate_smgr_request("CLUSTER", "DELETE",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+
+            self._serverDb.delete_cluster(match_value)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER,
+                                     False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER,
+                                     False)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                        "Error while deleting cluster %s" % (repr(e)))
             abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+            self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER)
         return "Cluster deleted"
     # end delete_cluster
 
@@ -866,54 +1259,89 @@ class VncServerManager():
     # vns, all servers in that vns and associated roles are also
     # deleted.
     def delete_vns(self):
-        vns_id = bottle.request.query.vns_id
+        self._smgr_log.log(self._smgr_log.DEBUG, "delete_vns")
         try:
-            self._serverDb.delete_vns(vns_id)
+            ret_data = self.validate_smgr_request("VNS", "DELETE",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+
+                self._serverDb.delete_vns(match_value)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_VNS,
+                                     False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_VNS,
+                                     False)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                        "Error while deleting vns %s" % (repr(e)))
             abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_VNS)
         return "VNS deleted"
     # end delete_vns
 
     # API call to delete a server from the configuration.
     def delete_server(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "delete_server")
         try:
-            query_args = parse_qs(urlparse(bottle.request.url).query,
-                                  keep_blank_values=True)
-            # Get the query argument.
-            if len(query_args) == 0:
-                abort(404, "No server selection criteria specified")
-            elif len(query_args) == 1:
-                match_key, match_value = query_args.popitem()
-                # check that match key is a valid one
-                if ((match_key not in (
-                        "server_id", "mac", "cluster_id",
-                        "rack_id", "pod_id", "vns_id", "ip")) or
-                        (len(match_value) != 1)):
-                    abort(404, "Invalid Query arguments")
-                match_value = match_value[0]
-            else:
-                abort(404, "Invalid Query arguments")
+            ret_data = self.validate_smgr_request("SERVER", "DELETE",
+                                                         bottle.request)
+
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+
             servers = self._serverDb.get_server(match_key, match_value, False)
+            '''
+            if not servers:
+                msg = "No Server found for match key %s" % \
+                        (match_key)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                        msg )
+                raise ServerMgrException(msg)
+            '''
             self._serverDb.delete_server(match_key, match_value)
             # delete the system entries from cobbler
             for server in servers:
                 self._smgr_cobbler.delete_system(server['server_id'])
             # Sync the above information
             self._smgr_cobbler.sync()
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
+                                     False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
+                                     False)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                        "Unable to delete server, %s" % (repr(e)))
             abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_SERVER)
         return "Server deleted"
     # end delete_server
 
     # API Call to delete an image
     def delete_image(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "delete_image")
         try:
             image_id = bottle.request.query.image_id
             if not image_id:
-                abort(404, "Image Id not specified")
+                msg = "Image Id not specified"
+                raise ServerMgrException(msg)
             images = self._serverDb.get_image("image_id", image_id, True)
             if not images:
-                abort(404, "Image not found")
+                msg = "Image %s doesn't exist" % (image_id)
+                raise ServerMgrException(msg)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                        msg)
             image = images[0]
             if ((image['image_type'] == 'contrail-ubuntu-package') or
                 (image['image_type'] == 'contrail-centos-package')):
@@ -947,91 +1375,105 @@ class VncServerManager():
                 shutil.rmtree(dir_path, True)
             # remove the entry from DB
             self._serverDb.delete_image(image_id)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE,
+                                     False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE,
+                                     False)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                "Unable to delete image, %s" % (repr(e)))
             abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                    self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE)
+        return "Server Deleted" 
     # End of delete_image
 
     # API to modify parameters for a server. User can modify IP, MAC, cluster
     # name (moving the server to a different cluster) , roles configured on
     # the server, or server parameters.
     def modify_server(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "modify_server")
+#        pdb.set_trace()
         entity = bottle.request.json
-        if (not entity):
-            abort(404, 'Server MAC or server_id not specified')
-        restricted_fields = ['mac']
-        allowed_fields = ['server_id', 'ip', 'mask', 'gway',
-                          'passwd', 'roles', 'vns_id', 'cluster_id',
-                          'server_params', 'power_address', 'domain',
-                          'email']
         try:
+            self.validate_smgr_entity("server", entity)
             servers = entity.get("server", None)
             for server in servers:
-                if (('server_id' not in server) and ('mac' not in server)):
-                    abort(404, 'Server MAC or server_id not specified')
-                # Get the server table from the db.
-                db_server = self._serverDb.get_server('server_id', server['server_id'], detail=True)
-                for key in server:
-                    # Do not allow modification of restricted fields
-                    if key in restricted_fields:
-                        # server key is added as upper case mac string
-                        if server[key].upper() != db_server[0][key].upper():
-                            abort(404,
-                                  "Server field [%s] cannot be modified" % (key))
-                        continue
-                    # Restrict modification of certain fields only
-                    if key not in allowed_fields:
-                        abort(
-                            404,
-                            "invalid field %s in server json" %(
-                                key))
-                self._serverDb.modify_server(server)
+                self.validate_smgr_request("SERVER", "MODIFY", bottle.request,
+                                                server)
+
+            self._serverDb.modify_server(server)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                    self._smgr_trans_log.MODIFY_SMGR_CFG_SERVER,
+                                    False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                    self._smgr_trans_log.MODIFY_SMGR_CFG_SERVER,
+                                    False)
             abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                    self._smgr_trans_log.MODIFY_SMGR_CFG_SERVER)
         return entity
     # end modify_server
 
     # API to modify parameters for a VNS.
     def modify_vns(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "modify_vns")
         entity = bottle.request.json
-        if (not entity):
-            abort(404, 'no vns specified')
         try:
+            self.validate_smgr_entity("vns", entity)
             vns_list = entity.get("vns", None)
             for vns in vns_list:
-                if ('vns_id' not in vns):
-                    abort(404, 'vns_id not specified')
-                # Restrict modification of certain fields only
-                for key in vns:
-                    if key not in [
-                        'vns_id',
-                        'vns_params',
-                        'email']:
-                        abort(404, 'invalid field in vns')
+                self.validate_smgr_request("VNS", "MODIFY", bottle.request,
+                                                vns)
                 self._serverDb.modify_vns(vns)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.MODIFY_SMGR_CFG_VNS,
+                                     False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.MODIFY_SMGR_CFG_VNS,
+                                     False)
+
             abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.MODIFY_SMGR_CFG_VNS)
         return entity
     # end modify_vns
 
     # API to modify parameters for an image.
     def modify_image(self):
+#        pdb.set_trace()
+        self._smgr_log.log(self._smgr_log.DEBUG, "modify_image")
         entity = bottle.request.json
-        if (not entity):
-            abort(404, 'no image specified')
         try:
+            self.validate_smgr_entity("image", entity)
             images = entity.get("image", None)
             for image in images:
-                if ('image_id' not in image):
-                    abort(404, 'image_id not specified')
-                # Restrict modification of certain fields only
-                for key in image:
-                    if key not in [
-                        'image_id',
-                        'image_version']:
-                        abort(404, 'invalid field in image')
-                self._serverDb.modify_image(image)
+               self.validate_smgr_request("IMAGE", "MODIFY", bottle.request,
+                                                image)
+               self._serverDb.modify_image(image)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.MODIFY_SMGR_CFG_IMAGE,
+                                     False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.MODIFY_SMGR_CFG_IMAGE,
+                                     False)
             abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.MODIFY_SMGR_CFG_IMAGE)
+
         return entity
     # end modify_image
 
@@ -1073,37 +1515,31 @@ class VncServerManager():
     # If no server if provided, information about all the servers
     # in server manager configuration is returned.
     def reimage_server(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "reimage_server")
         try:
-            entity = bottle.request.json
-            # Get image version parameter
-            base_image_id = entity.pop("base_image_id", None)
-            if base_image_id is None:
-                abort(404, "No base image id specified")
-            package_image_id = entity.pop("package_image_id", '')
-            # Get parameter to check server(s) are to be rebooted
-            # following reimage configuration in cobbler. Default is yes.
-            do_reboot = True
-            no_reboot = entity.pop("no_reboot", None)
-            if ((no_reboot) and
-                (no_reboot in ["y","Y","1"])):
-                do_reboot = False
+            ret_data = self.validate_smgr_request("SERVER", "REIMAGE", bottle.request)
+#            pdb.set_trace()
+            if ret_data['status'] == 0:
+                base_image_id = ret_data['base_image_id']
+                package_image_id = ret_data['package_image_id']
+                match_key = ret_data['match_key']
+                match_value = ret_data['match_value']
+                do_reboot = ret_data['do_reboot']
             reboot_server_list = []
-            # Now process other parameters there should be only one more
-            if (len(entity) == 0):
-                abort(404, "No servers specified")
-            elif len(entity) == 1:
-                match_key, match_value = entity.popitem()
-                # check that match key is a valid one
-                if (match_key not in ("server_id", "mac", "cluster_id",
-                                      "rack_id", "pod_id", "vns_id")):
-                    abort(404, "Invalid Query arguments")
-            else:
-                abort(404, "No servers specified")
-            # end else
             images = self._serverDb.get_image("image_id", base_image_id, True)
+            packages = self._serverDb.get_image("image_id", package_image_id, True)
+            if len(images) == 0:
+                msg = "No Image %s found" % (base_image_id)
+                raise ServerMgrException(msg)
+            if len(packages) == 0:
+                msg = "No Package %s found" % (package_image_id)
+                raise ServerMgrException(msg)
             base_image = images[0]
             servers = self._serverDb.get_server(
                 match_key, match_value, detail=True)
+            if len(servers) == 0:
+                msg = "No Servers found for %s" % (match_value)
+                raise ServerMgrException(msg)
             for server in servers:
                 server_params = eval(server['server_params'])
                 # build all parameters needed for re-imaging
@@ -1182,36 +1618,40 @@ class VncServerManager():
             if do_reboot:
                 status_msg = self._power_cycle_servers(
                     reboot_server_list, True)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REIMAGE,
+                                     False)
+            abort(404, e.value)
         except Exception as e:
-            abort(404, repr(e))
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REIMAGE,
+                                     False)
+            abort(404, "Error in upgrading Server")
         return "server(s) upgraded"
     # end reimage_server
 
     # API call to power-cycle the server (IMPI Interface)
     def restart_server(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "restart_server")
+#        pdb.set_trace()
+        net_boot = None
+        match_key = None
+        match_value = None
         try:
-            entity = bottle.request.json
-            # Get parameter to check if netboot should be enabled.
-            net_boot = entity.pop("net_boot", None)
-            if ((not net_boot) or
-                (net_boot not in ["y","Y","1"])):
-                do_net_boot = False
-            else:
-                do_net_boot = True
-            if len(entity) == 0:
-                abort(404, "No servers specified")
-            elif len(entity) == 1:
-                match_key, match_value = entity.popitem()
-                # check that match key is a valid one
-                if (match_key not in ("server_id", "mac", "cluster_id",
-                                      "rack_id", "pod_id", "vns_id")):
-                    abort(404, "Invalid Query arguments")
-            else:
-                abort(404, "Invalid Query arguments")
-            # end else
+            ret_data = self.validate_smgr_request("SERVER", "REBOOT", bottle.request)
+#            pdb.set_trace()
+            if ret_data['status'] == 0:
+                do_net_boot = ret_data['net_boot']
+                match_key = ret_data['match_key']
+                match_value = ret_data['match_value']
             reboot_server_list = []
             servers = self._serverDb.get_server(
-                match_key, match_value, detail=True)
+                    match_key, match_value, detail=True)
+            if len(servers) == 0:
+                msg = "No Servers found for match %s" % \
+                    (match_value)
+                raise ServerMgrException(msg)
             for server in servers:
                 vns = self._serverDb.get_vns(server['vns_id'],
                                              detail=True)
@@ -1247,8 +1687,18 @@ class VncServerManager():
 
             status_msg = self._power_cycle_servers(
                 reboot_server_list, do_net_boot)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     False)
             abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REBOOT)
         return status_msg
     # end restart_server
 
@@ -1263,14 +1713,14 @@ class VncServerManager():
     #Function to get control section for all servers
     # belonging to the same VN
     def get_control_net(self, vns_servers):
-	server_control_list = {}
-	for server in vns_servers:
-	    if 'intf_control' not in server:
-                intf_control = ""
+        server_control_list = {}
+        for server in vns_servers:
+            if 'intf_control' not in server:
+                    intf_control = ""
             else:
-		intf_control = server['intf_control']
-	    server_control_list[server['ip']] = intf_control
-	return server_control_list
+                intf_control = server['intf_control']
+                server_control_list[server['ip']] = intf_control
+        return server_control_list
 
     # Function to get map server name to server ip
     # accepts list of server names and returns list of
@@ -1294,79 +1744,20 @@ class VncServerManager():
     # puppet manifest file for the server and adds it to site
     # manifest file.
     def provision_server(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "provision_server")
         try:
-            entity = bottle.request.json
-            package_image_id = entity.pop("package_image_id", None)
-            if package_image_id is None:
-                abort(
-                    404, "No contrail package specified for provisioning")
-            req_provision_params = entity.pop("provision_params", None)
-            # if req_provision_params are specified, check contents for
-            # validity, store the info in DB and proceed with the
-            # provisioning step.
             role_servers = {}
             role_ips = {}
             role_ids = {}
-            if req_provision_params is not None:
-                role_list = [
-                    "database", "openstack", "config",
-                    "control", "collector", "webui", "compute"]
-                roles = req_provision_params.get("roles", None)
-                if roles is None:
-                    abort(404, "No provisioning roles specified")
-                if (type(roles) != type({})):
-                    abort(404, "Invalid roles definition")
-                prov_servers = {}
-                for key, value in roles.iteritems():
-                    if key not in role_list:
-                        abort(404, "invalid role %s in provision file" %(
-                            key))
-                    if type(value) != type ([]):
-                        abort(404, "role %s needs to have server list" %(
-                            key))
-                    for server in value:
-                        if server not in prov_servers:
-                            prov_servers[server] = [key]
-                        else:
-                            prov_servers[server].append(key)
-                    # end for server
-                # end for key
-                vns_id = None
-                servers = []
-                for key in prov_servers:
-                    server = self._serverDb.get_server(
-                        "server_id", key, detail=True)
-                    if server:
-                        server = server[0]
-                    servers.append(server)
-                    if ((vns_id != None) and
-                        (server['vns_id'] != vns_id)):
-                        abort(404, "all servers must belong to same vns")
-                    vns_id = server['vns_id']
-                # end for
-                for key, value in prov_servers.iteritems():
-                    new_server = {
-                        'server_id' : key,
-                        'roles' : value }
-                    self._serverDb.modify_server(new_server)
-                # end for
+            ret_data = self.validate_smgr_request("PROVISION", "PROVISION", bottle.request)
+            
+            if ret_data['status'] == 0:
+                servers = ret_data['servers']
+                package_image_id = ret_data['package_image_id']
             else:
-                if (len(entity) == 0):
-                    abort(404, "No servers specified")
-                elif len(entity) == 1:
-                    match_key, match_value = entity.popitem()
-                    # check that match key is a valid one
-                    if (match_key not in (
-                        "server_id", "mac", "cluster_id",
-                        "rack_id", "pod_id", "vns_id")):
-                        abort(404, "Invalid Query arguments")
-                else:
-                    abort(404, "No servers specified")
-                # end else
-                servers = self._serverDb.get_server(
-                    match_key, match_value, detail=True)
-            # end else .. req_provision_params
-
+                msg = "Error validating request"
+                raise ServerMgrException(msg)
+                 
             for server in servers:
                 server_params = eval(server['server_params'])
                 vns = self._serverDb.get_vns(server['vns_id'],
@@ -1389,7 +1780,6 @@ class VncServerManager():
                             vns_servers, role)
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
                         role_ids[role] = [x["server_id"] for x in role_servers[role]]
-
                 provision_params = {}
                 provision_params['package_image_id'] = package_image_id
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
@@ -1399,10 +1789,11 @@ class VncServerManager():
                 if server['domain']:
                     provision_params['domain'] = server['domain']
                 else:
-                    provision_params['domain'] = vns_params['domain']
-                
+                        provision_params['domain'] = vns_params['domain']
+
                 provision_params['rmq_master'] = role_ids['config'][0]
                 provision_params['uuid'] = vns_params['uuid']
+                provision_params['smgr_ip'] = self._args.listen_ip_addr
                 if role_ids['config'][0] == server['server_id']:
                         provision_params['is_rmq_master'] = "yes"
                 else:
@@ -1450,8 +1841,19 @@ class VncServerManager():
                     provision_params['ext_bgp'] = ""
 
                 self._do_provision_server(provision_params)
+                #end of for
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_PROVISION,
+                                     False)
+            abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_PROVISION,
+                                     False)
             abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_PROVISION)
         return "server(s) provisioned"
     # end provision_server
 
@@ -1509,6 +1911,8 @@ class VncServerManager():
         except:
             # if config file could not be read, use default values
             pass
+
+        self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg )
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -1638,6 +2042,12 @@ class VncServerManager():
                 self._serverDb.modify_server(update)
                 success_list.append(server['server_id'])
             except Exception as e:
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                            repr(e))
+
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                "Failed re-booting for server %s" % \
+                                (server['server_id']))
                 failed_list.append(server['server_id'])
         #end for
         if power_reboot_list:

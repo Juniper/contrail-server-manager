@@ -23,8 +23,6 @@ import server_manager.client.smgr_status as smgr_status
 import server_manager.client.smgr_add as smgr_add
 
 commands_dict = {
-    'create' : smgr_create.create_config,
-    'modify' : smgr_modify.modify_config,
     'delete' : smgr_delete.delete_config,
     'show'   : smgr_show.show_config,
     'upload_image' : smgr_upload_image.upload_image,
@@ -44,8 +42,6 @@ def server_manager(args_str=None):
         usage= '''server-manager <command> [<args>]
 
 The server manager commands are:
-   create         Create new server manager objects
-   modify         Modify existing server manager objects
    delete         Delete server manager objects
    show           show server manager objects configuration
    upload_image   Upload images to server manager DB
@@ -61,9 +57,9 @@ object)
     parser.add_argument(
         'command',
         help='server manager command to run',
-        choices=['create', 'modify', 'delete',
+        choices=['add', 'delete',
                  'show', 'reimage', 'provision',
-                 'restart', 'upload_image', 'status', 'add'])
+                 'restart', 'upload_image', 'status'])
     args = parser.parse_args(sys.argv[1:2])
     commands_dict[args.command](sys.argv[2:])
 # End of server_manager

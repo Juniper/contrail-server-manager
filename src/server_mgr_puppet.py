@@ -73,20 +73,20 @@ class ServerMgrPuppet:
     # end __init__
 
     def puppet_add_script_end_role(self, provision_params, last_res_added=None):
-	if 'execute_script' in provision_params.keys():
+        if 'execute_script' in provision_params.keys():
             script_data = eval(provision_params["execute_script"])
             script_name = script_data["script_name"]
-	    script_args = script_data["args"]
-	    print "Executing Custom script"
+            script_args = script_data["args"]
+            print "Executing Custom script"
             data = '''    # Execute Script for all roles.
-    	contrail-common::contrail-exec-script{%s:
-       	    script_name => "%s",
-       	    args => "%s",
-            require => %s
-    	}\n\n''' % (script_name.replace('.','_'),
-		script_name,
-                script_args.replace('"','\''), last_res_added)
-        return data
+            contrail-common::contrail-exec-script{%s:
+                script_name => "%s",
+                args => "%s",
+                require => %s
+            }\n\n''' % (script_name.replace('.','_'),
+            script_name,
+                    script_args.replace('"','\''), last_res_added)
+            return data
 
     #API to return control interfaces IP address 
     # else return MGMT IP address
@@ -116,57 +116,58 @@ class ServerMgrPuppet:
     # end puppet_add_database_role
 
     def puppet_add_common_role(self, provision_params, last_res_added=None):
-	#add Interface Steps
-	intf_bonds = {}
-	intf_control = {}
-	intf_data = {}
-	if provision_params['intf_bond']:
-	    intf_bonds = eval(provision_params['intf_bond'])
-	data = ""
-	requires_cmd = ""
-	require_list = []
-	if provision_params['intf_control']:
-	    intf_control = eval(provision_params['intf_control'])
-	for intf,values in intf_control.items():
-	    members = ""
-	    mode = ""
-	    if intf in intf_bonds.keys():
-		bond = intf_bonds[intf]
-		members = bond['member']
-	        mode = bond['mode']	
-            require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
-	    require_list.append(require_cmd)
-	    data += '''     # Setup Interface
-    contrail-common::contrail-setup-interface{%s:
-	contrail_device => "%s",
-	contrail_members => "%s",
-	contrail_mode => "%s",
-	contrail_ip => "%s",
-	contrail_gw => "%s"
-    }\n\n''' % (intf, intf, members , mode,
-	values['ip'], values['gw'])
-	    
+#        pdb.set_trace()
+        #add Interface Steps
+        intf_bonds = {}
+        intf_control = {}
+        intf_data = {}
+        if provision_params['intf_bond']:
+            intf_bonds = eval(provision_params['intf_bond'])
+        data = ""
+        requires_cmd = ""
+        require_list = []
+        if provision_params['intf_control']:
+            intf_control = eval(provision_params['intf_control'])
+        for intf,values in intf_control.items():
+            members = ""
+            mode = ""
+            if intf in intf_bonds.keys():
+                bond = intf_bonds[intf]
+                members = bond['member']
+                mode = bond['mode']	
+                require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
+            require_list.append(require_cmd)
+            data += '''     # Setup Interface
+        contrail-common::contrail-setup-interface{%s:
+        contrail_device => "%s",
+        contrail_members => "%s",
+        contrail_mode => "%s",
+        contrail_ip => "%s",
+        contrail_gw => "%s"
+        }\n\n''' % (intf, intf, members , mode,
+        values['ip'], values['gw'])
+            
 
-	if provision_params['intf_data']:
-	    intf_data = eval(provision_params['intf_data'])
-	for intf,values in intf_data.items():
-	    members = ""
-	    mode = ""
-	    if intf in intf_bonds.keys():
-		bond = intf_bonds[intf]
-		members = bond['member']
-	        mode = bond['mode']	
-            require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
-	    require_list.append(require_cmd)
-	    data += '''     # Setup Interface
-    contrail-common::contrail-setup-interface{%s:
-	contrail_device => "%s",
-	contrail_members => "%s",
-	contrail_mode => "%s",
-	contrail_ip => "%s",
-	contrail_gw => "%s"
-    }\n\n''' % (intf, intf, members , mode,
-	values['ip'], values['gw'])
+        if provision_params['intf_data']:
+            intf_data = eval(provision_params['intf_data'])
+            for intf,values in intf_data.items():
+                members = ""
+                mode = ""
+                if intf in intf_bonds.keys():
+                    bond = intf_bonds[intf]
+                    members = bond['member']
+                    mode = bond['mode']	
+                    require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
+                require_list.append(require_cmd)
+                data += '''     # Setup Interface
+            contrail-common::contrail-setup-interface{%s:
+            contrail_device => "%s",
+            contrail_members => "%s",
+            contrail_mode => "%s",
+            contrail_ip => "%s",
+            contrail_gw => "%s"
+            }\n\n''' % (intf, intf, members , mode,
+            values['ip'], values['gw'])
 
         data += '''    # custom type common for all roles.
     contrail-common::contrail-common{contrail_common:
@@ -175,37 +176,36 @@ class ServerMgrPuppet:
        require => %s
     }\n\n''' % (self.get_control_ip(provision_params, provision_params['server_ip']),
                 provision_params["server_id"],
-		'[%s]' % ','.join(map(str, require_list)) )
+        '[%s]' % ','.join(map(str, require_list)) )
 
 
-#	intf_bond = eval(provision_params['intf_bond'])
-#	for bond in intf_bond:
-#	    data += '''     # Setup Interface
-#    contrail-common::contrail-setup-interface{%s:
-#	contrail_device => "%s",
-#	contrail_members => "%s",
-#	contrail_mode => "%s",
-#	contrail_ip => "%s",
-#	contrail_gw => "%s"
-#    }\n\n''' % (bond['dev_id'], bond['dev_id'],
-#	 bond['member'] , bond['mode'],
-#	values['ip'], values['gw'])
-
-#	data += '''     # Setup Interface
-#    contrail-common::contrail-setup-interface{%s:
-#	contrail_device => %s,
-#	contrail_members => %s,
-#	contrail_mode => %s,
-#	contrail_ip => %s,
-#	contrail_gw => %s
-#    }\n\n''' % ()
+    #intf_bond = eval(provision_params['intf_bond'])
+    #for bond in intf_bond:
+    #    data += '''     # Setup Interface
+    #    contrail-common::contrail-setup-interface{%s:
+    #contrail_device => "%s",
+    #contrail_members => "%s",
+    #contrail_mode => "%s",
+    #contrail_ip => "%s",
+    #contrail_gw => "%s"
+    #   }\n\n''' % (bond['dev_id'], bond['dev_id'],
+    # bond['member'] , bond['mode'],
+    #values['ip'], values['gw'])
+    #data += '''     # Setup Interface
+    #    contrail-common::contrail-setup-interface{%s:
+    #contrail_device => %s,
+    #contrail_members => %s,
+    #contrail_mode => %s,
+    #contrail_ip => %s,
+    #contrail_gw => %s
+    #    }\n\n''' % ()
 
         return data
-    # end puppet_add_common_role
+        # end puppet_add_common_role
 
     def puppet_add_database_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
-	data = ''
+        data = ''
         if provision_params['server_ip'] in provision_params['roles']['config']:
             config_server = provision_params['server_ip']
         else:
@@ -237,7 +237,7 @@ class ServerMgrPuppet:
     def puppet_add_openstack_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
         data = ''
-#	if provision_params['haproxy'] == 'enable':
+#if provision_params['haproxy'] == 'enable':
  #           data += '''         #Source HA Proxy CFG
   #      contrail-common::haproxy-cfg{haproxy_cfg:
    #         server_id => "%s"}\n\n
@@ -271,17 +271,17 @@ class ServerMgrPuppet:
         contrail_openstack_mgmt_ip => "%s",
         contrail_service_token => "%s",
         contrail_ks_admin_passwd => "%s",
-	contrail_haproxy => "%s",
+        contrail_haproxy => "%s",
         require => %s
     }\n\n''' % (self.get_control_ip(provision_params,provision_params["server_ip"]), config_server_control,
                 compute_server_control, contrail_openstack_mgmt_ip_control,
                 provision_params["service_token"],
                 provision_params["ks_passwd"], provision_params["haproxy"],
-		last_res_added)
+                last_res_added)
 
 
         if provision_params["haproxy"] == "enable":
-			create_openstack_ha_proxy(provision_params)
+            self.create_openstack_ha_proxy(provision_params)
 
         return data
     # end puppet_add_openstack_role
@@ -369,15 +369,15 @@ $__contrail_disc_backend_servers__
         cfg_file.close()
 
     def puppet_add_zk_role(self, provision_params, last_res_added):
-	data = ''
-	config_servers = provision_params['roles']['config']
-	zk_servers = provision_params['roles']['zookeeper']
+        data = ''
+        config_servers = provision_params['roles']['config']
+        zk_servers = provision_params['roles']['zookeeper']
 
-	cfgm_ip_list = ["\"%s\""%(x) for x in config_servers]
-	zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
-	zk_ip_list = cfgm_ip_list + zoo_ip_list
+        cfgm_ip_list = ["\"%s\""%(x) for x in config_servers]
+        zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
+        zk_ip_list = cfgm_ip_list + zoo_ip_list
 
-	#TODO -REMOVE
+        #TODO -REMOVE
         cfgm_ip_list_control=[]
         zoo_ip_list_control=[]
         zk_ip_list_control=[]
@@ -389,8 +389,8 @@ $__contrail_disc_backend_servers__
             zk_ip_list_control.append(self.get_control_ip(provision_params,itr))
 
 
- 	contrail_zk_index = len(config_servers) + zk_servers.index(
-            provision_params["server_ip"])+1
+        contrail_zk_index = len(config_servers) + zk_servers.index(
+                provision_params["server_ip"])+1
 
         data = '''    # Execute Script for all roles.
         contrail-common::contrail-cfg-zk{contrail_cfg_zk:
@@ -404,139 +404,137 @@ $__contrail_disc_backend_servers__
 
     def puppet_add_config_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
+#        pdb.set_trace()
         data = ''
-#	if 'haproxy' in config_role_params.dict() \
-#		 and config_role_params['haproxy'] == 'enable':
+    #if 'haproxy' in config_role_params.dict() \
+    # and config_role_params['haproxy'] == 'enable':
 
 
-	if provision_params['server_ip'] in provision_params['roles']['compute']:
-	    compute_server = provision_params['server_ip']
+        if provision_params['server_ip'] in provision_params['roles']['compute']:
+            compute_server = provision_params['server_ip']
         else:
             compute_server = provision_params['roles']['compute'][0]
         compute_server_control= self.get_control_ip(provision_params,compute_server)
 
-        control_server_id_lst = provision_params['role_ids'] ['control']
-
         config_servers = provision_params['roles']['config']
-	if 'zookeeper' in provision_params['roles']:
-	    zk_servers = provision_params['roles']['zookeeper']
-	else:
-	    zk_servers = []
-        cfgm_ip_list = ["\"%s\""%(x) for x in config_servers]
-	zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
-	zk_ip_list = cfgm_ip_list + zoo_ip_list
-        cfgm_ip_list_control=[]
-        zoo_ip_list_control=[]
-        zk_ip_list_control=[]
-        for itr in cfgm_ip_list:
-            cfgm_ip_list_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
-        for itr in zoo_ip_list:
-            zoo_ip_list_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
-        for itr in zk_ip_list:
-            zk_ip_list_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
+        if 'zookeeper' in provision_params['roles']:
+            zk_servers = provision_params['roles']['zookeeper']
+        else:
+            zk_servers = []
+            cfgm_ip_list = ["\"%s\""%(x) for x in config_servers]
+            zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
+            zk_ip_list = cfgm_ip_list + zoo_ip_list
+            cfgm_ip_list_control=[]
+            zoo_ip_list_control=[]
+            zk_ip_list_control=[]
+            for itr in cfgm_ip_list:
+                cfgm_ip_list_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
+            for itr in zoo_ip_list:
+                zoo_ip_list_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
+            for itr in zk_ip_list:
+                zk_ip_list_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
 
-        contrail_cfgm_index = config_servers.index(
-            provision_params["server_ip"])+1
-        cassandra_ip_list = ["\"%s\""%(x) for x in \
-            provision_params['roles']['database']]
-	cassandra_ip_list_control=[]
-	for itr in cassandra_ip_list:
+            contrail_cfgm_index = config_servers.index(
+                provision_params["server_ip"])+1
+            cassandra_ip_list = ["\"%s\""%(x) for x in \
+                provision_params['roles']['database']]
+        cassandra_ip_list_control=[]
+        for itr in cassandra_ip_list:
             cassandra_ip_list_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
 
-        openstack_server = provision_params['roles']['openstack'][0]
-        openstack_server_control = self.get_control_ip(provision_params,openstack_server)
-        
-        control_ip_list = provision_params['roles']['control']
+            openstack_server = provision_params['roles']['openstack'][0]
+            openstack_server_control = self.get_control_ip(provision_params,openstack_server)
+            
+            control_ip_list = provision_params['roles']['control']
 
-        control_ip_list_control=[]
-        for itr in control_ip_list:
-            control_ip_list_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
-        if (provision_params['openstack_mgmt_ip'] == ''):
-            contrail_openstack_mgmt_ip = provision_params['roles']['openstack'][0]
-        else:
-            contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
-        contrail_openstack_mgmt_ip_control=self.get_control_ip(provision_params,contrail_openstack_mgmt_ip)
-        collector_servers = provision_params['roles']['collector']
-        if (provision_params["server_ip"] in collector_servers):
-           collector_server = provision_params['server_ip']
-        else:
-            hindex = config_servers.index(provision_params['server_ip'])
-            hindex = hindex % len(collector_servers)
-            collector_server = collector_servers[hindex]
-        collector_server_control = self.get_control_ip(provision_params,collector_server)
-        nworkers = 1
-        sctl_lines = ''
-        for worker_id in range(int(nworkers)):
-            sctl_line = 'supervisorctl -s http://localhost:9004 ' + \
-                        '${1} `basename ${0}:%s`' %(worker_id)
-            sctl_lines = sctl_lines + sctl_line
+            control_ip_list_control=[]
+            for itr in control_ip_list:
+                control_ip_list_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
+            if (provision_params['openstack_mgmt_ip'] == ''):
+                contrail_openstack_mgmt_ip = provision_params['roles']['openstack'][0]
+            else:
+                contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
+            contrail_openstack_mgmt_ip_control=self.get_control_ip(provision_params,contrail_openstack_mgmt_ip)
+            collector_servers = provision_params['roles']['collector']
+            if (provision_params["server_ip"] in collector_servers):
+               collector_server = provision_params['server_ip']
+            else:
+                hindex = config_servers.index(provision_params['server_ip'])
+                hindex = hindex % len(collector_servers)
+                collector_server = collector_servers[hindex]
+            collector_server_control = self.get_control_ip(provision_params,collector_server)
+            nworkers = 1
+            sctl_lines = ''
+            for worker_id in range(int(nworkers)):
+                sctl_line = 'supervisorctl -s http://localhost:9004 ' + \
+                            '${1} `basename ${0}:%s`' %(worker_id)
+                sctl_lines = sctl_lines + sctl_line
 
-        data += '''    # contrail-config role.
-    contrail-config::contrail-config{contrail_config:
-        contrail_openstack_ip => "%s",
-        contrail_openstack_mgmt_ip => "%s",
-        contrail_compute_ip => "%s",
-        contrail_use_certs => "%s",
-        contrail_multi_tenancy => "%s",
-        contrail_config_ip => "%s",
-        contrail_control_ip_list => "%s",
-        contrail_control_name_list => "%s",
-        contrail_collector_ip => "%s",
-        contrail_service_token => "%s",
-        contrail_ks_admin_user => "%s",
-        contrail_ks_admin_passwd => "%s",
-        contrail_ks_admin_tenant => "%s",
-        contrail_openstack_root_passwd => "%s",
-        contrail_cassandra_ip_list => ["%s"],
-        contrail_cassandra_ip_port => "9160",
-        contrail_zookeeper_ip_list => ["%s"],
-        contrail_zk_ip_port => "2181",
-        contrail_redis_ip => "%s",
-        contrail_cfgm_index => "%s",
-        contrail_api_nworkers => "%s",
-        contrail_supervisorctl_lines => '%s',
-	contrail_haproxy => "%s",
-        contrail_uuid => "%s",
-	contrail_rmq_master => "%s",
-	contrail_rmq_is_master => "%s",
-	contrail_region_name => "%s",
-	contrail_router_asn => "%s",
-	contrail_encap_priority => "%s",
-	contrail_bgp_params => "%s",
-        require => %s
-    }\n\n''' % (openstack_server_control, contrail_openstack_mgmt_ip_control, compute_server_control,
-		provision_params["use_certs"], provision_params["multi_tenancy"],
-        self.get_control_ip(provision_params,provision_params["server_ip"]), ','.join(control_ip_list_control),
-        ','.join(control_server_id_lst), collector_server_control, provision_params["service_token"],
-        provision_params["ks_user"], provision_params["ks_passwd"],
-        provision_params["ks_tenant"], provision_params["openstack_passwd"],
-        ','.join(cassandra_ip_list_control), ','.join(zk_ip_list_control),
-        self.get_control_ip(provision_params,config_servers[0]), contrail_cfgm_index,
-        nworkers, sctl_lines, "enable",
-	provision_params['uuid'], provision_params['rmq_master'],
-	provision_params['is_rmq_master'], provision_params['region_name'],
-	provision_params['router_asn'], provision_params['encap_priority'],
-	provision_params['ext_bgp'],
-	last_res_added)
-	#add Ha Proxy
-	self.create_config_ha_proxy(provision_params)
+            data += '''    # contrail-config role.
+        contrail-config::contrail-config{contrail_config:
+            contrail_openstack_ip => "%s",
+            contrail_openstack_mgmt_ip => "%s",
+            contrail_compute_ip => "%s",
+            contrail_use_certs => "%s",
+            contrail_multi_tenancy => "%s",
+            contrail_config_ip => "%s",
+            contrail_control_ip_list => "%s",
+            contrail_collector_ip => "%s",
+            contrail_service_token => "%s",
+            contrail_ks_admin_user => "%s",
+            contrail_ks_admin_passwd => "%s",
+            contrail_ks_admin_tenant => "%s",
+            contrail_openstack_root_passwd => "%s",
+            contrail_cassandra_ip_list => ["%s"],
+            contrail_cassandra_ip_port => "9160",
+            contrail_zookeeper_ip_list => ["%s"],
+            contrail_zk_ip_port => "2181",
+            contrail_redis_ip => "%s",
+            contrail_cfgm_index => "%s",
+            contrail_api_nworkers => "%s",
+            contrail_supervisorctl_lines => '%s',
+        contrail_haproxy => "%s",
+            contrail_uuid => "%s",
+        contrail_rmq_master => "%s",
+        contrail_rmq_is_master => "%s",
+        contrail_region_name => "%s",
+        contrail_router_asn => "%s",
+        contrail_encap_priority => "%s",
+        contrail_bgp_params => "%s",
+            require => %s
+        }\n\n''' % (openstack_server_control, contrail_openstack_mgmt_ip_control, compute_server_control,
+            provision_params["use_certs"], provision_params["multi_tenancy"],
+            self.get_control_ip(provision_params,provision_params["server_ip"]), ','.join(control_ip_list_control),
+            collector_server_control, provision_params["service_token"],
+            provision_params["ks_user"], provision_params["ks_passwd"],
+            provision_params["ks_tenant"], provision_params["openstack_passwd"],
+            ','.join(cassandra_ip_list_control), ','.join(zk_ip_list_control),
+            self.get_control_ip(provision_params,config_servers[0]), contrail_cfgm_index,
+            nworkers, sctl_lines, "enable",
+        provision_params['uuid'], provision_params['rmq_master'],
+        provision_params['is_rmq_master'], provision_params['region_name'],
+        provision_params['router_asn'], provision_params['encap_priority'],
+        provision_params['ext_bgp'],
+        last_res_added)
+        #add Ha Proxy
+        self.create_config_ha_proxy(provision_params)
 
 
-#        data += '''         #Source HA Proxy CFG
-#        contrail-common::haproxy-cfg{haproxy_cfg:
-#            server_id => "%s",
-#	    require => Contrail-config::Contrail-config[\"contrail_config\"]
-#	}\n
-#''' % (provision_params['server_id'])
+    #        data += '''         #Source HA Proxy CFG
+    #        contrail-common::haproxy-cfg{haproxy_cfg:
+    #            server_id => "%s",
+    #	    require => Contrail-config::Contrail-config[\"contrail_config\"]
+    #	}\n
+    #''' % (provision_params['server_id'])
 
 
         return data
-    # end puppet_add_config_role
+        # end puppet_add_config_role
 
     def puppet_add_control_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
         data = ''
-    	if provision_params['server_ip'] in provision_params['roles']['config']:
+        if provision_params['server_ip'] in provision_params['roles']['config']:
             config_server = provision_params['server_ip']
         else:
             config_server = provision_params['roles']['config'][0]
@@ -554,7 +552,7 @@ $__contrail_disc_backend_servers__
         server_ip_control=self.get_control_ip(provision_params,provision_params["server_ip"])
         nworkers = 1
         data += '''    # contrail-control role.
-    contrail-control::contrail-control{contrail_control:
+        contrail-control::contrail-control{contrail_control:
         contrail_control_ip => "%s",
         contrail_config_ip => "%s",
         contrail_config_port => "8443",
@@ -600,7 +598,7 @@ $__contrail_disc_backend_servers__
         redis_master_ip_control=self.get_control_ip(provision_params,redis_master_ip)
         server_ip_control=self.get_control_ip(provision_params,provision_params["server_ip"])
         data += '''    # contrail-collector role.
-    contrail-collector::contrail-collector{contrail_collector:
+        contrail-collector::contrail-collector{contrail_collector:
         contrail_config_ip => "%s",
         contrail_collector_ip => "%s",
         contrail_redis_master_ip => "%s",
@@ -622,7 +620,7 @@ $__contrail_disc_backend_servers__
     def puppet_add_webui_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
         data = ''
-    	if provision_params['server_ip'] in provision_params['roles']['config']:
+        if provision_params['server_ip'] in provision_params['roles']['config']:
             config_server = provision_params['server_ip']
         else:
             config_server = provision_params['roles']['config'][0]
@@ -651,7 +649,7 @@ $__contrail_disc_backend_servers__
         for itr in cassandra_ip_list:
             cassandra_ip_list_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
         data += '''    # contrail-webui role.
-    contrail-webui::contrail-webui{contrail_webui:
+        contrail-webui::contrail-webui{contrail_webui:
         contrail_config_ip => "%s",
         contrail_collector_ip => "%s",
         contrail_openstack_ip => "%s",
@@ -665,8 +663,8 @@ $__contrail_disc_backend_servers__
 
     #Function to create haproxy cfg file for compute nodes
     def create_compute_ha_proxy(self, provision_params):
-
-        smgr_dir = "/etc/contrail/"
+        
+        smgr_dir = "/etc/puppet/modules/contrail-common/files/"
         staging_dir = "/etc/puppet/modules/contrail-common/files/"
 
         compute_haproxy_template = string.Template("""
@@ -740,7 +738,7 @@ $__contrail_glance_apis__
 
         config_ip_list = provision_params['roles']['config']
         openstack_ip_list = provision_params['roles']['openstack']
-        compute_ip = provision_prams['server_ip']
+        compute_ip = provision_params['server_ip']
 
         if compute_ip not in config_ip_list:
             # generate discovery service stanza
@@ -797,7 +795,7 @@ $__contrail_glance_apis__
             '__contrail_qpid_stanza__': '',
             })
 
-        ha_proxy_cfg = staging_dir + compute_host_string + ".cfg"
+        ha_proxy_cfg = staging_dir + provision_params['server_id'] + ".cfg"
 
         shutil.copy2(smgr_dir + "haproxy.cfg", ha_proxy_cfg)
         cfg_file = open(ha_proxy_cfg, 'a')
@@ -805,8 +803,8 @@ $__contrail_glance_apis__
         cfg_file.close()
 
     #Function to create haproxy cfg for openstack nodes
-    def create_openstack_ha_proxy(self, roles, server_index, servers):
-        smgr_dir = "/etc/contrail/"
+    def create_openstack_ha_proxy(self, provision_params):
+        smgr_dir = "/etc/puppet/modules/contrail-common/files/"
         staging_dir = "/etc/puppet/modules/contrail-common/files/"
         openstack_haproxy_template = string.Template("""
 #contrail-openstack-marker-start
@@ -836,8 +834,8 @@ $__contrail_quantum_servers__
         """)
 
         config_ip_list = provision_params['roles']['config']
-        openstack_ip_list = provision_params['roles']['openstack']	
-        openstack_ip = provision_prams['server_ip']
+        openstack_ip_list = provision_params['roles']['openstack']
+        openstack_ip = provision_params['server_ip']
 
 
         # for all openstack, set appropriate haproxy stanzas
@@ -868,7 +866,7 @@ $__contrail_quantum_servers__
                 '__contrail_quantum_stanza__': q_stanza,
                 })
 
-            ha_proxy_cfg = staging_dir + openstack_host_string + ".cfg"
+            ha_proxy_cfg = staging_dir + provision_params['server_id'] + ".cfg"
 
             shutil.copy2(smgr_dir + "haproxy.cfg", ha_proxy_cfg)
             cfg_file = open(ha_proxy_cfg, 'a')
@@ -881,20 +879,20 @@ $__contrail_quantum_servers__
         control_servers = provision_params['roles']['control']
         #control_servers_control = self.get_control_ip(provision_params,control_servers)
 
-    	if provision_params['server_ip'] in provision_params['roles']['config']:
+        if provision_params['server_ip'] in provision_params['roles']['config']:
             config_server = provision_params['server_ip']
         else:
             config_server = provision_params['roles']['config'][0]
         config_server_control = self.get_control_ip(provision_params,config_server)
       
 
-    	if provision_params['server_ip'] in provision_params['roles']['collector']:
+        if provision_params['server_ip'] in provision_params['roles']['collector']:
             collector_server = provision_params['server_ip']
         else:
             collector_server = provision_params['roles']['collector'][0]
         collector_server_control = self.get_control_ip(provision_params,collector_server)
 
-    	if provision_params['server_ip'] in provision_params['roles']['openstack']:
+        if provision_params['server_ip'] in provision_params['roles']['openstack']:
             openstack_server = provision_params['server_ip']
         else:
             openstack_server = provision_params['roles']['openstack'][0]
@@ -906,7 +904,7 @@ $__contrail_quantum_servers__
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
         contrail_openstack_mgmt_ip_control= self.get_control_ip(provision_params,contrail_openstack_mgmt_ip)
         server_ip_control= self.get_control_ip(provision_params,provision_params["server_ip"])
-		#TODO Check
+        #TODO Check
         if provision_params["compute_non_mgmt_ip"] == "":
             provision_params["compute_non_mgmt_ip"] = provision_params["server_ip"]
         if provision_params["compute_non_mgmt_gway"] == "":
@@ -942,7 +940,7 @@ $__contrail_quantum_servers__
         contrail_ks_admin_user => "%s",
         contrail_ks_admin_passwd => "%s",
         contrail_ks_admin_tenant => "%s",
-		contrail_haproxy => "%s",
+        contrail_haproxy => "%s",
 
         require => %s
     }\n\n''' % (
@@ -955,11 +953,11 @@ $__contrail_quantum_servers__
         non_mgmt_gw,
         provision_params["ks_user"], provision_params["ks_passwd"],
         provision_params["ks_tenant"], provision_params["haproxy"],
-	    last_res_added)
+        last_res_added)
 
 
         if provision_params["haproxy"] == "enable":
-            create_compute_ha_proxy(provision_params)
+            self.create_compute_ha_proxy(provision_params)
 
         return data
     # end puppet_add_compute_role
@@ -977,6 +975,7 @@ $__contrail_quantum_servers__
     }
 
     def provision_server(self, provision_params):
+#        pdb.set_trace()
         # Create a new site file for this server
         server_manifest_file = self.pupp_create_server_manifest_file(
             provision_params)
@@ -1004,20 +1003,20 @@ $__contrail_quantum_servers__
                 provision_params['roles'] [role]:
                 data += self._roles_function_map[role](
                     self, provision_params, last_res_added)
-#		if role == "config":
-#		    last_res_added =  "Contrail-common::Haproxy-cfg[\"haproxy_cfg\"]"
-  		if role == "zookeeper":
-		    last_res_added =  "Contrail-common::Contrail-cfg-zk[\"contrail_cfg_zk\"]"
-		else:
+        #if role == "config":
+        #    last_res_added =  "Contrail-common::Haproxy-cfg[\"haproxy_cfg\"]"
+        if role == "zookeeper":
+            last_res_added =  "Contrail-common::Contrail-cfg-zk[\"contrail_cfg_zk\"]"
+        else:
                     last_res_added = (
                         "Contrail-%s::Contrail-%s[\"contrail_%s\"]")\
                         % (role, role, role)
 
 
-	#Call stuff to be added at end
-	if provision_params['execute_script']:
-	    data += self.puppet_add_script_end_role(provision_params,
-						 last_res_added)
+        #Call stuff to be added at end
+        if provision_params['execute_script']:
+            data += self.puppet_add_script_end_role(provision_params,
+                                                    last_res_added)
 
         data += '''}'''
         # write the data to manifest file for this server.
