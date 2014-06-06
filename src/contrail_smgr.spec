@@ -163,6 +163,7 @@ cp %{_contrail_smgr_src}utils/sendmail.cf %{buildroot}%{_contrailetc}
 
 install -d -m 755 %{buildroot}%{_pysitepkg}/cobbler/modules
 cp %{_contrail_smgr_src}third_party/server_post_install.py %{buildroot}%{_pysitepkg}/cobbler/modules/
+cp %{_contrail_smgr_src}third_party/server_pre_install.py %{buildroot}%{_pysitepkg}/cobbler/modules/
 
 %clean
 rm -rf %{buildroot}

@@ -21,13 +21,13 @@ mod_path="%s/cobbler" % plib
 sys.path.insert(0, mod_path)
 
 #[root@a3s17 modules]# more /var/log/cobbler/install.log
-#system  a3s10   10.84.16.3      stop    Thu Jun  5 14:37:58 2014
+#system  a3s10   10.84.16.3      start    1401606565.15
 
 _DEF_SMGR_PORT=9001
 
 def register():
     # trigger type
-    return "/var/lib/cobbler/triggers/install/post/*"
+    return "/var/lib/cobbler/triggers/install/pre/*"
 
 
 def send_REST_request(ip, port, object, payload):
@@ -56,10 +56,10 @@ def run(api, args, logger):
     ip = socket.gethostbyname(socket.gethostname())
     object = 'status'
     url_str = object + "?" + "server_id=" + name
-    payload = 'reimage completed'
+    payload = 'reimage start'
     send_REST_request(ip, '9001', url_str, payload)
     fd = open("/var/log/cobbler/contrail_install.log","a+")
-    fd.write("%s\t%s\t%s\tcompleted\t%s\n" % (objtype,name,ip,time.asctime(time.localtime(time.time()))))
+    fd.write("%s\t%s\t%s\tstart\t%s\n" % (objtype,name,ip,time.asctime(time.localtime(time.time()))))
     fd.write("url:%s, payload:%s\n" % (url_str, payload))
     fd.close()
     return 0

@@ -398,8 +398,11 @@ class VncServerManager():
 	server_data['server_id'] = server_id
 	server_data['server_status'] = body
         resp = self.get_obj(body)
-        if str(resp) == 'reimage':
+        if str(resp) == 'reimage completed':
             message = server_id + ' reimage completed.'
+            self.send_status_mail(server_id, message, message)
+        elif str(resp) == 'reimage start':
+            message = server_id + ' reimage started.'
             self.send_status_mail(server_id, message, message)
 	servers = self._serverDb.put_status(
                     server_data)
@@ -409,7 +412,7 @@ class VncServerManager():
 	servers = self._serverDb.get_status('server_id',
                     server_id, True)
         if servers:
-            return servers[0]	
+	    return servers[0]	
 
     def config_cluster(self):
         role_compute = {
