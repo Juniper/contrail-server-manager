@@ -180,7 +180,7 @@ rm -rf %{buildroot}
 #/etc/puppet/*
 %{python_sitelib}/server_manager*
 %{_bindir}/server-manager
-%{_pysitepkg}/cobbler/modules/server_post_install*
+%{_pysitepkg}/cobbler/modules/*
 %changelog
 * Thu Nov 29 2013  Thilak Raj S <tsurendra@juniper.net> 1.0-1
 - First Build
