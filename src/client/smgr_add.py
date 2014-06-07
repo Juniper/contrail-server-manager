@@ -16,9 +16,7 @@ from StringIO import StringIO
 import json
 from collections import OrderedDict
 import ConfigParser
-
-_DEF_SMGR_PORT = 9001
-_DEF_SMGR_CFG_FILE = "./smgr_client_config.ini"
+import smgr_client_def
 
 # Below array of dictionary's is used by add_payload
 # function to add payload when user choses to input
@@ -98,7 +96,7 @@ def parse_arguments(args_str=None):
     group1.add_argument("--config_file", "-c",
                         help=("Server manager client config file "
                               " (default - %s)" %(
-                              _DEF_SMGR_CFG_FILE)))
+                              smgr_client_def._DEF_SMGR_CFG_FILE)))
     subparsers = parser.add_subparsers(title='objects',
                                        description='valid objects',
                                        help='help for objects',
@@ -205,12 +203,12 @@ def add_config(args_str=None):
     if args.ip_port:
         smgr_ip, smgr_port = args.ip_port.split(":")
         if not smgr_port:
-            smgr_port = _DEF_SMGR_PORT
+            smgr_port = smgr_client_def._DEF_SMGR_PORT
     else:
         if args.config_file:
             config_file = args.config_file
         else:
-            config_file = _DEF_SMGR_CFG_FILE
+            config_file = smgr_client_def._DEF_SMGR_CFG_FILE
         # end args.config_file
         try:
             config = ConfigParser.SafeConfigParser()
@@ -220,7 +218,7 @@ def add_config(args_str=None):
             if not smgr_ip:
                 sys.exit(("listen_ip_addr missing in config file"
                           "%s" %config_file))
-            smgr_port = smgr_config.get("listen_port", _DEF_SMGR_PORT)
+            smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
         except:
             sys.exit("Error reading config file %s" %config_file)
         # end except
