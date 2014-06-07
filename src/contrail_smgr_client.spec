@@ -66,6 +66,7 @@ install -d -m 755 %{buildroot}%{_contrailopt}
 install -d -m 755 %{buildroot}%{_contrailopt}%{_contrail_smgr}
 install -d -m 755 %{buildroot}%{_contrailopt}%{_contrail_smgr}/client
 
+
 pwd
 cp %{_contrail_smgr_src}client/*.py %{buildroot}%{_contrailopt}%{_contrail_smgr}/client
 
