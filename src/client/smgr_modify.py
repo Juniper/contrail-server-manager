@@ -2,10 +2,10 @@
 
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 """
-   Name : smgr_add.py
+   Name : smgr_modify.py
    Author : Abhay Joshi
    Description : This program is a simple cli interface to
-   add server manager configuration objects.
+   modify server manager configuration objects.
    Objects can be vns, cluster, server, or image.
 """
 import argparse
@@ -16,17 +16,15 @@ from StringIO import StringIO
 import json
 from collections import OrderedDict
 import ConfigParser
+import smgr_client_def
 
-_DEF_SMGR_PORT = 9001
-_DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
-
-# Below array of dictionary's is used by add_payload
-# function to add payload when user choses to input
+# Below array of dictionary's is used by create_payload
+# function to create payload when user choses to input
 # object parameter values manually instead of providing a
 # json file.
 object_dict = {
     "vns" : OrderedDict ([
-        ("vns_id", "Specify unique vns_id for this vns cluster"),
+        ("vns_id", "vns_id for vns to be modfied"),
         ("email", "Email id for notifications"),
         ("vns_params", OrderedDict ([
              ("router_asn", "Router asn value"),
@@ -47,19 +45,13 @@ object_dict = {
              ("analytics_data_ttl", "analytics data TTL")]))
     ]),
     "server": OrderedDict ([ 
-        ("server_id", "server id value"),
+        ("server_id", "server id of the server to be modified"),
         ("ip", "server ip address"),
-        ("mac", "server mac address"),
         ("roles", "comma-separated list of roles for this server"),
         ("server_params", OrderedDict([
             ("ifname", "Ethernet Interface name"),
             ("compute_non_mgmt_ip", "compute node non mgmt ip (default none)"),
             ("compute_non_mgmt_gway", "compute node non mgmt gway (default none)")])),
-        ("vns_id", "vns id the server belongs to"),
-        ("cluster_id", "Physical cluster id the server belongs to"),
-        ("pod_id", "pod id the server belongs to"),
-        ("rack_id", "rack id the server belongs to"),
-        ("cloud_id", "cloud id the server belongs to"),
         ("mask", "subnet mask (default use value from vns table)"),
         ("gway", "gateway (default use value from vns table)"),
         ("domain", "domain name (default use value from vns table)"),
@@ -67,27 +59,24 @@ object_dict = {
         ("email", "email id for notifications (default use value from vns table)"),
     ]),
     "image" : OrderedDict ([
-        ("image_id", "Specify unique image id for this image"),
+        ("image_id", "Image id of image to be modified"),
         ("image_version", "Specify version for this image"),
-        ("image_type", "ubuntu/centos/contrail-ubuntu-repo"),
-        ("image_path", "complete path where image file is located on server")
     ]),
     "cluster" : OrderedDict ([
-        ("cluster_id", "Specify unique cluster_id for this cluster"),
+        ("cluster_id", "cluster id of cluster to be modified"),
     ])
 }
 
 def parse_arguments(args_str=None):
-
     # Process the arguments
     if __name__ == "__main__":
         parser = argparse.ArgumentParser(
-            description='''Create a Server Manager object'''
+            description='''Modify a Server Manager object'''
         )
     else:
         parser = argparse.ArgumentParser(
-            description='''Create a Server Manager object''',
-            prog="server-manager add"
+            description='''Modify a Server Manager object''',
+            prog="server-manager modify"
         )
     # end else
     group1 = parser.add_mutually_exclusive_group()
@@ -101,40 +90,39 @@ def parse_arguments(args_str=None):
                               _DEF_SMGR_CFG_FILE)))
     subparsers = parser.add_subparsers(title='objects',
                                        description='valid objects',
-                                       help='help for objects',
+                                       help='help for object',
                                        dest='object')
 
-    # Subparser for server add
+    # Subparser for server modify
     parser_server = subparsers.add_parser(
-        "server",help='Create server')
+        "server",help='Modify server')
     parser_server.add_argument(
         "--file_name", "-f",
         help="json file containing server param values")
 
-    # Subparser for vns add
+    # Subparser for vns modify
     parser_vns = subparsers.add_parser(
-        "vns", help='Create vns')
+        "vns", help='Modify vns')
     parser_vns.add_argument(
         "--file_name", "-f",
         help="json file containing vns param values")
 
-    # Subparser for cluster add
+    # Subparser for cluster modify
     parser_cluster = subparsers.add_parser(
-        "cluster", help='Create cluster')
+        "cluster", help='Modify cluster')
     parser_cluster.add_argument(
         "--file_name", "-f",
         help="json file containing cluster param values")
 
-    # Subparser for image add
+    # Subparser for image modify
     parser_image = subparsers.add_parser(
-        "image", help='Create image')
+        "image", help='Modify image')
     parser_image.add_argument(
         "--file_name", "-f",
         help="json file containing image param values")
 
     args = parser.parse_args(args_str)
     return args
-# end def parse_arguments
 
 def send_REST_request(ip, port, object, payload):
     try:
@@ -147,7 +135,6 @@ def send_REST_request(ip, port, object, payload):
         conn.setopt(pycurl.HTTPHEADER, headers)
         conn.setopt(pycurl.POST, 1)
         conn.setopt(pycurl.POSTFIELDS, '%s'%json.dumps(payload))
-        conn.setopt(pycurl.CUSTOMREQUEST, "PUT")
         conn.setopt(pycurl.WRITEFUNCTION, response.write)
         conn.perform()
         return response.getvalue()
@@ -156,7 +143,7 @@ def send_REST_request(ip, port, object, payload):
 
 # Function to accept parameters from user and then build payload to be
 # sent with REST API request for creating the object.
-def add_payload(object):
+def create_payload(object):
     payload = {}
     objects = []
     while True:
@@ -186,8 +173,10 @@ def add_payload(object):
                         msg += " (%s) " %(pvalue)
                     msg += ": "
                     user_input = raw_input(msg)
-                    param_dict[param] = user_input
-                temp_dict[key] = param_dict
+                    if user_input:
+                        param_dict[param] = user_input
+                if param_dict:
+                    temp_dict[key] = param_dict
             # End if (key != (object+"_params"))
         # End for key, value in fields_dict 
         objects.append(temp_dict)
@@ -198,9 +187,9 @@ def add_payload(object):
     # End while True
     payload[object] = objects
     return payload
-# End add_payload
+# End create_payload
 
-def add_config(args_str=None):
+def modify_config(args_str=None):
     args = parse_arguments(args_str)
     if args.ip_port:
         smgr_ip, smgr_port = args.ip_port.split(":")
@@ -230,16 +219,16 @@ def add_config(args_str=None):
         payload = json.load(open(args.file_name))
     else:
         # Accept parameters and construct json.
-        payload = add_payload(object)
-
+        payload = create_payload(object)
+    
     resp = send_REST_request(smgr_ip, smgr_port,
                       object, payload)
     print resp
-# End of add_config
+# End of modify_config
 
 if __name__ == "__main__":
     import cgitb
     cgitb.enable(format='text')
 
-    add_config(sys.argv[1:])
+    modify_config(sys.argv[1:])
 # End if __name__

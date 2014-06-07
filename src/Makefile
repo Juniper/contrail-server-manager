@@ -12,7 +12,6 @@ rpm:
 	cp contrail_smgr.spec ~/rpmbuild/SPECS
 	rpmbuild -bb ~/rpmbuild/SPECS/contrail_smgr.spec
 	cp ~/rpmbuild/RPMS/noarch/contrail_smgr-1.0-1.noarch.rpm ~/rpmbuild/RPMS/noarch/contrail_smgr-1.0-1_$(commit_id).noarch.rpm
-	cp client/dist/server-manager-client*.tar.gz ~/rpmbuild/RPMS/noarch/
 deb:
 	(cd debian-contrail-smgr; fakeroot debian/rules binary)
 clean:

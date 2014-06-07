@@ -14,9 +14,7 @@ import pycurl
 from StringIO import StringIO
 import ConfigParser
 import json
-
-_DEF_SMGR_PORT = 9001
-_DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
+import smgr_client_def
 
 def parse_arguments():
     # Process the arguments

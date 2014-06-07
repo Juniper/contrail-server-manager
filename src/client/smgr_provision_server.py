@@ -2,12 +2,12 @@
 
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 """
-   Name : smgr_restart_server.py
+   Name : smgr_provision_server.py
    Author : Abhay Joshi
    Description : This program is a simple cli interface that
-   provides restarting server(s) via server manager. The program
-   takes an optional parameter (netboot), if set the server is
-   enabled for booting from net, else a local boot is performed.
+   provides provisioning a server for the roles configured. The
+   SM prepares puppet manifests that define the role(s) being
+   configured on receiving this REST API request.
 """
 import argparse
 import pdb
@@ -17,24 +17,22 @@ from StringIO import StringIO
 import json
 from collections import OrderedDict
 import ConfigParser
-
-_DEF_SMGR_PORT = 9001
-_DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
+import smgr_client_def
 
 def parse_arguments(args_str=None):
     # Process the arguments
     if __name__ == "__main__":
         parser = argparse.ArgumentParser(
-            description='''Reboot given server(s). Servers can be
-                           specified by providing match condition
-                           to pick servers from the database.'''
+            description='''Provision given server(s) for roles configured
+                        list of servers can be selected from DB config or
+                        in a json file or provided interactively '''
         )
     else:
         parser = argparse.ArgumentParser(
-            description='''Reboot given server(s). Servers can be
-                           specified by providing match condition
-                           to pick servers from the database.''',
-            prog="server-manager restart"
+            description='''Provision given server(s) for roles configured
+                        list of servers can be selected from DB config or
+                        in a json file or provided interactively ''',
+            prog="server-manager provision"
         )
     # end else
     group1 = parser.add_mutually_exclusive_group()
@@ -46,6 +44,9 @@ def parse_arguments(args_str=None):
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               _DEF_SMGR_CFG_FILE)))
+    parser.add_argument(
+        "package_image_id",
+        help="contrail package image id to be used for provisioning")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--server_id",
                         help=("server id for the server to be provisioned"))
@@ -57,18 +58,46 @@ def parse_arguments(args_str=None):
                         help=("rack id for the server(s) to be provisioned"))
     group.add_argument("--pod_id",
                         help=("pod id for the server(s) to be provisioned"))
-    parser.add_argument("--net_boot", "-n", action="store_true",
-                        help=("optional parameter to indicate"
-                             " if server should be netbooted."))
+    group.add_argument("--provision_params_file", "-f", 
+                        help=("Optional json file containing parameters "
+                             " for provisioning server"))
+    group.add_argument("--interactive", "-I", action="store_true", 
+                        help=("flag that user wants to enter the server "
+                             " parameters for provisioning manually"))
     args = parser.parse_args(args_str)
     return args
-# end def parse_arguments
+
+# Function to accept parameters from user and then build payload to be
+# sent with REST API request for reimaging server.
+def get_provision_params():
+    provision_params = {}
+    roles = OrderedDict ([
+        ("database" , " (Comma separated list of server names for this role) : "),
+        ("openstack" , " (Comma separated list of server names for this role) : "),
+        ("config" , " (Comma separated list of server names for this role) : "),
+        ("control" , " (Comma separated list of server names for this role) : "),
+        ("collector" , " (Comma separated list of server names for this role) : "),
+        ("webui" , " (Comma separated list of server names for this role) : "),
+        ("compute" , " (Comma separated list of server names for this role) : ")
+    ])
+    # Accept all the role definitions
+    print "****** List of role definitions ******"
+    role_dict = {}
+    for field in roles:
+        msg = field + roles[field] 
+        user_input = raw_input(msg)
+        if user_input:
+            role_dict[field] = user_input.split(",")
+    # end for field in params
+    provision_params['roles'] = role_dict
+    return provision_params
+# End get_provision_params
 
 def send_REST_request(ip, port, payload):
     try:
         response = StringIO()
         headers = ["Content-Type:application/json"]
-        url = "http://%s:%s/server/restart" %(
+        url = "http://%s:%s/server/provision" %(
             ip, port)
         conn = pycurl.Curl()
         conn.setopt(pycurl.URL, url)
@@ -80,9 +109,8 @@ def send_REST_request(ip, port, payload):
         return response.getvalue()
     except:
         return None
-# end def send_REST_request
 
-def restart_server(args_str=None):
+def provision_server(args_str=None):
     args = parse_arguments(args_str)
     if args.ip_port:
         smgr_ip, smgr_port = args.ip_port.split(":")
@@ -107,6 +135,8 @@ def restart_server(args_str=None):
             sys.exit("Error reading config file %s" %config_file)
         # end except
     # end else args.ip_port
+
+    provision_params = {}
     match_key = None
     match_param = None
     if args.server_id:
@@ -124,23 +154,29 @@ def restart_server(args_str=None):
     elif args.pod_id:
         match_key='pod_id'
         match_value = args.pod_id
+    elif args.interactive:
+       provision_params = get_provision_params()
+    elif args.provision_params_file:
+       provision_params = json.load(
+           open(args.provision_params_file))
     else:
         pass
 
     payload = {}
+    payload['package_image_id'] = args.package_image_id
     if match_key:
         payload[match_key] = match_value
-    if (args.net_boot):
-        payload['net_boot'] = "y"
+    if provision_params:
+        payload['provision_params'] = provision_params
  
     resp = send_REST_request(smgr_ip, smgr_port,
                              payload)
     print resp
-# End of restart_server
+# End of provision_server
 
 if __name__ == "__main__":
     import cgitb
     cgitb.enable(format='text')
 
-    restart_server(sys.argv[1:])
+    provision_server(sys.argv[1:])
 # End if __name__

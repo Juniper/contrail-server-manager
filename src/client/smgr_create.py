@@ -16,9 +16,7 @@ from StringIO import StringIO
 import json
 from collections import OrderedDict
 import ConfigParser
-
-_DEF_SMGR_PORT = 9001
-_DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
+import smgr_client_def
 
 # Below array of dictionary's is used by create_payload
 # function to create payload when user choses to input

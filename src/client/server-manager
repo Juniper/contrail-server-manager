@@ -11,16 +11,16 @@
 import argparse
 import pdb
 import sys
-import server_manager.client.smgr_create as smgr_create
-import server_manager.client.smgr_modify as smgr_modify
-import server_manager.client.smgr_delete as smgr_delete
-import server_manager.client.smgr_show as smgr_show
-import server_manager.client.smgr_upload_image as smgr_upload_image
-import server_manager.client.smgr_reimage_server as smgr_reimage_server
-import server_manager.client.smgr_provision_server as smgr_provision_server
-import server_manager.client.smgr_restart_server as smgr_restart_server
-import server_manager.client.smgr_status as smgr_status
-import server_manager.client.smgr_add as smgr_add
+import smgr_create
+import smgr_modify
+import smgr_delete
+import smgr_show
+import smgr_upload_image
+import smgr_reimage_server
+import smgr_provision_server
+import smgr_restart_server
+import smgr_status
+import smgr_add
 
 commands_dict = {
     'delete' : smgr_delete.delete_config,

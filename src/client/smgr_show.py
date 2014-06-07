@@ -2,11 +2,13 @@
 
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 """
-   Name : smgr_delete.py
+   Name : smgr_show.py
    Author : Abhay Joshi
    Description : This program is a simple cli interface to
-   delete server manager configuration objects.
+   get server manager configuration objects.
    Objects can be vns, cluster, server, or image.
+   An optional parameter details is used to indicate if user
+   wants to fetch details of the object.
 """
 import argparse
 import pdb
@@ -14,20 +16,18 @@ import sys
 import pycurl
 from StringIO import StringIO
 import ConfigParser
-
-_DEF_SMGR_PORT = 9001
-_DEF_SMGR_CFG_FILE = "/etc/contrail_smgr/smgr_client_config.ini"
+import smgr_client_def
 
 def parse_arguments():
     # Process the arguments
     if __name__ == "__main__":
         parser = argparse.ArgumentParser(
-            description='''Delete a Server Manager object'''
+            description='''Show a Server Manager object'''
         )
     else:
         parser = argparse.ArgumentParser(
-            description='''Delete a Server Manager object''',
-            prog="server-manager delete"
+            description='''Show a Server Manager object''',
+            prog="server-manager show"
         )
     # end else
     group1 = parser.add_mutually_exclusive_group()
@@ -39,63 +39,78 @@ def parse_arguments():
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               _DEF_SMGR_CFG_FILE)))
+    parser.add_argument("--detail", "-d", action='store_true',
+                        help="Flag to indicate if details are requested")
     subparsers = parser.add_subparsers(title='objects',
                                        description='valid objects',
                                        help='help for object')
 
-    # Subparser for server delete
+    # Subparser for server show
     parser_server = subparsers.add_parser(
-        "server",help='Delete server')
-    group = parser_server.add_mutually_exclusive_group(required=True)
+        "server",help='Show server')
+    group = parser_server.add_mutually_exclusive_group()
     group.add_argument("--server_id",
-                        help=("server id for server to be deleted"))
+                        help=("server id for server"))
     group.add_argument("--mac",
-                        help=("mac address for server to be deleted"))
+                        help=("mac address for server"))
     group.add_argument("--ip",
-                        help=("ip address for server to be deleted"))
+                        help=("ip address for server"))
     group.add_argument("--vns_id",
-                        help=("vns id for server(s) to be deleted"))
+                        help=("vns id for server(s)"))
     group.add_argument("--cluster_id",
-                        help=("cluster id for server(s) to be deleted"))
+                        help=("cluster id for server(s)"))
     group.add_argument("--rack_id",
-                        help=("rack id for server(s) to be deleted"))
+                        help=("rack id for server(s)"))
     group.add_argument("--pod_id",
-                        help=("pod id for server(s) to be deleted"))
-    parser_server.set_defaults(func=delete_server)
+                        help=("pod id for server(s)"))
+    parser_server.set_defaults(func=show_server)
 
-    # Subparser for vns delete
+    # Subparser for vns show
     parser_vns = subparsers.add_parser(
-        "vns", help='Delete vns')
-    parser_vns.add_argument("vns_id",
-                        help=("vns id for vns to be deleted"))
-    parser_vns.set_defaults(func=delete_vns)
+        "vns", help='Show vns')
+    parser_vns.add_argument("--vns_id",
+                        help=("vns id for vns"))
+    parser_vns.set_defaults(func=show_vns)
 
-    # Subparser for cluster delete
+    # Subparser for cluster show
     parser_cluster = subparsers.add_parser(
-        "cluster", help='Delete cluster')
-    parser_cluster.add_argument("cluster_id",
-                        help=("cluster id for cluster to be deleted"))
-    parser_cluster.set_defaults(func=delete_cluster)
+        "cluster", help='Show cluster')
+    parser_cluster.add_argument("--cluster_id",
+                        help=("cluster id for cluster"))
+    parser_cluster.set_defaults(func=show_cluster)
 
-    # Subparser for image delete
+    # Subparser for image show
     parser_image = subparsers.add_parser(
-        "image", help='Delete image')
-    parser_image.add_argument("image_id",
-                        help=("image id for image to be deleted"))
-    parser_image.set_defaults(func=delete_image)
+        "image", help='Show image')
+    parser_image.add_argument("--image_id",
+                        help=("image id for image"))
+    parser_image.set_defaults(func=show_image)
+
+    # Subparser for all show
+    parser_all = subparsers.add_parser(
+        "all", help='Show all configuration (servers,vns,clusters, images)')
+    parser_all.set_defaults(func=show_all)
     return parser
 # end def parse_arguments
 
-def send_REST_request(ip, port, object, key, value):
+def send_REST_request(ip, port, object, match_key,
+                      match_value, detail):
     try:
         response = StringIO()
         headers = ["Content-Type:application/json"]
-        url = "http://%s:%s/%s?%s=%s" %(
-            ip, port, object, key, value)
+        url = "http://%s:%s/%s" % (ip, port, object)
+        args_str = ''
+        if match_key:
+            args_str += match_key + "=" + match_value
+        if detail:
+            args_str += "&detail"
+        if args_str != '':
+            url += "?" + args_str
         conn = pycurl.Curl()
+        conn.setopt(pycurl.TIMEOUT, 1)
         conn.setopt(pycurl.URL, url)
         conn.setopt(pycurl.HTTPHEADER, headers)
-        conn.setopt(pycurl.CUSTOMREQUEST, "delete")
+        conn.setopt(pycurl.HTTPGET, 1)
         conn.setopt(pycurl.WRITEFUNCTION, response.write)
         conn.perform()
         return response.getvalue()
@@ -103,7 +118,7 @@ def send_REST_request(ip, port, object, key, value):
         return None
 # end def send_REST_request
 
-def delete_server(args):
+def show_server(args):
     rest_api_params = {}
     rest_api_params['object'] = 'server'
     if args.server_id:
@@ -128,39 +143,66 @@ def delete_server(args):
         rest_api_params['match_key'] = 'pod_id'
         rest_api_params['match_value'] = args.pod_id
     else:
-        rest_api_params['match_key'] = ''
-        rest_api_params['match_value'] = ''
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
     return rest_api_params
-#end def delete_server
+#end def show_server
 
-def delete_vns(args):
+def show_vns(args):
+    if args.vns_id:
+        match_key = 'vns_id'
+        match_value = args.vns_id
+    else:
+        match_key = None
+        match_value = None
     rest_api_params = {
         'object' : 'vns',
-        'match_key' : 'vns_id',
-        'match_value' : args.vns_id
+        'match_key' : match_key,
+        'match_value' : match_value
     }
     return rest_api_params
-#end def delete_vns
+#end def show_vns
 
-def delete_cluster(args):
+def show_cluster(args):
+    if args.cluster_id:
+        match_key = 'cluster_id'
+        match_value = args.cluster_id
+    else:
+        match_key = None
+        match_value = None
     rest_api_params = {
         'object' : 'cluster',
-        'match_key' : 'cluster_id',
-        'match_value' : args.cluster_id
+        'match_key' : match_key,
+        'match_value' : match_value
     }
     return rest_api_params
-#end def delete_cluster
+#end def show_cluster
 
-def delete_image(args):
+def show_image(args):
+    if args.image_id:
+        match_key = 'image_id'
+        match_value = args.image_id
+    else:
+        match_key = None
+        match_value = None
     rest_api_params = {
         'object' : 'image',
-        'match_key' : 'image_id',
-        'match_value' : args.image_id
+        'match_key' : match_key,
+        'match_value' : match_value
     }
     return rest_api_params
-#end def delete_image
+#end def show_image
 
-def delete_config(args_str=None):
+def show_all(args):
+    rest_api_params = {
+        'object' : 'all',
+        'match_key' : None,
+        'match_value' : None
+    }
+    return rest_api_params
+#end def show_all
+
+def show_config(args_str=None):
     parser = parse_arguments()
     args = parser.parse_args(args_str)
     if args.ip_port:
@@ -190,13 +232,14 @@ def delete_config(args_str=None):
     resp = send_REST_request(smgr_ip, smgr_port,
                       rest_api_params['object'],
                       rest_api_params['match_key'],
-                      rest_api_params['match_value'])
+                      rest_api_params['match_value'],
+                      args.detail)
     print resp
-# End of delete_config
+# End of show_config
 
 if __name__ == "__main__":
     import cgitb
     cgitb.enable(format='text')
 
-    delete_config(sys.argv[1:])
+    show_config(sys.argv[1:])
 # End if __name__
