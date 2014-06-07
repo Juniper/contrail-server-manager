@@ -11,7 +11,7 @@ export WS := $(shell pwd)
 export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):debian/contrail-control/usr/lib64/contrail:debian/contrail-libs/usr/lib64/contrail
 export BUILDTIME := $(shell date -u +%y%m%d%H%M)
 export src_path := ./../
-export build_root := debian/contrail-smgr
+export build_root := debian/contrail-smgr-client
 BUILDTAG =
 ifdef TAG
 BUILDTAG = $(TAG)

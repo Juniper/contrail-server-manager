@@ -1,6 +1,6 @@
-contrail-smgr (1401101206) swamy; urgency=low
+contrail-smgr-client (1401101206) tsurendra; urgency=low
 
-  [swamy ]
+  [tsurendra ]
   * debian/changelog: changelog
 
- -- swamy <swamy@juniper.net>  Wed, 10 Jul 2013 13:00:11 -0500
+ -- tsurendra <tsurendra@juniper.net>  Wed, 10 Jul 2013 13:00:11 -0500
