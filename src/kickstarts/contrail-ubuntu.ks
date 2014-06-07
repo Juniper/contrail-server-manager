@@ -1,4 +1,7 @@
 # Kickstart template for the NewNode (ubuntu)
+%pre
+wget http://$server/cblr/svc/op/trig/mode/pre/system/$system_name
+
 %post
 set -x -v
 #--------------------------------------------------------------------------

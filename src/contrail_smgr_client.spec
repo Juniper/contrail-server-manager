@@ -51,6 +51,9 @@ echo $HOST_IP
 easy_install argparse
 easy_install pycurl
 
+if [ -e /usr/bin/server-manager ]; then
+   unlink /usr/bin/server-manager
+fi
 ln -s /opt/contrail/server_manager/client/server-manager /usr/bin/server-manager
 %build
 cd %{_contrail_smgr_src}client/
