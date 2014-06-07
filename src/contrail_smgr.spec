@@ -148,7 +148,6 @@ cp -r %{_contrail_smgr_src}/puppet %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}repos/contrail-centos-repo %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}cobbler %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}kickstarts %{buildroot}%{_contrailetc}
-cp -r %{_contrail_smgr_src}client/smgr_client_config.ini %{buildroot}%{_contrailetc}
 cp %{_contrail_smgr_src}contrail_smgrd.start %{buildroot}%{_sbinusr}contrail_smgrd
 cp %{_contrail_smgr_src}utils/sendmail.cf %{buildroot}%{_contrailetc}
 
