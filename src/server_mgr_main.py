@@ -1564,9 +1564,9 @@ class VncServerManager():
 
                 passwd = mask = gway = domain = None
                 server_id = server['server_id']
-                if 'passwd' in server:
+                if 'passwd' in server and server['passwd']:
                     passwd = server['passwd']
-                elif 'passwd' in vns_params:
+                elif 'passwd' in vns_params and vns_params['passwd']:
                     passwd = vns_params['passwd']
                 else:
                     abort(404, "Missing Password for " + server_id)
