@@ -62,12 +62,16 @@ object_dict = {
         ("gway", "gateway (default use value from vns table)"),
         ("domain", "domain name (default use value from vns table)"),
         ("passwd", "root password (default use value from vns table)"),
+        ("power_pass", "IPMI password"),
+        ("power_user", "IPMI user"),
+        ("power_address", "IPMI Address"),
         ("email", "email id for notifications (default use value from vns table)"),
     ]),
     "image" : OrderedDict ([
         ("image_id", "Specify unique image id for this image"),
         ("image_version", "Specify version for this image"),
-        ("image_type", "ubuntu/centos/contrail-ubuntu-repo"),
+        ("image_type",
+         "ubuntu/centos/contrail-ubuntu-package/contrail-centos-package"),
         ("image_path", "complete path where image file is located on server")
     ]),
     "cluster" : OrderedDict ([
@@ -184,7 +188,8 @@ def add_payload(object):
                         msg += " (%s) " %(pvalue)
                     msg += ": "
                     user_input = raw_input(msg)
-                    param_dict[param] = user_input
+                    if user_input:
+                        param_dict[param] = user_input
                 temp_dict[key] = param_dict
             # End if (key != (object+"_params"))
         # End for key, value in fields_dict 
@@ -224,12 +229,15 @@ def add_config(args_str=None):
         # end except
     # end else args.ip_port
     object = args.object
-    if args.file_name:
-        payload = json.load(open(args.file_name))
-    else:
-        # Accept parameters and construct json.
-        payload = add_payload(object)
-
+    try:
+        if args.file_name:
+            payload = json.load(open(args.file_name))
+        else:
+            # Accept parameters and construct json.
+            payload = add_payload(object)
+    except ValueError as e:
+        print "Error in JSON Format : %s" % e
+        sys.exit(1)
     resp = send_REST_request(smgr_ip, smgr_port,
                       object, payload)
     print resp

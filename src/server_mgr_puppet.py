@@ -116,7 +116,6 @@ class ServerMgrPuppet:
     # end puppet_add_database_role
 
     def puppet_add_common_role(self, provision_params, last_res_added=None):
-#        pdb.set_trace()
         #add Interface Steps
         intf_bonds = {}
         intf_control = {}
@@ -404,7 +403,6 @@ $__contrail_disc_backend_servers__
 
     def puppet_add_config_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
-#        pdb.set_trace()
         data = ''
     #if 'haproxy' in config_role_params.dict() \
     # and config_role_params['haproxy'] == 'enable':
@@ -975,7 +973,6 @@ $__contrail_quantum_servers__
     }
 
     def provision_server(self, provision_params):
-#        pdb.set_trace()
         # Create a new site file for this server
         server_manifest_file = self.pupp_create_server_manifest_file(
             provision_params)

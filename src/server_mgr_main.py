@@ -114,6 +114,9 @@ class VncServerManager():
         "passwd": "",
         "domain": "",
         "email": "",
+        "power_user": "",
+        "power_type": "",
+        "power_pass": "",
         "power_address": ""
     }
 
@@ -375,7 +378,6 @@ class VncServerManager():
            raise ServerMgrException(msg)
 
     def validate_smgr_get(self, validation_data, request, data=None):
-#        pdb.set_trace()
         ret_data = {}
         ret_data['status'] = 1
         query_args = parse_qs(urlparse(request.url).query,
@@ -407,7 +409,13 @@ class VncServerManager():
     def validate_smgr_put(self, validation_data, request, data=None):
         ret_data = {}
         ret_data['status'] = 1
-
+        try:
+            json_data = json.load(request.body)
+        except ValueError as e :
+            msg = "Invalid JSON data : %s " % e
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               msg )
+            raise ServerMgrException(msg)
         entity = request.json
         #check if json data is present
         if (not entity):
@@ -685,7 +693,6 @@ class VncServerManager():
         ret_data = {}
         ret_data['status'] = 1
 
-#        pdb.set_trace()
         ret_data = {}
         ret_data['status'] = 1
         if type == "SERVER":
@@ -955,7 +962,6 @@ class VncServerManager():
             self.validate_smgr_entity("vns", entity)
             vns = entity.get('vns', None)
             for cur_vns in vns:
-#                pdb.set_trace()
                 self.validate_smgr_request("VNS", "PUT", bottle.request,
                                                 cur_vns)
                 #use macros for obj type
@@ -992,12 +998,21 @@ class VncServerManager():
             self.validate_smgr_entity("server", entity)
             servers = entity.get("server", None)
             for server in servers:
-                self.validate_smgr_request("SERVER", "PUT", bottle.request,
-                        server)
+                #commenting out now, untill i find a better way for this code
+                # self.validate_smgr_request("SERVER", "PUT", bottle.request,
+                #                                                       server)
                 if self._serverDb.check_obj("server", "server_id",
                                             server['server_id'], False):
+                    #TODO - Revisit this logic
+                    # Do we need mac to be primary MAC
+                    self.server_fields['primary_keys'] = "['server_id']"
+                    self.validate_smgr_request("SERVER", "PUT", bottle.request,
+                                                                        server)
                     self._serverDb.modify_server(server)
+                    self.server_fields['primary_keys'] = "['server_id', 'mac']"
                 else:
+                    self.validate_smgr_request("SERVER", "PUT", bottle.request,
+                                                                        server)
                     self._serverDb.add_server(server)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -1397,7 +1412,6 @@ class VncServerManager():
     # the server, or server parameters.
     def modify_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "modify_server")
-#        pdb.set_trace()
         entity = bottle.request.json
         try:
             self.validate_smgr_entity("server", entity)
@@ -1451,7 +1465,6 @@ class VncServerManager():
 
     # API to modify parameters for an image.
     def modify_image(self):
-#        pdb.set_trace()
         self._smgr_log.log(self._smgr_log.DEBUG, "modify_image")
         entity = bottle.request.json
         try:
@@ -1518,7 +1531,6 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, "reimage_server")
         try:
             ret_data = self.validate_smgr_request("SERVER", "REIMAGE", bottle.request)
-#            pdb.set_trace()
             if ret_data['status'] == 0:
                 base_image_id = ret_data['base_image_id']
                 package_image_id = ret_data['package_image_id']
@@ -1634,13 +1646,11 @@ class VncServerManager():
     # API call to power-cycle the server (IMPI Interface)
     def restart_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "restart_server")
-#        pdb.set_trace()
         net_boot = None
         match_key = None
         match_value = None
         try:
             ret_data = self.validate_smgr_request("SERVER", "REBOOT", bottle.request)
-#            pdb.set_trace()
             if ret_data['status'] == 0:
                 do_net_boot = ret_data['net_boot']
                 match_key = ret_data['match_key']

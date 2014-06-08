@@ -410,13 +410,21 @@ class ServerMgrDb:
             self.check_obj("vns", "vns_id", vns_id)
             db_vns = self.get_vns(vns_id, detail=True)
             db_vns_params_str = db_vns[0] ['vns_params']
-            db_vns_params = eval(db_vns_params_str)
-            if 'uuid' not in db_vns_params:
+            db_vns_params = None
+            if db_vns_params_str:
+                db_vns_params = eval(db_vns_params_str)
+            if db_vns_params is None or 'uuid' not in db_vns_params:
                 str_uuid = str(uuid.uuid4())
                 vns_data["vns_params"].update({"uuid":str_uuid})
 
+
             # Store vns_params dictionary as a text field
             vns_params = vns_data.pop("vns_params", None)
+            for k,v in vns_params.iteritems():
+                if v == '""':
+                    v = ''
+                db_vns_params[k] = v
+            vns_params = db_vns_params
             if vns_params is not None:
                 vns_data['vns_params'] = str(vns_params)
             email = vns_data.pop("email", None)
@@ -449,6 +457,9 @@ class ServerMgrDb:
     # End of modify_image
 
     def modify_server(self, server_data):
+        db_server = None
+        db_server = self.get_server('server_id', server_data['server_id'],
+                                                    detail=True)
         try:
             if 'mac' in server_data:
                 server_data['mac'] = str(
@@ -466,8 +477,6 @@ class ServerMgrDb:
                 self.check_obj('server', 'server_id',
                                         server_data['server_id'])
                 #Reject if primary key values change
-                db_server = self.get_server('server_id', server_data['server_id'],
-                                                    detail=True)
                 if server_data['mac'] != db_server[0]['mac']:
                     raise ServerMgrException('MAC address cannnot be modified')
 
@@ -487,8 +496,17 @@ class ServerMgrDb:
 
             # Store server_params dictionary as a text field
             server_params = server_data.pop("server_params", None)
-            if server_params is not None:
-                server_data['server_params'] = str(server_params)
+            #if server_params is not None:
+            #    server_data['server_params'] = str(server_params)
+            #check for modify in db server_params
+            #Always Update DB server parmas
+            db_server_params_str = db_server[0] ['server_params']
+            db_server_params = eval(db_server_params_str)
+            for k,v in server_params.iteritems():
+                if v == '""':
+                    v = ''
+                db_server_params[k] = v
+            server_data['server_params'] = str(db_server_params)
             email = server_data.pop("email", None)
             if email is not None:
                 server_data['email'] = str(email)

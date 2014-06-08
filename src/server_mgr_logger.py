@@ -100,7 +100,6 @@ class ServerMgrTransactionlogger:
         self._smgr_trans_log.addHandler(fh)
 
     def log(self, data, transaction_type, success=True):
-#        pdb.set_trace()
         msg = None
         if transaction_type == self.GET_SMGR_CFG_ALL:
             msg = "ACTION %s: %s %s" % \
