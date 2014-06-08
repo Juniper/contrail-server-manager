@@ -4,7 +4,6 @@ import commands
 import sys
 
 def provision_bgp(bgp_params, api_server_ip, api_server_port, router_asn , mt_options):
-#    pdb.set_trace()
     if bgp_params == '':
         sys.exit(0)
 
