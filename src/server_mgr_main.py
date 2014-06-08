@@ -1564,33 +1564,43 @@ class VncServerManager():
 
                 passwd = mask = gway = domain = None
                 server_id = server['server_id']
-                if 'passwd' in server:
+                if 'passwd' in server and server['passwd']:
                     passwd = server['passwd']
-                elif 'passwd' in vns_params:
+                elif 'passwd' in vns_params and vns_params['passwd']:
                     passwd = vns_params['passwd']
                 else:
-                    abort(404, "Missing Password for " + server_id)
+                    msg = "Missing Password for " + server_id
+                    raise ServerMgrException(msg)
 
                 if 'mask' in server and server['mask']:
                     mask = server['mask']
                 elif 'mask' in vns_params and vns_params['mask']:
                     mask = vns_params['mask']
                 else:
-                    abort(404, "Missing prefix/mask for " + server_id)
+                    msg = "Missing prefix/mask for " + server_id
+                    raise ServerMgrException(msg)
 
                 if 'gway' in server and server['gway']:
                     gway = server['gway']
                 elif 'gway' in vns_params and vns_params['gway']:
                     gway = vns_params['gway']
                 else:
-                    abort(404, "Missing gateway for " + server_id)
+                    msg = "Missing gateway for " + server_id
+                    raise ServerMgrException(msg)
 
                 if 'domain' in server and server['domain']:
                     domain = server['domain']
                 elif 'domain' in vns_params and vns_params['domain']:
                     domain = vns_params['domain']
                 else:
-                    abort(404, "Missing domain for " + server_id)
+                    msg = "Missing domain for " + server_id
+                    raise ServerMgrException(msg)
+
+                if 'ip' in server and server['ip']:
+                    ip = server['ip']
+                else:
+                    msg = "Missing ip for " + server_id
+                    raise ServerMgrException(msg)
 
                 reimage_params = {}
                 reimage_params['server_id'] = server['server_id']
@@ -1601,6 +1611,12 @@ class VncServerManager():
                 reimage_params['server_mask'] = mask
                 reimage_params['server_gway'] = gway
                 reimage_params['server_domain'] = domain
+                if 'ifname' not in server_params:
+                    msg = "Missing ifname for " + server_id
+                    raise ServerMgrException(msg)
+                if 'power_address' in server and server['power_address'] == None:
+                    msg = "Missing power address for " + server_id
+                    raise ServerMgrException(msg)
                 reimage_params['server_ifname'] = server_params['ifname']
                 reimage_params['power_type'] = server.get('power_type')
                 if not reimage_params['power_type']:

@@ -458,7 +458,11 @@ class ServerMgrDb:
 
     def modify_server(self, server_data):
         db_server = None
-        db_server = self.get_server('server_id', server_data['server_id'],
+        if 'server_id' in server_data.keys():
+            db_server = self.get_server('server_id', server_data['server_id'],
+                                                    detail=True)
+        elif 'mac' in server_data.keys():
+            db_server = self.get_server('mac', server_data['mac'],
                                                     detail=True)
         try:
             if 'mac' in server_data:
@@ -500,13 +504,17 @@ class ServerMgrDb:
             #    server_data['server_params'] = str(server_params)
             #check for modify in db server_params
             #Always Update DB server parmas
+            db_server_params = {}
             db_server_params_str = db_server[0] ['server_params']
-            db_server_params = eval(db_server_params_str)
-            for k,v in server_params.iteritems():
-                if v == '""':
-                    v = ''
-                db_server_params[k] = v
+            if db_server_params_str:
+                db_server_params = eval(db_server_params_str)
+                if server_params:
+                    for k,v in server_params.iteritems():
+                        if v == '""':
+                            v = ''
+                        db_server_params[k] = v
             server_data['server_params'] = str(db_server_params)
+                   
             email = server_data.pop("email", None)
             if email is not None:
                 server_data['email'] = str(email)
