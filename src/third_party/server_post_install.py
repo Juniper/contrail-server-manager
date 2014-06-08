@@ -59,7 +59,7 @@ def run(api, args, logger):
     payload = 'reimage completed'
     send_REST_request(ip, '9001', url_str, payload)
     fd = open("/var/log/cobbler/contrail_install.log","a+")
-    fd.write("%s\t%s\t%s\tcompleted\t%s\n" % (objtype,name,ip,time.asctime(time.localtime(time.time()))))
+    fd.write("\n%s\t%s\t%s\tcompleted\t%s\n" % (objtype,name,ip,time.asctime(time.localtime(time.time()))))
     fd.write("url:%s, payload:%s\n" % (url_str, payload))
     fd.close()
     return 0

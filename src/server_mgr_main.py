@@ -25,7 +25,7 @@ import base64
 import shutil
 import string
 from urlparse import urlparse, parse_qs
-from time import gmtime, strftime
+from time import gmtime, strftime, localtime
 import pdb
 import server_mgr_db
 import ast
@@ -793,8 +793,8 @@ class VncServerManager():
             if 'vns_id' in server and server['vns_id']:
                 vns_id = server['vns_id']
                 vns = self._serverDb.get_vns(vns_id, True)
-                if vns and 'email' in vns and vns['email']:
-                    email_to.append(vns['email'])
+                if vns and 'email' in vns[0] and vns[0]['email']:
+                    email_to.append(vns[0]['email'])
                 else:
                     return
             else:
@@ -830,7 +830,7 @@ class VncServerManager():
         try:
             resp = self.get_obj(body)
             if str(resp) == 'reimage completed' or str(resp) == 'reimage start':
-                message = server_id + ' ' + str(resp)
+                message = server_id + ' ' + str(resp) + strftime(" (%Y-%m-%d %H:%M:%S)", localtime())
                 self.send_status_mail(server_id, message, message)
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
             servers = self._serverDb.put_status(
@@ -844,9 +844,10 @@ class VncServerManager():
         server_id = bottle.request.query['server_id']
         servers = self._serverDb.get_status('server_id',
                         server_id, True)
-        return servers[0]
-
-
+        if servers:
+            return servers[0]
+        else:
+            return None
 
     def put_cluster(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "put_cluster")
