@@ -1554,10 +1554,12 @@ class VncServerManager():
                 msg = "No Servers found for %s" % (match_value)
                 raise ServerMgrException(msg)
             for server in servers:
+                vns = None
                 server_params = eval(server['server_params'])
                 # build all parameters needed for re-imaging
-                vns = self._serverDb.get_vns(server['vns_id'],
-                                             detail=True)
+                if server['vns_id']:
+                    vns = self._serverDb.get_vns(server['vns_id'],
+                                                    detail=True)
                 vns_params = {}
                 if vns and vns[0]['vns_params']:
                     vns_params = eval(vns[0]['vns_params'])
@@ -1680,7 +1682,10 @@ class VncServerManager():
                     (match_value)
                 raise ServerMgrException(msg)
             for server in servers:
-                vns = self._serverDb.get_vns(server['vns_id'],
+                vns = None
+                #if its None,It gets the VNS list
+                if server['vns_id']:
+                    vns = self._serverDb.get_vns(server['vns_id'],
                                              detail=True)
                 vns_params = {}
                 if vns and vns[0]['vns_params']:

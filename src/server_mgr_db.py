@@ -410,7 +410,7 @@ class ServerMgrDb:
             self.check_obj("vns", "vns_id", vns_id)
             db_vns = self.get_vns(vns_id, detail=True)
             db_vns_params_str = db_vns[0] ['vns_params']
-            db_vns_params = None
+            db_vns_params = {}
             if db_vns_params_str:
                 db_vns_params = eval(db_vns_params_str)
             if db_vns_params is None or 'uuid' not in db_vns_params:
