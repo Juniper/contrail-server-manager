@@ -2,6 +2,7 @@
 api_server_ip = <%= contrail_config_ip %>
 api_server_port = 8082
 multi_tenancy = <%= contrail_multi_tenancy %>
+contrail_extensions = ipam:neutron_plugin_contrail.plugins.opencontrail.contrail_plugin_ipam.NeutronPluginContrailIpam,policy:neutron_plugin_contrail.plugins.opencontrail.contrail_plugin_policy.NeutronPluginContrailPolicy,route-table:neutron_plugin_contrail.plugins.opencontrail.contrail_plugin_vpc.NeutronPluginContrailVpc
 
 [KEYSTONE]
 ;auth_url = http://127.0.0.1:35357/v2.0

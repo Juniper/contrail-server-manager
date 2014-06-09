@@ -3,16 +3,9 @@ cfgm_index=$1; shift
 zk_ip_str=$1; shift
 zk_ips=${zk_ip_str//,/ }
 zk_ip_list=($zk_ips)
-if [ $ostype == "Fedora" -o $ostype == "CentOS" ]; then
-    zk_cfg="/etc/zookeeper/zoo.cfg"
-    log4j=" /etc/zookeeper/log4j.properties"
-    myid="/var/lib/zookeeper/data/myid"
-elif [ $ostype == "Ubuntu" ]; then
-    zk_cfg="/etc/zookeeper/conf/zoo.cfg"
-    log4j="/etc/zookeeper/conf_example/log4j.properties"
+zk_cfg="/etc/zookeeper/conf/zoo.cfg"
+log4j="/etc/zookeeper/conf/log4j.properties"
     myid="/var/lib/zookeeper/myid"
-fi
-
 
 echo $ostype
 echo $cfg_index
