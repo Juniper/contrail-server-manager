@@ -218,7 +218,7 @@ class ServerMgrDb:
                     sel_cols = "*"
                 else:
                     sel_cols = primary_key
-                if (not match_key):
+                if ((not match_key) or (not match_value)):
                     select_str = "SELECT %s FROM %s" % (sel_cols, table_name)
                 else:
                     select_str = "SELECT %s FROM %s WHERE %s=\'%s\'" \

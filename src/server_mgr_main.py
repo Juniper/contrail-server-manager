@@ -452,6 +452,8 @@ class VncServerManager():
                 msg =  ("Value %s is not an option") % (data_item_key)
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    msg)
+            if data_item_value == '""':
+                data[data_item_key] = ''
         for item in remove_list:
             data.pop(item, None)
         #not needed as of now
@@ -797,10 +799,14 @@ class VncServerManager():
                 if vns and 'email' in vns[0] and vns[0]['email']:
                     email_to.append(vns[0]['email'])
                 else:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "vns or server doesn't configured for email")
                     return
             else:
+                self._smgr_log.log(self._smgr_log.DEBUG, "server not associated with a vns")
                 return
         send_mail(event, message, '', email_to, self._smgr_cobbler._cobbler_ip, '25')
+        msg = "An email is sent to " + email_to[0] + " with content " + message 
+        self._smgr_log.log(self._smgr_log.DEBUG, msg)
     # send_status_mail
 
     def get_obj(self, resp):
