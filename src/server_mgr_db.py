@@ -218,7 +218,7 @@ class ServerMgrDb:
                     sel_cols = "*"
                 else:
                     sel_cols = primary_key
-                if ((not match_key) or (not match_value)):
+                if (not match_key):
                     select_str = "SELECT %s FROM %s" % (sel_cols, table_name)
                 else:
                     select_str = "SELECT %s FROM %s WHERE %s=\'%s\'" \
@@ -409,14 +409,16 @@ class ServerMgrDb:
                 raise Exception("No vns id specified")
             self.check_obj("vns", "vns_id", vns_id)
             db_vns = self.get_vns(vns_id, detail=True)
+            if not db_vns:
+                msg = "%s is not valid" % vns_id
+                raise ServerMgrException(msg)
             db_vns_params_str = db_vns[0] ['vns_params']
             db_vns_params = {}
             if db_vns_params_str:
                 db_vns_params = eval(db_vns_params_str)
-            if db_vns_params is None or 'uuid' not in db_vns_params:
+            if 'uuid' not in db_vns_params:
                 str_uuid = str(uuid.uuid4())
                 vns_data["vns_params"].update({"uuid":str_uuid})
-
 
             # Store vns_params dictionary as a text field
             vns_params = vns_data.pop("vns_params", None)

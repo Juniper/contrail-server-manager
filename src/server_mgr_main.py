@@ -782,7 +782,8 @@ class VncServerManager():
         # Get server entry and find configured e-mail
         servers = self._serverDb.get_server("server_id", server_id, True)
         if not servers:
-            # Send/log an error
+            msg = "No server found with server_id " + server_id 
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
             return
         server = servers[0]
         email_to = []
