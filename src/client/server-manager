@@ -23,14 +23,15 @@ import smgr_status
 import smgr_add
 
 commands_dict = {
+    'add' : smgr_add.add_config,
     'delete' : smgr_delete.delete_config,
     'show'   : smgr_show.show_config,
-    'upload_image' : smgr_upload_image.upload_image,
     'reimage' : smgr_reimage_server.reimage_server,
     'provision' : smgr_provision_server.provision_server,
     'restart' : smgr_restart_server.restart_server,
-    'status' : smgr_status.show_status,
-    'add' : smgr_add.add_config }
+    'upload_image' : smgr_upload_image.upload_image,
+    'status' : smgr_status.show_status
+    }
 
 def server_manager(args_str=None):
     if not args_str:
@@ -42,16 +43,15 @@ def server_manager(args_str=None):
         usage= '''server-manager <command> [<args>]
 
 The server manager commands are:
+   add            Add server manager objects(create or modify server manager objects)
    delete         Delete server manager objects
-   show           show server manager objects configuration
-   upload_image   Upload images to server manager DB
+   show           Show server manager objects configuration
    reimage        Prepare servers for reimaging with given image
    provision      Provision servers to provide configured roles
-   restart        Restart servers so that any reimage or provision
-                  commands can take effect
-   status         status of servers.
-   add            add a server manager object(create or modify a server manager
-object)
+   restart        Restart servers 
+   upload_image   Upload images to server manager DB
+   status         Status of servers
+
 '''
     )
     parser.add_argument(
