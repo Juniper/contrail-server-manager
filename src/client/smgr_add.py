@@ -203,9 +203,18 @@ def object_exists(object, object_id_key, object_id_value, payload):
     return False
 # end object_exists
 
+def get_object_config_ini_entries(object, config):
+    config_object_defaults = None
+    try:
+        config_object_defaults = config.items(object.upper())
+        return config_object_defaults
+    except ConfigParser.NoSectionError:
+        return config_object_defaults
+# end get_object_config_ini_entries
+
 def get_default_object(object, config):
     default_object = {}
-    config_object_defaults = config.items(object.upper())
+    config_object_defaults = get_object_config_ini_entries(object, config)
     if not config_object_defaults:
         return default_object
     default_object[object+"_params"] = {}
@@ -228,12 +237,14 @@ def merge_with_defaults(object, payload, config):
             continue
         if object_exists(object, object+"_id", str(obj[obj_id]), {}):
             continue
-        if object+"_params" in obj:
+        param_object = {}
+        if object+"_params" in obj and object+"_params" in default_object:
             param_object = dict(default_object[object+"_params"].items() + obj[object+"_params"].items())
-        else:
-            param_object = default_object[object+"_params"]
+        elif object+"_params" in default_object:
+            param_object = default_object[object+"_params"] 
         payload[object][i] = dict(default_object.items() + obj.items())
-        payload[object][i][object+"_params"] = param_object
+        if param_object:
+            payload[object][i][object+"_params"] = param_object
 
 # end create_vns_default_dict
 
