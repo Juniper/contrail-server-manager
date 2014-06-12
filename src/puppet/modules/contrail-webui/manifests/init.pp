@@ -4,6 +4,7 @@ define contrail-webui (
         $contrail_config_ip,
         $contrail_collector_ip,
         $contrail_openstack_ip,
+        $contrail_keystone_ip = $contrail_openstack_ip,
         $contrail_cassandra_ip_list
     ) {
 

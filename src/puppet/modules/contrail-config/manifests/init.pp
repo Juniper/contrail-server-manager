@@ -38,6 +38,7 @@ define contrail-config (
         $contrail_cassandra_ip_list,
         $contrail_cassandra_ip_port,
         $contrail_openstack_ip,
+        $contrail_keystone_ip = $contrail_openstack_ip,
         $contrail_use_certs,
         $contrail_service_token,
         $contrail_ks_admin_user,
@@ -60,8 +61,10 @@ define contrail-config (
 	$contrail_encap_priority,
 	$contrail_bgp_params,
         $contrail_ks_insecure_flag=false,
-        $contrail_hc_interval=5,
-        $contrail_ks_auth_protocol=http
+        $contrail_hc_interval="5",
+        $contrail_ks_auth_protocol="http",
+        $contrail_quantum_service_protocol="http",
+        $contrail_ks_auth_port="35357"
     ) {
 
     if $contrail_use_certs == "yes" {
@@ -365,7 +368,7 @@ define contrail-config (
 
     # Initialize the multi tenancy option will update latter based on vns argument
     if ($contrail_multi_tenancy == "True") {
-	$mt_options = "[admin,$contrail_ks_admin_passwd,$contrail_ks_admin_tenant]"
+	$mt_options = "admin,$contrail_ks_admin_passwd,$contrail_ks_admin_tenant"
     } else {
         $mt_options = "None" 
     } 
@@ -380,8 +383,10 @@ define contrail-config (
         group => root,
         source => "puppet:///modules/contrail-config/exec_provision_control.py"
     }
+    $contrail_host_ip_list_for_shell = inline_template('<%= contrail_control_ip_list.map{ |ip| "#{ip}" }.join(",") %>')
+    $contrail_host_name_list_for_shell = inline_template('<%= contrail_control_name_list.map{ |name| "#{name}" }.join(",") %>')
     exec { "exec-provision-control" :
-        command => "python  exec_provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name_list [$contrail_control_name_list] --host_ip [$contrail_control_ip_list] --router_asn $router_asn --mt_options $mt_options && echo exec-provision-control >> /etc/contrail/contrail-config-exec.out",
+        command => "python  exec_provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name_list $contrail_host_name_list_for_shell --host_ip_list $contrail_host_ip_list_for_shell --router_asn $router_asn --mt_options $mt_options && echo exec-provision-control >> /etc/contrail/contrail-config-exec.out",
         cwd => "/etc/contrail/contrail_setup_utils/",
         unless  => "grep -qx exec-provision-control /etc/contrail/contrail-config-exec.out",
         provider => shell,

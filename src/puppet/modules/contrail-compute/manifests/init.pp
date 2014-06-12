@@ -33,6 +33,7 @@ define contrail-compute-part-1 (
         $contrail_compute_hostname,
         $contrail_collector_ip,
         $contrail_openstack_ip,
+        $contrail_keystone_ip = $contrail_openstack_ip,
         $contrail_openstack_mgmt_ip,
         $contrail_service_token,
         $contrail_physical_interface,
@@ -100,6 +101,7 @@ define contrail-compute-part-2 (
         $contrail_compute_hostname,
         $contrail_collector_ip,
         $contrail_openstack_ip,
+        $contrail_keystone_ip = $contrail_openstack_ip,
         $contrail_openstack_mgmt_ip,
         $contrail_service_token,
         $contrail_physical_interface,
@@ -110,6 +112,10 @@ define contrail-compute-part-2 (
         $contrail_ks_admin_passwd,
         $contrail_ks_admin_tenant,
 	$contrail_haproxy,
+        $contrail_ks_auth_protocol="http",
+        $contrail_quantum_service_protocol="http",
+        $contrail_amqp_server_ip="127.0.0.1",
+        $contrail_ks_auth_port="35357"
     ) {
     # Ensure all needed packages are present
     package { 'contrail-openstack-vrouter' : ensure => present,}
@@ -168,15 +174,15 @@ define contrail-compute-part-2 (
      }
 
     exec { "exec-compute-qpid-rabbitmq-hostname" :
-        command => "echo \"rabbit_host = $contrail_openstack_ip\" >> /etc/nova/nova.conf && echo exec-compute-qpid-rabbitmq-hostname >> /etc/contrail/contrail-compute-exec.out",
+        command => "echo \"rabbit_host = $contrail_amqp_server_ip\" >> /etc/nova/nova.conf && echo exec-compute-qpid-rabbitmq-hostname >> /etc/contrail/contrail-compute-exec.out",
         unless  => ["grep -qx exec-compute-qpid-rabbitmq-hostname /etc/contrail/contrail-compute-exec.out",
-                    "grep -qx \"rabbit_host = $contrail_openstack_ip\" /etc/nova/nova.conf"],
+                    "grep -qx \"rabbit_host = $contrail_amqp_server_ip\" /etc/nova/nova.conf"],
         provider => shell,
         logoutput => 'true'
     }
 
     exec { "exec-compute-neutron-admin" :
-        command => "echo \"neutron_admin_auth_url = http://$contrail_openstack_ip:5000/v2.0\" >> /etc/nova/nova.conf && echo exec-compute-neutron-admin >> /etc/contrail/contrail-compute-exec.out",
+        command => "echo \"neutron_admin_auth_url = http://$contrail_keystone_ip:5000/v2.0\" >> /etc/nova/nova.conf && echo exec-compute-neutron-admin >> /etc/contrail/contrail-compute-exec.out",
         unless  => ["grep -qx exec-compute-neutron-admin /etc/contrail/contrail-compute-exec.out",
                     "grep -qx \"neutron_admin_auth_url = http://$contrail_openstack_ip/v2.0\" /etc/nova/nova.conf"],
         provider => shell,
@@ -201,7 +207,7 @@ define contrail-compute-part-2 (
 	}
         file { "/etc/contrail/ctrl-details" :
             ensure  => present,
-            content => template("contrail-compute/ctrl-details.erb"),
+            content => template("contrail-common/ctrl-details.erb"),
         }
     }
 
@@ -397,6 +403,7 @@ define contrail-compute (
         $contrail_compute_hostname,
         $contrail_collector_ip,
         $contrail_openstack_ip,
+        $contrail_keystone_ip = $contrail_openstack_ip,
         $contrail_openstack_mgmt_ip,
         $contrail_service_token,
         $contrail_physical_interface,
@@ -408,6 +415,10 @@ define contrail-compute (
         $contrail_ks_admin_passwd,
         $contrail_ks_admin_tenant,
 	$contrail_haproxy,
+        $contrail_ks_auth_protocol="http",
+        $contrail_quantum_service_protocol="http",
+        $contrail_amqp_server_ip="127.0.0.1",
+        $contrail_ks_auth_port="35357"
     ) {
 
     if ($operatingsystem == "Ubuntu") {
@@ -418,6 +429,7 @@ define contrail-compute (
                 contrail_compute_hostname => $contrail_compute_hostname,
                 contrail_collector_ip => $contrail_collector_ip,
                 contrail_openstack_ip => $contrail_openstack_ip,
+                contrail_keystone_ip => $contrail_keystone_ip,
                 contrail_openstack_mgmt_ip => $contrail_openstack_mgmt_ip,
                 contrail_service_token => $contrail_service_token,
                 contrail_physical_interface => "",
@@ -428,7 +440,10 @@ define contrail-compute (
                 contrail_ks_admin_passwd => $contrail_ks_admin_passwd,
                 contrail_ks_admin_tenant => $contrail_ks_admin_tenant,
 		contrail_haproxy => $contrail_haproxy,
-
+                contrail_ks_auth_protocol => $contrail_ks_auth_protocol,
+                contrail_quantum_service_protocol => $contrail_quantum_service_protocol,
+                contrail_amqp_server_ip => $contrail_amqp_server_ip,
+                contrail_ks_auth_port => $contrail_ks_auth_port
             }
         }
         else {
@@ -443,6 +458,7 @@ define contrail-compute (
                 contrail_compute_hostname => $contrail_compute_hostname,
                 contrail_collector_ip => $contrail_collector_ip,
                 contrail_openstack_ip => $contrail_openstack_ip,
+                contrail_keystone_ip => $contrail_keystone_ip,
                 contrail_openstack_mgmt_ip => $contrail_openstack_mgmt_ip,
                 contrail_service_token => $contrail_service_token,
                 contrail_physical_interface => $contrail_physical_interface,
@@ -461,6 +477,7 @@ define contrail-compute (
                 contrail_compute_hostname => $contrail_compute_hostname,
                 contrail_collector_ip => $contrail_collector_ip,
                 contrail_openstack_ip => $contrail_openstack_ip,
+                contrail_keystone_ip => $contrail_keystone_ip,
                 contrail_openstack_mgmt_ip => $contrail_openstack_mgmt_ip,
                 contrail_service_token => $contrail_service_token,
                 contrail_physical_interface => "",
@@ -471,6 +488,10 @@ define contrail-compute (
                 contrail_ks_admin_passwd => $contrail_ks_admin_passwd,
                 contrail_ks_admin_tenant => $contrail_ks_admin_tenant,
 		contrail_haproxy => $contrail_haproxy,
+                contrail_ks_auth_protocol => $contrail_ks_auth_protocol,
+                contrail_quantum_service_protocol => $contrail_quantum_service_protocol,
+                contrail_amqp_server_ip => $contrail_amqp_server_ip,
+                contrail_ks_auth_port => $contrail_ks_auth_port
             }
         }
         else {

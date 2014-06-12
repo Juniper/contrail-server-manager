@@ -25,3 +25,5 @@ helper:mapclient
 
 # This is a read-only MAPC
 reader:reader
+<%= contrail_control_ip_list.map{ |ip| "#{ip}:#{ip}" }.join('\n') %>
+<%= contrail_control_ip_list.map{ |ip| "#{ip}.dns:#{ip}.dns" }.join('\n') %>

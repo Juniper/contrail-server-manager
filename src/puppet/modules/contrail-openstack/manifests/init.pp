@@ -19,12 +19,17 @@ define openstack-scripts {
 
 define contrail-openstack (
         $contrail_openstack_ip,
+        $contrail_keystone_ip = $contrail_openstack_ip,
         $contrail_config_ip,
         $contrail_compute_ip,
         $contrail_openstack_mgmt_ip,
         $contrail_service_token,
         $contrail_ks_admin_passwd,
 	$contrail_haproxy,
+        $contrail_amqp_server_ip="127.0.0.1",
+        $contrail_ks_auth_protocol="http",
+        $contrail_quantum_service_protocol="http",
+        $contrail_ks_auth_port="35357"
     ) {
 
     # list of packages
@@ -114,10 +119,10 @@ define contrail-openstack (
     }
 
     exec { "exec-openstack-qpid-rabbitmq-hostname" :
-        command => "echo \"rabbit_host = $contrail_openstack_ip\" >> /etc/nova/nova.conf && echo exec-openstack-qpid-rabbitmq-hostname >> /etc/contrail/contrail-openstack-exec.out",
+        command => "echo \"rabbit_host = $contrail_amqp_server_ip\" >> /etc/nova/nova.conf && echo exec-openstack-qpid-rabbitmq-hostname >> /etc/contrail/contrail-openstack-exec.out",
         require =>  Package["contrail-openstack"],
         unless  => ["grep -qx exec-openstack-qpid-rabbitmq-hostname /etc/contrail/contrail-openstack-exec.out",
-                    "grep -qx \"rabbit_host = $contrail_openstack_ip\" /etc/nova/nova.conf"],
+                    "grep -qx \"rabbit_host = $contrail_amqp_server_ip\" /etc/nova/nova.conf"],
         provider => shell,
         logoutput => 'true'
     }

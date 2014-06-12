@@ -21,9 +21,9 @@ certfile=/etc/contrail/ssl/certs/apiserver.pem
 ca_certs=/etc/contrail/ssl/certs/ca.pem
 
 [KEYSTONE]
-auth_host=<%= contrail_openstack_ip %>
-auth_protocol=http
-auth_port=35357
+auth_host=<%= contrail_keystone_ip %>
+auth_protocol=<%= contrail_ks_auth_protocol %>
+auth_port=<%= contrail_ks_auth_port %>
 admin_user=<%= contrail_ks_admin_user %>
 admin_password=<%= contrail_ks_admin_passwd %>
 admin_token=<%= contrail_service_token %>

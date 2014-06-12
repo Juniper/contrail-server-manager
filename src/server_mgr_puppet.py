@@ -417,7 +417,8 @@ $__contrail_disc_backend_servers__
             compute_server = provision_params['roles']['compute'][0]
         compute_server_control= self.get_control_ip(provision_params,compute_server)
 
-        control_server_id_lst = provision_params['role_ids'] ['control']
+        control_server_id_lst = ["%s"%(x) for x in \
+            provision_params['role_ids']['control']]
 
         config_servers = provision_params['roles']['config']
 	if 'zookeeper' in provision_params['roles']:
@@ -448,7 +449,8 @@ $__contrail_disc_backend_servers__
         openstack_server = provision_params['roles']['openstack'][0]
         openstack_server_control = self.get_control_ip(provision_params,openstack_server)
         
-        control_ip_list = provision_params['roles']['control']
+        control_ip_list = ["\"%s\""%(x) for x in \
+            provision_params['roles']['control']]
 
         control_ip_list_control=[]
         for itr in control_ip_list:
@@ -481,8 +483,8 @@ $__contrail_disc_backend_servers__
         contrail_use_certs => "%s",
         contrail_multi_tenancy => "%s",
         contrail_config_ip => "%s",
-        contrail_control_ip_list => "%s",
-        contrail_control_name_list => "%s",
+        contrail_control_ip_list => ["%s"],
+        contrail_control_name_list => ["%s"],
         contrail_collector_ip => "%s",
         contrail_service_token => "%s",
         contrail_ks_admin_user => "%s",
