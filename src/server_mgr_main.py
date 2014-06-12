@@ -2062,6 +2062,10 @@ class VncServerManager():
                     cmd = "rm -f /etc/puppet/manifests/%s.%s.pp" %(
                         server['server_id'], server['domain']) 
                     subprocess.call(cmd, shell=True)
+                    # Remove entry for that server from site.pp
+                    cmd = "sed -i \"/%s.%s.pp/d\" /etc/puppet/manifests/site.pp" %(
+                        server['server_id'], server['domain']) 
+                    subprocess.call(cmd, shell=True)
                 # end if
                 if server['power_address']:
                     power_reboot_list.append(

@@ -29,6 +29,11 @@ define contrail-control (
 
     # Ensure all needed packages are present
     package { 'contrail-openstack-control' : ensure => present,}
+    # The above wrapper package should be broken down to the below packages
+    # For Debian/Ubuntu - supervisor, contrail-api-lib, contrail-control, contrail-dns,
+    #                      contrail-setup, contrail-nodemgr
+    # For Centos/Fedora - contrail-api-lib, contrail-control, contrail-setup, contrail-libs
+    #                     contrail-dns, supervisor
 
     # control venv installation
     exec { "control-venv" :
@@ -57,15 +62,19 @@ define contrail-control (
     }
 
     if ($operatingsystem == "Ubuntu"){
-        file {"/etc/init/supervisor-control.override": ensure => absent, require => Package['contrail-openstack-control']}
-        file {"/etc/init/supervisor-dns.override": ensure => absent, require => Package['contrail-openstack-control']}
+        file { ['/etc/init/supervisor-control.override',
+                '/etc/init/supervisor-dns.override'] :
+            ensure => absent,
+            require =>Package['contrail-openstack-control']
+        }
     }
 
     # Ensure all config files with correct content are present.
     control-template-scripts { ["dns.conf", "control-node.conf"]: }
 
     # Hard-coded to be taken as parameter of vnsi and multi-tenancy options need to be passed to contrail-control too.
-
+    # The below script can be avoided. Sets up puppet agent and waits to get certificate from puppet master.
+    # also has service restarts for puppet agent and supervisor-control. Abhay
     file { "/opt/contrail/contrail_installer/contrail_setup_utils/control-server-setup.sh":
         ensure  => present,
         mode => 0755,
@@ -109,15 +118,15 @@ define contrail-control (
         subscribe => File['/etc/contrail/control-node.conf'],
         ensure => running,
     }
-if ($operatingsystem == "Ubuntu") {
-    service { "supervisor-dns" :
-        enable => true,
-        require => [ Package['contrail-openstack-control'],
-                     Exec['control-venv'] ],
-        subscribe => File['/etc/contrail/dns.conf'],
-        ensure => running,
+    if ($operatingsystem == "Ubuntu") {
+        service { "supervisor-dns" :
+            enable => true,
+            require => [ Package['contrail-openstack-control'],
+                         Exec['control-venv'] ],
+            subscribe => File['/etc/contrail/dns.conf'],
+            ensure => running,
+        }
     }
-}
     service { "contrail-named" :
         enable => true,
         require => [ Package['contrail-openstack-control'],

@@ -10,7 +10,8 @@ BASE_URL = /
 ; Authentication settings (optional)
 [auth]
 AUTHN_TYPE = keystone
-AUTHN_SERVER=<%= contrail_openstack_ip %>
+AUTHN_PROTOCOL = <%= contrail_ks_auth_protocol %>
+AUTHN_SERVER=<%= contrail_keystone_ip %>
 AUTHN_PORT = 35357
 AUTHN_URL = /v2.0/tokens
 

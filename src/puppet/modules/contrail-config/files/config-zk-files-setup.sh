@@ -3,24 +3,23 @@ cfgm_index=$1; shift
 zk_ip_str=$1; shift
 zk_ips=${zk_ip_str//,/ }
 zk_ip_list=($zk_ips)
-if [ $ostype == "Fedora" -o $ostype == "CentOS" ]; then
-    zk_cfg="/etc/zookeeper/zoo.cfg"
-    log4j=" /etc/zookeeper/log4j.properties"
-    myid="/var/lib/zookeeper/data/myid"
-elif [ $ostype == "Ubuntu" ]; then
-    zk_cfg="/etc/zookeeper/conf/zoo.cfg"
-    log4j="/etc/zookeeper/conf_example/log4j.properties"
+zk_cfg="/etc/zookeeper/conf/zoo.cfg"
+log4j="/etc/zookeeper/conf/log4j.properties"
     myid="/var/lib/zookeeper/myid"
-fi
-
 
 echo $ostype
 echo $cfg_index
 echo $zk_ip_list
 
 echo "maxSessionTimeout=120000" >> $zk_cfg
-export ZOO_LOG4J_PROP="INFO,CONSOLE,ROLLINGFILE" >> /etc/zookeeper/zookeeper-env.sh
+echo "autopurge.purgeInterval=3" >> $zk_cfg
 sed -i 's/^#log4j.appender.ROLLINGFILE.MaxBackupIndex=10/log4j.appender.ROLLINGFILE.MaxBackupIndex=11/g' $log4j
+if [ $ostype == "Fedora" -o $ostype == "CentOS" ]; then
+    echo "export ZOO_LOG4J_PROP=\"INFO,CONSOLE,ROLLINGFILE\"" >> /etc/zookeeper/zookeeper-env.sh
+fi
+if [ $ostype == "Ubuntu" ]; then
+    echo "ZOO_LOG4J_PROP=\"INFO,CONSOLE,ROLLINGFILE\"" >> /etc/zookeeper/conf/environment
+fi
 
 zk_index=1
 for zk_ip in "${zk_ip_list[@]}"

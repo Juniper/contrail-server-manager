@@ -113,7 +113,7 @@ class ServerMgrPuppet:
                 provision_params["server_mgr_ip"],
                 "Contrail-common::Contrail-common[\"contrail_common\"]")
         return data
-    # end puppet_add_database_role
+    # end _repository_config
 
     def puppet_add_common_role(self, provision_params, last_res_added=None):
         #add Interface Steps
@@ -204,19 +204,24 @@ class ServerMgrPuppet:
 
     def puppet_add_database_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
-        data = ''
-        if provision_params['server_ip'] in provision_params['roles']['config']:
-            config_server = provision_params['server_ip']
-        else:
-            config_server = provision_params['roles']['config'][0]
-
-        database_ip_control = self.get_control_ip(provision_params, provision_params['server_ip'])
-        config_server_control = self.get_control_ip(provision_params, config_server)
+	data = ''
+        config_server = provision_params['roles']['config'][0]
+        database_ip_control = self.get_control_ip(
+            provision_params, provision_params['server_ip'])
+        config_server_control = self.get_control_ip(
+            provision_params, config_server)
         cassandra_seeds = ["\"%s\""%(x) for x in \
             provision_params['roles']['database']]
-        cassandra_seeds_control=[]
-        for itr in cassandra_seeds:
-            cassandra_seeds_control.append(self.get_control_ip(provision_params,str(itr).strip("\"")))
+        if len(cassandra_seeds) > 2:
+            cassandra_seeds_control = [
+                self.get_control_ip(
+                    provision_params,str(cassandra_seeds[0]).strip("\"")),
+                self.get_control_ip(
+                    provision_params,str(cassandra_seeds[1]).strip("\"")) ]
+        else:
+            cassandra_seeds_control = [
+                self.get_control_ip(
+                    provision_params,str(cassandra_seeds[0]).strip("\"")) ]
         data += '''    # contrail-database role.
     contrail-database::contrail-database{contrail_database:
         contrail_database_ip => "%s",
@@ -404,9 +409,6 @@ $__contrail_disc_backend_servers__
     def puppet_add_config_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
         data = ''
-    #if 'haproxy' in config_role_params.dict() \
-    # and config_role_params['haproxy'] == 'enable':
-
 
         if provision_params['server_ip'] in provision_params['roles']['compute']:
             compute_server = provision_params['server_ip']
@@ -414,7 +416,8 @@ $__contrail_disc_backend_servers__
             compute_server = provision_params['roles']['compute'][0]
         compute_server_control= self.get_control_ip(provision_params,compute_server)
 
-        control_server_id_lst = provision_params['role_ids'] ['control']
+        control_server_id_lst = ["%s"%(x) for x in \
+            provision_params['role_ids']['control']]
 
         config_servers = provision_params['roles']['config']
         if 'zookeeper' in provision_params['roles']:
@@ -444,8 +447,9 @@ $__contrail_disc_backend_servers__
 
         openstack_server = provision_params['roles']['openstack'][0]
         openstack_server_control = self.get_control_ip(provision_params,openstack_server)
-            
-        control_ip_list = provision_params['roles']['control']
+        
+        control_ip_list = ["\"%s\""%(x) for x in \
+            provision_params['roles']['control']]
 
         control_ip_list_control=[]
         for itr in control_ip_list:
@@ -482,8 +486,8 @@ $__contrail_disc_backend_servers__
         contrail_use_certs => "%s",
         contrail_multi_tenancy => "%s",
         contrail_config_ip => "%s",
-        contrail_control_ip_list => "%s",
-        contrail_control_name_list => "%s",
+        contrail_control_ip_list => ["%s"],
+        contrail_control_name_list => ["%s"],
         contrail_collector_ip => "%s",
         contrail_service_token => "%s",
         contrail_ks_admin_user => "%s",
@@ -594,6 +598,9 @@ $__contrail_disc_backend_servers__
             redis_role = "slave"
         redis_master_ip_control=self.get_control_ip(provision_params,redis_master_ip)
         server_ip_control=self.get_control_ip(provision_params,provision_params["server_ip"])
+        if server_ip_control in cassandra_ip_list_control:
+            cassandra_ip_list_control.remove(server_ip_control)
+            cassandra_ip_list_control.insert(0, server_ip_control)
         data += '''    # contrail-collector role.
         contrail-collector::contrail-collector{contrail_collector:
         contrail_config_ip => "%s",

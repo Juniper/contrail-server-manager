@@ -1,5 +1,4 @@
-operatingsystem=$1
-filename=$2
+filename=$1
     grep -q 'tcp_listeners.*0.0.0.0.*5672' $filename
     if [ $? -ne '0' ]; then
         echo "[" >> $filename
