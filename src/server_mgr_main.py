@@ -38,6 +38,8 @@ from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from send_mail import send_mail
 
+bottle.BaseRequest.MEMFILE_MAX = 2 * 102400
+
 _WEB_HOST = '127.0.0.1'
 _WEB_PORT = 9001
 _DEF_CFG_DB = 'vns_server_mgr.db'
