@@ -421,7 +421,7 @@ class ServerMgrDb:
                 vns_data["vns_params"].update({"uuid":str_uuid})
 
             # Store vns_params dictionary as a text field
-            vns_params = vns_data.pop("vns_params", None)
+            vns_params = vns_data.pop("vns_params", {})
             for k,v in vns_params.iteritems():
                 if v == '""':
                     v = ''
