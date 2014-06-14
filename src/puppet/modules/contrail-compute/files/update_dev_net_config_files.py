@@ -8,7 +8,7 @@ import subprocess
 import struct
 import tempfile
 import xml.etree.ElementTree as ET
-
+import commands
 
 def find_gateway(dev):
     gateway = ''
@@ -170,6 +170,104 @@ def migrate_routes(device):
         # end for route...
     # end with open...
 # end def migrate_routes
+
+
+
+def _rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gateway_ip,
+							non_mgmt_ip):
+
+    result,status = commands.getstatusoutput('grep \"iface vhost0\" /etc/network/interfaces')
+    if status == 0 :
+        print "Interface vhost0 is already present in /etc/network/interfaces"
+        print "Skipping rewrite of this file"
+        return
+    #endif
+
+    vlan = False
+    if os.path.isfile ('/proc/net/vlan/%s' % dev):
+        vlan_info = open('/proc/net/vlan/config').readlines()
+        match  = re.search('^%s.*\|\s+(\S+)$'%dev, "\n".join(vlan_info), flags=re.M|re.I)
+        if not match:
+            raise RuntimeError, 'Configured vlan %s is not found in /proc/net/vlan/config'%dev
+        phydev = match.group(1)
+        vlan = True
+
+    # Replace strings matching dev to vhost0 in ifup and ifdown parts file
+    # Any changes to the file/logic with static routes has to be
+    # reflected in setup-vnc-static-routes.py too
+    ifup_parts_file = os.path.join(os.path.sep, 'etc', 'network', 'if-up.d', 'routes')
+    ifdown_parts_file = os.path.join(os.path.sep, 'etc', 'network', 'if-down.d', 'routes')
+
+    if os.path.isfile(ifup_parts_file) and os.path.isfile(ifdown_parts_file):
+        commands.getstatusoutput("sudo sed -i 's/%s/vhost0/g' %s" %(dev, ifup_parts_file))
+        commands.getstatusoutput("sudo sed -i 's/%s/vhost0/g' %s" %(dev, ifdown_parts_file))
+
+    temp_intf_file = '%s/interfaces' %(temp_dir_name)
+    commands.getstatusoutput("cp /etc/network/interfaces %s" %(temp_intf_file))
+    with open('/etc/network/interfaces', 'r') as fd:
+        cfg_file = fd.read()
+
+    if not non_mgmt_ip:
+        # remove entry from auto <dev> to auto excluding these pattern
+        # then delete specifically auto <dev> 
+        commands.getstatusoutput("sed -i '/auto %s/,/auto/{/auto/!d}' %s" %(dev, temp_intf_file))
+        commands.getstatusoutput("sed -i '/auto %s/d' %s" %(dev, temp_intf_file))
+        # add manual entry for dev
+        commands.getstatusoutput("echo 'auto %s' >> %s" %(dev, temp_intf_file))
+        commands.getstatusoutput("echo 'iface %s inet manual' >> %s" %(dev, temp_intf_file))
+        commands.getstatusoutput("echo '    pre-up ifconfig %s up' >> %s" %(dev, temp_intf_file))
+        commands.getstatusoutput("echo '    post-down ifconfig %s down' >> %s" %(dev, temp_intf_file))
+        if vlan:
+            commands.getstatusoutput("echo '    vlan-raw-device %s' >> %s" %(phydev, temp_intf_file))
+        if 'bond' in dev.lower():
+            iters = re.finditer('^\s*auto\s', cfg_file, re.M)
+            indices = [match.start() for match in iters]
+            matches = map(cfg_file.__getslice__, indices, indices[1:] + [len(cfg_file)])
+            for each in matches:
+                each = each.strip()
+                if re.match('^auto\s+%s'%dev, each):
+                    string = ''
+                    for lines in each.splitlines():
+                        if 'bond-' in lines:
+                            string += lines+os.linesep
+                    commands.getstatusoutput("echo '%s' >> %s" %(string, temp_intf_file))
+                else:
+                    continue
+        commands.getstatusoutput("echo '' >> %s" %(temp_intf_file))
+    else:
+        #remove ip address and gateway
+        commands.getstatusoutput("sed -i '/iface %s inet static/, +2d' %s" % (dev, temp_intf_file))
+        commands.getstatusoutput("sed -i '/auto %s/ a\iface %s inet manual\\n    pre-up ifconfig %s up\\n    post-down ifconfig %s down\' %s"% (dev, dev, dev, dev, temp_intf_file))
+
+    # populte vhost0 as static
+    commands.getstatusoutput("echo '' >> %s" %(temp_intf_file))
+    commands.getstatusoutput("echo 'auto vhost0' >> %s" %(temp_intf_file))
+    commands.getstatusoutput("echo 'iface vhost0 inet static' >> %s" %(temp_intf_file))
+    commands.getstatusoutput("echo '    pre-up %s/if-vhost0' >> %s" %('/opt/contrail/bin', temp_intf_file))
+    commands.getstatusoutput("echo '    netmask %s' >> %s" %(netmask, temp_intf_file))
+    commands.getstatusoutput("echo '    network_name application' >> %s" %(temp_intf_file))
+    if vhost_ip:
+        commands.getstatusoutput("echo '    address %s' >> %s" %(vhost_ip, temp_intf_file))
+    if (not non_mgmt_ip) and gateway_ip:
+        commands.getstatusoutput("echo '    gateway %s' >> %s" %(gateway_ip, temp_intf_file))
+
+    domain = get_domain_search_list()
+    if domain:
+        commands.getstatusoutput("echo '    dns-search %s' >> %s" %(domain, temp_intf_file))
+    dns_list = get_dns_servers(dev)
+    if dns_list:
+        commands.getstatusoutput("echo -n '    dns-nameservers' >> %s" %(temp_intf_file))
+        for dns in dns_list:
+            commands.getstatusoutput("echo -n ' %s' >> %s" %(dns, temp_intf_file))
+    commands.getstatusoutput("echo '\n' >> %s" %(temp_intf_file))
+
+    # move it to right place
+    commands.getstatusoutput("sudo mv -f %s /etc/network/interfaces" %(temp_intf_file))
+
+    #end _rewrite_net_interfaces_file
+
+
+
 
 def rewrite_net_interfaces_file(temp_dir_name, dev, mac, vhost_ip, netmask, gateway_ip, non_mgmt_ip):
     temp_intf_file = '%s/interfaces' %(temp_dir_name)
@@ -399,7 +497,7 @@ SUBCHANNELS=1,2,3
         # end if "centos" or "fedora"
         if ((dist.lower() == "ubuntu") or
             (dist.lower() == "debian")):
-            rewrite_net_interfaces_file(temp_dir_name, dev, macaddr,
+	    _rewrite_net_interfaces_file(temp_dir_name, dev, macaddr,
                                         vhost_ip, netmask, gateway, non_mgmt_ip)
     else:
         # allow for updating anything except self-ip/gw and eth-port

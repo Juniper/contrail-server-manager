@@ -119,6 +119,8 @@ class VncServerManager():
         "power_user": "",
         "power_type": "",
         "power_pass": "",
+	"control": "",
+	"bond": "",
         "power_address": ""
     }
 
@@ -273,6 +275,7 @@ class VncServerManager():
         bottle.route('/server/provision', 'POST', self.provision_server)
         bottle.route('/server/restart', 'POST', self.restart_server)
         bottle.route('/dhcp_event', 'POST', self.process_dhcp_event)
+        bottle.route('/interface_created', 'POST', self.interface_created)
 
     def get_pipe_start_app(self):
         return self._pipe_start_app
@@ -1229,6 +1232,7 @@ class VncServerManager():
                     "ks=http://%s/kickstarts/contrail-ubuntu.ks ") % (
                     self._args.listen_ip_addr)
             else:
+		self._smgr_log.log(self._smgr_log.ERROR, "Invalid image type")
                 abort(404, "invalid image type")
             self._mount_and_copy_iso(dest, copy_path, distro_name,
                                      kernel_file, initrd_file)
@@ -1247,6 +1251,7 @@ class VncServerManager():
             # Sync the above information
             self._smgr_cobbler.sync()
         except Exception as e:
+            self._smgr_log.log(self._smgr_log.ERROR, "Error adding image to cobbler %s" % e.value)
             abort(404, repr(e))
     # End of _add_image_to_cobbler
 
@@ -1780,6 +1785,14 @@ class VncServerManager():
         return server_ips
     # end get_server_ip_list
 
+    def interface_created(self):
+        entity = bottle.request.json
+        entity["interface_created"] = "Yes"
+        print "Interface Created"
+        self.provision_server()
+
+
+
     # API call to provision server(s) as per roles/roles
     # defined for those server(s). This function creates the
     # puppet manifest file for the server and adds it to site
@@ -1787,6 +1800,9 @@ class VncServerManager():
     def provision_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "provision_server")
         try:
+            entity = bottle.request.json
+            interface_created = entity.pop("interface_created", None)
+ 
             role_servers = {}
             role_ips = {}
             role_ids = {}
@@ -1868,6 +1884,15 @@ class VncServerManager():
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
                 provision_params['server_gway'] = server['gway']
                 provision_params['haproxy'] = vns_params['haproxy']
+                if 'setup_interface' in server_params.keys():
+                    provision_params['setup_interface'] = \
+                                                    server_params['setup_interface']
+                else:
+                     provision_params['setup_interface'] = "No"
+
+                if interface_created:
+                    provision_params['setup_interface'] = "No"
+
                 if 'region_name' in vns_params.keys():
                     provision_params['region_name'] = vns_params['region_name']
                 else:

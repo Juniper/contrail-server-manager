@@ -115,89 +115,101 @@ class ServerMgrPuppet:
         return data
     # end _repository_config
 
-    def puppet_add_common_role(self, provision_params, last_res_added=None):
+    def create_interface(self, provision_params, last_rest_added=None):
         #add Interface Steps
+        data = ''
+
+
+        # Get all the parameters needed to send to puppet manifest.
+
+
         intf_bonds = {}
         intf_control = {}
         intf_data = {}
         if provision_params['intf_bond']:
             intf_bonds = eval(provision_params['intf_bond'])
-        data = ""
         requires_cmd = ""
         require_list = []
         if provision_params['intf_control']:
             intf_control = eval(provision_params['intf_control'])
         for intf,values in intf_control.items():
-            members = ""
-            mode = ""
+            members = "\"\""
+            bond_opts = ""
             if intf in intf_bonds.keys():
                 bond = intf_bonds[intf]
                 members = bond['member']
-                mode = bond['mode']
-                require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
+                bond_opts = bond['bond_options']	
+            require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
             require_list.append(require_cmd)
             data += '''     # Setup Interface
         contrail-common::contrail-setup-interface{%s:
         contrail_device => "%s",
-        contrail_members => "%s",
-        contrail_mode => "%s",
+        contrail_members => %s,
+        contrail_bond_opts => "%s",
         contrail_ip => "%s",
         contrail_gw => "%s"
-        }\n\n''' % (intf, intf, members , mode,
+        }\n\n''' % (intf, intf, members , bond_opts,
         values['ip'], values['gw'])
             
 
         if provision_params['intf_data']:
             intf_data = eval(provision_params['intf_data'])
-            for intf,values in intf_data.items():
-                members = ""
-                mode = ""
-                if intf in intf_bonds.keys():
-                    bond = intf_bonds[intf]
-                    members = bond['member']
-                    mode = bond['mode']
-                    require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
-                require_list.append(require_cmd)
-                data += '''     # Setup Interface
-            contrail-common::contrail-setup-interface{%s:
-            contrail_device => "%s",
-            contrail_members => "%s",
-            contrail_mode => "%s",
-            contrail_ip => "%s",
-            contrail_gw => "%s"
-            }\n\n''' % (intf, intf, members , mode,
-            values['ip'], values['gw'])
+        for intf,values in intf_data.items():
+            members = "\"\""
+            bond_opts = ""
+            if intf in intf_bonds.keys():
+                bond = intf_bonds[intf]
+                members = bond['member']
+                bond_opts = bond['bond_options']	
+            require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
+            require_list.append(require_cmd)
+            data += '''     # Setup Interface
+        contrail-common::contrail-setup-interface{%s:
+        contrail_device => "%s",
+        contrail_members => %s,
+        contrail_bond_opts => "%s",
+        contrail_ip => "%s",
+        contrail_gw => "%s"
+        }\n\n''' % (intf, intf, members , bond_opts,
+        values['ip'], values['gw'])
 
+        data_first = '''    # Create repository config on target.
+    contrail-common::contrail-setup-repo{contrail_repo:
+        contrail_repo_name => "%s",
+        contrail_server_mgr_ip => "%s",
+        before => %s
+    }\n\n''' % (provision_params['package_image_id'],
+                provision_params["server_mgr_ip"],
+               '[%s]' % ','.join(map(str, require_list)))
+
+	data = data_first + data
+
+        data += '''    #CB to start provision_after setup_interface
+        contrail-common::create-interface-cb{create_interface_cb:
+        contrail_package_id => "%s",
+        require => %s
+        }\n\n''' % (provision_params['package_image_id'],
+                   '[%s]' % ','.join(map(str, require_list)))
+
+        return data
+
+    def puppet_add_common_role(self, provision_params, last_res_added=None):
+        #add Interface Steps
+
+
+
+
+        return data
+
+
+    def puppet_add_common_role(self, provision_params, last_res_added=None):
+        data = ''
         data += '''    # custom type common for all roles.
     contrail-common::contrail-common{contrail_common:
        self_ip => "%s",
-       system_name => "%s",
-       require => %s
+       system_name => "%s"
     }\n\n''' % (self.get_control_ip(provision_params, provision_params['server_ip']),
-                provision_params["server_id"],
-        '[%s]' % ','.join(map(str, require_list)) )
-
-
-    #intf_bond = eval(provision_params['intf_bond'])
-    #for bond in intf_bond:
-    #    data += '''     # Setup Interface
-    #    contrail-common::contrail-setup-interface{%s:
-    #contrail_device => "%s",
-    #contrail_members => "%s",
-    #contrail_mode => "%s",
-    #contrail_ip => "%s",
-    #contrail_gw => "%s"
-    #   }\n\n''' % (bond['dev_id'], bond['dev_id'],
-    # bond['member'] , bond['mode'],
-    #values['ip'], values['gw'])
-    #data += '''     # Setup Interface
-    #    contrail-common::contrail-setup-interface{%s:
-    #contrail_device => %s,
-    #contrail_members => %s,
-    #contrail_mode => %s,
-    #contrail_ip => %s,
-    #contrail_gw => %s
-    #    }\n\n''' % ()
+                provision_params["server_id"])
 
         return data
         # end puppet_add_common_role
@@ -985,6 +997,20 @@ $__contrail_quantum_servers__
         data = '''node '%s.%s' {\n''' % (
             provision_params["server_id"],
             provision_params["domain"])
+        if provision_params['setup_interface'] == "Yes":
+            data += self.create_interface(provision_params)
+            data += '''}'''
+            # write the data to manifest file for this server.
+            with open(server_manifest_file, 'w') as f:
+                f.write(data)
+            # Now add an entry in site manifest file for this server
+            server_line = "import \'%s\'\n" % (
+                os.path.basename(server_manifest_file))
+            with open(self._site_manifest_file, 'a+') as f:
+                lines = f.readlines()
+                if not server_line in lines:
+                    f.write(server_line)
+            return
 
         # Create resource to have repository configuration setup on the
         # target

@@ -97,22 +97,61 @@ define contrail-exec-script($script_name, $args) {
     }
 }
 
+define create-interface-cb(
+	$contrail_package_id
+) {
+    exec { "contrail-interface-cb" :
+        command => "curl -H \"Content-Type: application/json\" -d '{\"package_image_id\":\"$contrail_package_id\",\"server_id\":\"$hostname\"}' http://$serverip:9001/interface_created && echo create-interface-cb >> /etc/contrail/contrail-common-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+
+
+
+}
+
 # To be reviewed - Abhay
 define contrail-setup-interface(
 	$contrail_device,
 	$contrail_members,
-	$contrail_mode,
+	$contrail_bond_opts,
 	$contrail_ip,
 	$contrail_gw
     ) {
-        $contrail_intf_member_list_for_shell = inline_template('<%= contrail_members.map{ |ip| "\'#{ip}\'" }.join(",") %>')
 
-        exec { "setup-intf-$contrail_device":
-            command => "/opt/contrail/contrail_installer/setup-vnc-interfaces.py --device $contrail_device --members \"[$contrail_intf_member_list_for_shell]\" --mode $contrail_mode --ip $contrail_ip --gw $contrail_gw && echo setup-intf${contrail_device} >> /etc/contrail/contrail-common-exec.out",
+
+#	notify { "member are  $contrail_members":; }  
+ 
+
+#	$contrail_member_list = inline_template('<%= contrail_members.delete! "" %>')
+	$contrail_member_list = $contrail_members
+        $contrail_intf_member_list_for_shell = inline_template('<%= contrail_member_list.map{ |ip| "#{ip}" }.join(" ") %>')
+
+
+	if($contrail_members == "" ) {
+
+	    $exec_cmd = "/opt/contrail/contrail_installer/setup-vnc-interfaces.py --device $contrail_device --ip $contrail_ip"
+	} else {
+	    $exec_cmd = "modprobe bonding && /opt/contrail/contrail_installer/setup-vnc-interfaces.py --device $contrail_device --members $contrail_intf_member_list_for_shell --bond-opts \"$contrail_bond_opts\" --ip $contrail_ip"
+	}
+
+	if ($contrail_gw != "" ) {
+	    $gw_suffix = " --gw $contrail_gw && echo setup-intf${contrail_device} >> /etc/contrail/contrail-common-exec.out"
+	    $exec_full_cmd = "${exec_cmd}${gw_suffix}"
+ 	} else 	{
+	    $gw_suffix =  "&& echo setup-intf${contrail_device} >> /etc/contrail/contrail-common-exec.out"
+	    $exec_full_cmd = "${exec_cmd}${gw_suffix}"
+	}
+
+	notify { "command executed is $exec_cmd_full":; }  
+        
+	exec { "setup-intf-$contrail_device":
+            command => $exec_full_cmd,
             provider => shell,
             logoutput => "true",
             unless  => "grep -qx setup-intf${contrail_device} /etc/contrail/contrail-common-exec.out"
         }
+
 }
 
 define contrail-setup-repo(
