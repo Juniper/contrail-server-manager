@@ -1,0 +1,138 @@
+{
+    "server": [
+        {
+            "server_id": "nodec57",
+            "mac": "00:25:90:c5:58:6e",
+            "ip": "10.204.221.61",
+            "server_params" : {
+                "ifname": "eth0",
+                "compute_non_mgmt_ip": "",
+	    	"setup_interface": "Yes",
+                "compute_non_mgmt_gway": ""
+            },
+            "roles" : ["compute"],
+            "cluster_id": "5-node",
+            "vns_id": "5-node",
+            "mask": "255.255.255.240",
+            "gway": "10.204.221.62",
+            "passwd": "c0ntrail123",
+            "domain": "englab.juniper.net",
+            "control": {
+               "eth1": {
+                    "ip": "192.168.100.1/24",
+                    "gw": ""
+                }
+            },
+            "power_address": "10.207.25.151"
+        },
+        {  
+            "server_id": "nodea4",
+            "mac": "00:25:90:a5:3b:12",
+            "ip": "10.204.221.60",
+            "server_params" : {
+                "ifname": "eth5",
+                "compute_non_mgmt_ip": "",
+		"setup_interface": "Yes",
+                "compute_non_mgmt_gway": ""
+            },
+            "roles" : ["compute"],
+            "cluster_id": "5-node",
+            "vns_id": "5-node",
+            "mask": "255.255.255.240",
+            "gway": "10.204.221.62",
+            "passwd": "c0ntrail123",
+            "domain": "englab.juniper.net",
+            "control": {
+               "bond0": {
+                    "ip": "192.168.100.2/24",
+                    "gw": ""
+                }
+            },
+            "bond": {
+                "bond0": {
+                    "bond_options": "{'miimon': '100', 'mode': '802.3ad','xmit_hash_policy': 'layer3+4'}",
+                    "member": "['eth0', 'eth1', 'eth2', 'eth3']"
+                }
+            },
+            "power_address": "10.207.25.17"
+
+        },
+        {
+            "server_id": "nodec33",
+            "mac": "00:25:90:c4:82:28",
+            "ip": "10.204.221.59",
+            "server_params" : {
+                "ifname": "eth0",
+ 		"setup_interface": "Yes",
+         	"compute_non_mgmt_ip": "",
+                "compute_non_mgmt_gway": ""
+            },
+            "roles" : ["config","collector","webui","database"],
+            "cluster_id": "5-node",
+            "vns_id": "5-node",
+            "mask": "255.255.255.240",
+            "gway": "10.204.221.62",
+            "passwd": "c0ntrail123",
+            "domain": "englab.juniper.net",
+            "control": {
+               "eth1": {
+                    "ip": "192.168.100.3/24",
+                    "gw": ""
+                }
+            },
+            "power_address": "10.207.25.87"
+
+        },
+        {   
+            "server_id": "nodec35",
+            "mac": "00:25:90:c4:7a:70",
+            "ip": "10.204.221.58",
+            "server_params" : {
+                "ifname": "eth0",
+	        "setup_interface": "Yes",
+    "compute_non_mgmt_ip": "",
+                "compute_non_mgmt_gway": ""
+            },
+            "roles" : ["config","openstack","control"],
+            "cluster_id": "5-node",
+            "vns_id": "5-node",
+            "mask": "255.255.255.240",
+            "gway": "10.204.221.62",
+            "passwd": "c0ntrail123",
+            "domain": "englab.juniper.net",
+            "control": {
+               "eth1": {
+                    "ip": "192.168.100.4/24",
+                    "gw": ""
+                }
+            },
+            "power_address": "10.207.25.89"
+        },
+        {   
+            "server_id": "nodec60",
+            "mac": "00:25:90:c5:59:B0",
+            "ip": "10.204.221.57",
+            "server_params" : {
+                "ifname": "eth0",
+	        "setup_interface": "Yes",
+    "compute_non_mgmt_ip": "",
+                "compute_non_mgmt_gway": ""
+            },
+            "roles" : ["config","control"],
+            "cluster_id": "5-node",
+            "vns_id": "5-node",
+            "mask": "255.255.255.240",
+            "gway": "10.204.221.62",
+            "passwd": "c0ntrail123",
+            "domain": "englab.juniper.net",
+            "control": {
+               "eth1": {
+                    "ip": "192.168.100.5/24",
+                    "gw": ""
+                }
+            },
+            "power_address": "10.207.25.154"
+        }
+
+    ]
+}
