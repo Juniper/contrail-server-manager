@@ -121,6 +121,9 @@ define contrail-setup-interface(
 
 
 #	notify { "member are  $contrail_members":; }  
+
+     	# Setup contrail-install-packages
+    	package {'ifenslave': ensure => present}
  
 
 #	$contrail_member_list = inline_template('<%= contrail_members.delete! "" %>')
@@ -132,23 +135,24 @@ define contrail-setup-interface(
 
 	    $exec_cmd = "/opt/contrail/contrail_installer/setup-vnc-interfaces.py --device $contrail_device --ip $contrail_ip"
 	} else {
-	    $exec_cmd = "modprobe bonding && /opt/contrail/contrail_installer/setup-vnc-interfaces.py --device $contrail_device --members $contrail_intf_member_list_for_shell --bond-opts \"$contrail_bond_opts\" --ip $contrail_ip"
+	    $exec_cmd = "/opt/contrail/contrail_installer/setup-vnc-interfaces.py --device $contrail_device --members $contrail_intf_member_list_for_shell --bond-opts \"$contrail_bond_opts\" --ip $contrail_ip"
 	}
 
 	if ($contrail_gw != "" ) {
 	    $gw_suffix = " --gw $contrail_gw && echo setup-intf${contrail_device} >> /etc/contrail/contrail-common-exec.out"
 	    $exec_full_cmd = "${exec_cmd}${gw_suffix}"
  	} else 	{
-	    $gw_suffix =  "&& echo setup-intf${contrail_device} >> /etc/contrail/contrail-common-exec.out"
+	    $gw_suffix =  " && echo setup-intf${contrail_device} >> /etc/contrail/contrail-common-exec.out"
 	    $exec_full_cmd = "${exec_cmd}${gw_suffix}"
 	}
 
-	notify { "command executed is $exec_cmd_full":; }  
+	notify { "command executed is $exec_full_cmd":; }  
         
 	exec { "setup-intf-$contrail_device":
             command => $exec_full_cmd,
             provider => shell,
             logoutput => "true",
+	    require=> Package["ifenslave"],
             unless  => "grep -qx setup-intf${contrail_device} /etc/contrail/contrail-common-exec.out"
         }
 
