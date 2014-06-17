@@ -48,7 +48,6 @@ override_dh_auto_install:
 	cp $(src_path)/contrail_smgrd.u  $(WS)/$(build_root)/etc/init.d/contrail_smgrd
 #	cp $(src_path)/contrail_smgrd.sbin $(WS)/$(build_root)/usr/sbin/contrail_smgrd
 	cp -r $(src_path)/puppet  $(WS)/$(build_root)/etc/contrail_smgr/
-	cp -r $(src_path)/repos/contrail-ubuntu-repo  $(WS)/$(build_root)/etc/contrail_smgr/
 	cp -r $(src_path)/cobbler  $(WS)/$(build_root)/etc/contrail_smgr/
 	cp -r $(src_path)/kickstarts  $(WS)/$(build_root)/etc/contrail_smgr/
 	cp -r $(src_path)/client/smgr_client_config.ini  $(WS)/$(build_root)/etc/contrail_smgr/
