@@ -497,7 +497,7 @@ SUBCHANNELS=1,2,3
         # end if "centos" or "fedora"
         if ((dist.lower() == "ubuntu") or
             (dist.lower() == "debian")):
-	    _rewrite_net_interfaces_file(temp_dir_name, dev, macaddr,
+	    rewrite_net_interfaces_file(temp_dir_name, dev, macaddr,
                                         vhost_ip, netmask, gateway, non_mgmt_ip)
     else:
         # allow for updating anything except self-ip/gw and eth-port
