@@ -23,6 +23,7 @@ define config-template-scripts {
     file { "/etc/contrail/${title}" : 
         ensure  => present,
         require => Package["contrail-openstack-config"],
+	notify =>  Service["supervisor-config"],
         content => template("contrail-config/${title}.erb"),
     }
 }
