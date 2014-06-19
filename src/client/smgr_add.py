@@ -261,7 +261,10 @@ def add_payload(object, default_object):
         msg = obj_id + ":"
         user_input = raw_input(msg)
 
-        temp_dict[obj_id] = user_input 
+        temp_dict[obj_id] = user_input
+        if not user_input:
+            print "Empty id is not valid"
+            return None
         #post a request for each object
         resp = send_REST_request(smgr_ip, smgr_port,
                                         object, payload, obj_id,
@@ -438,9 +441,11 @@ def add_config(args_str=None):
     except ValueError as e:
         print "Error in JSON Format : %s" % e
         sys.exit(1)
-    resp = send_REST_request(smgr_ip, smgr_port,
-                      object, payload)
-    print resp
+    if payload:
+        resp = send_REST_request(smgr_ip, smgr_port,
+                                 object, payload)
+        print resp
+
 # End of add_config
 
 if __name__ == "__main__":
