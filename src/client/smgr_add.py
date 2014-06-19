@@ -254,7 +254,6 @@ def merge_with_defaults(object, payload, config):
 def add_payload(object, default_object):
     payload = {}
     objects = []
-
     while True:
         temp_dict = {}
         fields_dict = object_dict[object]
@@ -297,7 +296,10 @@ def add_payload(object, default_object):
                         data += str(i)+ ". %s : %s \n" % (key, obj[key])
                     i+=1
                 else:
-                    smgr_params = eval(obj[object+"_params"])
+                    if obj.has_key(object+"_params") and obj[object+"_params"]:
+                        smgr_params = eval(obj[object+"_params"])
+                    else:
+                        smgr_params = {}
                     for param in value:
                         data += str(i)+ ". %s : %s \n" % (param,
                                                 smgr_params.get(param, ""))
@@ -374,7 +376,10 @@ def add_payload(object, default_object):
                             msg += " (%s) " %(pvalue)
                         msg += ": "
                         #user_input = raw_input(msg)
-                        default_value = default_object[object+"_params"].get(param, "")
+                        if default_object.has_key(object+"_params"):
+                            default_value = default_object[object+"_params"].get(param, "")
+                        else:
+                            default_value = ""
                         user_input = rlinput(msg, default_value)
                         if user_input:
                             param_dict[param] = user_input
