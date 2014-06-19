@@ -783,7 +783,16 @@ class VncServerManager():
         return {"image": images}
     # end get_image
 
-
+    def get_email_list(self, email):
+        email_to = []
+        if not email:
+            return email_to
+        if email.startswith('[') and email.endswith(']'):
+            email_to = eval(email)
+        else:
+            email_to = [s.strip() for s in email.split(',')]
+        return email_to
+    # end get_email_list
 
     def send_status_mail(self, server_id, event, message):
         # Get server entry and find configured e-mail
@@ -795,22 +804,23 @@ class VncServerManager():
         server = servers[0]
         email_to = []
         if 'email' in server and server['email']:
-            email_to.append(server['email'])
+            email_to = self.get_email_list(server['email'])
         else:
             # Get VNS entry to find configured e-mail
             if 'vns_id' in server and server['vns_id']:
                 vns_id = server['vns_id']
                 vns = self._serverDb.get_vns(vns_id, True)
                 if vns and 'email' in vns[0] and vns[0]['email']:
-                    email_to.append(vns[0]['email'])
+                        email_to = self.get_email_list(vns[0]['email'])
                 else:
-                    self._smgr_log.log(self._smgr_log.DEBUG, "vns or server doesn't configured for email")
+                    self._smgr_log.log(self._smgr_log.DEBUG, 
+                                       "vns or server doesn't configured for email")
                     return
             else:
                 self._smgr_log.log(self._smgr_log.DEBUG, "server not associated with a vns")
                 return
         send_mail(event, message, '', email_to, self._smgr_cobbler._cobbler_ip, '25')
-        msg = "An email is sent to " + email_to[0] + " with content " + message 
+        msg = "An email is sent to " + ','.join(email_to) + " with content " + message 
         self._smgr_log.log(self._smgr_log.DEBUG, msg)
     # send_status_mail
 

@@ -250,6 +250,7 @@ class ServerMgrDb:
             vns_params = vns_data.pop("vns_params", None)
             if vns_params is not None:
                 vns_data['vns_params'] = str(vns_params)
+            # Store email list as text field
             email = vns_data.pop("email", None)
             if email is not None:
                 vns_data['email'] = str(email)
@@ -276,6 +277,7 @@ class ServerMgrDb:
             intf_bond = server_data.pop("bond", None)
             if intf_bond:
                 server_data['intf_bond'] = str(intf_bond)
+            # Store email list as text field
             email = server_data.pop("email", None)
             if email:
                 server_data['email'] = str(email)
@@ -429,6 +431,8 @@ class ServerMgrDb:
             vns_params = db_vns_params
             if vns_params is not None:
                 vns_data['vns_params'] = str(vns_params)
+
+            # Store email list as text field
             email = vns_data.pop("email", None)
             if email is not None:
                 vns_data['email'] = str(email)
@@ -516,7 +520,8 @@ class ServerMgrDb:
                             v = ''
                         db_server_params[k] = v
             server_data['server_params'] = str(db_server_params)
-                   
+
+            # Store email list as text field                   
             email = server_data.pop("email", None)
             if email is not None:
                 server_data['email'] = str(email)
