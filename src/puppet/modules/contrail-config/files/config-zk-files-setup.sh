@@ -1,11 +1,9 @@
 ostype=$1; shift
 cfgm_index=$1; shift
-zk_ip_str=$1; shift
-zk_ips=${zk_ip_str//,/ }
-zk_ip_list=($zk_ips)
+zk_ip_list=("$@")
 zk_cfg="/etc/zookeeper/conf/zoo.cfg"
 log4j="/etc/zookeeper/conf/log4j.properties"
-    myid="/var/lib/zookeeper/myid"
+myid="/var/lib/zookeeper/myid"
 
 echo $ostype
 echo $cfg_index

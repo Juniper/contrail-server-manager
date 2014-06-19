@@ -325,9 +325,12 @@ define contrail-compute-part-2 (
             group => root,
             source => "puppet:///modules/contrail-compute/update_dev_net_config_files.py"
         }
+	$update_dev_net_cmd = "/bin/bash -c \"python /etc/contrail/contrail_setup_utils/update_dev_net_config_files.py --compute_ip $contrail_compute_ip --physical_interface \'$contrail_physical_interface\' --non_mgmt_ip \'$contrail_non_mgmt_ip\' --non_mgmt_gw \'$contrail_non_mgmt_gw\' --collector_ip $contrail_collector_ip --discovery_ip $contrail_config_ip --ncontrols $contrail_num_controls --mac $contrail_macaddr && echo update-dev-net-config >> /etc/contrail/contrail-compute-exec.out\""
+
+        notify { "Update dev net config is $update_dev_net_cmd":; }
 
         exec { "update-dev-net-config" :
-            command => "/bin/bash -c \"python /etc/contrail/contrail_setup_utils/update_dev_net_config_files.py --compute_ip $contrail_compute_ip --physical_interface \'$contrail_physical_interface\' --non_mgmt_ip \'$contrail_non_mgmt_ip\' --non_mgmt_gw \'$contrail_non_mgmt_gw\' --collector_ip $contrail_collector_ip --discovery_ip $contrail_config_ip --ncontrols $contrail_num_controls --mac $contrail_macaddr && echo update-dev-net-config >> /etc/contrail/contrail-compute-exec.out\"",
+            command => $update_dev_net_cmd, 
             require => [ File["/etc/contrail/contrail_setup_utils/update_dev_net_config_files.py"] ],
             unless  => "grep -qx update-dev-net-config /etc/contrail/contrail-compute-exec.out",
             provider => shell,

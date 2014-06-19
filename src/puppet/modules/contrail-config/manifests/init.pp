@@ -296,8 +296,10 @@ define contrail-config (
         source => "puppet:///modules/contrail-config/config-zk-files-setup.sh"
     }
     $contrail_zk_ip_list_for_shell = inline_template('<%= contrail_zookeeper_ip_list.map{ |ip| "#{ip}" }.join(" ") %>')
+    $contrail_zk_exec_cmd = "/bin/bash /etc/contrail/contrail_setup_utils/config-zk-files-setup.sh $operatingsystem $contrail_cfgm_index $contrail_zk_ip_list_for_shell && echo setup-config-zk-files-setup >> /etc/contrail/contrail-config-exec.out"
+    notify { "contrail contrail_zk_exec_cmd is $contrail_zk_exec_cmd":; } 
     exec { "setup-config-zk-files-setup" :
-        command => "/bin/bash /etc/contrail/contrail_setup_utils/config-zk-files-setup.sh $operatingsystem $contrail_cfgm_index $contrail_zk_ip_list_for_shell && echo setup-config-zk-files-setup >> /etc/contrail/contrail-config-exec.out",
+        command => $contrail_zk_exec_cmd,
         require => File["/etc/contrail/contrail_setup_utils/config-zk-files-setup.sh"],
         unless  => "grep -qx setup-config-zk-files-setup /etc/contrail/contrail-config-exec.out",
         provider => shell,
@@ -324,6 +326,24 @@ define contrail-config (
             provider => shell,
             logoutput => 'true'
         }
+    }
+    #Present in fab
+    file { "/etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+        require => Package["contrail-openstack-config"],
+        source => "puppet:///modules/contrail-config/setup_rabbitmq_cluster.sh"
+    }
+
+    exec { "setup-rabbitmq-cluster" :
+        command => "/bin/bash /etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh $operatingsystem $contrail_uuid $contrail_rmq_master $contrail_rmq_is_master && echo setup_rabbitmq_cluster >> /etc/contrail/contrail-config-exec.out",
+       # command => "echo rabbit && echo setup_rabbitmq_cluster >> /etc/contrail/contrail-config-exec.out",
+        require => File["/etc/contrail/contrail_setup_utils/setup_rabbitmq_cluster.sh"],
+        unless  => "grep -qx setup_rabbitmq_cluster /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
     }
 
     # run setup-pki.sh script
@@ -385,9 +405,12 @@ define contrail-config (
     }
     $contrail_host_ip_list_for_shell = inline_template('<%= contrail_control_ip_list.map{ |ip| "#{ip}" }.join(",") %>')
     $contrail_host_name_list_for_shell = inline_template('<%= contrail_control_name_list.map{ |name| "#{name}" }.join(",") %>')
+    $contrail_exec_provision_control = "python  exec_provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name_list $contrail_host_name_list_for_shell --host_ip_list $contrail_host_ip_list_for_shell --router_asn $router_asn --mt_options $mt_options && echo exec-provision-control >> /etc/contrail/contrail-config-exec.out"
+    notify { "contrail contrail_exec_provision_control is $contrail_exec_provision_control":; }
+
     exec { "exec-provision-control" :
-        command => "python  exec_provision_control.py --api_server_ip $contrail_config_ip --api_server_port 8082 --host_name_list $contrail_host_name_list_for_shell --host_ip_list $contrail_host_ip_list_for_shell --router_asn $router_asn --mt_options $mt_options && echo exec-provision-control >> /etc/contrail/contrail-config-exec.out",
-        cwd => "/etc/contrail/contrail_setup_utils/",
+        command => $contrail_exec_provision_control,
+	cwd => "/etc/contrail/contrail_setup_utils/",
         unless  => "grep -qx exec-provision-control /etc/contrail/contrail-config-exec.out",
         provider => shell,
 	require => [ File["/etc/contrail/contrail_setup_utils/exec_provision_control.py"] ],
@@ -426,7 +449,7 @@ define contrail-config (
     }
 
 
-    Exec["haproxy-exec"]->Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["provision-metadata-services"]->Exec["provision-encap-type"]->Exec["exec-provision-control"]->Exec["provision-external-bgp"]
+    Exec["haproxy-exec"]->Exec["setup-rabbitmq-cluster"]->Exec["setup-config-zk-files-setup"]->Config-scripts["config-server-setup"]->Config-scripts["quantum-server-setup"]->Exec["setup-quantum-in-keystone"]->Exec["provision-metadata-services"]->Exec["provision-encap-type"]->Exec["exec-provision-control"]->Exec["provision-external-bgp"]
 
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name
