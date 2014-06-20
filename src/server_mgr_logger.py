@@ -59,11 +59,10 @@ class ServerMgrlogger:
         return getattr(self._instance, name)
 
     def __init__(self):
-	if not ServerMgrlogger._instance:
+        if not ServerMgrlogger._instance:
             ServerMgrlogger._instance = ServerMgrlogger._ServerMgrlogger()
 
     def __new__(cls): # __new__ always a classmethod
-	pdb.set_trace()
         if not ServerMgrlogger._intance:
             ServerMgrlogger._instance = ServerMgrlogger._ServerMgrlogger()
         return ServerMgrlogger._instance

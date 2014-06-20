@@ -60,8 +60,8 @@ class ServerMgrPuppet:
     # end pupp_copy_common_files
 
     def __init__(self, smgr_base_dir, puppet_dir):
-	self._smgr_log = ServerMgrlogger()
-	self._smgr_log.log(self._smgr_log.DEBUG, "ServerMgrPuppet Init")
+        self._smgr_log = ServerMgrlogger()
+        self._smgr_log.log(self._smgr_log.DEBUG, "ServerMgrPuppet Init")
 
 
         self.smgr_base_dir = smgr_base_dir
@@ -97,7 +97,7 @@ class ServerMgrPuppet:
     # else return MGMT IP address
     def get_control_ip(self, provision_params, mgmt_ip_str):
         intf_control = {}
-	mgmt_ip = mgmt_ip_str.strip("\"")
+        mgmt_ip = mgmt_ip_str.strip("\"")
         if provision_params['control_net'] [mgmt_ip]:
             intf_control = eval(provision_params['control_net'] [mgmt_ip])        
         for intf,values in intf_control.items():
@@ -144,7 +144,7 @@ class ServerMgrPuppet:
             if intf in intf_bonds.keys():
                 bond = intf_bonds[intf]
                 members = bond['member']
-                bond_opts = bond['bond_options']	
+                bond_opts = bond['bond_options']
             require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
             require_list.append(require_cmd)
             data += '''     # Setup Interface
@@ -166,7 +166,7 @@ class ServerMgrPuppet:
             if intf in intf_bonds.keys():
                 bond = intf_bonds[intf]
                 members = bond['member']
-                bond_opts = bond['bond_options']	
+                bond_opts = bond['bond_options']
             require_cmd = "Contrail-common::Contrail-setup-interface[\"%s\"]" % intf
             require_list.append(require_cmd)
             data += '''     # Setup Interface
@@ -188,7 +188,7 @@ class ServerMgrPuppet:
                 provision_params["server_mgr_ip"],
                '[%s]' % ','.join(map(str, require_list)))
 
-	data = data_first + data
+        data = data_first + data
 
         data += '''    #CB to start provision_after setup_interface
         contrail-common::create-interface-cb{create_interface_cb:
@@ -222,7 +222,7 @@ class ServerMgrPuppet:
 
     def puppet_add_database_role(self, provision_params, last_res_added):
         # Get all the parameters needed to send to puppet manifest.
-	data = ''
+        data = ''
         config_server = provision_params['roles']['config'][0]
         database_ip_control = self.get_control_ip(
             provision_params, provision_params['server_ip'])
@@ -649,7 +649,7 @@ $__contrail_disc_backend_servers__
         config_server_control=self.get_control_ip(provision_params, config_server)
 
         webui_ips = provision_params['roles']['webui']
-	#TODO Webui_ips_control is not needed
+        #TODO Webui_ips_control is not needed
         webui_ips_control=[]
         for itr in webui_ips:
             webui_ips_control.append(self.get_control_ip(provision_params, str(itr)))

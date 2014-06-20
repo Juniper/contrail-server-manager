@@ -100,7 +100,7 @@ class ServerMgrDb:
                 # Create status table
                 cursor.execute("CREATE TABLE IF NOT EXISTS " +
                                server_status_table + """ (server_id TEXT PRIMARY KEY,
-			server_status TEXT)""")
+                            server_status TEXT)""")
                 # Create server table
                 cursor.execute(
                     "CREATE TABLE IF NOT EXISTS " + server_table +
@@ -114,9 +114,9 @@ class ServerMgrDb:
                          server_params TEXT, roles TEXT, power_user TEXT,
                          power_pass TEXT, power_address TEXT,
                          power_type TEXT, intf_control TEXT,
-			 intf_data TEXT, intf_bond TEXT,
+                         intf_data TEXT, intf_bond TEXT,
                          email TEXT,
-			 UNIQUE (server_id))""")
+                         UNIQUE (server_id))""")
             self._get_table_columns()
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
         except e:
@@ -454,7 +454,7 @@ class ServerMgrDb:
             db_image = self.get_image('image_id', image_data['image_id'],
                                                     detail=True)
             #if image_data['image_path'] != db_image[0]['image_path']:
-        	#    raise ServerMgrException('Image path cannnot be modified')
+            #    raise ServerMgrException('Image path cannnot be modified')
             #TODO image path can be added in the db
             image_data.pop("image_path", None) 
             if image_data['image_type'] != db_image[0]['image_type']:

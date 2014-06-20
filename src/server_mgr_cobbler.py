@@ -62,8 +62,8 @@ class ServerMgrCobbler:
                  username=_DEF_USERNAME,
                  password=_DEF_PASSWORD):
 
-	self._smgr_log = ServerMgrlogger()
-	self._smgr_log.log(self._smgr_log.DEBUG, "ServerMgrCobbler Init")
+        self._smgr_log = ServerMgrlogger()
+        self._smgr_log.log(self._smgr_log.DEBUG, "ServerMgrCobbler Init")
 
 
         # Store the passed in values

@@ -119,8 +119,8 @@ class VncServerManager():
         "power_user": "",
         "power_type": "",
         "power_pass": "",
-	"control": "",
-	"bond": "",
+        "control": "",
+        "bond": "",
         "power_address": ""
     }
 
@@ -546,7 +546,7 @@ class VncServerManager():
                 "control", "collector", "webui", "compute", "zookeeper"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
-                msg = "No provisioning roles specified"	
+                msg = "No provisioning roles specified"
                 raise ServerMgrException(msg)
             if (type(roles) != type({})):
                 msg = "Invalid roles definition"
@@ -1242,7 +1242,7 @@ class VncServerManager():
                     "ks=http://%s/kickstarts/contrail-ubuntu.ks ") % (
                     self._args.listen_ip_addr)
             else:
-		self._smgr_log.log(self._smgr_log.ERROR, "Invalid image type")
+                self._smgr_log.log(self._smgr_log.ERROR, "Invalid image type")
                 abort(404, "invalid image type")
             self._mount_and_copy_iso(dest, copy_path, distro_name,
                                      kernel_file, initrd_file)
