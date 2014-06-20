@@ -6,6 +6,8 @@ import xmlrpclib
 import threading
 import time
 import subprocess
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+
 
 _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = ''
@@ -59,6 +61,10 @@ class ServerMgrCobbler:
                  port=_DEF_COBBLER_PORT,
                  username=_DEF_USERNAME,
                  password=_DEF_PASSWORD):
+
+	self._smgr_log = ServerMgrlogger()
+	self._smgr_log.log(self._smgr_log.DEBUG, "ServerMgrCobbler Init")
+
 
         # Store the passed in values
         self._cobbler_ip = ip_address

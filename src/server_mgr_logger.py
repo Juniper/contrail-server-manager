@@ -7,47 +7,68 @@ import logging.config
 import logging.handlers
 
 class ServerMgrlogger:
-    DEBUG = "debug"
-    INFO = "info"
-    WARN = "warn"
-    ERROR = "error"
-    CRITICAL = "critical"
+    class _ServerMgrlogger:
+        DEBUG = "debug"
+        INFO = "info"
+        WARN = "warn"
+        ERROR = "error"
+        CRITICAL = "critical"
 
-    _smgr_log = None   
+        _smgr_log = None   
+        def __init__(self):
+            print "Logger init" 
+    #        logging.config.fileConfig('logger.conf')
+
+            #create logger
+            self._smgr_log = logging.getLogger('SMGR')
+            self._smgr_log.setLevel(logging.DEBUG)
+
+            fh = logging.handlers.RotatingFileHandler('/opt/contrail/debug.log')
+            fh.setLevel(logging.DEBUG)
+
+            formatter = logging.Formatter('format=%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+            fh.setFormatter(formatter)
+
+            self._smgr_log.addHandler(fh)
+
+
+
+        def log(self, level, msg):
+            print "Log command"
+            if level == self.DEBUG:
+                self._smgr_log.debug(msg)
+            elif level == self.INFO:
+                self._smgr_log.info(msg)
+            elif level == self.WARN:
+                self._smgr_log.warn(msg)
+            elif level == self.ERROR:
+                self._smgr_log.error(msg)
+            elif level == self.CRITICAL:
+                self._smgr_log.critical(msg)
+
+        def set_level(self, log, level):
+            print "set log level"
+
+    _instance = None
+
+    def __setattr__(self, name):
+        return setattr(self._instance, name)
+
+    def __getattr__(self, name):
+        return getattr(self._instance, name)
+
     def __init__(self):
-        print "Logger init" 
-#        logging.config.fileConfig('logger.conf')
+	if not ServerMgrlogger._instance:
+            ServerMgrlogger._instance = ServerMgrlogger._ServerMgrlogger()
 
-        #create logger
-        self._smgr_log = logging.getLogger('SMGR')
-        self._smgr_log.setLevel(logging.DEBUG)
-
-        fh = logging.handlers.RotatingFileHandler('/opt/contrail/debug.log')
-        fh.setLevel(logging.DEBUG)
-
-        formatter = logging.Formatter('format=%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-        fh.setFormatter(formatter)
-
-        self._smgr_log.addHandler(fh)
+    def __new__(cls): # __new__ always a classmethod
+	pdb.set_trace()
+        if not ServerMgrlogger._intance:
+            ServerMgrlogger._instance = ServerMgrlogger._ServerMgrlogger()
+        return ServerMgrlogger._instance
 
 
-
-    def log(self, level, msg):
-        print "Log command"
-        if level == self.DEBUG:
-            self._smgr_log.debug(msg)
-        elif level == self.INFO:
-            self._smgr_log.info(msg)
-        elif level == self.WARN:
-            self._smgr_log.warn(msg)
-        elif level == self.ERROR:
-            self._smgr_log.error(msg)
-        elif level == self.CRITICAL:
-            self._smgr_log.critical(msg)
-
-    def set_level(self, log, level):
-        print "set log level"
 
 class ServerMgrTransactionlogger:
     GET_SMGR_CFG_ALL = "GET_SMGR_ALL"

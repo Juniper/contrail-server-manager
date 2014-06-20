@@ -13,6 +13,7 @@ from netaddr import *
 import string
 import textwrap
 import shutil
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 
 class ServerMgrPuppet:
     _puppet_site_file_name = "site.pp"
@@ -59,6 +60,10 @@ class ServerMgrPuppet:
     # end pupp_copy_common_files
 
     def __init__(self, smgr_base_dir, puppet_dir):
+	self._smgr_log = ServerMgrlogger()
+	self._smgr_log.log(self._smgr_log.DEBUG, "ServerMgrPuppet Init")
+
+
         self.smgr_base_dir = smgr_base_dir
         self.puppet_directory = puppet_dir
         if not os.path.exists(os.path.dirname(puppet_dir)):

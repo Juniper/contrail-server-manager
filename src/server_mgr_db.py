@@ -6,6 +6,7 @@ import pdb
 import uuid
 from netaddr import *
 from server_mgr_exception import ServerMgrException as ServerMgrException
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 
 def_server_db_file = 'smgr_data.db'
 pod_table = 'pod_table'
@@ -70,6 +71,7 @@ class ServerMgrDb:
 
     def __init__(self, db_file_name=def_server_db_file):
         try:
+            self._smgr_log = ServerMgrlogger()
             self._con = lite.connect(db_file_name)
             with self._con:
                 cursor = self._con.cursor()
@@ -116,6 +118,7 @@ class ServerMgrDb:
                          email TEXT,
 			 UNIQUE (server_id))""")
             self._get_table_columns()
+            self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
         except e:
             raise e
     # End of __init__
