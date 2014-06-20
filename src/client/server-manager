@@ -21,6 +21,7 @@ import smgr_provision_server
 import smgr_restart_server
 import smgr_status
 import smgr_add
+import smgr_client_def
 
 commands_dict = {
     'add' : smgr_add.add_config,
@@ -40,7 +41,7 @@ def server_manager(args_str=None):
     # Process the arguments
     parser = argparse.ArgumentParser(
         description='''server manager client program''',
-        usage= '''server-manager <command> [<args>]
+        usage= '''server-manager [-c <config_file>] <command> [<args>]
 
 The server manager commands are:
    add            Add server manager objects(create or modify server manager objects)
@@ -54,14 +55,23 @@ The server manager commands are:
 
 '''
     )
+    parser.add_argument("--config_file", "-c",
+                        help=("Server manager client config file"
+                        " (default - %s)" %(
+                        smgr_client_def._DEF_SMGR_CFG_FILE)))
     parser.add_argument(
         'command',
         help='server manager command to run',
         choices=['add', 'delete',
                  'show', 'reimage', 'provision',
                  'restart', 'upload_image', 'status'])
-    args = parser.parse_args(sys.argv[1:2])
-    commands_dict[args.command](sys.argv[2:])
+    if len(sys.argv) > 1  and (sys.argv[1] == '-c' or sys.argv[1] == '--config_file'):
+        args = parser.parse_args(sys.argv[1:4])
+        argv = sys.argv[1:3] + sys.argv[4:] 
+    else:
+        args = parser.parse_args(sys.argv[1:2])
+        argv = sys.argv[2:]
+    commands_dict[args.command](argv)
 # End of server_manager
 
 if __name__ == "__main__":
