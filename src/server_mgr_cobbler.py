@@ -287,7 +287,7 @@ class ServerMgrCobbler:
             self._server.modify_system(
                 system_id, 'netboot_enabled', False, self._token)
             self._server.save_system(system_id, self._token)
-            self._server.sync(self._token)
+            #self._server.sync(self._token)
         except Exception as e:
             raise e
     # End of create_system
@@ -303,7 +303,9 @@ class ServerMgrCobbler:
             self._server.modify_system(
                 system_id, 'netboot_enabled', True, self._token)
             self._server.save_system(system_id, self._token)
-            self._server.sync(self._token)
+            #Sync per every system is long
+            #Do it at end
+            #self._server.sync(self._token)
         except Exception as e:
             raise e
     # End of enable_system_netboot
@@ -313,7 +315,11 @@ class ServerMgrCobbler:
             power = {
                 "power" : "reboot",
                 "systems" : reboot_system_list }
+            self._smgr_log.log(self._smgr_log.DEBUG, "reboot_system list is %s" % reboot_system_list)
+            self._smgr_log.log(self._smgr_log.DEBUG, "Reboot System Start")
             task_id = self._server.background_power_system(power, self._token)
+            self._smgr_log.log(self._smgr_log.DEBUG, "Reboot System End")
+
             # Alternate way using direct cobbler api, not needed, but commented
             # and kept for reference.
             # system = self._capi_handle.get_item(

@@ -94,7 +94,7 @@ class VncServerManager():
     provided in the REST calls.
     '''
     _smgr_log = None
-    _smgr_trans_log = None 
+    _smgr_trans_log = None
 
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
@@ -156,7 +156,7 @@ class VncServerManager():
         try:
             self._smgr_log = ServerMgrlogger()
         except:
-            print "Error Creating logger object" 
+            print "Error Creating logger object"
 
 
 
@@ -167,7 +167,7 @@ class VncServerManager():
         try:
             self._smgr_trans_log = ServerMgrTlog()
         except:
-            print "Error Creating Transaction logger object" 
+            print "Error Creating Transaction logger object"
 
         if not args_str:
             args_str = sys.argv[1:]
@@ -367,12 +367,11 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_VNS,
                                      False)
-            
         self._smgr_trans_log.log(bottle.request,
                                  self._smgr_trans_log.GET_SMGR_CFG_VNS)
         return {"vns": entity}
     # end get_vns
-    
+
     def validate_smgr_entity(self, type, entity):
         obj_list = entity.get(type, None)
         if obj_list is None:
@@ -449,10 +448,10 @@ class VncServerManager():
         #Parse for the JSON to find allowable fields
         remove_list = []
         for data_item_key, data_item_value in data.iteritems():
-            #If json data name is not present in list of 
+            #If json data name is not present in list of
             #allowable fields silently ignore them.
             if data_item_key not in validation_data:
-#                data.pop(data_item_key, None)           
+#                data.pop(data_item_key, None)
                 remove_list.append(data_item_key)
                 msg =  ("Value %s is not an option") % (data_item_key)
                 self._smgr_log.log(self._smgr_log.ERROR,
@@ -505,7 +504,7 @@ class VncServerManager():
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_value[0]
         return ret_data
-    
+
     def validate_smgr_modify(self, validation_data, request, data = None):
         ret_data = {}
         ret_data['status'] = 1
@@ -526,6 +525,47 @@ class VncServerManager():
                 raise ServerMgrException(msg)
         #TODO Handle replace
         return ret_data
+
+    def _validate_roles(self, match_key, match_value):
+        if match_key == 'server_id':
+            server = self._serverDb.get_server(
+                        "server_id", match_value, detail=True)
+            if server:
+                vns_id = server['vns_id']
+            else:
+                msg =  ("No server present for %s") % (match_value)
+                raise ServerMgrExcpetion(msg)
+        elif match_key == 'vns_id':
+            vns_id = match_key
+
+        servers = self._serverDb.get_server(
+                            vns_id, match_value, detail=True)
+        role_list = [
+                "database", "openstack", "config",
+                "control", "collector", "webui", "compute"]
+        roles_set = set(role_list)
+
+        vns_role_list = []
+        for server in servers:
+            vns_role_list.extend(eval(server['roles']))
+
+        vns_unique_roles = set(vns_role_list)
+
+        missing_roles = roles_set.difference(vns_unique_roles)
+        if len(missing_roles):
+            msg = "Mandatory roles \"%s\" are not present" % \
+            ", ".join(str(e) for e in missing_roles)
+            self._smgr_log.log(self._smgr_log.DEBUG, msg)
+            raise ServerMgrException(msg)
+
+        unknown_roles = vns_unique_roles.difference(roles_set)
+        if len(unknown_roles):
+            msg = "Unknown Roles: %s" % \
+            ", ".join(str(e) for e in unknown_roles)
+            self._smgr_log.log(self._smgr_log.DEBUG, msg)
+            raise ServerMgrException(msg)
+
+        return 0
 
     def validate_smgr_provision(self, validation_data, request , data=None):
         ret_data = {}
@@ -616,10 +656,12 @@ class VncServerManager():
                 msg = "No servers found for %s" % \
                             (match_value)
                 raise ServerMgrException(msg)
+
+            self._validate_roles(match_key, match_value)
             ret_data["status"] = 0
             ret_data["servers"] = servers
-            ret_data["package_image_id"] = package_image_id 
-        return ret_data              
+            ret_data["package_image_id"] = package_image_id
+        return ret_data
 
     def validate_smgr_reboot(self, validation_data, request , data=None):
         ret_data = {}
@@ -798,7 +840,7 @@ class VncServerManager():
         # Get server entry and find configured e-mail
         servers = self._serverDb.get_server("server_id", server_id, True)
         if not servers:
-            msg = "No server found with server_id " + server_id 
+            msg = "No server found with server_id " + server_id
             self._smgr_log.log(self._smgr_log.ERROR, msg)
             return
         server = servers[0]
@@ -813,14 +855,14 @@ class VncServerManager():
                 if vns and 'email' in vns[0] and vns[0]['email']:
                         email_to = self.get_email_list(vns[0]['email'])
                 else:
-                    self._smgr_log.log(self._smgr_log.DEBUG, 
+                    self._smgr_log.log(self._smgr_log.DEBUG,
                                        "vns or server doesn't configured for email")
                     return
             else:
                 self._smgr_log.log(self._smgr_log.DEBUG, "server not associated with a vns")
                 return
         send_mail(event, message, '', email_to, self._smgr_cobbler._cobbler_ip, '25')
-        msg = "An email is sent to " + ','.join(email_to) + " with content " + message 
+        msg = "An email is sent to " + ','.join(email_to) + " with content " + message
         self._smgr_log.log(self._smgr_log.DEBUG, msg)
     # send_status_mail
 
@@ -830,7 +872,7 @@ class VncServerManager():
             return data
         except ValueError:
             return ''
-    #end def get_obj    
+    #end def get_obj
 
     def put_status(self):
         query_args = parse_qs(urlparse(bottle.request.url).query,
@@ -897,8 +939,7 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER)
         return entity
- 
-        return
+
 
     def put_image(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "add_image")
@@ -1048,7 +1089,6 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
             self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
         return entity
-       
 
 
     # API Call to add image file to server manager (file is copied at
@@ -1673,6 +1713,9 @@ class VncServerManager():
             if do_reboot:
                 status_msg = self._power_cycle_servers(
                     reboot_server_list, True)
+            #After all system entries are created sync.
+            self._smgr_cobbler.sync()
+
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
@@ -1714,7 +1757,7 @@ class VncServerManager():
                 vns_params = {}
                 if vns and vns[0]['vns_params']:
                     vns_params = eval(vns[0]['vns_params'])
-                
+
                 server_id = server['server_id']
                 if 'passwd' in server:
                     passwd = server['passwd']
@@ -1743,6 +1786,7 @@ class VncServerManager():
 
             status_msg = self._power_cycle_servers(
                 reboot_server_list, do_net_boot)
+            self._smgr_cobbler.sync()
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REBOOT,
@@ -1812,19 +1856,19 @@ class VncServerManager():
         try:
             entity = bottle.request.json
             interface_created = entity.pop("interface_created", None)
- 
+
             role_servers = {}
             role_ips = {}
             role_ids = {}
             ret_data = self.validate_smgr_request("PROVISION", "PROVISION", bottle.request)
-            
+
             if ret_data['status'] == 0:
                 servers = ret_data['servers']
                 package_image_id = ret_data['package_image_id']
             else:
                 msg = "Error validating request"
                 raise ServerMgrException(msg)
-                 
+
             for server in servers:
                 server_params = eval(server['server_params'])
                 vns = self._serverDb.get_vns(server['vns_id'],
@@ -2080,6 +2124,8 @@ class VncServerManager():
     # the server.
     def _power_cycle_servers(
         self, reboot_server_list, net_boot=False):
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                                "_power_cycle_servers")
         success_list = []
         failed_list = []
         power_reboot_list = []
@@ -2090,18 +2136,27 @@ class VncServerManager():
                 # temporary. Need # to figure out way for cobbler to do it
                 # automatically TBD Abhay
                 if net_boot:
+                    self._smgr_log.log(self._smgr_log.DEBUG,
+                                        "Enable netboot")
                     self._smgr_cobbler.enable_system_netboot(
                         server['server_id'])
                     cmd = "puppet cert clean %s.%s" % (
                         server['server_id'], server['domain'])
+                    self._smgr_log.log(self._smgr_log.DEBUG,
+                                        cmd)
                     subprocess.call(cmd, shell=True)
                     # Remove manifest file for this server
                     cmd = "rm -f /etc/puppet/manifests/%s.%s.pp" %(
-                        server['server_id'], server['domain']) 
+                        server['server_id'], server['domain'])
+                    self._smgr_log.log(self._smgr_log.DEBUG,
+                                        cmd)
+
                     subprocess.call(cmd, shell=True)
                     # Remove entry for that server from site.pp
                     cmd = "sed -i \"/%s.%s.pp/d\" /etc/puppet/manifests/site.pp" %(
-                        server['server_id'], server['domain']) 
+                        server['server_id'], server['domain'])
+                    self._smgr_log.log(self._smgr_log.DEBUG,
+                                        cmd)
                     subprocess.call(cmd, shell=True)
                 # end if
                 if server['power_address']:
@@ -2130,6 +2185,7 @@ class VncServerManager():
                                 (server['server_id']))
                 failed_list.append(server['server_id'])
         #end for
+        self._smgr_cobbler.sync()
         if power_reboot_list:
             try:
                 self._smgr_cobbler.reboot_system(
@@ -2181,7 +2237,7 @@ class VncServerManager():
                 base_image, self._args.listen_ip_addr)
 
             # Sync the above information
-            self._smgr_cobbler.sync()
+            #self._smgr_cobbler.sync()
 
             # Update Server table to add image name
             update = {
@@ -2256,6 +2312,8 @@ def main(args_str=None):
         os.mkdir(dir)
     f = open(pid_file, "w")
     f.write(str(server_mgr_pid))
+    print "wiriting pid file"
+    print "smgr pid written is %s" % server_mgr_pid
     f.close()
 
     try:

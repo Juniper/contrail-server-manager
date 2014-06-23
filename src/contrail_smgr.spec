@@ -107,7 +107,7 @@ chkconfig contrail_smgrd on
 chkconfig puppet on
 
 
-service contrail_smgrd restart
+#service contrail_smgrd restart
 %build
 
 %install
