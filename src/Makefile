@@ -34,7 +34,7 @@ clean-client-deb:
 	(cd debian-contrail-smgr-client; fakeroot debian/rules clean)
 
 client-tar:
-	tar cvfz server_manager_client.tar.gz client/*.py client/*.json client/*.ini client/server-manager
+	tar cvfz server_manager_client.tar.gz client/*.py client/*.json client/*.ini client/server-manager utils/create_smgr_db.py
 	cp server_manager_client.tar.gz ~/rpmbuild/RPMS/noarch	
 clean:
 	(cd debian-contrail-smgr; fakeroot debian/rules clean)

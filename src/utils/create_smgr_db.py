@@ -31,9 +31,6 @@ from fabric.tasks import execute
 from os.path import expanduser
 
 
-
-
-
 @task
 def svrmgr_add_all():
     verify_user_input()
@@ -42,7 +39,6 @@ def svrmgr_add_all():
     add_image()
     add_pkg()
     add_server()
-
 
 
 @task
@@ -78,14 +74,13 @@ def modify_server_json():
 
 
 def update_roles_from_testbed_py(server_dict):
-
+    if not testbed.env.has_key('roledefs'):
+        return server_dict
     for  node in server_dict['server']:
       roles = []
       for key in testbed.env.roledefs:
-
         if key == 'all' or key == 'build' :
           continue
-
         for  host_string in testbed.env.roledefs[key]:
           ip = getIp(host_string)
           if node['ip'] == ip:
@@ -93,10 +88,8 @@ def update_roles_from_testbed_py(server_dict):
                 roles.append("config")
             else:
                 roles.append(key)
-
       if not len(roles):
-        node['roles'] = [ "compute" ]
-            
+        node['roles'] = [ "compute" ]            
       else:
         node['roles'] =  roles 
       
@@ -199,49 +192,8 @@ def add_vns():
     local('server-manager show vns')
 
 def add_server():
-    if not add_server_using_json():
-        update_server_in_db_with_roles()
-    update_server_in_db_with_vns_id()
-
-
-def update_server_in_db_with_roles():
-
-    vns_id = get_pref_vns_id()
-
-    server_dict = get_server_with_vns_id_from_db()
-    if not len(server_dict['server']):
-        sys.exit("No server found with vns_id=%s in the SM database" %vns_id)
-
-             
-    for node in server_dict['server']:
-        modify_dict = {
-                        "server" : [
-                            {
-                                "server_id" : "",
-                                "ip" : ""
-                            }
-                        ]
-                      }
-
-        modify_dict['server'][0]['server_id'] = node['server_id']
-        modify_dict['server'][0]['ip'] = node['ip']
-
-        update_roles_from_testbed_py(modify_dict)
-
-        temp_dir= expanduser("~")
-        server_file = '%s/%s_roles.json' %(temp_dir,node['server_id'])
-        local('touch %s' %server_file)
-        out_file = open(server_file, 'w')
-        out_data = json.dumps(modify_dict)
-        out_file.write(out_data)
-        out_file.close()
-        local('server-manager add  server -f %s' %(server_file) )
-        local('server-manager show --detail server --server_id %s \
-                 | sed \'s/[^{]*//\'  \
-                 | python -m json.tool'  \
-                 % node['server_id'] )
-
-
+    add_server_using_json()
+    update_server_in_db_with_testbed_py()
 
 def add_image():
     params=read_ini_file(sys.argv[1:])
@@ -304,14 +256,21 @@ def modify_vns_json():
 
 
 def modify_vns_from_testbed_py(vns_dict):
-    if testbed.env.mail_to:
+    if testbed.env.has_key('mail_to'):
         vns_dict['vns'][0]['email'] = testbed.env.mail_to
-
-    if testbed.env.encap_priority:
+    if testbed.env.has_key('encap_priority'):
         vns_dict['vns'][0]['vns_params']['encap_priority'] = testbed.env.encap_priority
-
-    vns_dict['vns'][0]['vns_params']['multi_tenancy'] = testbed.multi_tenancy
-
+    if 'multi_tenancy' in dir(testbed):
+        vns_dict['vns'][0]['vns_params']['multi_tenancy'] = testbed.multi_tenancy
+    if 'os_username' in dir(testbed):
+        vns_dict['vns'][0]['vns_params']['ks_user'] = testbed.os_username
+    if 'os_password' in dir(testbed):
+        vns_dict['vns'][0]['vns_params']['ks_passwd'] = testbed.os_password
+    if 'os_tenant_name' in dir(testbed):
+        vns_dict['vns'][0]['vns_params']['ks_tenant'] = testbed.os_tenant_name
+    if 'router_asn' in dir(testbed):
+        vns_dict['vns'][0]['vns_params']['router_asn'] = testbed.router_asn
+        
 
 
 def new_vns():
@@ -460,56 +419,59 @@ def get_server_with_ip_from_db(ip=None):
 
     return server_dict
 
-
-
-def update_server_in_db_with_vns_id():
-    vns_id = get_pref_vns_id()
-  
+def get_host_roles_from_testbed_py():
     node = {}
+    if not testbed.env.has_key('roledefs'):
+        return node
     for key in testbed.env.roledefs:
+        if key == 'all' or key == 'build':
+            continue
         for  host_string in testbed.env.roledefs[key]:
-          ip = getIp(host_string)
-          node[ip] = False
+            ip = getIp(host_string)
+            if not node.has_key(ip):
+                node[ip] = []
+            if key == 'cfgm':
+                node[ip].append('cfgm')
+            else:
+                node[ip].append(key)
+    return node
+# end get_host_roles_from_testbed_py
 
-    for key in testbed.env.roledefs:
-        if key == 'all' or key == 'build' :
-          continue
 
-        for  host_string in testbed.env.roledefs[key]:
-          ip = getIp(host_string)
-          if node[ip]:
-              continue
-          node[ip] = True
-          server_dict=get_server_with_ip_from_db(ip)
-          if not len(server_dict['server']):
-              sys.exit("Server with ip=%s not present in the SM database" %ip)
-          server_id = server_dict['server'][0]['server_id']
-          server_dict = {
-                            "server": [
-                                {
-                                    "server_id": "",
-                                    "vns_id": ""
-                                }
-                            ]
-                        }
+def update_server_in_db_with_testbed_py():
+    vns_id = get_pref_vns_id()  
+    node = get_host_roles_from_testbed_py()
+    if not node:
+        return
+    u_server_dict = {}
+    u_server_dict['server'] = []
+    for key in node:
+        server_dict = {}
+        server_dict = get_server_with_ip_from_db(key)
+        if not server_dict:
+            print ("Server with ip %s not present in Server Manager" % ip)
+            conitnue
+        server_id = server_dict['server'][0]['server_id']
+        u_server = {}
+        u_server['server_id'] = server_id
+        u_server['vns_id'] = vns_id
+        u_server['roles'] = node[key]
+        u_server_dict['server'].append(u_server)
+    
+    temp_dir= expanduser("~")
+    server_file = '%s/server.json' %temp_dir
+    local('touch %s' %server_file)
+    out_file = open(server_file, 'w')
+    out_data = json.dumps(u_server_dict)
+    out_file.write(out_data)
+    out_file.close()
 
-          server_dict['server'][0]['vns_id'] = vns_id
-          server_dict['server'][0]['server_id'] = server_id
-          temp_dir= expanduser("~")
-
-          server_file = '%s/server.json' %temp_dir
-          local('touch %s' %server_file)
-          out_file = open(server_file, 'w')
-          out_data = json.dumps(server_dict)
-          out_file.write(out_data)
-          out_file.close()
-
-          local('server-manager add  server -f %s' %(server_file) )
-          local('server-manager show --detail server --server_id %s \
+    local('server-manager add  server -f %s' %(server_file) )
+    local('server-manager show --detail server --server_id %s \
                  | sed \'s/[^{]*//\'  \
                  | python -m json.tool'  \
-                 % server_id )
-
+              % server_id )
+#End  update_server_in_db_with_vns_id
 
 
 def get_pref_vns_id():
