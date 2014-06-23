@@ -17,6 +17,8 @@ import pycurl
 from StringIO import StringIO
 import ConfigParser
 import smgr_client_def
+import json
+
 
 def parse_arguments():
     # Process the arguments
@@ -234,7 +236,7 @@ def show_config(args_str=None):
                       rest_api_params['match_key'],
                       rest_api_params['match_value'],
                       args.detail)
-    print resp
+    smgr_client_def.print_rest_response(resp)
 # End of show_config
 
 if __name__ == "__main__":

@@ -66,7 +66,7 @@ def modify_server_json():
     update_roles_from_testbed_py(server_dict)
 
     out_file = open(server_file, 'w')
-    out_data = json.dumps(server_dict)
+    out_data = json.dumps(server_dict, indent=4)
     out_file.write(out_data)
     out_file.close()
 
@@ -184,7 +184,7 @@ def add_vns():
         vns_file = '%s/vns.json' %temp_dir
         local('touch %s' %vns_file)
         out_file = open(vns_file, 'w')
-        out_data = json.dumps(vns_dict)
+        out_data = json.dumps(vns_dict, indent=4)
         out_file.write(out_data)
         out_file.close()
 
@@ -250,7 +250,7 @@ def modify_vns_json():
     modify_vns_from_testbed_py(vns_dict)
 
     out_file = open(vns_file, 'w')
-    out_data = json.dumps(vns_dict)
+    out_data = json.dumps(vns_dict, indent=4)
     out_file.write(out_data)
     out_file.close()
 
@@ -462,7 +462,7 @@ def update_server_in_db_with_testbed_py():
     server_file = '%s/server.json' %temp_dir
     local('touch %s' %server_file)
     out_file = open(server_file, 'w')
-    out_data = json.dumps(u_server_dict)
+    out_data = json.dumps(u_server_dict, indent=4)
     out_file.write(out_data)
     out_file.close()
 

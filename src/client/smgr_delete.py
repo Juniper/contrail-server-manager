@@ -189,7 +189,7 @@ def delete_config(args_str=None):
                       rest_api_params['object'],
                       rest_api_params['match_key'],
                       rest_api_params['match_value'])
-    print resp
+    smgr_client_def.print_rest_response(resp)
 # End of delete_config
 
 if __name__ == "__main__":

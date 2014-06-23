@@ -171,7 +171,7 @@ def provision_server(args_str=None):
  
     resp = send_REST_request(smgr_ip, smgr_port,
                              payload)
-    print resp
+    smgr_client_def.print_rest_response(resp)
 # End of provision_server
 
 if __name__ == "__main__":

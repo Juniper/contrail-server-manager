@@ -444,7 +444,7 @@ def add_config(args_str=None):
     if payload:
         resp = send_REST_request(smgr_ip, smgr_port,
                                  object, payload)
-        print resp
+        smgr_client_def.print_rest_response(resp)
 
 # End of add_config
 
