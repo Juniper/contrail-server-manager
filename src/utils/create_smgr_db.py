@@ -431,7 +431,7 @@ def get_host_roles_from_testbed_py():
             if not node.has_key(ip):
                 node[ip] = []
             if key == 'cfgm':
-                node[ip].append('cfgm')
+                node[ip].append('config')
             else:
                 node[ip].append(key)
     return node
