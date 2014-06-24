@@ -141,7 +141,7 @@ def reimage_server(args_str=None):
  
     resp = send_REST_request(smgr_ip, smgr_port,
                              payload)
-    smgr_client_def.print_rest_resonse(resp)
+    smgr_client_def.print_rest_response(resp)
 # End of reimage_server
 
 if __name__ == "__main__":
