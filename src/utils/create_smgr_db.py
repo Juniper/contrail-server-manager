@@ -187,6 +187,11 @@ def add_vns():
         out_data = json.dumps(vns_dict, indent=4)
         out_file.write(out_data)
         out_file.close()
+    else :
+        timestamp = dt.now().strftime("%Y_%m_%d_%H_%M_%S")
+        local( 'cp %s %s.org.%s' %(vns_file, vns_file, timestamp) )
+        local("sed -i 's/\"vns_id\".*,/\"vns_id\":\"%s\",/'  %s" %(vns_id,vns_file) )
+        local("sed -i 's/\"vns_id\".*/\"vns_id\":\"%s\"/'  %s" %(vns_id,vns_file) )
 
     local('server-manager add  vns -f %s' %(vns_file) )
     local('server-manager show vns')
