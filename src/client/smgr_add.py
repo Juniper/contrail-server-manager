@@ -15,7 +15,10 @@ import pycurl
 from StringIO import StringIO
 import json
 import readline
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 import ConfigParser
 import smgr_client_def
 
