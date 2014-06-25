@@ -494,6 +494,8 @@ class VncServerManager():
         query_args = parse_qs(urlparse(request.url).query,
                               keep_blank_values=True)
          # Get the query argument.
+        force = ("force" in query_args)
+        query_args.pop("force", None)
         if len(query_args) == 0:
             msg = "No selection criteria specified"
             self._smgr_log.log(self._smgr_log.ERROR,
@@ -510,6 +512,7 @@ class VncServerManager():
             ret_data["status"] = 0
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_value[0]
+            ret_data["force"] = force
         return ret_data
 
     def validate_smgr_modify(self, validation_data, request, data = None):
@@ -1362,8 +1365,8 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
-
-                self._serverDb.delete_vns(match_value)
+                force = ret_data["force"]
+                self._serverDb.delete_vns(match_value, force)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_VNS,

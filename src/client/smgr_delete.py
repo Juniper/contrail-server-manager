@@ -66,6 +66,9 @@ def parse_arguments():
         "vns", help='Delete vns')
     parser_vns.add_argument("vns_id",
                         help=("vns id for vns to be deleted"))
+    parser_vns.add_argument("--force", "-f", action="store_true",
+                            help=("optional parameter to indicate ,"
+                                  "if vns association to be removed from server"))
     parser_vns.set_defaults(func=delete_vns)
 
     # Subparser for cluster delete
@@ -84,12 +87,14 @@ def parse_arguments():
     return parser
 # end def parse_arguments
 
-def send_REST_request(ip, port, object, key, value):
+def send_REST_request(ip, port, object, key, value, force=False):
     try:
         response = StringIO()
         headers = ["Content-Type:application/json"]
         url = "http://%s:%s/%s?%s=%s" %(
             ip, port, object, key, value)
+        if force:
+            url += "&force"
         conn = pycurl.Curl()
         conn.setopt(pycurl.URL, url)
         conn.setopt(pycurl.HTTPHEADER, headers)
@@ -185,10 +190,14 @@ def delete_config(args_str=None):
         # end except
     # end else args.ip_port
     rest_api_params = args.func(args)
+    force = False
+    if 'force' in args:
+        force = args.force
     resp = send_REST_request(smgr_ip, smgr_port,
                       rest_api_params['object'],
                       rest_api_params['match_key'],
-                      rest_api_params['match_value'])
+                      rest_api_params['match_value'],
+                      force)
     smgr_client_def.print_rest_response(resp)
 # End of delete_config
 
