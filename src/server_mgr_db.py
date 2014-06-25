@@ -352,16 +352,31 @@ class ServerMgrDb:
     def delete_cluster(self, cluster_id):
         try:
             self.check_obj("cluster", "cluster_id", cluster_id)
-            self._delete_row(server_table, "cluster_id", cluster_id)
+            servers = self.get_server('cluster_id', cluster_id, True)
+            for server in servers:
+                server_data = {}
+                server_data['cluster_id'] = ''
+                self._modify_row(server_table, server_data, "server_id", server['server_id'])
             self._delete_row(cluster_table, "cluster_id", cluster_id)
         except Exception as e:
             raise e
     # End of delete_cluster
 
-    def delete_vns(self, vns_id):
+    def delete_vns(self, vns_id, force=False):
         try:
             self.check_obj("vns", "vns_id", vns_id)
-            self._delete_row(server_table, "vns_id", vns_id)
+            servers = self.get_server('vns_id', vns_id, True)
+            if servers:
+                if force:
+                    for server in servers:
+                        server_data = {}
+                        server_data['vns_id'] = ''
+                        self._modify_row(server_table, server_data, \
+                                        "server_id", server['server_id'])
+                else:
+                    msg = ("Servers are present in this vns, "
+                            "remove vns association, prior to vns delete.")
+                    raise ServerMgrException(msg)
             self._delete_row(vns_table, "vns_id", vns_id)
         except Exception as e:
             raise e
