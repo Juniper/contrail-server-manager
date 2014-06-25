@@ -298,7 +298,10 @@ def add_payload(object, default_object):
                     index_dict[i] = key
                     if key in non_mutable_fields :
                         data += str(i)+ ". %s : %s *\n" % (key, obj[key])
-                    else: 
+                    elif key == "roles":
+                        data += str(i)+ ". %s : %s \n" % (key,
+                                                    ','.join(eval(obj[key])))
+                    else:
                         data += str(i)+ ". %s : %s \n" % (key, obj[key])
                     i+=1
                 else:
@@ -342,12 +345,16 @@ def add_payload(object, default_object):
                         value = smgr_params.get(key_selected,"")
                         user_input = rlinput(msg, value)
                         params_dict[key_selected] = user_input
-
+                    elif key_selected == "roles":
+                        msg = index_dict[eval(user_selection)] + ":"
+                        user_input = rlinput(msg,
+                                ','.join(eval(obj[index_dict[eval(user_selection)]])))
+                        temp_dict[key_selected] = user_input.replace(' ','').split(",")
                     else:
                         msg = index_dict[eval(user_selection)] + ":"
                         user_input = rlinput(msg, obj[index_dict[eval(user_selection)]])
                         temp_dict[key_selected] = user_input
-       #Add a new object                     
+        #Add a new object
         else:
             obj_id = object+"_id"
             for key in fields_dict:
@@ -369,7 +376,7 @@ def add_payload(object, default_object):
                         if key == "roles":
                             #add rlinput at user_input for populating with
                             #defaults
-                            temp_dict[key] = user_input.strip().split(",")
+                            temp_dict[key] = user_input.replace(' ','').split(",")
                         else:
                             temp_dict[key] = user_input
                 #normal fields
