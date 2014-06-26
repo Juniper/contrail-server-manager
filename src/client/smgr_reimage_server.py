@@ -13,7 +13,10 @@ import sys
 import pycurl
 from StringIO import StringIO
 import json
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 import ConfigParser
 import smgr_client_def
 
@@ -141,7 +144,7 @@ def reimage_server(args_str=None):
  
     resp = send_REST_request(smgr_ip, smgr_port,
                              payload)
-    print resp
+    smgr_client_def.print_rest_response(resp)
 # End of reimage_server
 
 if __name__ == "__main__":

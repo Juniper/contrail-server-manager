@@ -30,6 +30,7 @@ import pdb
 import server_mgr_db
 import ast
 import uuid
+import traceback
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
@@ -306,6 +307,7 @@ class VncServerManager():
         except Exception as e:
             self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_ALL,
                                      False)
+            self.log_trace()
             abort(404, repr(e))
 
         self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_CFG_ALL)
@@ -335,6 +337,7 @@ class VncServerManager():
         except Exception as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_CLUSTER, False)
+            self.log_trace()
             abort(404, repr(e))
 
         self._smgr_trans_log.log(bottle.request,
@@ -363,6 +366,10 @@ class VncServerManager():
                                      False)
             abort(404, e.value)
         except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_VNS,
+                                     False)
+            self.log_trace()
             abort(404, repr(e))
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_VNS,
@@ -487,6 +494,8 @@ class VncServerManager():
         query_args = parse_qs(urlparse(request.url).query,
                               keep_blank_values=True)
          # Get the query argument.
+        force = ("force" in query_args)
+        query_args.pop("force", None)
         if len(query_args) == 0:
             msg = "No selection criteria specified"
             self._smgr_log.log(self._smgr_log.ERROR,
@@ -503,6 +512,7 @@ class VncServerManager():
             ret_data["status"] = 0
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_value[0]
+            ret_data["force"] = force
         return ret_data
 
     def validate_smgr_modify(self, validation_data, request, data = None):
@@ -530,16 +540,16 @@ class VncServerManager():
         if match_key == 'server_id':
             server = self._serverDb.get_server(
                         "server_id", match_value, detail=True)
-            if server:
-                vns_id = server['vns_id']
+            if server and server[0]:
+                vns_id = server [0] ['vns_id']
             else:
                 msg =  ("No server present for %s") % (match_value)
                 raise ServerMgrExcpetion(msg)
         elif match_key == 'vns_id':
-            vns_id = match_key
+            vns_id = match_value
 
         servers = self._serverDb.get_server(
-                            vns_id, match_value, detail=True)
+                            'vns_id', vns_id, detail=True)
         role_list = [
                 "database", "openstack", "config",
                 "control", "collector", "webui", "compute"]
@@ -791,6 +801,7 @@ class VncServerManager():
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
             abort(404, e.value)
         except Exception as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
             abort(404, repr(e))
@@ -817,6 +828,7 @@ class VncServerManager():
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
             abort(404, e.value)
         except Exception as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
             abort(404, repr(e))
@@ -900,6 +912,7 @@ class VncServerManager():
             servers = self._serverDb.put_status(
                             server_data)
         except Exception as e:
+            self.log_trace()
             self._smgr_log.log(self._smgr_log.ERROR, "Error adding to db %s" % repr(e))
             abort(404, repr(e))
 
@@ -933,6 +946,7 @@ class VncServerManager():
                                      self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER, False)
             abort(404, e.value)
         except Exception as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER, False)
             abort(404, repr(e))
@@ -1011,6 +1025,7 @@ class VncServerManager():
                                      self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
             abort(404, e.value)
         except Exception as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
             abort(404, repr(e))
@@ -1044,6 +1059,7 @@ class VncServerManager():
                                 False)
             abort(404, e.value)
         except Exception as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_VNS,
                                 False)
@@ -1083,6 +1099,7 @@ class VncServerManager():
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
             abort(404, e.value)
         except Exception as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
             abort(404, repr(e))
@@ -1136,6 +1153,7 @@ class VncServerManager():
                 'image_type': image_type}
             self._serverDb.add_image(image_data)
         except Exception as e:
+            self.log_trace()
             abort(404, repr(e))
     # End of upload_image
 
@@ -1324,6 +1342,7 @@ class VncServerManager():
                                      False)
             abort(404, e.value)
         except Exception as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER,
                                      False)
@@ -1346,14 +1365,15 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
-
-                self._serverDb.delete_vns(match_value)
+                force = ret_data["force"]
+                self._serverDb.delete_vns(match_value, force)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_VNS,
                                      False)
             abort(404, e.value)
         except Exception as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_VNS,
                                      False)
@@ -1397,6 +1417,7 @@ class VncServerManager():
                                      False)
             abort(404, e.value)
         except Exception as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
                                      False)
@@ -1456,6 +1477,7 @@ class VncServerManager():
             # remove the entry from DB
             self._serverDb.delete_image(image_id)
         except ServerMgrException as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE,
                                      False)
@@ -1573,6 +1595,7 @@ class VncServerManager():
         try:
             self._create_server_manager_config(entity)
         except Exception as e:
+            self.log_trace()
             abort(404, repr(e))
         return entity
     # end create_server_mgr_config
@@ -1585,6 +1608,7 @@ class VncServerManager():
         try:
             self._serverDb.server_discovery(action, entity)
         except Exception as e:
+            self.log_trace()
             abort(404, repr(e))
         return entity
     # end process_dhcp_event
@@ -1722,6 +1746,7 @@ class VncServerManager():
                                      False)
             abort(404, e.value)
         except Exception as e:
+            self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
@@ -1796,6 +1821,7 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REBOOT,
                                      False)
+            self.log_trace()
             abort(404, repr(e))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REBOOT)
@@ -1845,7 +1871,28 @@ class VncServerManager():
         print "Interface Created"
         self.provision_server()
 
+    def log_trace(self):
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        if not exc_type or not exc_value or not exc_traceback:
+            return
+        self._smgr_log.log(self._smgr_log.DEBUG, "*****TRACEBACK-START*****")
+	tb_lines = traceback.format_exception(exc_type, exc_value,
+                          exc_traceback)
+	for tb_line in tb_lines:
+            self._smgr_log.log(self._smgr_log.DEBUG, tb_line)
+        self._smgr_log.log(self._smgr_log.DEBUG, "*****TRACEBACK-END******")
 
+        #use below formating if needed
+        '''
+        print "*** format_exception:"
+        print repr(traceback.format_exception(exc_type, exc_value,
+                          exc_traceback))
+        print "*** extract_tb:"
+        print repr(traceback.extract_tb(exc_traceback))
+        print "*** format_tb:"
+        print repr(traceback.format_tb(exc_traceback))
+        print "*** tb_lineno:", exc_traceback.tb_lineno
+        '''
 
     # API call to provision server(s) as per roles/roles
     # defined for those server(s). This function creates the
@@ -1971,6 +2018,7 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION,
                                      False)
+            self.log_trace()
             abort(404, repr(e))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION)

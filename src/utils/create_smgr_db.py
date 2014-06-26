@@ -66,7 +66,7 @@ def modify_server_json():
     update_roles_from_testbed_py(server_dict)
 
     out_file = open(server_file, 'w')
-    out_data = json.dumps(server_dict)
+    out_data = json.dumps(server_dict, indent=4)
     out_file.write(out_data)
     out_file.close()
 
@@ -184,12 +184,18 @@ def add_vns():
         vns_file = '%s/vns.json' %temp_dir
         local('touch %s' %vns_file)
         out_file = open(vns_file, 'w')
-        out_data = json.dumps(vns_dict)
+        out_data = json.dumps(vns_dict, indent=4)
         out_file.write(out_data)
         out_file.close()
+    else :
+        timestamp = dt.now().strftime("%Y_%m_%d_%H_%M_%S")
+        local( 'cp %s %s.org.%s' %(vns_file, vns_file, timestamp) )
+        local("sed -i 's/\"vns_id\".*,/\"vns_id\":\"%s\",/'  %s" %(vns_id,vns_file) )
+        local("sed -i 's/\"vns_id\".*/\"vns_id\":\"%s\"/'  %s" %(vns_id,vns_file) )
 
     local('server-manager add  vns -f %s' %(vns_file) )
-    local('server-manager show vns')
+    #for vns in vns_dict['vns']:
+    #    local('server-manager show --detail vns --vns_id %s'%vns["vns_id"] )
 
 def add_server():
     add_server_using_json()
@@ -250,7 +256,7 @@ def modify_vns_json():
     modify_vns_from_testbed_py(vns_dict)
 
     out_file = open(vns_file, 'w')
-    out_data = json.dumps(vns_dict)
+    out_data = json.dumps(vns_dict, indent=4)
     out_file.write(out_data)
     out_file.close()
 
@@ -358,10 +364,7 @@ def get_server_with_vns_id_from_db():
 
     temp_dir= expanduser("~")
     file_name = '%s/server_with_vns_id_from_db.json' %(temp_dir)
-
     local('server-manager show --detail server --vns_id %s \
-                 | sed \'s/[^{]*//\'  \
-                 | python -m json.tool  \
                  > %s' %(vns_id, file_name) )
 
 
@@ -384,8 +387,6 @@ def get_vns_with_vns_id_from_db():
     file_name = '%s/vns.json' %(temp_dir)
 
     local('server-manager show --detail vns --vns_id %s \
-                 | sed \'s/[^{]*//\'  \
-                 | python -m json.tool  \
                  > %s' %(vns_id, file_name) )
 
     in_file = open( file_name, 'r' )
@@ -408,8 +409,6 @@ def get_server_with_ip_from_db(ip=None):
     file_name = '%s/server.json' %(temp_dir)
 
     local('server-manager show --detail server --ip %s \
-                 | sed \'s/[^{]*//\'  \
-                 | python -m json.tool  \
                  > %s' %(ip, file_name) )
 
 
@@ -431,7 +430,7 @@ def get_host_roles_from_testbed_py():
             if not node.has_key(ip):
                 node[ip] = []
             if key == 'cfgm':
-                node[ip].append('cfgm')
+                node[ip].append('config')
             else:
                 node[ip].append(key)
     return node
@@ -448,9 +447,9 @@ def update_server_in_db_with_testbed_py():
     for key in node:
         server_dict = {}
         server_dict = get_server_with_ip_from_db(key)
-        if not server_dict:
-            print ("Server with ip %s not present in Server Manager" % ip)
-            conitnue
+        if not server_dict or not server_dict['server']:
+            print ("WARNING: Server with ip %s not present in Server Manager" % key)
+            continue
         server_id = server_dict['server'][0]['server_id']
         u_server = {}
         u_server['server_id'] = server_id
@@ -462,15 +461,14 @@ def update_server_in_db_with_testbed_py():
     server_file = '%s/server.json' %temp_dir
     local('touch %s' %server_file)
     out_file = open(server_file, 'w')
-    out_data = json.dumps(u_server_dict)
+    out_data = json.dumps(u_server_dict, indent=4)
     out_file.write(out_data)
     out_file.close()
 
     local('server-manager add  server -f %s' %(server_file) )
-    local('server-manager show --detail server --server_id %s \
-                 | sed \'s/[^{]*//\'  \
-                 | python -m json.tool'  \
-              % server_id )
+    for u_server in u_server_dict['server']:
+        local('server-manager show --detail server --server_id %s' \
+                  % u_server['server_id'] )
 #End  update_server_in_db_with_vns_id
 
 
