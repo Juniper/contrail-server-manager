@@ -194,7 +194,8 @@ def add_vns():
         local("sed -i 's/\"vns_id\".*/\"vns_id\":\"%s\"/'  %s" %(vns_id,vns_file) )
 
     local('server-manager add  vns -f %s' %(vns_file) )
-    local('server-manager show vns')
+    #for vns in vns_dict['vns']:
+    #    local('server-manager show --detail vns --vns_id %s'%vns["vns_id"] )
 
 def add_server():
     add_server_using_json()
@@ -363,10 +364,7 @@ def get_server_with_vns_id_from_db():
 
     temp_dir= expanduser("~")
     file_name = '%s/server_with_vns_id_from_db.json' %(temp_dir)
-
     local('server-manager show --detail server --vns_id %s \
-                 | sed \'s/[^{]*//\'  \
-                 | python -m json.tool  \
                  > %s' %(vns_id, file_name) )
 
 
@@ -389,8 +387,6 @@ def get_vns_with_vns_id_from_db():
     file_name = '%s/vns.json' %(temp_dir)
 
     local('server-manager show --detail vns --vns_id %s \
-                 | sed \'s/[^{]*//\'  \
-                 | python -m json.tool  \
                  > %s' %(vns_id, file_name) )
 
     in_file = open( file_name, 'r' )
@@ -413,8 +409,6 @@ def get_server_with_ip_from_db(ip=None):
     file_name = '%s/server.json' %(temp_dir)
 
     local('server-manager show --detail server --ip %s \
-                 | sed \'s/[^{]*//\'  \
-                 | python -m json.tool  \
                  > %s' %(ip, file_name) )
 
 
@@ -453,9 +447,9 @@ def update_server_in_db_with_testbed_py():
     for key in node:
         server_dict = {}
         server_dict = get_server_with_ip_from_db(key)
-        if not server_dict:
-            print ("Server with ip %s not present in Server Manager" % ip)
-            conitnue
+        if not server_dict or not server_dict['server']:
+            print ("WARNING: Server with ip %s not present in Server Manager" % key)
+            continue
         server_id = server_dict['server'][0]['server_id']
         u_server = {}
         u_server['server_id'] = server_id
@@ -472,10 +466,9 @@ def update_server_in_db_with_testbed_py():
     out_file.close()
 
     local('server-manager add  server -f %s' %(server_file) )
-    local('server-manager show --detail server --server_id %s \
-                 | sed \'s/[^{]*//\'  \
-                 | python -m json.tool'  \
-              % server_id )
+    for u_server in u_server_dict['server']:
+        local('server-manager show --detail server --server_id %s' \
+                  % u_server['server_id'] )
 #End  update_server_in_db_with_vns_id
 
 
