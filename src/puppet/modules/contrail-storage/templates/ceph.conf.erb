@@ -50,10 +50,10 @@
 [osd]
   osd journal size = <%= @contrail_storage_journal_size_mb %>
   filestore flusher = false
-  osd data = <%= @osd_data %>
-  osd journal = <%= @osd_journal_real %>
+  #osd data = <%= @osd_data %>
+  #osd journal = <%= @osd_journal_real %>
   osd mkfs type = xfs
-  keyring = <%= @osd_data %>/keyring
+  keyring = /var/lib/ceph/osd/ceph-$id/keyring
 
 [mds]
   mds data = <%= @mds_data %>
@@ -76,4 +76,16 @@ contrail_storage_mon_hosts.each_key { |host|
 }
 -%>
 <%= mon_host_str %>
+<% end -%>
+<% osd_list_str = "\n" -%>
+<% if @ceph_all_osds -%>
+<%
+	ceph_osd_array = ceph_all_osds.split('|')
+	ceph_osd_array.each { |devname|
+		#osd_devname = "ceph_osd_id_#{devname}"
+		osd_details = devname.split(':')
+		osd_list_str += "\n[osd.#{osd_details[1]}]\n   host = #{hostname}\n   devs = /dev/#{osd_details[0]} \n"
+	}
+-%>
+<%= osd_list_str %>
 <% end -%>
