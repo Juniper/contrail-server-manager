@@ -289,7 +289,6 @@ def new_vns():
                   "vns" : [
                       {
                           "vns_id" : "vns-default",
-                          "email" : "rishiv@juniper.net",
                           "vns_params" : {
                               "router_asn": "64512",
                               "database_dir": "/home/cassandra",
@@ -304,10 +303,10 @@ def new_vns():
                               "ks_tenant": "admin",
                               "openstack_passwd": "contrail123",
                               "analytics_data_ttl": "168",
-                              "mask": "255.255.255.240",
-                              "gway": "10.204.221.30",
+                              "mask": "255.255.255.0",
+                              "gway": "1.1.1.254",
                               "passwd": "c0ntrail123",
-                              "domain": "englab.juniper.net",
+                              "domain": "contrail.juniper.net",
                               "haproxy": "disable"
 
                           }
