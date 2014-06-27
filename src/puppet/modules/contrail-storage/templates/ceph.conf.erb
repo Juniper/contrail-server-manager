@@ -1,0 +1,91 @@
+[global]
+<% if @contrail_storage_auth_type -%>
+  auth cluster required = <%= @contrail_storage_auth_type %>
+  auth service required = <%= @contrail_storage_auth_type %>
+  auth client required = <%= @contrail_storage_auth_type %>
+<% end -%>
+
+<% if @signatures_require -%>
+  cephx require signatures = <%= @signatures_require %>
+<% end -%>
+<% if @signatures_cluster -%>
+  cephx cluster require signatures = <%= @signatures_cluster %>
+<% end -%>
+<% if @signatures_service -%>
+  cephx service require signatures = <%= @signatures_service %>
+<% end -%>
+<% if @signatures_sign_msgs -%>
+  cephx sign messages = <%= @signatures_sign_msgs %>
+<% end -%>
+
+  keyring = /etc/ceph/keyring
+<% if @contrail_storage_cluster_network && @contrail_storage_public_network -%>
+  cluster network = <%= @contrail_storage_cluster_network %>
+  public network = <%= @contrail_storage_public_network %>
+<% end -%>
+<% if @pool_default_pg_num -%>
+  osd pool default pg num = <%= @pool_default_pg_num %>
+<% end -%>
+<% if @pool_default_pgp_num -%>
+  osd pool default pgp num = <%= @pool_default_pgp_num %>
+<% end -%>
+<% if @pool_default_size -%>
+  osd pool default size = <%= @pool_default_size %>
+<% end -%>
+<% if @pool_default_min_size -%>
+  osd pool default min size = <%= @pool_default_min_size %>
+<% end -%>
+<% if @pool_default_crush_rule -%>
+  osd pool default crush rule = <%= @pool_default_crush_rule %>
+<% end -%>
+
+  fsid = <%= @contrail_storage_fsid%>
+
+[mon]
+<% if @contrail_storage_mon_init_members -%>
+  mon initial members = <%= @contrail_storage_mon_init_members %>
+<% end -%>
+  #mon data = <%= @mon_data %>
+
+[osd]
+  osd journal size = <%= @contrail_storage_journal_size_mb %>
+  filestore flusher = false
+  #osd data = <%= @osd_data %>
+  #osd journal = <%= @osd_journal_real %>
+  osd mkfs type = xfs
+  keyring = /var/lib/ceph/osd/ceph-$id/keyring
+
+[mds]
+  mds data = <%= @mds_data %>
+  keyring = <%= @mds_data %>/keyring
+
+<% if @contrail_storage_mon_hosts -%>
+<% 
+#contrail_mon_hash = Hash.new("hosts")
+#contrail_mon_hash = { "host1" => [ "1.1.1.1", "2.2.2.2"], "host2"=> ["1.1.1.2", "2.2.2.3"]}
+mon_host_str = "\n"
+
+i =0
+contrail_storage_mon_hosts.each_key { |host|
+	
+	#print "\n Hello #{i}"
+	#print "\n#{host}"
+	arr =  contrail_storage_mon_hosts[host]
+	mon_host_str += "\n[mon.#{host}]\n  host  = #{arr[0]}\n  mon addr = #{arr[1]}\n"
+	i += 1
+}
+-%>
+<%= mon_host_str %>
+<% end -%>
+<% osd_list_str = "\n" -%>
+<% if @ceph_all_osds -%>
+<%
+	ceph_osd_array = ceph_all_osds.split('|')
+	ceph_osd_array.each { |devname|
+		#osd_devname = "ceph_osd_id_#{devname}"
+		osd_details = devname.split(':')
+		osd_list_str += "\n[osd.#{osd_details[1]}]\n   host = #{hostname}\n   devs = /dev/#{osd_details[0]} \n"
+	}
+-%>
+<%= osd_list_str %>
+<% end -%>
