@@ -48,7 +48,7 @@ define contrail-openstack (
     if ($operatingsystem == "Centos" or $operatingsystem == "Fedora") {
         exec { "dashboard-local-settings-1" :
             command => "sudo sed -i 's/ALLOWED_HOSTS =/#ALLOWED_HOSTS =/g' /etc/openstack_dashboard/local_settings && echo dashboard-local-settings-1 >> /etc/contrail/contrail-openstack-exec.out",
-            require =>  package["contrail-openstack"],
+            require =>  Package["contrail-openstack"],
             onlyif => "test -f /etc/openstack_dashboard/local_settings",
             unless  => "grep -qx dashboard-local-settings-1 /etc/contrail/contrail-openstack-exec.out",
             provider => shell,
@@ -56,7 +56,7 @@ define contrail-openstack (
         }
         exec { "dashboard-local-settings-2" :
             command => "sudo sed -i 's/ALLOWED_HOSTS =/#ALLOWED_HOSTS =/g' /etc/openstack-dashboard/local_settings && echo dashboard-local-settings-2 >> /etc/contrail/contrail-openstack-exec.out",
-            require =>  package["contrail-openstack"],
+            require =>  Package["contrail-openstack"],
             onlyif => "test -f /etc/openstack-dashboard/local_settings",
             unless  => "grep -qx dashboard-local-settings-2 /etc/contrail/contrail-openstack-exec.out",
             provider => shell,
@@ -66,7 +66,7 @@ define contrail-openstack (
 
     exec { "update-nova-conf-file" :
         command => "sudo sed -i 's/rpc_backend = nova.openstack.common.rpc.impl_qpid/#rpc_backend = nova.openstack.common.rpc.impl_qpid/g' /etc/nova/nova.conf && echo update-nova-conf-file >> /etc/contrail/contrail-openstack-exec.out",
-        require =>  package["contrail-openstack"],
+        require =>  Package["contrail-openstack"],
         onlyif => "test -f /etc/nova/nova.conf",
         unless  => "grep -qx update-nova-conf-file /etc/contrail/contrail-openstack-exec.out",
         provider => shell,
@@ -75,7 +75,7 @@ define contrail-openstack (
 
     exec { "update-cinder-conf-file" :
         command => "sudo sed -i 's/rpc_backend = cinder.openstack.common.rpc.impl_qpid/#rpc_backend = cinder.openstack.common.rpc.impl_qpid/g' /etc/cinder/cinder.conf && echo update-cinder-conf-file >> /etc/contrail/contrail-openstack-exec.out",
-        require =>  package["contrail-openstack"],
+        require =>  Package["contrail-openstack"],
         onlyif => "test -f /etc/cinder/cinder.conf",
         unless  => "grep -qx update-cinder-conf-file /etc/contrail/contrail-openstack-exec.out",
         provider => shell,

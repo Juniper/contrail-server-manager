@@ -291,6 +291,22 @@ define contrail-common (
         ensure => "directory",
     }
 
+    group { "setup-nova-group" :
+	name => 'nova',
+	ensure => 'present',
+	before => User['setup-nova-user']
+    }
+
+    user { "setup-nova-user" : 
+	name => 'nova',
+	uid => '499',
+	system => 'true',
+	ensure => 'present',
+	shell => '/bin/false',
+	home => '/var/lib/nova',
+	gid => "nova"
+    }
+
     # Make sure our scripts directory is present
     file { "/etc/contrail":
         ensure => "directory",
