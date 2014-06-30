@@ -31,6 +31,7 @@ import server_mgr_db
 import ast
 import uuid
 import traceback
+from server_mgr_defaults import *
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
@@ -100,56 +101,6 @@ class VncServerManager():
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
 
-    #validation DS
-    server_fields = {
-        "match_keys": "['server_id', 'mac', 'cluster_id', 'rack_id', 'pod_id', 'vns_id', 'ip']",
-        "obj_name": "server",
-        "primary_keys": "['server_id', 'mac']",
-        "server_id": "",
-        "mac": "",
-        "ip": "",
-        "server_params": "",
-        "roles": "",
-        "cluster_id": "",
-        "vns_id": "",
-        "mask": "",
-        "gway": "",
-        "passwd": "",
-        "domain": "",
-        "email": "",
-        "power_user": "",
-        "power_type": "",
-        "power_pass": "",
-        "control": "",
-        "bond": "",
-        "power_address": ""
-    }
-
-    vns_fields = {
-        "match_keys": "['vns_id']",
-        "obj_name": "vns",
-        "vns_id": "",
-        "email": "",
-        "primary_keys": "['vns_id']",
-        "vns_params": ""
-    }
-
-    cluster_fields = {
-        "match_keys": "['cluster_id']",
-        "obj_name": "cluster",
-        "primary_keys": "['cluster_id']",
-        "cluster_id": ""
-    }
-
-    image_fields = {
-        "match_keys": "['image_id']",
-        "obj_name": "image",
-        "primary_keys": "['image_id']",
-        "image_id": "",
-        "image_type": "",
-        "image_version": "",
-        "image_path": ""
-    }
 
     def __init__(self, args_str=None):
         self._args = None
@@ -417,7 +368,8 @@ class VncServerManager():
             ret_data["detail"] = detail
         return ret_data
 
-    def validate_smgr_put(self, validation_data, request, data=None):
+    def validate_smgr_put(self, validation_data, request, data=None,
+                                                        modify = False):
         ret_data = {}
         ret_data['status'] = 1
         try:
@@ -457,7 +409,25 @@ class VncServerManager():
         for data_item_key, data_item_value in data.iteritems():
             #If json data name is not present in list of
             #allowable fields silently ignore them.
-            if data_item_key not in validation_data:
+            if data_item_key == obj_name + "_params" and modify == False:
+                object_params = data_item_value
+                default_object_params = eval(validation_data[obj_name +'_params'])
+                for key,value in default_object_params.iteritems():
+                    if key not in object_params:
+                        msg = "Default Object param added is %s:%s" % \
+                                (key, value)
+                        self._smgr_log.log(self._smgr_log.INFO,
+                                   msg)
+                        object_params[key] = value
+                """
+
+                for k,v in object_params.iteritems():
+                    if k in default_object_params and v == ''
+                    if v == '""':
+                        object_params[k] = ''
+                """
+                data[data_item_key] = object_params
+            elif data_item_key not in validation_data:
 #                data.pop(data_item_key, None)
                 remove_list.append(data_item_key)
                 msg =  ("Value %s is not an option") % (data_item_key)
@@ -467,11 +437,20 @@ class VncServerManager():
                 data[data_item_key] = ''
         for item in remove_list:
             data.pop(item, None)
-        #not needed as of now
-        '''
+
+        #Added default fields
         for k,v in validation_data.items():
-            if k == "match_keys" or k == "primary_keys":
+            if k == "match_keys" or k == "primary_keys" \
+                or k == "obj_name":
                 continue
+            if k not in data and v and modify == False:
+                msg = "Default added is %s:%s" % \
+                                (k, v)
+                self._smgr_log.log(self._smgr_log.INFO,
+                                   msg)
+                data[k] = v
+
+            """
             if k not in data:
                 msg =  ("Field %s not present") % (k)
                 self._smgr_log.log(self._smgr_log.ERROR,
@@ -482,10 +461,11 @@ class VncServerManager():
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    msg)
                 raise ServerMgrException(msg)
-        '''
+            """
         return ret_data
 
     def validate_smgr_delete(self, validation_data, request, data = None):
+
         ret_data = {}
         ret_data['status'] = 1
 
@@ -515,7 +495,9 @@ class VncServerManager():
             ret_data["force"] = force
         return ret_data
 
+    #TODO Need to reomve
     def validate_smgr_modify(self, validation_data, request, data = None):
+
         ret_data = {}
         ret_data['status'] = 1
 
@@ -542,9 +524,12 @@ class VncServerManager():
                         "server_id", match_value, detail=True)
             if server and server[0]:
                 vns_id = server [0] ['vns_id']
+                if vns_id is None:
+                    msg =  ("No VNS associated with server %s") % (match_value)
+                    raise ServerMgrException(msg)
             else:
                 msg =  ("No server present for %s") % (match_value)
-                raise ServerMgrExcpetion(msg)
+                raise ServerMgrException(msg)
         elif match_key == 'vns_id':
             vns_id = match_value
 
@@ -578,6 +563,7 @@ class VncServerManager():
         return 0
 
     def validate_smgr_provision(self, validation_data, request , data=None):
+
         ret_data = {}
         ret_data['status'] = 1
 
@@ -674,6 +660,7 @@ class VncServerManager():
         return ret_data
 
     def validate_smgr_reboot(self, validation_data, request , data=None):
+
         ret_data = {}
         ret_data['status'] = 1
 
@@ -706,6 +693,7 @@ class VncServerManager():
         # end else
 
     def validate_smgr_reimage(self, validation_data, request , data=None):
+
         ret_data = {}
         ret_data['status'] = 1
         entity = request.json
@@ -748,27 +736,28 @@ class VncServerManager():
 
 
 
-    def validate_smgr_request(self, type, oper, request, data = None):
+    def validate_smgr_request(self, type, oper, request, data = None, modify =
+                              False):
         ret_data = {}
         ret_data['status'] = 1
 
         ret_data = {}
         ret_data['status'] = 1
         if type == "SERVER":
-            validation_data = self.server_fields
+            validation_data = server_fields
         elif type == "VNS":
-            validation_data = self.vns_fields
+            validation_data = vns_fields
         elif type == "CLUSTER":
-            validation_data = self.cluster_fields
+            validation_data = cluster_fields
         elif type == "IMAGE":
-            validation_data = self.image_fields
+            validation_data = image_fields
         else: 
             validation_data = None
 
         if oper == "GET":
             return self.validate_smgr_get(validation_data, request, data)
         elif oper == "PUT":
-            return self.validate_smgr_put(validation_data, request, data)
+            return self.validate_smgr_put(validation_data, request, data, modify)
         elif oper == "DELETE":
             return self.validate_smgr_delete(validation_data, request, data)
         elif oper == "MODIFY":
@@ -933,13 +922,15 @@ class VncServerManager():
             self.validate_smgr_entity("cluster", entity)
             clusters = entity.get('cluster', None)
             for cluster in clusters:
-                self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
-                                                cluster)
                 if self._serverDb.check_obj("cluster", "cluster_id",
                                             cluster['cluster_id'], False):
+                    self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
+                                                cluster, True)
                     #nothing to do for now
                     return
                 else:
+                    self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
+                                                cluster)
                     self._serverDb.add_cluster(cluster)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -963,12 +954,15 @@ class VncServerManager():
             images = entity.get("image", None)
             for image in images:
                 #use macros for obj type
-                self.validate_smgr_request("IMAGE", "PUT", bottle.request,
-                                                image)
                 if self._serverDb.check_obj("image", "image_id",
                                             image['image_id'], False):
+                    self.validate_smgr_request("IMAGE", "PUT", bottle.request,
+                                                image, True)
+
                     self._serverDb.modify_image(image)
                 else:
+                    self.validate_smgr_request("IMAGE", "PUT", bottle.request,
+                                                image)
                     image_id = image.get("image_id", None)
                     image_version = image.get("image_version", None)
                     # Get Image type
@@ -1041,14 +1035,16 @@ class VncServerManager():
             self.validate_smgr_entity("vns", entity)
             vns = entity.get('vns', None)
             for cur_vns in vns:
-                self.validate_smgr_request("VNS", "PUT", bottle.request,
-                                                cur_vns)
                 #use macros for obj type
                 if self._serverDb.check_obj("vns", "vns_id",
                                             cur_vns['vns_id'], False):
                     #TODO Handle uuid here
+                    self.validate_smgr_request("VNS", "PUT", bottle.request,
+                                                cur_vns, True)
                     self._serverDb.modify_vns(cur_vns)
                 else:
+                    self.validate_smgr_request("VNS", "PUT", bottle.request,
+                                                cur_vns)
                     str_uuid = str(uuid.uuid4())
                     cur_vns["vns_params"].update({"uuid":str_uuid})
                     self._smgr_log.log(self._smgr_log.INFO, "VNS Data %s" % cur_vns)
@@ -1085,11 +1081,11 @@ class VncServerManager():
                                             server['server_id'], False):
                     #TODO - Revisit this logic
                     # Do we need mac to be primary MAC
-                    self.server_fields['primary_keys'] = "['server_id']"
+                    server_fields['primary_keys'] = "['server_id']"
                     self.validate_smgr_request("SERVER", "PUT", bottle.request,
-                                                                        server)
+                                                             server, True)
                     self._serverDb.modify_server(server)
-                    self.server_fields['primary_keys'] = "['server_id', 'mac']"
+                    server_fields['primary_keys'] = "['server_id', 'mac']"
                 else:
                     self.validate_smgr_request("SERVER", "PUT", bottle.request,
                                                                         server)
