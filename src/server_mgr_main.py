@@ -987,7 +987,8 @@ class VncServerManager():
                         raise ServerMgrException("image id or location not specified")
                     if (image_type not in [
                             "centos", "fedora", "ubuntu",
-                            "contrail-ubuntu-package", "contrail-centos-package"]):
+                            "contrail-ubuntu-package", "contrail-centos-package",
+                            "contrail-storage-ubuntu-package"]):
                         self._smgr_log.log(self._smgr_log.ERROR,
                                     "image type not specified or invalid for image %s" %(
                                     image_id))
@@ -1013,7 +1014,8 @@ class VncServerManager():
                         image_id + extn
                     subprocess.call(["cp", "-f", image_path, dest])
                     if ((image_type == "contrail-centos-package") or
-                        (image_type == "contrail-ubuntu-package")):
+                        (image_type == "contrail-ubuntu-package") or
+                        (image_type == "contrail-storage-ubuntu-package")):
                         subprocess.call(
                             ["cp", "-f", dest,
                              self._args.html_root_dir + "contrail/images"])
@@ -1253,6 +1255,53 @@ class VncServerManager():
             raise(e)
     # end _create_deb_repo
 
+    # Create storage debian repo
+    # Create storage debian repo for "debian" packages.
+    # repo created includes the wrapper package too.
+    def _create_storage_deb_repo(
+        self, image_id, image_type, image_version, dest):
+        try:
+            # create a repo-dir where we will create the repo
+            mirror = self._args.html_root_dir+"contrail/repo/"+image_id
+            cmd = "mkdir -p %s" %(mirror)
+            subprocess.call(cmd, shell=True)
+            # change directory to the new one created
+            cwd = os.getcwd()
+            os.chdir(mirror)
+            # add wrapper package itself to the repo
+            cmd = "cp -f %s %s" %(
+                dest, mirror)
+            subprocess.call(cmd, shell=True)
+            # Extract .tgz of other packages from the repo
+            cmd = (
+                "dpkg -x %s . > /dev/null" %(dest))
+            subprocess.call(cmd, shell=True)
+            cmd = ("mv ./opt/contrail/contrail_packages/contrail_storage_debs.tgz .")
+            subprocess.call(cmd, shell=True)
+            cmd = ("rm -rf opt")
+            subprocess.call(cmd, shell=True)
+            # untar tgz to get all packages
+            cmd = ("tar xvzf contrail_storage_debs.tgz > /dev/null")
+            subprocess.call(cmd, shell=True)
+            # remove the tgz file itself, not needed any more
+            cmd = ("rm -f contrail_storage_debs.tgz")
+            subprocess.call(cmd, shell=True)
+            # build repo using createrepo
+            cmd = (
+                "dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
+            subprocess.call(cmd, shell=True)
+            # change directory back to original
+            os.chdir(cwd)
+            # cobbler add repo
+            # TBD - This is working for "centos" only at the moment,
+            # will need to revisit and make it work for ubuntu - Abhay
+            # self._smgr_cobbler.create_repo(
+            #     image_id, mirror)
+        except Exception as e:
+            raise(e)
+    # end _create_storage_deb_repo
+
+
     # Given a package, create repo for it on cobbler. The repo created is
     # modified to include the wrapper package too (!!). This is needed as
     # setup.sh and other scripts needed on target can be easily installed.
@@ -1265,6 +1314,10 @@ class VncServerManager():
             elif (image_type == "contrail-ubuntu-package"):
                 self._create_deb_repo(
                     image_id, image_type, image_version, dest)
+            elif (image_type == "contrail-storage-ubuntu-package"):
+                self._create_storage_deb_repo(
+                    image_id, image_type, image_version, dest)
+
             else:
                 pass
         except Exception as e:
@@ -1934,6 +1987,12 @@ class VncServerManager():
                 if 'storage' in server_roles:
                     total_osd += len(server_params['disks'])
 
+            packages = self._serverDb.get_image("image_id", package_image_id, True)
+            if len(packages) == 0:
+                msg = "No Package %s found" % (package_image_id)
+                raise ServerMgrException(msg)
+            package_type = packages[0] ['image_type']
+
             for server in servers:
                 server_params = eval(server['server_params'])
                 vns = self._serverDb.get_vns(server['vns_id'],
@@ -1959,6 +2018,7 @@ class VncServerManager():
 
                 provision_params = {}
                 provision_params['package_image_id'] = package_image_id
+                provision_params['package_type'] = package_type
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
                 provision_params['roles'] = role_ips
                 provision_params['role_ids'] = role_ids
