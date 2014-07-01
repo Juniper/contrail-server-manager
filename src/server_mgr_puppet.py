@@ -117,7 +117,15 @@ class ServerMgrPuppet:
         before => %s
     }\n\n''' % (provision_params['package_image_id'],
                 provision_params["server_mgr_ip"],
+                "Contrail-common::Contrail-install-repo[\"install_repo\"]")
+
+        data += '''    # Install repo on target.
+    contrail-common::contrail-install-repo{install_repo:
+        contrail_repo_type => "%s",
+        before => %s
+    }\n\n''' % (provision_params['package_type'],
                 "Contrail-common::Contrail-common[\"contrail_common\"]")
+
         return data
     # end _repository_config
 
