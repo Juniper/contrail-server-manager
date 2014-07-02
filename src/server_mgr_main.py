@@ -483,7 +483,14 @@ class VncServerManager():
                                    msg)
                 raise ServerMgrException(msg)
         '''
-        return ret_data
+        if 'roles' in data:
+            if 'storage' in data['roles'] and 'compute' not in data['roles']:
+                msg = "role 'storage' needs role 'compute' in provision file"
+                raise ServerMgrException(msg)
+            elif 'storage-mgr' in data['roles'] and 'openstack' not in data['roles']:
+                msg = "role 'storage-mgr' needs role 'openstack' in provision file"
+                raise ServerMgrException(msg)
+	return ret_data
 
     def validate_smgr_delete(self, validation_data, request, data = None):
         ret_data = {}
