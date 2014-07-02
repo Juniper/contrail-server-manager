@@ -38,6 +38,7 @@ from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from send_mail import send_mail
+import tempfile
 
 bottle.BaseRequest.MEMFILE_MAX = 2 * 102400
 
@@ -1005,20 +1006,24 @@ class VncServerManager():
                     dest = self._args.smgr_base_dir + 'images/' + \
                         image_id + extn
                     subprocess.call(["cp", "-f", image_path, dest])
+                    image_params = {}
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package")):
                         subprocess.call(
                             ["cp", "-f", dest,
                              self._args.html_root_dir + "contrail/images"])
-                        self._create_repo(
+                        puppet_manifest_version = self._create_repo(
                             image_id, image_type, image_version, dest)
+                        image_params['puppet_manifest_version'] = \
+                            puppet_manifest_version 
                     else:
                         self._add_image_to_cobbler(image_id, image_type,
                                                    image_version, dest)
                     image_data = {
                         'image_id': image_id,
                         'image_version': image_version,
-                        'image_type': image_type}
+                        'image_type': image_type,
+                        'image_params' : image_params}
                     self._serverDb.add_image(image_data)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -1137,30 +1142,76 @@ class VncServerManager():
             if file_obj.file:
                 with open(dest, 'w') as open_file:
                     open_file.write(file_obj.file.read())
+            image_params = {}
             if ((image_type == "contrail-centos-package") or
                 (image_type == "contrail-ubuntu-package")):
                 subprocess.call(
                     ["cp", "-f", dest,
                      self._args.html_root_dir + "contrail/images"])
-                self._create_repo(
+                puppet_manifest_version = self._create_repo(
                     image_id, image_type, image_version, dest)
+                image_params['puppet_manifest_version'] = \
+                    puppet_manifest_version 
             else:
                 self._add_image_to_cobbler(image_id, image_type,
                                            image_version, dest)
             image_data = {
                 'image_id': image_id,
                 'image_version': image_version,
-                'image_type': image_type}
+                'image_type': image_type,
+                'image_params' : image_params}
             self._serverDb.add_image(image_data)
         except Exception as e:
             self.log_trace()
             abort(404, repr(e))
     # End of upload_image
 
+    # The below function takes the tgz path for puppet modules in the repo
+    # being added, checks if that version of modules is already added to
+    # puppet and adds it if not already added.
+    def _add_puppet_modules(self, puppet_modules_tgz):
+        tmpdirname = tempfile.mkdtemp()
+        try:
+            # change dir to the temp dir created
+            cwd = os.getcwd()
+            os.chdir(tmpdirname)
+            # Copy the tgz to tempdir
+            cmd = ("cp -f %s ." %(puppet_modules_tgz))
+            subprocess.call(cmd, shell=True)
+            # untar the puppet modules tgz file
+            cmd = ("tar xvzf contrail-puppet-manifest.tgz > /dev/null")
+            subprocess.call(cmd, shell=True)
+            # Extract contents of version file.
+            with open('version','r') as f:
+                version = f.read().splitlines()[0]
+            # Create modules directory if it does not exist.
+            target_dir = "/etc/puppet/modules/contrail_" + version
+            if not os.path.isdir(target_dir):
+                os.makedirs(target_dir)
+            # This contrail puppet modules version does not exist. Add it.
+            cmd = ("cp -rf ./contrail/* " + target_dir)
+            subprocess.call(cmd, shell=True)
+            # Replace the class names in .pp files to have the version number
+            # of this contrail modules.
+            filelist = target_dir + "/manifests/*.pp"
+            cmd = ("sed -i \"s/__\$version__/contrail_%s/g\" %s" %(
+                    version, filelist))
+            subprocess.call(cmd, shell=True)
+            os.chdir(cwd)
+            return version
+        finally:
+            try:
+                shutil.rmtree(tmpdirname) # delete directory
+            except OSError, e:
+                if e.errno != 2: # code 2 - no such file or directory
+                    raise
+    # end _add_puppet_modules
+
     # Create yum repo for "centos" and "fedora" packages.
     # repo created includes the wrapper package too.
     def _create_yum_repo(
         self, image_id, image_type, image_version, dest):
+        puppet_manifest_version = ""
         try:
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
@@ -1173,6 +1224,16 @@ class VncServerManager():
             cmd = "cp -f %s %s" %(
                 dest, mirror)
             subprocess.call(cmd, shell=True)
+            # Extract .tgz of contrail puppet manifest files 
+            cmd = (
+                "rpm2cpio %s | cpio -ivd ./opt/contrail/puppet/"
+                "contrail-puppet-manifest.tgz > /dev/null" %(dest))
+            subprocess.call(cmd, shell=True)
+            # Handle the puppet manifests in this package.
+            puppet_modules_tgz_path = mirror + \
+                "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
+            puppet_manifest_version = self._add_puppet_modules(
+                puppet_modules_tgz_path)
             # Extract .tgz of other packages from the repo
             cmd = (
                 "rpm2cpio %s | cpio -ivd ./opt/contrail/contrail_packages/"
@@ -1196,6 +1257,7 @@ class VncServerManager():
             # cobbler add repo
             self._smgr_cobbler.create_repo(
                 image_id, mirror)
+            return puppet_manifest_version
         except Exception as e:
             raise(e)
     # end _create_yum_repo
@@ -1205,6 +1267,7 @@ class VncServerManager():
     # repo created includes the wrapper package too.
     def _create_deb_repo(
         self, image_id, image_type, image_version, dest):
+        puppet_manifest_version = ""
         try:
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
@@ -1221,6 +1284,11 @@ class VncServerManager():
             cmd = (
                 "dpkg -x %s . > /dev/null" %(dest))
             subprocess.call(cmd, shell=True)
+            # Handle the puppet manifests in this package.
+            puppet_modules_tgz_path = mirror + \
+                "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
+            puppet_manifest_version = self._add_puppet_modules(
+                puppet_modules_tgz_path)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_debs.tgz .")
             subprocess.call(cmd, shell=True)
             cmd = ("rm -rf opt")
@@ -1242,6 +1310,7 @@ class VncServerManager():
             # will need to revisit and make it work for ubuntu - Abhay
             # self._smgr_cobbler.create_repo(
             #     image_id, mirror)
+            return puppet_manifest_version
         except Exception as e:
             raise(e)
     # end _create_deb_repo
@@ -1251,15 +1320,17 @@ class VncServerManager():
     # setup.sh and other scripts needed on target can be easily installed.
     def _create_repo(
         self, image_id, image_type, image_version, dest):
+        puppet_manifest_version = ""
         try:
             if (image_type == "contrail-centos-package"):
-                self._create_yum_repo(
+                puppet_manifest_version = self._create_yum_repo(
                     image_id, image_type, image_version, dest)
             elif (image_type == "contrail-ubuntu-package"):
-                self._create_deb_repo(
+                puppet_manifest_version = self._create_deb_repo(
                     image_id, image_type, image_version, dest)
             else:
                 pass
+            return puppet_manifest_version
         except Exception as e:
             raise(e)
     # end _create_repo
