@@ -2011,6 +2011,11 @@ class VncServerManager():
                         role_ids[role] = [x["server_id"] for x in role_servers[role]]
                 provision_params = {}
                 provision_params['package_image_id'] = package_image_id
+                # Get puppet manifest version corresponding to this package_image_id
+                image = self._serverDb.get_image(
+                    "image_id", package_image_id, True)[0]
+                puppet_manifest_version = eval(image['image_params'])['puppet_manifest_version']
+                provision_params['puppet_manifest_version'] = puppet_manifest_version
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
                 provision_params['roles'] = role_ips
                 provision_params['role_ids'] = role_ids
