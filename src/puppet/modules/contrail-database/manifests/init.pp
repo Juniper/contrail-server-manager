@@ -1,5 +1,21 @@
 class contrail-database {
 
+define database-scripts {
+    file { "/opt/contrail/contrail_installer/contrail_setup_utils/${title}.sh":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+    }
+    exec { "setup-${title}" :
+        command => "/opt/contrail/contrail_installer/contrail_setup_utils/${title}.sh; echo setup-${title} >> /etc/contrail/contrail-compute-exec.out",
+        require => File["/opt/contrail/contrail_installer/contrail_setup_utils/${title}.sh"],
+        unless  => "grep -qx setup-${title} /etc/contrail/contrail-compute-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+}
+
 define database-template-scripts {
 
     # Ensure template param file is present with right content.
@@ -16,7 +32,9 @@ define contrail-database (
         $contrail_database_initial_token,
         $contrail_cassandra_seeds,
         $system_name,
-        $contrail_config_ip
+        $contrail_config_ip,
+        $contrail_zookeeper_ip_list,
+        $contrail_cfgm_index,
     ) {
 
     # Ensure all needed packages are present
@@ -92,7 +110,33 @@ define contrail-database (
         ensure => running,
     }
 
+    # -CHHANDAK
+    # set high session timeout to survive glance led disk activity
+    file { "/etc/contrail/contrail_setup_utils/config-zk-files-setup.sh":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+        require => Package["contrail-openstack-database"],
+        source => "puppet:///modules/contrail-database/config-zk-files-setup.sh"
+    }
+    $contrail_zk_ip_list_for_shell = inline_template('<%= contrail_zookeeper_ip_list.map{ |ip| "#{ip}" }.join(" ") %>')
+    $contrail_zk_exec_cmd = "/bin/bash /etc/contrail/contrail_setup_utils/config-zk-files-setup.sh $operatingsystem $contrail_cfgm_index $contrail_zk_ip_list_for_shell && echo setup-config-zk-files-setup >> /etc/contrail/contrail-config-exec.out"
+    notify { "contrail contrail_zk_exec_cmd is $contrail_zk_exec_cmd":; } 
+    exec { "setup-config-zk-files-setup" :
+        command => $contrail_zk_exec_cmd,
+        require => File["/etc/contrail/contrail_setup_utils/config-zk-files-setup.sh"],
+        unless  => "grep -qx setup-config-zk-files-setup /etc/contrail/contrail-config-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+    database-scripts { ["database-server-setup"]: }
+    # End Here
+
     database-template-scripts { ["contrail-nodemgr-database.conf", "database_nodemgr_param"]: }
+
+    # Execute config-server-setup scripts
+    #config-scripts { ["database-server-setup"] }
 
  }
 	
