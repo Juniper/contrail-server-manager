@@ -68,7 +68,7 @@ max_control_nodes=<%= contrail_num_controls %>
 # Everything in this section is optional
 
 # Hypervisor type. Possible values are kvm, xen and vmware
-# type=kvm
+type=<%=hypervisor_type%>
 
 # Link-local IP address and prefix in ip/prefix_len format (for xen)
 # xen_ll_ip=
@@ -77,7 +77,7 @@ max_control_nodes=<%= contrail_num_controls %>
 # xen_ll_interface=
 
 # Physical interface name when hypervisor type is vmware
-# vmware_physical_interface=
+vmware_physical_interface=<%=vm_physical_intf %>
 
 [FLOWS]
 # Everything in this section is optional

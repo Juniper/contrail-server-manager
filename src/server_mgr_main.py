@@ -1282,6 +1282,15 @@ class VncServerManager():
                 ks_file = self._args.html_root_dir + \
                     "kickstarts/contrail-centos.ks"
                 kernel_options = ''
+                ks_meta = ''
+            elif ((image_type == "esxi5.1") or
+                  (image_type == "esxi5.5")):
+                kernel_file = "/mboot.c32"
+                initrd_file = "/imgpayld.tgz"
+                ks_file = self._args.html_root_dir + \
+                    "kickstarts/contrail-esxi.ks"
+                kernel_options = ''
+                ks_meta = 'ks_file=%s' %(ks_file)
             elif (image_type == "ubuntu"):
                 kernel_file = "/install/netboot/ubuntu-installer/amd64/linux"
                 initrd_file = (
@@ -1295,6 +1304,7 @@ class VncServerManager():
                     "console-keymaps-at/keymap=us "
                     "ks=http://%s/kickstarts/contrail-ubuntu.ks ") % (
                     self._args.listen_ip_addr)
+                ks_meta = ''
             else:
                 self._smgr_log.log(self._smgr_log.ERROR, "Invalid image type")
                 abort(404, "invalid image type")
@@ -1308,9 +1318,9 @@ class VncServerManager():
 
             # Setup profile information in cobbler
             profile_name = distro_name
-            self._smgr_cobbler.create_profile(profile_name, distro_name,
-                                              image_type, ks_file,
-                                              kernel_options)
+            self._smgr_cobbler.create_profile(
+                profile_name, distro_name, image_type,
+                ks_file, kernel_options, ks_meta)
 
             # Sync the above information
             self._smgr_cobbler.sync()
@@ -1689,6 +1699,12 @@ class VncServerManager():
                     raise ServerMgrException(msg)
 
                 reimage_params = {}
+                if ((base_image['image_type'] == 'esxi5.1') or
+                    (base_image['image_type'] == 'esxi5.5')):
+                    reimage_params['server_license'] = server_params.get(
+                        'server_license', '')
+                    reimage_params['esx_nicname'] = server_params.get(
+                        'esx_nicname', 'vmnic0')
                 reimage_params['server_id'] = server['server_id']
                 reimage_params['server_ip'] = server['ip']
                 reimage_params['server_mac'] = server['mac']
@@ -1987,6 +2003,45 @@ class VncServerManager():
                 else:
                      provision_params['setup_interface'] = "No"
 
+                provision_params['haproxy'] = vns_params['haproxy']
+                if 'execute_script' in server_params.keys():
+		            provision_params['execute_script'] = server_params['execute_script']
+                else:
+                    provision_params['execute_script'] = ""
+
+                if 'esx_server' in server_params.keys():
+                    provision_params['esx_uplink_nic'] = server_params['esx_uplink_nic']
+                    provision_params['esx_fab_vswitch'] = server_params['esx_fab_vswitch']
+                    provision_params['esx_vm_vswitch'] = server_params['esx_vm_vswitch']
+                    provision_params['esx_fab_port_group'] = server_params['esx_fab_port_group']
+                    provision_params['esx_vm_port_group'] = server_params['esx_vm_port_group']
+                    provision_params['vm_deb'] = server_params['vm_deb'] if server_params.has_key('vm_deb') else ""
+                    provision_params['esx_vmdk'] = server_params['esx_vmdk']
+                    esx_servers = self._serverDb.get_server('server_id', server_params['esx_server'],
+                                                            detail=True)
+                    esx_server = esx_servers[0]
+                    provision_params['esx_ip'] = esx_server['ip']
+                    provision_params['esx_username'] = "root"
+                    provision_params['esx_passwd'] = esx_server['passwd']
+                    provision_params['esx_server'] = esx_server
+                    if 'datastore' in server_params.keys():
+                        provision_params['datastore'] = server_params['datastore']
+                    else:
+                        provision_params['datastore'] = "/vmfs/volumes/datastore1"
+
+                else:
+                   provision_params['esx_uplink_nic'] = ""
+                   provision_params['esx_fab_vswitch'] = ""
+                   provision_params['esx_vm_vswitch'] = ""
+                   provision_params['esx_fab_port_group'] = ""
+                   provision_params['esx_vm_port_group'] = ""
+                   provision_params['esx_vmdk'] = ""
+                   provision_params['esx_ip'] = ""
+                   provision_params['esx_username'] = ""
+                   provision_params['esx_passwd'] = ""
+
+
+
                 if interface_created:
                     provision_params['setup_interface'] = "No"
 
@@ -2274,6 +2329,8 @@ class VncServerManager():
                 reimage_params['server_mask'], reimage_params['server_gway'],
                 reimage_params['server_domain'], reimage_params['server_ifname'],
                 reimage_params['server_passwd'],
+                reimage_params.get('server_license', ''),
+                reimage_params.get('esx_nicname', 'vmnic0'),
                 reimage_params.get('power_type',self._args.power_type),
                 reimage_params.get('power_user',self._args.power_user),
                 reimage_params.get('power_pass',self._args.power_pass),
