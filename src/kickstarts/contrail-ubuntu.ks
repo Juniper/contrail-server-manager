@@ -48,6 +48,24 @@ dpkg -i ./puppetlabs-release-precise.deb
 apt-get update
 apt-get -f -y install
 apt-get -y install puppet
+
+#--------------------------------------------------------------------------
+#Set up the ntp client 
+apt-get -y install ntp
+ntpdate $server
+mv /etc/ntp.conf /etc/ntp.conf.orig
+touch /var/lib/ntp/drift
+cat << __EOT__ > /etc/ntp.conf
+driftfile /var/lib/ntp/drift
+server $server
+restrict 127.0.0.1
+restrict -6 ::1
+includefile /etc/ntp/crypto/pw
+keys /etc/ntp/keys
+__EOT__
+service ntp restart
+#--------------------------------------------------------------------------
+
 #--------------------------------------------------------------------------
 # Enable puppet conf setting to allow custom facts, allow listen from puppet
 # kick and also configure auth.conf file.
