@@ -559,7 +559,7 @@ class VncServerManager():
                             'vns_id', vns_id, detail=True)
         role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute"]
+                "control", "collector", "webui", "compute", "storage"]
         roles_set = set(role_list)
 
         vns_role_list = []
@@ -600,7 +600,7 @@ class VncServerManager():
         if req_provision_params is not None:
             role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute", "zookeeper"]
+                "control", "collector", "webui", "compute", "zookeeper", "storage"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
@@ -1940,7 +1940,7 @@ class VncServerManager():
                     for role in ['database', 'openstack',
                                  'config', 'control',
                                  'collector', 'webui',
-                                 'compute']:
+                                 'compute', 'storage']:
                         role_servers[role] = self.role_get_servers(
                             vns_servers, role)
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
@@ -1992,6 +1992,8 @@ class VncServerManager():
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
                 provision_params['server_gway'] = server['gway']
                 provision_params['haproxy'] = vns_params['haproxy']
+                provision_params['storage_type'] = vns_params['storage_type']
+                provision_params['storage_size'] = vns_params['storage_size']
                 if 'setup_interface' in server_params.keys():
                     provision_params['setup_interface'] = \
                                                     server_params['setup_interface']
@@ -2375,6 +2377,7 @@ def main(args_str=None):
         bottle.run(app=pipe_start_app, host=server_ip, port=server_port)
     except Exception as e:
         # cleanup gracefully
+        print 'Exception error is: %s' % e
         vnc_server_mgr.cleanup()
 
 # End of main

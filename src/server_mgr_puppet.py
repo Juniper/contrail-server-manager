@@ -985,6 +985,23 @@ $__contrail_quantum_servers__
         return data
     # end puppet_add_compute_role
 
+    def puppet_add_storage_role(self, provision_params, last_res_added):
+        data = ''
+        if 'storage' in provision_params['roles']:
+            storage_type = provision_params['storage_type']
+            storage_size = provision_params['storage_size']
+            data += '''    # contrail-storage role.
+                contrail-storage::contrail-storage{contrail_storage:
+                    contrail_storage_type => %s,
+                    contrail_storage_size => %s
+
+                }\n\n''' % (
+                provision_params['storage_type'],
+                provision_params['storage_size'])
+        return data
+
+    #end puppet_add_storage_role
+
     _roles_function_map = {
         "common": puppet_add_common_role,
         "database": puppet_add_database_role,
@@ -994,7 +1011,8 @@ $__contrail_quantum_servers__
         "collector": puppet_add_collector_role,
         "webui": puppet_add_webui_role,
         "zookeeper": puppet_add_zk_role,
-        "compute": puppet_add_compute_role
+        "compute": puppet_add_compute_role,
+        "storage": puppet_add_storage_role
     }
 
     def provision_server(self, provision_params):
@@ -1033,7 +1051,7 @@ $__contrail_quantum_servers__
         # list array used to ensure that the role definitions are added
         # in a particular order
         roles = ['database', 'openstack', 'config', 'control',
-                 'collector', 'webui', 'zookeeper', 'compute']
+                 'collector', 'webui', 'zookeeper', 'compute', 'storage']
         for role in roles:
             if provision_params['roles'].get(role) and  provision_params['server_ip'] in \
                 provision_params['roles'] [role]:
