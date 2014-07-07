@@ -227,6 +227,7 @@ class ServerMgrPuppet:
         # Get all the parameters needed to send to puppet manifest.
         data = ''
         config_server = provision_params['roles']['config'][0]
+        database_server = provision_params['roles']['database']
         database_ip_control = self.get_control_ip(
             provision_params, provision_params['server_ip'])
         config_server_control = self.get_control_ip(
@@ -243,6 +244,22 @@ class ServerMgrPuppet:
             cassandra_seeds_control = [
                 self.get_control_ip(
                     provision_params,str(cassandra_seeds[0]))]
+
+        config_servers = provision_params['roles']['config']
+        if 'zookeeper' in provision_params['roles']:
+            zk_servers = provision_params['roles']['zookeeper']
+        else:
+            zk_servers = []
+            db_ip_list = ["\"%s\""%(x) for x in database_server]
+            zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
+            #zk_ip_list = cassandra_seeds_control + zoo_ip_list
+            zk_ip_list_control=[]
+            #for itr in zk_ip_list:
+            #    zk_ip_list_control.append(self.get_control_ip(provision_params,str(itr)))
+            zk_ip_list_control= cassandra_seeds_control
+            contrail_cfgm_index = database_server.index(
+                provision_params["server_ip"])+1
+
         data += '''    # contrail-database role.
     contrail_%s::contrail_database::contrail_database{contrail_database:
         contrail_database_ip => %s,
@@ -250,13 +267,15 @@ class ServerMgrPuppet:
         contrail_database_initial_token => "%s",
         contrail_cassandra_seeds => [%s],
         system_name => "%s",
-        contrail_config_ip => %s, 
+        contrail_config_ip => %s,
+        contrail_zookeeper_ip_list => [%s],
+        contrail_cfgm_index => "%s", 
         require => %s
     }\n\n''' % (provision_params['puppet_manifest_version'],
                 database_ip_control,
                 provision_params["database_dir"],
                 provision_params["db_initial_token"],
-                ','.join(cassandra_seeds_control),provision_params["server_id"],config_server_control,last_res_added)
+                ','.join(cassandra_seeds_control),provision_params["server_id"],config_server_control,','.join(cassandra_seeds_control),contrail_cfgm_index,last_res_added)
         return data
     # end puppet_add_database_role
 
@@ -545,7 +564,7 @@ $__contrail_disc_backend_servers__
         collector_server_control, provision_params["service_token"],
         provision_params["ks_user"], provision_params["ks_passwd"],
         provision_params["ks_tenant"], provision_params["openstack_passwd"],
-        ','.join(cassandra_ip_list_control), ','.join(zk_ip_list_control),
+        ','.join(cassandra_ip_list_control), ','.join(cassandra_ip_list_control),
         self.get_control_ip(provision_params,config_servers[0]), contrail_cfgm_index,
         nworkers, sctl_lines, "enable",
         provision_params['uuid'], provision_params['rmq_master'],
