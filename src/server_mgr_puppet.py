@@ -336,7 +336,7 @@ class ServerMgrPuppet:
 
 
     def create_config_ha_proxy(self, provision_params):
-        smgr_dir = "/etc/puppet/modules/contrail-common/files/"
+        smgr_dir = "/etc/puppet/modules/contrail_"+ provision_params['puppet_manifest_version'] + "/files/"
         staging_dir = "/etc/puppet/modules/contrail-common/files/"
         cfg_ha_proxy_tmpl = string.Template("""
 #contrail-config-marker-start
@@ -381,7 +381,7 @@ $__contrail_disc_backend_servers__
         api_server_lines = ''
         disc_listen_port = 9110
         disc_server_lines = ''
-        smgr_dir = "/etc/puppet/modules/contrail-common/files/"
+        smgr_dir = "/etc/puppet/modules/contrail_"+ provision_params['puppet_manifest_version'] + "/files/"
         staging_dir = "/etc/puppet/modules/contrail-common/files/"
         #TODO
         nworkers = 1
@@ -718,7 +718,7 @@ $__contrail_disc_backend_servers__
     #Function to create haproxy cfg file for compute nodes
     def create_compute_ha_proxy(self, provision_params):
         
-        smgr_dir = "/etc/puppet/modules/contrail-common/files/"
+        smgr_dir = "/etc/puppet/modules/contrail_"+ provision_params['puppet_manifest_version'] + "/files/"
         staging_dir = "/etc/puppet/modules/contrail-common/files/"
 
         compute_haproxy_template = string.Template("""
@@ -858,7 +858,7 @@ $__contrail_glance_apis__
 
     #Function to create haproxy cfg for openstack nodes
     def create_openstack_ha_proxy(self, provision_params):
-        smgr_dir = "/etc/puppet/modules/contrail-common/files/"
+        smgr_dir = "/etc/puppet/modules/contrail_"+ provision_params['puppet_manifest_version'] + "/files/"
         staging_dir = "/etc/puppet/modules/contrail-common/files/"
         openstack_haproxy_template = string.Template("""
 #contrail-openstack-marker-start
