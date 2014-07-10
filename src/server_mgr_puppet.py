@@ -933,31 +933,31 @@ $__contrail_quantum_servers__
         if 'esx_server' in provision_params.keys():
             print "esx_server"
             #call scripts to provision esx
-                vm_params = {}
-                vm_params['vm'] = "ContrailVM"
-                vm_params['vmdk'] = "ContrailVM"
-                vm_params['datastore'] = provision_params['datastore']
-                vm_params['eth0_mac'] = provision_params['server_mac']
-                vm_params['eth0_ip'] = provision_params['server_ip']
-                vm_params['eth0_pg'] = provision_params['esx_fab_port_group']
-                vm_params['eth0_vswitch'] = provision_params['esx_fab_vswitch']
-                vm_params['eth0_vlan'] = None
-                vm_params['eth1_vswitch'] = provision_params['esx_vm_vswitch']
-                vm_params['eth1_pg'] = provision_params['esx_vm_port_group']
-                vm_params['eth1_vlan'] = "4095"
-                vm_params['uplink_nic'] = provision_params['esx_uplink_nic']
-                vm_params['uplink_vswitch'] = provision_params['esx_fab_vswitch']
-                vm_params['server'] = provision_params['esx_ip']
-                vm_params['username'] = provision_params['esx_username']
-                vm_params['passwd'] = provision_params['esx_passwd']
-                vm_params['thindisk'] =  provision_params['esx_vmdk']
-                vm_params['smgr_ip'] = provision_params['smgr_ip'];
-                vm_params['domain'] =  provision_params['domain']
-                vm_params['vm_passwd'] = provision_params['passwd']
-                vm_params['vm_server'] = provision_params['server_id']
-                vm_params['vm_deb'] = provision_params['vm_deb']
-                out = ContrailVM(vm_params)
-                print out
+            vm_params = {}
+            vm_params['vm'] = "ContrailVM"
+            vm_params['vmdk'] = "ContrailVM"
+            vm_params['datastore'] = provision_params['datastore']
+            vm_params['eth0_mac'] = provision_params['server_mac']
+            vm_params['eth0_ip'] = provision_params['server_ip']
+            vm_params['eth0_pg'] = provision_params['esx_fab_port_group']
+            vm_params['eth0_vswitch'] = provision_params['esx_fab_vswitch']
+            vm_params['eth0_vlan'] = None
+            vm_params['eth1_vswitch'] = provision_params['esx_vm_vswitch']
+            vm_params['eth1_pg'] = provision_params['esx_vm_port_group']
+            vm_params['eth1_vlan'] = "4095"
+            vm_params['uplink_nic'] = provision_params['esx_uplink_nic']
+            vm_params['uplink_vswitch'] = provision_params['esx_fab_vswitch']
+            vm_params['server'] = provision_params['esx_ip']
+            vm_params['username'] = provision_params['esx_username']
+            vm_params['passwd'] = provision_params['esx_passwd']
+            vm_params['thindisk'] =  provision_params['esx_vmdk']
+            vm_params['smgr_ip'] = provision_params['smgr_ip'];
+            vm_params['domain'] =  provision_params['domain']
+            vm_params['vm_passwd'] = provision_params['passwd']
+            vm_params['vm_server'] = provision_params['server_id']
+            vm_params['vm_deb'] = provision_params['vm_deb']
+            out = ContrailVM(vm_params)
+            print out
 
         control_servers = provision_params['roles']['control']
         #control_servers_control = self.get_control_ip(provision_params,control_servers)
