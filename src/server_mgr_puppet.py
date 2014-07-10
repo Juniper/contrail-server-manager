@@ -985,20 +985,32 @@ $__contrail_quantum_servers__
         return data
     # end puppet_add_compute_role
 
+
     def puppet_add_storage_role(self, provision_params, last_res_added):
         data = ''
+        req = "Contrail - storage::Contrail - storage[\"contrail_storage\"]"
         if 'storage' in provision_params['roles']:
-            storage_type = provision_params['storage_type']
-            storage_size = provision_params['storage_size']
             data += '''    # contrail-storage role.
-                contrail-storage::contrail-storage{contrail_storage:
-                    contrail_storage_type => %s,
-                    contrail_storage_size => %s
-
-                }\n\n''' % (
-                provision_params['storage_type'],
-                provision_params['storage_size'])
+            contrail-storage::contrail-storage{contrail_storage:
+            contrail_storage_fsid => %s,
+            contrail_storage_virsh_uuid => %s,
+            contrail_storage_mon_secret => %s,
+            contrail_storage_mon_hosts => %s,
+            require => %s
+        }
+            package { 'xfsprogs' : ensure => present,}
+            package { 'parted' : ensure => present,}
+            ''' % (provision_params['storage_fsid'],
+                   provision_params['storage_virsh_uuid'],
+                    provision_params['storage_mon_secret'],
+                    provision_params['storage_monitor_hosts'],
+                    last_res_added)
+            for disk in provision_params['storage_server_disks']:
+                data += '''contrail-storage::contrail_storage_osd_setup {'%s':
+            require => %s}
+            ''' % (disk, req)
         return data
+
 
     #end puppet_add_storage_role
 

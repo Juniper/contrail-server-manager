@@ -122,7 +122,8 @@ class VncServerManager():
         "power_pass": "",
         "control": "",
         "bond": "",
-        "power_address": ""
+        "power_address": "",
+        "disks": ""
     }
 
     vns_fields = {
@@ -1757,6 +1758,7 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
+            print 'Exception error is: %s' % e
             abort(404, "Error in upgrading Server")
         return "server(s) upgraded"
     # end reimage_server
@@ -1914,6 +1916,7 @@ class VncServerManager():
             role_servers = {}
             role_ips = {}
             role_ids = {}
+
             ret_data = self.validate_smgr_request("PROVISION", "PROVISION", bottle.request)
 
             if ret_data['status'] == 0:
@@ -1992,8 +1995,7 @@ class VncServerManager():
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
                 provision_params['server_gway'] = server['gway']
                 provision_params['haproxy'] = vns_params['haproxy']
-                provision_params['storage_type'] = vns_params['storage_type']
-                provision_params['storage_size'] = vns_params['storage_size']
+
                 if 'setup_interface' in server_params.keys():
                     provision_params['setup_interface'] = \
                                                     server_params['setup_interface']
@@ -2016,6 +2018,15 @@ class VncServerManager():
                 else:
                     provision_params['ext_bgp'] = ""
 
+                #storage role params
+                provision_params['storage_fsid'] = str(uuid.uuid4())
+                provision_params['storage_virsh_uuid'] = str(uuid.uuid4())
+                provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
+                hosts_dict = dict()
+                for x in role_servers['storage']:
+                    hosts_dict[x["server_id"]] = x["ip"]
+                provision_params['storage_monitor_hosts'] = hosts_dict
+                provision_params['storage_server_disks'] = server['disks']
                 self._do_provision_server(provision_params)
                 #end of for
         except ServerMgrException as e:
