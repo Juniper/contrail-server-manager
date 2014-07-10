@@ -975,7 +975,8 @@ class VncServerManager():
                         raise ServerMgrException("image id or location not specified")
                     if (image_type not in [
                             "centos", "fedora", "ubuntu",
-                            "contrail-ubuntu-package", "contrail-centos-package"]):
+                            "contrail-ubuntu-package", "contrail-centos-package",
+				 "esxi5.5", "esxi5.1"]):
                         self._smgr_log.log(self._smgr_log.ERROR,
                                     "image type not specified or invalid for image %s" %(
                                     image_id))
