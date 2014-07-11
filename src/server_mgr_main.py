@@ -1925,6 +1925,15 @@ class VncServerManager():
                 msg = "Error validating request"
                 raise ServerMgrException(msg)
 
+            # Calculate the total number of disks in the vns
+            total_osd = int(0)
+
+            for server in servers:
+                server_params = eval(server['server_params'])
+                server_roles = eval(server['roles'])
+                if 'storage' in server_roles:
+                    total_osd += len(server_params['disks'])
+
             for server in servers:
                 server_params = eval(server['server_params'])
                 vns = self._serverDb.get_vns(server['vns_id'],
@@ -1947,6 +1956,7 @@ class VncServerManager():
                             vns_servers, role)
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
                         role_ids[role] = [x["server_id"] for x in role_servers[role]]
+
                 provision_params = {}
                 provision_params['package_image_id'] = package_image_id
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
@@ -2018,15 +2028,18 @@ class VncServerManager():
                     provision_params['ext_bgp'] = ""
 
                 #storage role params
+                provision_params['host_roles'] = eval(server['roles'])
+                provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = str(uuid.uuid4())
                 provision_params['storage_virsh_uuid'] = str(uuid.uuid4())
                 provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
-                hosts_dict = dict()
+                hosts_dict = dict(list())
                 for x in role_servers['storage']:
-                    hosts_dict[x["server_id"]] = x["ip"]
+                    hosts_dict[x["server_id"]] = [x["server_id"], x["ip"]]
                 provision_params['storage_monitor_hosts'] = hosts_dict
                 provision_params['storage_server_disks'] = []
                 provision_params['storage_server_disks'].extend(server_params['disks'])
+
                 self._do_provision_server(provision_params)
                 #end of for
         except ServerMgrException as e:
