@@ -483,7 +483,14 @@ class VncServerManager():
                                    msg)
                 raise ServerMgrException(msg)
         '''
-        return ret_data
+        if 'roles' in data:
+            if 'storage' in data['roles'] and 'compute' not in data['roles']:
+                msg = "role 'storage' needs role 'compute' in provision file"
+                raise ServerMgrException(msg)
+            elif 'storage-mgr' in data['roles'] and 'openstack' not in data['roles']:
+                msg = "role 'storage-mgr' needs role 'openstack' in provision file"
+                raise ServerMgrException(msg)
+	return ret_data
 
     def validate_smgr_delete(self, validation_data, request, data = None):
         ret_data = {}
@@ -552,7 +559,7 @@ class VncServerManager():
                             'vns_id', vns_id, detail=True)
         role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute"]
+                "control", "collector", "webui", "compute", "storage"]
         roles_set = set(role_list)
 
         vns_role_list = []
@@ -593,7 +600,7 @@ class VncServerManager():
         if req_provision_params is not None:
             role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute", "zookeeper"]
+                "control", "collector", "webui", "compute", "zookeeper", "storage"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
@@ -1750,6 +1757,7 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
+            print 'Exception error is: %s' % e
             abort(404, "Error in upgrading Server")
         return "server(s) upgraded"
     # end reimage_server
@@ -1907,6 +1915,7 @@ class VncServerManager():
             role_servers = {}
             role_ips = {}
             role_ids = {}
+
             ret_data = self.validate_smgr_request("PROVISION", "PROVISION", bottle.request)
 
             if ret_data['status'] == 0:
@@ -1915,6 +1924,15 @@ class VncServerManager():
             else:
                 msg = "Error validating request"
                 raise ServerMgrException(msg)
+
+            # Calculate the total number of disks in the vns
+            total_osd = int(0)
+
+            for server in servers:
+                server_params = eval(server['server_params'])
+                server_roles = eval(server['roles'])
+                if 'storage' in server_roles:
+                    total_osd += len(server_params['disks'])
 
             for server in servers:
                 server_params = eval(server['server_params'])
@@ -1933,11 +1951,12 @@ class VncServerManager():
                     for role in ['database', 'openstack',
                                  'config', 'control',
                                  'collector', 'webui',
-                                 'compute']:
+                                 'compute', 'storage']:
                         role_servers[role] = self.role_get_servers(
                             vns_servers, role)
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
                         role_ids[role] = [x["server_id"] for x in role_servers[role]]
+
                 provision_params = {}
                 provision_params['package_image_id'] = package_image_id
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
@@ -1985,6 +2004,7 @@ class VncServerManager():
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
                 provision_params['server_gway'] = server['gway']
                 provision_params['haproxy'] = vns_params['haproxy']
+
                 if 'setup_interface' in server_params.keys():
                     provision_params['setup_interface'] = \
                                                     server_params['setup_interface']
@@ -2006,6 +2026,19 @@ class VncServerManager():
                     provision_params['ext_bgp'] = vns_params['ext_bgp']
                 else:
                     provision_params['ext_bgp'] = ""
+
+                #storage role params
+                provision_params['host_roles'] = eval(server['roles'])
+                provision_params['storage_num_osd'] = total_osd
+                provision_params['storage_fsid'] = str(uuid.uuid4())
+                provision_params['storage_virsh_uuid'] = str(uuid.uuid4())
+                provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
+                hosts_dict = dict(list())
+                for x in role_servers['storage']:
+                    hosts_dict[x["server_id"]] = [x["server_id"], x["ip"]]
+                provision_params['storage_monitor_hosts'] = hosts_dict
+                provision_params['storage_server_disks'] = []
+                provision_params['storage_server_disks'].extend(server_params['disks'])
 
                 self._do_provision_server(provision_params)
                 #end of for
@@ -2368,6 +2401,7 @@ def main(args_str=None):
         bottle.run(app=pipe_start_app, host=server_ip, port=server_port)
     except Exception as e:
         # cleanup gracefully
+        print 'Exception error is: %s' % e
         vnc_server_mgr.cleanup()
 
 # End of main
