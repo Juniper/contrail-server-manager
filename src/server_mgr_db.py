@@ -111,7 +111,7 @@ class ServerMgrDb:
                          vns_id TEXT, cloud_id TEXT, base_image_id TEXT,
                          package_image_id TEXT, passwd TEXT,
                          update_time TEXT, disc_flag varchar default 'N',
-                         server_params TEXT, disks TEXT,
+                         server_params TEXT,
                          roles TEXT, power_user TEXT,
                          power_pass TEXT, power_address TEXT,
                          power_type TEXT, intf_control TEXT,
@@ -313,10 +313,6 @@ class ServerMgrDb:
             if cloud_id:
                 cloud_data = {"cloud_id": cloud_id}
                 self._add_row(cloud_table, cloud_data)
-            # Add disks the same way as roles are stored
-            disks = server_data.pop("disks", None)
-            if disks is not None:
-                server_data['disks'] = str(disks)
         except Exception as e:
             raise e
         return 0

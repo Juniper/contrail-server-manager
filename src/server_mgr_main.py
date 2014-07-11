@@ -122,8 +122,7 @@ class VncServerManager():
         "power_pass": "",
         "control": "",
         "bond": "",
-        "power_address": "",
-        "disks": ""
+        "power_address": ""
     }
 
     vns_fields = {
@@ -2026,7 +2025,8 @@ class VncServerManager():
                 for x in role_servers['storage']:
                     hosts_dict[x["server_id"]] = x["ip"]
                 provision_params['storage_monitor_hosts'] = hosts_dict
-                provision_params['storage_server_disks'] = server['disks']
+                provision_params['storage_server_disks'] = []
+                provision_params['storage_server_disks'].extend(server_params['disks'])
                 self._do_provision_server(provision_params)
                 #end of for
         except ServerMgrException as e:
