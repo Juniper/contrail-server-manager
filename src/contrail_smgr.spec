@@ -7,6 +7,7 @@
 %define         _contrailutils /opt/contrail/utils
 %define		_etc /etc
 %define		_contrail_smgr /server_manager
+%define         _vmware /vmware/
 %define		_contrail_smgr_src	    %(pwd)/
 %define		_third_party	    %(pwd)/../../third_party/
 %define		_mydate %(date)
@@ -69,6 +70,19 @@ HOST_IP=`ifconfig | sed -n -e 's/:127\.0\.0\.1 //g' -e 's/ *inet addr:\([0-9.]\+
 echo $HOST_IP
 
 cp -r %{_contrailetc}/cobbler /etc/
+# Copy cobbler distro signatures file that contains esxi5.5 signature.
+mv /etc/cobbler/distro_signatures.json /etc/cobbler/distro_signatures.json-save
+mv /var/lib/cobbler/distro_signatures.json /var/lib/cobbler/distro_signatures.json-save
+cp %{_contrailetc}/cobbler/distro_signatures.json-esxi55 /etc/cobbler/distro_signatures.json
+cp %{_contrailetc}/cobbler/distro_signatures.json-esxi55 /var/lib/cobbler/distro_signatures.json
+
+# Copy cobbler boot.cfg template file for esxi5.5
+cp -f %{_contrailetc}/cobbler/bootcfg_esxi55.template /etc/cobbler/pxe
+
+# Copy cobbler pxesystem template file for esxi
+mv /etc/cobbler/pxe/pxesystem_esxi.template /etc/cobbler/pxe/pxesystem_esxi.template-save
+cp %{_contrailetc}/cobbler/pxesystem_esxi.template /etc/cobbler/pxe
+
 cp -r %{_contrailetc}/puppet /etc/
 cp -r %{_contrailetc}/kickstarts /var/www/html/
 cp %{_contrailetc}/sendmail.cf /etc/mail/
@@ -135,9 +149,12 @@ cp %{_contrail_smgr_src}server_mgr_puppet.py %{buildroot}%{_contrailopt}%{_contr
 cp %{_contrail_smgr_src}server_mgr_exception.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}server_mgr_logger.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_dhcp_event.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}server_mgr_defaults.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
+
 cp %{_contrail_smgr_src}utils/send_mail.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}logger.conf %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}%{_vmware}esxi_contrailvm.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
 
 cp %{_contrail_smgr_src}third_party/bottle.py %{buildroot}%{_contrailopt}%{_contrail_smgr}

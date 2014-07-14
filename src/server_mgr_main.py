@@ -31,6 +31,7 @@ import server_mgr_db
 import ast
 import uuid
 import traceback
+from server_mgr_defaults import *
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
@@ -38,6 +39,7 @@ from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from send_mail import send_mail
+import tempfile
 
 bottle.BaseRequest.MEMFILE_MAX = 2 * 102400
 
@@ -100,56 +102,6 @@ class VncServerManager():
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
 
-    #validation DS
-    server_fields = {
-        "match_keys": "['server_id', 'mac', 'cluster_id', 'rack_id', 'pod_id', 'vns_id', 'ip']",
-        "obj_name": "server",
-        "primary_keys": "['server_id', 'mac']",
-        "server_id": "",
-        "mac": "",
-        "ip": "",
-        "server_params": "",
-        "roles": "",
-        "cluster_id": "",
-        "vns_id": "",
-        "mask": "",
-        "gway": "",
-        "passwd": "",
-        "domain": "",
-        "email": "",
-        "power_user": "",
-        "power_type": "",
-        "power_pass": "",
-        "control": "",
-        "bond": "",
-        "power_address": ""
-    }
-
-    vns_fields = {
-        "match_keys": "['vns_id']",
-        "obj_name": "vns",
-        "vns_id": "",
-        "email": "",
-        "primary_keys": "['vns_id']",
-        "vns_params": ""
-    }
-
-    cluster_fields = {
-        "match_keys": "['cluster_id']",
-        "obj_name": "cluster",
-        "primary_keys": "['cluster_id']",
-        "cluster_id": ""
-    }
-
-    image_fields = {
-        "match_keys": "['image_id']",
-        "obj_name": "image",
-        "primary_keys": "['image_id']",
-        "image_id": "",
-        "image_type": "",
-        "image_version": "",
-        "image_path": ""
-    }
 
     def __init__(self, args_str=None):
         self._args = None
@@ -417,7 +369,8 @@ class VncServerManager():
             ret_data["detail"] = detail
         return ret_data
 
-    def validate_smgr_put(self, validation_data, request, data=None):
+    def validate_smgr_put(self, validation_data, request, data=None,
+                                                        modify = False):
         ret_data = {}
         ret_data['status'] = 1
         try:
@@ -457,7 +410,25 @@ class VncServerManager():
         for data_item_key, data_item_value in data.iteritems():
             #If json data name is not present in list of
             #allowable fields silently ignore them.
-            if data_item_key not in validation_data:
+            if data_item_key == obj_name + "_params" and modify == False:
+                object_params = data_item_value
+                default_object_params = eval(validation_data[obj_name +'_params'])
+                for key,value in default_object_params.iteritems():
+                    if key not in object_params:
+                        msg = "Default Object param added is %s:%s" % \
+                                (key, value)
+                        self._smgr_log.log(self._smgr_log.INFO,
+                                   msg)
+                        object_params[key] = value
+                """
+
+                for k,v in object_params.iteritems():
+                    if k in default_object_params and v == ''
+                    if v == '""':
+                        object_params[k] = ''
+                """
+                data[data_item_key] = object_params
+            elif data_item_key not in validation_data:
 #                data.pop(data_item_key, None)
                 remove_list.append(data_item_key)
                 msg =  ("Value %s is not an option") % (data_item_key)
@@ -467,11 +438,20 @@ class VncServerManager():
                 data[data_item_key] = ''
         for item in remove_list:
             data.pop(item, None)
-        #not needed as of now
-        '''
+
+        #Added default fields
         for k,v in validation_data.items():
-            if k == "match_keys" or k == "primary_keys":
+            if k == "match_keys" or k == "primary_keys" \
+                or k == "obj_name":
                 continue
+            if k not in data and v and modify == False:
+                msg = "Default added is %s:%s" % \
+                                (k, v)
+                self._smgr_log.log(self._smgr_log.INFO,
+                                   msg)
+                data[k] = v
+
+            """
             if k not in data:
                 msg =  ("Field %s not present") % (k)
                 self._smgr_log.log(self._smgr_log.ERROR,
@@ -482,7 +462,7 @@ class VncServerManager():
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    msg)
                 raise ServerMgrException(msg)
-        '''
+            """
         if 'roles' in data:
             if 'storage' in data['roles'] and 'compute' not in data['roles']:
                 msg = "role 'storage' needs role 'compute' in provision file"
@@ -490,9 +470,10 @@ class VncServerManager():
             elif 'storage-mgr' in data['roles'] and 'openstack' not in data['roles']:
                 msg = "role 'storage-mgr' needs role 'openstack' in provision file"
                 raise ServerMgrException(msg)
-	return ret_data
+        return ret_data
 
     def validate_smgr_delete(self, validation_data, request, data = None):
+
         ret_data = {}
         ret_data['status'] = 1
 
@@ -522,7 +503,9 @@ class VncServerManager():
             ret_data["force"] = force
         return ret_data
 
+    #TODO Need to reomve
     def validate_smgr_modify(self, validation_data, request, data = None):
+
         ret_data = {}
         ret_data['status'] = 1
 
@@ -549,9 +532,12 @@ class VncServerManager():
                         "server_id", match_value, detail=True)
             if server and server[0]:
                 vns_id = server [0] ['vns_id']
+                if vns_id is None:
+                    msg =  ("No VNS associated with server %s") % (match_value)
+                    raise ServerMgrException(msg)
             else:
                 msg =  ("No server present for %s") % (match_value)
-                raise ServerMgrExcpetion(msg)
+                raise ServerMgrException(msg)
         elif match_key == 'vns_id':
             vns_id = match_value
 
@@ -585,6 +571,7 @@ class VncServerManager():
         return 0
 
     def validate_smgr_provision(self, validation_data, request , data=None):
+
         ret_data = {}
         ret_data['status'] = 1
 
@@ -681,6 +668,7 @@ class VncServerManager():
         return ret_data
 
     def validate_smgr_reboot(self, validation_data, request , data=None):
+
         ret_data = {}
         ret_data['status'] = 1
 
@@ -713,6 +701,7 @@ class VncServerManager():
         # end else
 
     def validate_smgr_reimage(self, validation_data, request , data=None):
+
         ret_data = {}
         ret_data['status'] = 1
         entity = request.json
@@ -755,27 +744,28 @@ class VncServerManager():
 
 
 
-    def validate_smgr_request(self, type, oper, request, data = None):
+    def validate_smgr_request(self, type, oper, request, data = None, modify =
+                              False):
         ret_data = {}
         ret_data['status'] = 1
 
         ret_data = {}
         ret_data['status'] = 1
         if type == "SERVER":
-            validation_data = self.server_fields
+            validation_data = server_fields
         elif type == "VNS":
-            validation_data = self.vns_fields
+            validation_data = vns_fields
         elif type == "CLUSTER":
-            validation_data = self.cluster_fields
+            validation_data = cluster_fields
         elif type == "IMAGE":
-            validation_data = self.image_fields
+            validation_data = image_fields
         else: 
             validation_data = None
 
         if oper == "GET":
             return self.validate_smgr_get(validation_data, request, data)
         elif oper == "PUT":
-            return self.validate_smgr_put(validation_data, request, data)
+            return self.validate_smgr_put(validation_data, request, data, modify)
         elif oper == "DELETE":
             return self.validate_smgr_delete(validation_data, request, data)
         elif oper == "MODIFY":
@@ -940,13 +930,15 @@ class VncServerManager():
             self.validate_smgr_entity("cluster", entity)
             clusters = entity.get('cluster', None)
             for cluster in clusters:
-                self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
-                                                cluster)
                 if self._serverDb.check_obj("cluster", "cluster_id",
                                             cluster['cluster_id'], False):
+                    self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
+                                                cluster, True)
                     #nothing to do for now
                     return
                 else:
+                    self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
+                                                cluster)
                     self._serverDb.add_cluster(cluster)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -970,12 +962,15 @@ class VncServerManager():
             images = entity.get("image", None)
             for image in images:
                 #use macros for obj type
-                self.validate_smgr_request("IMAGE", "PUT", bottle.request,
-                                                image)
                 if self._serverDb.check_obj("image", "image_id",
                                             image['image_id'], False):
+                    self.validate_smgr_request("IMAGE", "PUT", bottle.request,
+                                                image, True)
+
                     self._serverDb.modify_image(image)
                 else:
+                    self.validate_smgr_request("IMAGE", "PUT", bottle.request,
+                                                image)
                     image_id = image.get("image_id", None)
                     image_version = image.get("image_version", None)
                     # Get Image type
@@ -988,7 +983,8 @@ class VncServerManager():
                     if (image_type not in [
                             "centos", "fedora", "ubuntu",
                             "contrail-ubuntu-package", "contrail-centos-package",
-                            "contrail-storage-ubuntu-package"]):
+                            "contrail-storage-ubuntu-package",
+			     "esxi5.5", "esxi5.1"]):
                         self._smgr_log.log(self._smgr_log.ERROR,
                                     "image type not specified or invalid for image %s" %(
                                     image_id))
@@ -1013,21 +1009,25 @@ class VncServerManager():
                     dest = self._args.smgr_base_dir + 'images/' + \
                         image_id + extn
                     subprocess.call(["cp", "-f", image_path, dest])
+                    image_params = {}
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") or
                         (image_type == "contrail-storage-ubuntu-package")):
                         subprocess.call(
                             ["cp", "-f", dest,
                              self._args.html_root_dir + "contrail/images"])
-                        self._create_repo(
+                        puppet_manifest_version = self._create_repo(
                             image_id, image_type, image_version, dest)
+                        image_params['puppet_manifest_version'] = \
+                            puppet_manifest_version 
                     else:
                         self._add_image_to_cobbler(image_id, image_type,
                                                    image_version, dest)
                     image_data = {
                         'image_id': image_id,
                         'image_version': image_version,
-                        'image_type': image_type}
+                        'image_type': image_type,
+                        'image_params' : image_params}
                     self._serverDb.add_image(image_data)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -1050,14 +1050,16 @@ class VncServerManager():
             self.validate_smgr_entity("vns", entity)
             vns = entity.get('vns', None)
             for cur_vns in vns:
-                self.validate_smgr_request("VNS", "PUT", bottle.request,
-                                                cur_vns)
                 #use macros for obj type
                 if self._serverDb.check_obj("vns", "vns_id",
                                             cur_vns['vns_id'], False):
                     #TODO Handle uuid here
+                    self.validate_smgr_request("VNS", "PUT", bottle.request,
+                                                cur_vns, True)
                     self._serverDb.modify_vns(cur_vns)
                 else:
+                    self.validate_smgr_request("VNS", "PUT", bottle.request,
+                                                cur_vns)
                     str_uuid = str(uuid.uuid4())
                     cur_vns["vns_params"].update({"uuid":str_uuid})
                     self._smgr_log.log(self._smgr_log.INFO, "VNS Data %s" % cur_vns)
@@ -1094,11 +1096,11 @@ class VncServerManager():
                                             server['server_id'], False):
                     #TODO - Revisit this logic
                     # Do we need mac to be primary MAC
-                    self.server_fields['primary_keys'] = "['server_id']"
+                    server_fields['primary_keys'] = "['server_id']"
                     self.validate_smgr_request("SERVER", "PUT", bottle.request,
-                                                                        server)
+                                                             server, True)
                     self._serverDb.modify_server(server)
-                    self.server_fields['primary_keys'] = "['server_id', 'mac']"
+                    server_fields['primary_keys'] = "['server_id', 'mac']"
                 else:
                     self.validate_smgr_request("SERVER", "PUT", bottle.request,
                                                                         server)
@@ -1146,30 +1148,76 @@ class VncServerManager():
             if file_obj.file:
                 with open(dest, 'w') as open_file:
                     open_file.write(file_obj.file.read())
+            image_params = {}
             if ((image_type == "contrail-centos-package") or
                 (image_type == "contrail-ubuntu-package")):
                 subprocess.call(
                     ["cp", "-f", dest,
                      self._args.html_root_dir + "contrail/images"])
-                self._create_repo(
+                puppet_manifest_version = self._create_repo(
                     image_id, image_type, image_version, dest)
+                image_params['puppet_manifest_version'] = \
+                    puppet_manifest_version 
             else:
                 self._add_image_to_cobbler(image_id, image_type,
                                            image_version, dest)
             image_data = {
                 'image_id': image_id,
                 'image_version': image_version,
-                'image_type': image_type}
+                'image_type': image_type,
+                'image_params' : image_params}
             self._serverDb.add_image(image_data)
         except Exception as e:
             self.log_trace()
             abort(404, repr(e))
     # End of upload_image
 
+    # The below function takes the tgz path for puppet modules in the repo
+    # being added, checks if that version of modules is already added to
+    # puppet and adds it if not already added.
+    def _add_puppet_modules(self, puppet_modules_tgz):
+        tmpdirname = tempfile.mkdtemp()
+        try:
+            # change dir to the temp dir created
+            cwd = os.getcwd()
+            os.chdir(tmpdirname)
+            # Copy the tgz to tempdir
+            cmd = ("cp -f %s ." %(puppet_modules_tgz))
+            subprocess.call(cmd, shell=True)
+            # untar the puppet modules tgz file
+            cmd = ("tar xvzf contrail-puppet-manifest.tgz > /dev/null")
+            subprocess.call(cmd, shell=True)
+            # Extract contents of version file.
+            with open('version','r') as f:
+                version = f.read().splitlines()[0]
+            # Create modules directory if it does not exist.
+            target_dir = "/etc/puppet/modules/contrail_" + version
+            if not os.path.isdir(target_dir):
+                os.makedirs(target_dir)
+            # This contrail puppet modules version does not exist. Add it.
+            cmd = ("cp -rf ./contrail/* " + target_dir)
+            subprocess.call(cmd, shell=True)
+            # Replace the class names in .pp files to have the version number
+            # of this contrail modules.
+            filelist = target_dir + "/manifests/*.pp"
+            cmd = ("sed -i \"s/__\$version__/contrail_%s/g\" %s" %(
+                    version, filelist))
+            subprocess.call(cmd, shell=True)
+            os.chdir(cwd)
+            return version
+        finally:
+            try:
+                shutil.rmtree(tmpdirname) # delete directory
+            except OSError, e:
+                if e.errno != 2: # code 2 - no such file or directory
+                    raise
+    # end _add_puppet_modules
+
     # Create yum repo for "centos" and "fedora" packages.
     # repo created includes the wrapper package too.
     def _create_yum_repo(
         self, image_id, image_type, image_version, dest):
+        puppet_manifest_version = ""
         try:
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
@@ -1182,6 +1230,16 @@ class VncServerManager():
             cmd = "cp -f %s %s" %(
                 dest, mirror)
             subprocess.call(cmd, shell=True)
+            # Extract .tgz of contrail puppet manifest files 
+            cmd = (
+                "rpm2cpio %s | cpio -ivd ./opt/contrail/puppet/"
+                "contrail-puppet-manifest.tgz > /dev/null" %(dest))
+            subprocess.call(cmd, shell=True)
+            # Handle the puppet manifests in this package.
+            puppet_modules_tgz_path = mirror + \
+                "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
+            puppet_manifest_version = self._add_puppet_modules(
+                puppet_modules_tgz_path)
             # Extract .tgz of other packages from the repo
             cmd = (
                 "rpm2cpio %s | cpio -ivd ./opt/contrail/contrail_packages/"
@@ -1205,6 +1263,7 @@ class VncServerManager():
             # cobbler add repo
             self._smgr_cobbler.create_repo(
                 image_id, mirror)
+            return puppet_manifest_version
         except Exception as e:
             raise(e)
     # end _create_yum_repo
@@ -1214,6 +1273,7 @@ class VncServerManager():
     # repo created includes the wrapper package too.
     def _create_deb_repo(
         self, image_id, image_type, image_version, dest):
+        puppet_manifest_version = ""
         try:
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
@@ -1230,6 +1290,11 @@ class VncServerManager():
             cmd = (
                 "dpkg -x %s . > /dev/null" %(dest))
             subprocess.call(cmd, shell=True)
+            # Handle the puppet manifests in this package.
+            puppet_modules_tgz_path = mirror + \
+                "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
+            puppet_manifest_version = self._add_puppet_modules(
+                puppet_modules_tgz_path)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_debs.tgz .")
             subprocess.call(cmd, shell=True)
             cmd = ("rm -rf opt")
@@ -1251,6 +1316,7 @@ class VncServerManager():
             # will need to revisit and make it work for ubuntu - Abhay
             # self._smgr_cobbler.create_repo(
             #     image_id, mirror)
+            return puppet_manifest_version
         except Exception as e:
             raise(e)
     # end _create_deb_repo
@@ -1307,12 +1373,13 @@ class VncServerManager():
     # setup.sh and other scripts needed on target can be easily installed.
     def _create_repo(
         self, image_id, image_type, image_version, dest):
+        puppet_manifest_version = ""
         try:
             if (image_type == "contrail-centos-package"):
-                self._create_yum_repo(
+                puppet_manifest_version = self._create_yum_repo(
                     image_id, image_type, image_version, dest)
             elif (image_type == "contrail-ubuntu-package"):
-                self._create_deb_repo(
+                puppet_manifest_version = self._create_deb_repo(
                     image_id, image_type, image_version, dest)
             elif (image_type == "contrail-storage-ubuntu-package"):
                 self._create_storage_deb_repo(
@@ -1320,6 +1387,7 @@ class VncServerManager():
 
             else:
                 pass
+            return puppet_manifest_version
         except Exception as e:
             raise(e)
     # end _create_repo
@@ -1346,6 +1414,15 @@ class VncServerManager():
                 ks_file = self._args.html_root_dir + \
                     "kickstarts/contrail-centos.ks"
                 kernel_options = ''
+                ks_meta = ''
+            elif ((image_type == "esxi5.1") or
+                  (image_type == "esxi5.5")):
+                kernel_file = "/mboot.c32"
+                initrd_file = "/imgpayld.tgz"
+                ks_file = self._args.html_root_dir + \
+                    "kickstarts/contrail-esxi.ks"
+                kernel_options = ''
+                ks_meta = 'ks_file=%s' %(ks_file)
             elif (image_type == "ubuntu"):
                 kernel_file = "/install/netboot/ubuntu-installer/amd64/linux"
                 initrd_file = (
@@ -1359,6 +1436,7 @@ class VncServerManager():
                     "console-keymaps-at/keymap=us "
                     "ks=http://%s/kickstarts/contrail-ubuntu.ks ") % (
                     self._args.listen_ip_addr)
+                ks_meta = ''
             else:
                 self._smgr_log.log(self._smgr_log.ERROR, "Invalid image type")
                 abort(404, "invalid image type")
@@ -1372,9 +1450,9 @@ class VncServerManager():
 
             # Setup profile information in cobbler
             profile_name = distro_name
-            self._smgr_cobbler.create_profile(profile_name, distro_name,
-                                              image_type, ks_file,
-                                              kernel_options)
+            self._smgr_cobbler.create_profile(
+                profile_name, distro_name, image_type,
+                ks_file, kernel_options, ks_meta)
 
             # Sync the above information
             self._smgr_cobbler.sync()
@@ -1753,6 +1831,12 @@ class VncServerManager():
                     raise ServerMgrException(msg)
 
                 reimage_params = {}
+                if ((base_image['image_type'] == 'esxi5.1') or
+                    (base_image['image_type'] == 'esxi5.5')):
+                    reimage_params['server_license'] = server_params.get(
+                        'server_license', '')
+                    reimage_params['esx_nicname'] = server_params.get(
+                        'esx_nicname', 'vmnic0')
                 reimage_params['server_id'] = server['server_id']
                 reimage_params['server_ip'] = server['ip']
                 reimage_params['server_mac'] = server['mac']
@@ -2019,6 +2103,11 @@ class VncServerManager():
                 provision_params = {}
                 provision_params['package_image_id'] = package_image_id
                 provision_params['package_type'] = package_type
+                # Get puppet manifest version corresponding to this package_image_id
+                image = self._serverDb.get_image(
+                    "image_id", package_image_id, True)[0]
+                puppet_manifest_version = eval(image['image_params'])['puppet_manifest_version']
+                provision_params['puppet_manifest_version'] = puppet_manifest_version
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
                 provision_params['roles'] = role_ips
                 provision_params['role_ids'] = role_ids
@@ -2070,6 +2159,48 @@ class VncServerManager():
                                                     server_params['setup_interface']
                 else:
                      provision_params['setup_interface'] = "No"
+
+                provision_params['haproxy'] = vns_params['haproxy']
+                if 'execute_script' in server_params.keys():
+		            provision_params['execute_script'] = server_params['execute_script']
+                else:
+                    provision_params['execute_script'] = ""
+
+                if 'esx_server' in server_params.keys():
+                    provision_params['esx_uplink_nic'] = server_params['esx_uplink_nic']
+                    provision_params['esx_fab_vswitch'] = server_params['esx_fab_vswitch']
+                    provision_params['esx_vm_vswitch'] = server_params['esx_vm_vswitch']
+                    provision_params['esx_fab_port_group'] = server_params['esx_fab_port_group']
+                    provision_params['esx_vm_port_group'] = server_params['esx_vm_port_group']
+                    provision_params['vm_deb'] = server_params['vm_deb'] if server_params.has_key('vm_deb') else ""
+                    provision_params['esx_vmdk'] = server_params['esx_vmdk']
+                    esx_servers = self._serverDb.get_server('server_id', server_params['esx_server'],
+                                                            detail=True)
+                    esx_server = esx_servers[0]
+                    provision_params['esx_ip'] = esx_server['ip']
+                    provision_params['esx_username'] = "root"
+                    provision_params['esx_passwd'] = esx_server['passwd']
+                    provision_params['esx_server'] = esx_server
+                    provision_params['server_mac'] = server['mac']
+                    provision_params['passwd'] = server['passwd']
+
+                    if 'datastore' in server_params.keys():
+                        provision_params['datastore'] = server_params['datastore']
+                    else:
+                        provision_params['datastore'] = "/vmfs/volumes/datastore1"
+
+                else:
+                   provision_params['esx_uplink_nic'] = ""
+                   provision_params['esx_fab_vswitch'] = ""
+                   provision_params['esx_vm_vswitch'] = ""
+                   provision_params['esx_fab_port_group'] = ""
+                   provision_params['esx_vm_port_group'] = ""
+                   provision_params['esx_vmdk'] = ""
+                   provision_params['esx_ip'] = ""
+                   provision_params['esx_username'] = ""
+                   provision_params['esx_passwd'] = ""
+
+
 
                 if interface_created:
                     provision_params['setup_interface'] = "No"
@@ -2371,6 +2502,8 @@ class VncServerManager():
                 reimage_params['server_mask'], reimage_params['server_gway'],
                 reimage_params['server_domain'], reimage_params['server_ifname'],
                 reimage_params['server_passwd'],
+                reimage_params.get('server_license', ''),
+                reimage_params.get('esx_nicname', 'vmnic0'),
                 reimage_params.get('power_type',self._args.power_type),
                 reimage_params.get('power_user',self._args.power_user),
                 reimage_params.get('power_pass',self._args.power_pass),

@@ -19,11 +19,13 @@ define compute-scripts {
 }
 
 define compute-template-scripts {
-    # Ensure template param file is present with right content.
-    file { "/etc/contrail/${title}" : 
-        ensure  => present,
-        require => Package["contrail-openstack-vrouter"],
-        content => template("contrail-compute/${title}.erb"),
+    if (!defined(File["/etc/contrail/${title}"])) {
+        # Ensure template param file is present with right content.
+        file { "/etc/contrail/${title}" : 
+           ensure  => present,
+           require => Package["contrail-openstack-vrouter"],
+           content => template("contrail-compute/${title}.erb"),
+        }
     }
 }
 
