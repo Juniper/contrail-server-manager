@@ -61,15 +61,11 @@
 
 <% if @contrail_storage_mon_hosts -%>
 <% 
-#contrail_mon_hash = Hash.new("hosts")
-#contrail_mon_hash = { "host1" => [ "1.1.1.1", "2.2.2.2"], "host2"=> ["1.1.1.2", "2.2.2.3"]}
 mon_host_str = "\n"
 
 i =0
 contrail_storage_mon_hosts.each_key { |host|
 	
-	#print "\n Hello #{i}"
-	#print "\n#{host}"
 	arr =  contrail_storage_mon_hosts[host]
 	mon_host_str += "\n[mon.#{host}]\n  host  = #{arr[0]}\n  mon addr = #{arr[1]}\n"
 	i += 1
@@ -89,3 +85,9 @@ contrail_storage_mon_hosts.each_key { |host|
 -%>
 <%= osd_list_str %>
 <% end -%>
+[client.volumes]
+    keyring = /etc/ceph/client.volumes.keyring
+
+
+[client.images]
+    keyring = /etc/ceph/client.images.keyring
