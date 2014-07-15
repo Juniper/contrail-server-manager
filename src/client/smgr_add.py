@@ -46,7 +46,8 @@ object_dict = {
              ("ks_passwd", "keystone password"),
              ("ks_tenant", "keystone tenant name"),
              ("openstack_passwd", "open stack password"),
-             ("analytics_data_ttl", "analytics data TTL")]))
+             ("analytics_data_ttl", "analytics data TTL"),
+             ("storage_mon_secret", "Storage Monitor Secret Key")]))
     ]),
     "server": OrderedDict ([ 
         ("server_id", "server id value"),
@@ -56,7 +57,8 @@ object_dict = {
         ("server_params", OrderedDict([
             ("ifname", "Ethernet Interface name"),
             ("compute_non_mgmt_ip", "compute node non mgmt ip (default none)"),
-            ("compute_non_mgmt_gway", "compute node non mgmt gway (default none)")])),
+            ("compute_non_mgmt_gway", "compute node non mgmt gway (default none)"),
+            ("disks", "Storage OSDs")])),
         ("vns_id", "vns id the server belongs to"),
         ("cluster_id", "Physical cluster id the server belongs to"),
         ("pod_id", "pod id the server belongs to"),
@@ -393,7 +395,13 @@ def add_payload(object, default_object):
                             default_value = default_object[object+"_params"].get(param, "")
                         else:
                             default_value = ""
-                        user_input = rlinput(msg, default_value)
+                        if param != 'disks':
+                            user_input = rlinput(msg, default_value)
+                        elif param == 'disks' and 'storage' in temp_dict["roles"]:
+                            disks = raw_input(msg)
+                            if disks:
+                                disk_list = disks.split(',')
+                                user_input = [str(d) for d in disk_list]
                         if user_input:
                             param_dict[param] = user_input
                     temp_dict[key] = param_dict

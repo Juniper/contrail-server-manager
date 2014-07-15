@@ -1061,7 +1061,11 @@ class VncServerManager():
                     self.validate_smgr_request("VNS", "PUT", bottle.request,
                                                 cur_vns)
                     str_uuid = str(uuid.uuid4())
-                    cur_vns["vns_params"].update({"uuid":str_uuid})
+                    storage_fsid = str(uuid.uuid4())
+                    storage_virsh_uuid = str(uuid.uuid4())
+                    cur_vns["vns_params"].update({"uuid": str_uuid})
+                    cur_vns["vns_params"].update({"storage_fsid": storage_fsid})
+                    cur_vns["vns_params"].update({"storage_virsh_uuid": storage_virsh_uuid})
                     self._smgr_log.log(self._smgr_log.INFO, "VNS Data %s" % cur_vns)
                     self._serverDb.add_vns(cur_vns)
         except ServerMgrException as e:
@@ -2221,8 +2225,8 @@ class VncServerManager():
                 #storage role params
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
-                provision_params['storage_fsid'] = str(uuid.uuid4())
-                provision_params['storage_virsh_uuid'] = str(uuid.uuid4())
+                provision_params['storage_fsid'] = vns_params['storage_fsid']
+                provision_params['storage_virsh_uuid'] = vns_params['storage_virsh_uuid']
                 provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
                 hosts_dict = dict(list())
                 for x in role_servers['storage']:
