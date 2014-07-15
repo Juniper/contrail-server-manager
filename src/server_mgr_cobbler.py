@@ -7,7 +7,7 @@ import threading
 import time
 import subprocess
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
-
+import cobbler.api as capi
 
 _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = ''
@@ -146,13 +146,43 @@ class ServerMgrCobbler:
                                            'ubuntu', self._token)
                 self._server.modify_distro(distro_id, 'os_version',
                                            'precise', self._token)
+            elif ((image_type == 'esxi5.1') or
+                  (image_type == 'esxi5.5')):
+                if (image_type == 'esxi5.1'):
+                    os_version = 'esxi51'
+                else:
+                    os_version = 'esxi55'
+                self._server.modify_distro(
+                    distro_id, 'ksmeta',
+                    'tree=http://' + cobbler_ip_address +
+                    '/contrail/images/' + distro_name,
+                    self._token)
+                self._server.modify_distro(
+                    distro_id, 'arch', 'x86_64', self._token)
+                self._server.modify_distro(
+                    distro_id, 'breed', 'vmware', self._token)
+                self._server.modify_distro(
+                    distro_id, 'os_version', os_version, self._token)
+                self._server.modify_distro(
+                    distro_id, 'boot_files',
+                    '$local_img_path/*.*=' + path + '/*.*',
+                    self._token)
+                self._server.modify_distro(
+                    distro_id, 'template_files',
+                    '/etc/cobbler/pxe/bootcfg_%s.template=' %(
+                        os_version) +
+                    '$local_img_path/cobbler-boot.cfg',
+                    self._token)
+            else:
+                pass
             self._server.save_distro(distro_id, self._token)
         except Exception as e:
             raise e
     # End of create_distro
 
     def create_profile(self, profile_name,
-                       distro_name, image_type, ks_file, kernel_options):
+                       distro_name, image_type, ks_file, kernel_options,
+                        ks_meta):
         try:
             # If profile exists, nothing to do, jus return.
             profile = self._server.find_profile({"name":  profile_name})
@@ -167,6 +197,8 @@ class ServerMgrCobbler:
                                         ks_file, self._token)
             self._server.modify_profile(profile_id, "kernel_options",
                                         kernel_options, self._token)
+            self._server.modify_profile(profile_id, "ks_meta",
+                                        ks_meta, self._token)
             if ((image_type == "centos") or (image_type == "fedora")):
                 repo_list = [_CONTRAIL_CENTOS_REPO]
                 self._server.modify_profile(profile_id, "repos",
@@ -199,7 +231,7 @@ class ServerMgrCobbler:
 
     def create_system(self, system_name, profile_name, package_image_id,
                       mac, ip, subnet, gway, system_domain,
-                      ifname, enc_passwd,
+                      ifname, enc_passwd, server_license, esx_nicname,
                       power_type, power_user, power_pass, power_address,
                       base_image, server_ip):
         try:
@@ -267,6 +299,26 @@ class ServerMgrCobbler:
             if package_image_id:
                 ks_metadata += ' contrail_repo_name=' + \
                     package_image_id
+            if ((base_image['image_type'] == 'esxi5.1') or
+                (base_image['image_type'] == 'esxi5.5')):
+                ks_metadata += ' server_license=' + server_license
+                ks_metadata += ' esx_nicname=' + esx_nicname
+
+                # temporary patch to have kickstart work for esxi. ESXi seems
+                # to take kickstart from profile instead of system. So need to copy
+                # ks_meta parameters at profile level too. This is a hack that would
+                # be removed later - TBD Abhay
+                profile = self._server.find_profile({"name":  profile_name})
+                if profile:
+                    profile_id = self._server.get_profile_handle(
+                        profile_name, self._token)
+                    self._server.modify_profile(
+                        profile_id, 'ksmeta', ks_metadata, self._token)
+                # end hack workaround
+            #end if
+
+
+
             self._server.modify_system(system_id, 'ksmeta',
                                        ks_metadata, self._token)
 

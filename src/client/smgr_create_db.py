@@ -4,14 +4,14 @@
    Name : create_smgr_db.py
    Author : rishiv@juniper.net
    Description : This program is a simple cli interface to
-   create to populate server manager database with objects.
+   create server manager database with objects.
    Objects can be vns, cluster, server, or image.
-   Takes  testbed.py or/and --vns_id <vns_id> as command line input
+   Takes  -t testbed.py or/and --vns_id <vns_id> as command line input
 """
 
 
 import pdb
-
+import subprocess
 import json
 import string
 import textwrap
@@ -22,16 +22,12 @@ import fabric
 import ConfigParser
 import argparse
 import sys
-import testbed  as testbed
 from datetime import datetime as dt
-from fabric.api import settings, run
-from fabric.api import hosts, run, task
-from fabric.api import local, put, get
-from fabric.tasks import execute
 from os.path import expanduser
+from smgr_add import get_default_object as get_default_object
+import smgr_client_def
+import imp
 
-
-@task
 def svrmgr_add_all():
     verify_user_input()
     create_json()
@@ -41,13 +37,11 @@ def svrmgr_add_all():
     add_server()
 
 
-@task
 def create_json():
     modify_server_json()
     modify_vns_json()
 
 
-@task
 def modify_server_json():
     params=read_ini_file(sys.argv[1:])
     if not params:
@@ -57,7 +51,7 @@ def modify_server_json():
     server_file = params['server_file']
 
     timestamp = dt.now().strftime("%Y_%m_%d_%H_%M_%S")
-    local( 'cp %s %s.org.%s' %(server_file, server_file, timestamp) )
+    subprocess.call( 'cp %s %s.org.%s' %(server_file, server_file, timestamp), shell = True )
 
     in_file = open( server_file, 'r' )
     in_data = in_file.read()
@@ -74,6 +68,7 @@ def modify_server_json():
 
 
 def update_roles_from_testbed_py(server_dict):
+    testbed = get_testbed()
     if not testbed.env.has_key('roledefs'):
         return server_dict
     for  node in server_dict['server']:
@@ -97,6 +92,7 @@ def update_roles_from_testbed_py(server_dict):
        node['vns_id'] =  get_pref_vns_id()
 
     return server_dict
+# end update_roles_from_testbed_py
 
 
 def getIp(string) :
@@ -108,6 +104,7 @@ def getIp(string) :
    else:
      return  None
 
+# end getIp()
 
 def get_image_id() :
     params=read_ini_file(sys.argv[1:])
@@ -118,8 +115,9 @@ def get_image_id() :
     image_json = json.loads(image_data)
     image_id = image_json['image'][0]['image_id']
     image_file.close()
-
     return image_id
+
+# end get_image_id()
 
 
 def get_pkg_id() :
@@ -131,9 +129,9 @@ def get_pkg_id() :
     pkg_json = json.loads(pkg_data)
     pkg_id = pkg_json['image'][0]['image_id']
     pkg_file.close()
-
     return pkg_id
 
+# end get_pkg_id()
 
 
 def get_vns_id() :
@@ -145,13 +143,12 @@ def get_vns_id() :
     vns_json = json.loads(vns_data)
     vns_id = vns_json['vns'][0]['vns_id']
     vns_file.close()
-
     return vns_id
 
+# end get_vns_id()
 
 
 def add_vns():
-        
     vns_file = None
     params=read_ini_file(sys.argv[1:])
     if params:
@@ -161,7 +158,6 @@ def add_vns():
             pass
 
     vns_id = get_pref_vns_id()
-
     if not vns_file:
         vns_dict = get_vns_with_vns_id_from_db()
         if not len(vns_dict['vns']):
@@ -182,20 +178,20 @@ def add_vns():
         modify_vns_from_testbed_py(vns_dict)
         temp_dir= expanduser("~")
         vns_file = '%s/vns.json' %temp_dir
-        local('touch %s' %vns_file)
+        subprocess.call('touch %s' %vns_file, shell = True)
         out_file = open(vns_file, 'w')
         out_data = json.dumps(vns_dict, indent=4)
         out_file.write(out_data)
         out_file.close()
     else :
         timestamp = dt.now().strftime("%Y_%m_%d_%H_%M_%S")
-        local( 'cp %s %s.org.%s' %(vns_file, vns_file, timestamp) )
-        local("sed -i 's/\"vns_id\".*,/\"vns_id\":\"%s\",/'  %s" %(vns_id,vns_file) )
-        local("sed -i 's/\"vns_id\".*/\"vns_id\":\"%s\"/'  %s" %(vns_id,vns_file) )
+        subprocess.call( 'cp %s %s.org.%s' %(vns_file, vns_file, timestamp), shell=True )
+        subprocess.call("sed -i 's/\"vns_id\".*,/\"vns_id\":\"%s\",/'  %s" %(vns_id,vns_file), shell=True )
+        subprocess.call("sed -i 's/\"vns_id\".*/\"vns_id\":\"%s\"/'  %s" %(vns_id,vns_file), shell=True )
 
-    local('server-manager add  vns -f %s' %(vns_file) )
-    #for vns in vns_dict['vns']:
-    #    local('server-manager show --detail vns --vns_id %s'%vns["vns_id"] )
+    subprocess.call('server-manager add  vns -f %s' %(vns_file), shell=True )
+
+# end add_vns()
 
 def add_server():
     add_server_using_json()
@@ -209,8 +205,8 @@ def add_image():
         return None
     image_file = params['image_file']
 
-    local('server-manager add  image -f %s' %(image_file) )
-    local('server-manager show all ')
+    subprocess.call('server-manager add  image -f %s' %(image_file), shell=True )
+    subprocess.call('server-manager show all ', shell=True)
 
 def add_pkg():
     params=read_ini_file(sys.argv[1:])
@@ -220,8 +216,8 @@ def add_pkg():
         return None
     pkg_file = params['pkg_file']
 
-    local('server-manager add  image -f %s' %(pkg_file) )
-    local('server-manager show image ')
+    subprocess.call('server-manager add  image -f %s' %(pkg_file), shell=True )
+    subprocess.call('server-manager show image ', shell=True)
 
 
 def add_server_using_json():
@@ -233,8 +229,8 @@ def add_server_using_json():
         return None
     server_file = params['server_file']
 
-    local('server-manager add  server -f %s' %(server_file) )
-    local('server-manager show server ')
+    subprocess.call('server-manager add  server -f %s' %(server_file), shell=True )
+    subprocess.call('server-manager show server ', shell=True)
 
 
 
@@ -247,7 +243,7 @@ def modify_vns_json():
     vns_file = params['vns_file']
 
     timestamp = dt.now().strftime("%Y_%m_%d_%H_%M_%S")
-    local( 'cp %s %s.org.%s' %(vns_file, vns_file, timestamp) )
+    subprocess.call( 'cp %s %s.org.%s' %(vns_file, vns_file, timestamp), shell=True )
 
     in_file = open( vns_file, 'r' )
     in_data = in_file.read()
@@ -262,6 +258,7 @@ def modify_vns_json():
 
 
 def modify_vns_from_testbed_py(vns_dict):
+    testbed = get_testbed()
     if testbed.env.has_key('mail_to'):
         vns_dict['vns'][0]['email'] = testbed.env.mail_to
     if testbed.env.has_key('encap_priority'):
@@ -284,11 +281,10 @@ def new_vns():
     vns_id = get_user_vns_id()
     if not vns_id:
         vns_id = params['vns_id']
-  
     vns_dict = {
                   "vns" : [
                       {
-                          "vns_id" : "vns-default",
+                          "vns_id" : vns_id,
                           "vns_params" : {
                               "router_asn": "64512",
                               "database_dir": "/home/cassandra",
@@ -308,29 +304,39 @@ def new_vns():
                               "passwd": "c0ntrail123",
                               "domain": "contrail.juniper.net",
                               "haproxy": "disable"
-
+                              }
                           }
-                      }
-                  ]
-               }
-
-
+                      ]
+                  }
+    config = ConfigParser.SafeConfigParser()
+    config.read([smgr_client_def._DEF_SMGR_CFG_FILE])
+    default_config_object = get_default_object("vns", config)
+    vns_params_dict = dict(vns_dict["vns"][0]["vns_params"].items() + default_config_object["vns_params"].items())
+    tmp_vns_dict = dict(vns_dict["vns"][0].items() + default_config_object.items())
+    tmp_vns_dict["vns_params"] = vns_params_dict
+    vns_dict["vns"][0] = tmp_vns_dict
     return vns_dict
+
+# End new_vns()
 
 
 def parse_arguments(args_str=None):
     parser = argparse.ArgumentParser(
             description='''Server Manager Tool to generate json from testbed.py'''
     )
-    group1 = parser.add_mutually_exclusive_group()
+    #group1 = parser.add_mutually_exclusive_group()
 
-    group1.add_argument("--config_file", "-c",
+    parser.add_argument("--config_file", "-c",
                         help="Server manager client config file ")
-    group1.add_argument("--vns_id", "-v",
+    parser.add_argument("--vns_id", "-v",
                         help="user specified preferred vns_id ")
+    parser.add_argument("--testbed_py", "-t",
+                        help="your testbed.py file")
 
     args = parser.parse_args(args_str)
     return args
+
+# End parse_arguments
 
 def read_ini_file(args_str=None):
     args = parse_arguments(args_str)
@@ -348,6 +354,17 @@ def read_ini_file(args_str=None):
 
     return smgr_config
 
+# End read_ini_file
+
+def get_testbed_py(args_str=None):
+    args = parse_arguments(args_str)
+    testbed_py = None
+    if args.testbed_py:
+        testbed_py = args.testbed_py
+
+    return testbed_py
+
+# End read_ini_file
 
 
 def get_user_vns_id(args_str=None):
@@ -363,8 +380,10 @@ def get_server_with_vns_id_from_db():
 
     temp_dir= expanduser("~")
     file_name = '%s/server_with_vns_id_from_db.json' %(temp_dir)
-    local('server-manager show --detail server --vns_id %s \
-                 > %s' %(vns_id, file_name) )
+    subprocess.call('server-manager show --detail server --vns_id %s \
+                 | tr -d "\n" \
+                 | sed "s/[^{]*//" \
+                 > %s' %(vns_id, file_name), shell=True )
 
 
     in_file = open( file_name, 'r' )
@@ -385,11 +404,14 @@ def get_vns_with_vns_id_from_db():
 
     file_name = '%s/vns.json' %(temp_dir)
 
-    local('server-manager show --detail vns --vns_id %s \
-                 > %s' %(vns_id, file_name) )
+    subprocess.call('server-manager show --detail vns --vns_id %s \
+                 | tr -d "\n" \
+                 | sed "s/[^{]*//" \
+                 > %s' %(vns_id, file_name), shell=True )
 
     in_file = open( file_name, 'r' )
     in_data = in_file.read()
+
     vns_dict = json.loads(in_data)
 
     return vns_dict
@@ -407,8 +429,10 @@ def get_server_with_ip_from_db(ip=None):
 
     file_name = '%s/server.json' %(temp_dir)
 
-    local('server-manager show --detail server --ip %s \
-                 > %s' %(ip, file_name) )
+    subprocess.call('server-manager show --detail server --ip %s \
+                 | tr -d "\n" \
+                 | sed "s/[^{]*//" \
+                 > %s' %(ip, file_name), shell=True )
 
 
     in_file = open( file_name, 'r' )
@@ -418,6 +442,7 @@ def get_server_with_ip_from_db(ip=None):
     return server_dict
 
 def get_host_roles_from_testbed_py():
+    testbed = get_testbed()
     node = {}
     if not testbed.env.has_key('roledefs'):
         return node
@@ -447,7 +472,7 @@ def update_server_in_db_with_testbed_py():
         server_dict = {}
         server_dict = get_server_with_ip_from_db(key)
         if not server_dict or not server_dict['server']:
-            print ("WARNING: Server with ip %s not present in Server Manager" % key)
+            print ("ERROR: Server with ip %s not present in Server Manager" % key)
             continue
         server_id = server_dict['server'][0]['server_id']
         u_server = {}
@@ -458,16 +483,16 @@ def update_server_in_db_with_testbed_py():
     
     temp_dir= expanduser("~")
     server_file = '%s/server.json' %temp_dir
-    local('touch %s' %server_file)
+    subprocess.call('touch %s' %server_file, shell=True)
     out_file = open(server_file, 'w')
     out_data = json.dumps(u_server_dict, indent=4)
     out_file.write(out_data)
     out_file.close()
 
-    local('server-manager add  server -f %s' %(server_file) )
+    subprocess.call('server-manager add  server -f %s' %(server_file), shell=True )
     for u_server in u_server_dict['server']:
-        local('server-manager show --detail server --server_id %s' \
-                  % u_server['server_id'] )
+        subprocess.call('server-manager show --detail server --server_id %s' \
+                  % u_server['server_id'], shell=True )
 #End  update_server_in_db_with_vns_id
 
 
@@ -485,10 +510,23 @@ def verify_user_input():
     if not params and not vns_id:
         sys.exit(" User should either provide --vns_id or config.ini ")
 
+def get_testbed():
+    filepath = get_testbed_py(sys.argv[1:])
+    if not filepath:
+        sys.exit("tesbed.py missing in commandline args  ")
+    mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
+
+    if file_ext.lower() == '.py':
+        py_mod = imp.load_source(mod_name, filepath)
+
+    return py_mod
+
+
 if __name__ == "__main__" :
     import cgitb
     cgitb.enable(format='text')
     svrmgr_add_all()
     
+
 
 

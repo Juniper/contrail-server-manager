@@ -96,7 +96,8 @@ class ServerMgrDb:
                 # Create image table
                 cursor.execute("CREATE TABLE IF NOT EXISTS " +
                                image_table + """ (image_id TEXT PRIMARY KEY,
-                    image_version TEXT, image_type TEXT)""")
+                    image_version TEXT, image_type TEXT,
+                    image_params TEXT)""")
                 # Create status table
                 cursor.execute("CREATE TABLE IF NOT EXISTS " +
                                server_status_table + """ (server_id TEXT PRIMARY KEY,
@@ -345,6 +346,10 @@ class ServerMgrDb:
 
     def add_image(self, image_data):
         try:
+            # Store image_params dictionary as a text field
+            image_params = image_data.pop("image_params", None)
+            if image_params is not None:
+                image_data['image_params'] = str(image_params)
             self._add_row(image_table, image_data)
         except Exception as e:
             raise e
@@ -475,6 +480,10 @@ class ServerMgrDb:
             image_data.pop("image_path", None)
             if image_data['image_type'] != db_image[0]['image_type']:
                 raise ServerMgrException('Image type cannnot be modified')
+            # Store image_params dictionary as a text field
+            image_params = image_data.pop("image_params", None)
+            if image_params is not None:
+                image_data['image_params'] = str(image_params)
             self._modify_row(image_table, image_data,
                              'image_id', image_id)
         except Exception as e:
