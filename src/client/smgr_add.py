@@ -401,13 +401,14 @@ def add_payload(object, default_object):
                             default_value = default_object[object+"_params"].get(param, "")
                         else:
                             default_value = ""
-                        if param != 'disks':
-                            user_input = rlinput(msg, default_value)
-                        elif param == 'disks' and 'storage' in temp_dict["roles"]:
+                        user_input = ""
+                        if param == 'disks' and 'storage' in temp_dict["roles"]:
                             disks = raw_input(msg)
                             if disks:
                                 disk_list = disks.split(',')
                                 user_input = [str(d) for d in disk_list]
+                        else:
+                            user_input = raw_input(msg)
                         if user_input:
                             param_dict[param] = user_input
                     temp_dict[key] = param_dict

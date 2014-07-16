@@ -45,7 +45,8 @@ object_dict = {
              ("ks_passwd", "keystone password"),
              ("ks_tenant", "keystone tenant name"),
              ("openstack_passwd", "open stack password"),
-             ("analytics_data_ttl", "analytics data TTL")]))
+             ("analytics_data_ttl", "analytics data TTL"),
+             ("storage_mon_secret", "Storage Monitor Secret Key")]))
     ]),
     "server": OrderedDict ([ 
         ("server_id", "server id of the server to be modified"),
@@ -54,7 +55,8 @@ object_dict = {
         ("server_params", OrderedDict([
             ("ifname", "Ethernet Interface name"),
             ("compute_non_mgmt_ip", "compute node non mgmt ip (default none)"),
-            ("compute_non_mgmt_gway", "compute node non mgmt gway (default none)")])),
+            ("compute_non_mgmt_gway", "compute node non mgmt gway (default none)"),
+            ("disks", "Storage OSDs")])),
         ("mask", "subnet mask (default use value from vns table)"),
         ("gway", "gateway (default use value from vns table)"),
         ("domain", "domain name (default use value from vns table)"),
@@ -175,7 +177,14 @@ def create_payload(object):
                     if pvalue:
                         msg += " (%s) " %(pvalue)
                     msg += ": "
-                    user_input = raw_input(msg)
+                    user_input = ""
+                    if param == 'disks' and 'storage' in temp_dict["roles"]:
+                        disks = raw_input(msg)
+                        if disks:
+                            disk_list = disks.split(',')
+                            user_input = [str(d) for d in disk_list]
+                    else:
+                        user_input = raw_input(msg)
                     if user_input:
                         param_dict[param] = user_input
                 if param_dict:
