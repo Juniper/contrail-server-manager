@@ -219,7 +219,7 @@ class ServerMgrPuppet:
         # Get all the parameters needed to send to puppet manifest.
         data = ''
         config_server = provision_params['roles']['config'][0]
-       _server = provision_params['roles']['database']
+        _server = provision_params['roles']['database']
         database_ip_control = self.get_control_ip(
             provision_params, provision_params['server_ip'])
         config_server_control = self.get_control_ip(
