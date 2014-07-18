@@ -202,7 +202,7 @@ class ServerMgrPuppet:
             self._params_dict['self_ip'] = (
                 "\"%s\"" %(
                     self.get_control_ip(provision_params,
-                    provision_params['server_ip'])))
+                    provision_params['server_ip']).replace('"', '')))
         if self._params_dict.get('system_name', None) is None:
             self._params_dict['sytem_name'] = (
                 "\"%s\"" %(
@@ -219,7 +219,7 @@ class ServerMgrPuppet:
         # Get all the parameters needed to send to puppet manifest.
         data = ''
         config_server = provision_params['roles']['config'][0]
-        _server = provision_params['roles']['database']
+        database_server = provision_params['roles']['database']
         database_ip_control = self.get_control_ip(
             provision_params, provision_params['server_ip'])
         config_server_control = self.get_control_ip(
@@ -256,7 +256,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_database_ip', None) is None:
             self._params_dict['contrail_database_ip'] = (
-                "\"%s\"" %(database_ip_control))
+                "\"%s\"" %(database_ip_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_database_dir', None) is None:
             self._params_dict['contrail_database_dir'] = (
@@ -276,7 +276,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_config_ip', None) is None:
             self._params_dict['contrail_config_ip'] = (
-                "\"%s\"" %(config_server_control))
+                "\"%s\"" %(config_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_zookeeper_ip_list', None) is None:
             self._params_dict['contrail_zookeeper_ip_list'] = (
@@ -328,19 +328,20 @@ class ServerMgrPuppet:
             self._params_dict['contrail_openstack_ip'] = (
                 "\"%s\"" %(self.get_control_ip(
                     provision_params,
-                    provision_params["server_ip"])))
+                    provision_params["server_ip"]).replace('"', '')))
         if self._params_dict.get(
             'contrail_config_ip', None) is None:
             self._params_dict['contrail_config_ip'] = (
-                "\"%s\"" %(config_server_control))
+                "\"%s\"" %(config_server_control.replace('"', '')))
+        #TODO Check here
         if self._params_dict.get(
             'contrail_compute_ip', None) is None:
             self._params_dict['contrail_compute_ip'] = (
-                "\"%s\"" %(config_server_control))
+                "\"%s\"" %(config_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_openstack_mgmt_ip', None) is None:
             self._params_dict['contrail_openstack_mgmt_ip'] = (
-                "\"%s\"" %(contrail_openstack_mgmt_ip_control))
+                "\"%s\"" %(contrail_openstack_mgmt_ip_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_service_token', None) is None:
             self._params_dict['contrail_service_token'] = (
@@ -566,7 +567,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_openstack_ip', None) is None:
             self._params_dict['contrail_openstack_ip'] = (
-                "\"%s\"" %(openstack_server_control))
+                "\"%s\"" %(openstack_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_openstack_mgmt_ip', None) is None:
             self._params_dict['contrail_openstack_mgmt_ip'] = (
@@ -574,7 +575,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_compute_ip', None) is None:
             self._params_dict['contrail_compute_ip'] = (
-                "\"%s\"" %(compute_server_control))
+                "\"%s\"" %(compute_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_use_certs', None) is None:
             self._params_dict['contrail_use_certs'] = (
@@ -588,7 +589,7 @@ $__contrail_disc_backend_servers__
             self._params_dict['contrail_config_ip'] = (
                 "\"%s\"" %(self.get_control_ip(
                     provision_params,
-                    provision_params["server_ip"])))
+                    provision_params["server_ip"]).replace('"', '')))
         if self._params_dict.get(
             'contrail_control_ip_list', None) is None:
             self._params_dict['contrail_control_ip_list'] = (
@@ -600,7 +601,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
-                "\"%s\"" %(collector_server_control))
+                "\"%s\"" %(collector_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_service_token', None) is None:
             self._params_dict['contrail_service_token'] = (
@@ -642,7 +643,7 @@ $__contrail_disc_backend_servers__
             self._params_dict['contrail_redis_ip'] = (
                 "\"%s\"" %(self.get_control_ip(
                     provision_params,
-                    config_servers[0])))
+                    config_servers[0]).replace('"', '')))
         if self._params_dict.get(
             'contrail_cfgm_index', None) is None:
             self._params_dict['contrail_cfgm_index'] = (
@@ -716,18 +717,18 @@ $__contrail_disc_backend_servers__
             hindex = control_servers.index(provision_params['server_ip'])
             hindex = hindex % len(collector_servers)
             collector_server = collector_servers[hindex]
-        collector_server_control=self.get_control_ip(provision_params,collector_server)
-        server_ip_control=self.get_control_ip(provision_params,provision_params["server_ip"])
+        collector_server_control=self.get_control_ip(provision_params, collector_server)
+        server_ip_control= self.get_control_ip(provision_params, provision_params["server_ip"])
         nworkers = 1
         # Build Params items
         if self._params_dict.get(
             'contrail_control_ip', None) is None:
             self._params_dict['contrail_control_ip'] = (
-                "\"%s\"" %(server_ip_control))
+                "\"%s\"" %(server_ip_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_config_ip', None) is None:
             self._params_dict['contrail_config_ip'] = (
-                "\"%s\"" %(config_server_control))
+                "\"%s\"" %(config_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_config_port', None) is None:
             self._params_dict['contrail_config_port'] = (
@@ -735,11 +736,11 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_config_user', None) is None:
             self._params_dict['contrail_config_user'] = (
-                "\"%s\"" %(server_ip_control))
+                "\"%s\"" %(server_ip_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_config_passwd', None) is None:
             self._params_dict['contrail_config_passwd'] = (
-                "\"%s\"" %(server_ip_control))
+                "\"%s\"" %(server_ip_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
@@ -751,7 +752,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_discovery_ip', None) is None:
             self._params_dict['contrail_discovery_ip'] = (
-                "\"%s\"" %(config_server_control))
+                "\"%s\"" %(config_server_control.replace('"', '')))
         if self._params_dict.get(
             'hostname', None) is None:
             self._params_dict['hostname'] = (
@@ -759,7 +760,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'host_ip', None) is None:
             self._params_dict['host_ip'] = (
-                "\"%s\"" %(iserver_ip_control))
+                "\"%s\"" %(server_ip_control.replace('"', '')))
         if self._params_dict.get(
             'bgp_port', None) is None:
             self._params_dict['bgp_port'] = (
@@ -816,7 +817,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_config_ip', None) is None:
             self._params_dict['contrail_config_ip'] = (
-                "\"%s\"" %(config_server_control))
+                "\"%s\"" %(config_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
@@ -824,7 +825,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_redis_master_ip', None) is None:
             self._params_dict['contrail_redis_master_ip'] = (
-                "\"%s\"" %(redis_master_ip_control))
+                "\"%s\"" %(redis_master_ip_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_redis_role', None) is None:
             self._params_dict['contrail_redis_role'] = (
@@ -890,7 +891,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_config_ip', None) is None:
             self._params_dict['contrail_config_ip'] = (
-                "\"%s\"" %(config_server_control))
+                "\"%s\"" %(config_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
@@ -898,7 +899,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_openstack_ip', None) is None:
             self._params_dict['contrail_openstack_ip'] = (
-                "\"%s\"" %(openstack_server_control))
+                "\"%s\"" %(openstack_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_cassandra_ip_list', None) is None:
             self._params_dict['contrail_cassandra_ip_list'] = (
@@ -1209,7 +1210,7 @@ $__contrail_quantum_servers__
         if self._params_dict.get(
             'contrail_config_ip', None) is None:
             self._params_dict['contrail_config_ip'] = (
-                "\"%s\"" %(config_server_control))
+                "\"%s\"" %(config_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_compute_hostname', None) is None:
             self._params_dict['contrail_compute_hostname'] = (
@@ -1217,15 +1218,15 @@ $__contrail_quantum_servers__
         if self._params_dict.get(
             'contrail_compute_ip', None) is None:
             self._params_dict['contrail_compute_ip'] = (
-                "\"%s\"" %(server_ip_control))
+                "\"%s\"" %(server_ip_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
-                "\"%s\"" %(collector_server_control))
+                "\"%s\"" %(collector_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_openstack_ip', None) is None:
             self._params_dict['contrail_openstack_ip'] = (
-                "\"%s\"" %(openstack_server_control))
+                "\"%s\"" %(openstack_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_openstack_mgmt_ip', None) is None:
             self._params_dict['contrail_openstack_mgmt_ip'] = (
@@ -1245,7 +1246,7 @@ $__contrail_quantum_servers__
         if self._params_dict.get(
             'contrail_non_mgmt_ip', None) is None:
             self._params_dict['contrail_non_mgmt_ip'] = (
-                "\"%s\"" %(inon_mgmt_ip))
+                "\"%s\"" %(non_mgmt_ip))
         if self._params_dict.get(
             'contrail_non_mgmt_gw', None) is None:
             self._params_dict['contrail_non_mgmt_gw'] = (
@@ -1310,6 +1311,7 @@ $__contrail_quantum_servers__
     }
 
     def provision_server(self, provision_params):
+        resource_data = ''
         # Create a new site file for this server
         server_manifest_file = self.pupp_create_server_manifest_file(
             provision_params)
