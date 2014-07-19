@@ -204,7 +204,7 @@ class ServerMgrPuppet:
                     self.get_control_ip(provision_params,
                     provision_params['server_ip']).replace('"', '')))
         if self._params_dict.get('system_name', None) is None:
-            self._params_dict['sytem_name'] = (
+            self._params_dict['system_name'] = (
                 "\"%s\"" %(
                     provision_params["server_id"]))
         # Build resource items
@@ -744,7 +744,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
-                "\"%s\"" %(collector_server_control))
+                "\"%s\"" %(collector_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_collector_port', None) is None:
             self._params_dict['contrail_collector_port'] = (
@@ -1230,7 +1230,7 @@ $__contrail_quantum_servers__
         if self._params_dict.get(
             'contrail_openstack_mgmt_ip', None) is None:
             self._params_dict['contrail_openstack_mgmt_ip'] = (
-                "\"%s\"" %(contrail_openstack_mgmt_ip_control))
+                "\"%s\"" %(contrail_openstack_mgmt_ip_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_service_token', None) is None:
             self._params_dict['contrail_service_token'] = (
@@ -1375,7 +1375,9 @@ $__contrail_quantum_servers__
 
         # params_data and resource_data are compiled now. Add those to data and write
         # to manifest file for this server node.
+        self._smgr_log.log(self._smgr_log.DEBUG, "param list")
         for key, value in self._params_dict.items():
+            self._smgr_log.log(self._smgr_log.DEBUG, "%s = %s" % (key, value))
             data += ("$%s = %s\n" %(key, value))
         data += resource_data
         data += '''}'''
