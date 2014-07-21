@@ -1065,25 +1065,28 @@ $__contrail_quantum_servers__
 
     def puppet_add_storage_role(self, provision_params, last_res_added):
         data = ''
-        req = "Contrail - storage::Contrail - storage[\"contrail_storage\"]"
+        req ='''Contrail_%s::Contrail-storage::Contrail-storage[\"contrail_storage\"]
+				''' % (provision_params['puppet_manifest_version'])
         if (provision_params['openstack_mgmt_ip'] == ''):
             contrail_openstack_mgmt_ip = provision_params["server_ip"]
         else:
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
         if 'storage' in provision_params['roles']:
             data += '''    # contrail-storage role.
-            contrail-storage::contrail-storage{contrail_storage:
-            contrail_storage_fsid => %s,
-            contrail_storage_virsh_uuid => %s,
-            contrail_openstack_ip => %s,
-            contrail_storage_mon_secret => %s,
+            contrail_%s::contrail-storage::contrail-storage{contrail_storage:
+            contrail_storage_fsid => "%s",
+            contrail_storage_virsh_uuid => "%s",
+            contrail_openstack_ip => "%s",
+            contrail_storage_mon_secret => "%s",
             contrail_storage_mon_hosts => {
-                ''' % (provision_params['storage_fsid'],
+                ''' % (
+					   provision_params['puppet_manifest_version'],
+					   provision_params['storage_fsid'],
                        provision_params['storage_virsh_uuid'],
                        contrail_openstack_mgmt_ip,
                        provision_params['storage_mon_secret'])
             for key in provision_params['storage_monitor_hosts']:
-                data += '''\"%s\" => %s\n
+                data += '''\"%s\" => %s,\n
                 ''' % (key, provision_params['storage_monitor_hosts'][str(key)])
             data += '''},\n                require => %s
             }
@@ -1092,9 +1095,38 @@ $__contrail_quantum_servers__
             package { 'parted' : ensure => present,}\n
             ''' % last_res_added
             for disk in provision_params['storage_server_disks']:
-                data += '''contrail-storage::contrail_storage_osd_setup {'%s':
+                data += '''Contrail_%s::contrail-storage::contrail_storage_osd_setup {'%s':
             require => %s}
-            ''' % (disk, req)
+            ''' % (provision_params['puppet_manifest_version'], disk, req)
+            data += '''\n\n'''
+
+
+        if 'storage-mgr' in provision_params['roles']:
+            data += '''    # contrail-storage role.
+            contrail_%s::contrail-storage::contrail-storage{contrail_storage:
+            contrail_storage_fsid => "%s",
+            contrail_storage_virsh_uuid => "%s",
+            contrail_openstack_ip => "%s",
+            contrail_storage_mon_secret => "%s",
+            contrail_storage_mon_hosts => {
+                ''' % (provision_params['puppet_manifest_version'],
+					   provision_params['storage_fsid'],
+                       provision_params['storage_virsh_uuid'],
+                       contrail_openstack_mgmt_ip,
+                       provision_params['storage_mon_secret'])
+            for key in provision_params['storage_monitor_hosts']:
+                data += '''\"%s\" => %s,\n
+                ''' % (key, provision_params['storage_monitor_hosts'][str(key)])
+            data += '''},\n                require => %s
+            }
+            package { 'xfsprogs' : ensure => present,}
+            package { 'parted' : ensure => present,}\n
+            ''' % last_res_added
+
+            for disk in provision_params['storage_server_disks']:
+                data += '''contral_%s::contrail-storage::contrail_storage_osd_setup {'%s':
+            require => %s}
+            ''' % (provision_params['puppet_manifest_version'], disk, req)
             data += '''\n\n'''
         return data
 
@@ -1110,7 +1142,8 @@ $__contrail_quantum_servers__
         "webui": puppet_add_webui_role,
         "zookeeper": puppet_add_zk_role,
         "compute": puppet_add_compute_role,
-        "storage": puppet_add_storage_role
+        "storage": puppet_add_storage_role,
+        "storage-mgr": puppet_add_storage_role
     }
 
     def provision_server(self, provision_params):
@@ -1155,7 +1188,7 @@ $__contrail_quantum_servers__
         # list array used to ensure that the role definitions are added
         # in a particular order
         roles = ['database', 'openstack', 'config', 'control',
-                 'collector', 'webui', 'zookeeper', 'compute', 'storage']
+                 'collector', 'webui', 'zookeeper', 'compute', 'storage', 'storage-mgr']
         for role in roles:
             if provision_params['roles'].get(role) and provision_params['server_ip'] in \
                 provision_params['roles'][role]:

@@ -545,7 +545,7 @@ class VncServerManager():
                             'vns_id', vns_id, detail=True)
         role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute", "storage"]
+                "control", "collector", "webui", "compute", "storage", "storage-mgr"]
         roles_set = set(role_list)
 
         vns_role_list = []
