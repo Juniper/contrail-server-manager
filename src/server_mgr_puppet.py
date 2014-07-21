@@ -1072,21 +1072,21 @@ $__contrail_quantum_servers__
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
         if 'storage' in provision_params['roles']:
             data += '''    # contrail-storage role.
-            contrail-storage::contrail-storage{contrail_storage:
-            contrail_storage_fsid => %s,
-            contrail_storage_virsh_uuid => %s,
-            contrail_openstack_ip => %s,
-            contrail_storage_mon_secret => %s,
-            contrail_storage_mon_hosts => {
+    contrail-storage::contrail-storage{contrail_storage:
+        contrail_storage_fsid => %s,
+        contrail_storage_virsh_uuid => %s,
+        contrail_openstack_ip => %s,
+        contrail_storage_mon_secret => %s,
+        contrail_storage_mon_hosts => {
                 ''' % (provision_params['storage_fsid'],
                        provision_params['storage_virsh_uuid'],
                        contrail_openstack_mgmt_ip,
                        provision_params['storage_mon_secret'])
             for key in provision_params['storage_monitor_hosts']:
-                data += '''\"%s\" => %s\n
+                data += '''\"%s\" => %s
                 ''' % (key, provision_params['storage_monitor_hosts'][str(key)])
-            data += '''},\n                require => %s
-            }
+            data += '''},\n        require => %s
+    }
 
             package { 'xfsprogs' : ensure => present,}
             package { 'parted' : ensure => present,}\n
