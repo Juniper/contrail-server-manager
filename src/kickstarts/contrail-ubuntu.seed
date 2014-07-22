@@ -10,7 +10,7 @@ d-i debian-installer/add-kernel-opts	string $kernel_options_post
 
 # Partition clearing information
 ### Partitioning available methods are: "regular", "lvm" and "crypto"
-d-i partman-auto/disk string /dev/sda
+d-i partman-auto/disk string /dev/sd?
 d-i partman-auto/method string lvm
 d-i partman-auto/purge_lvm_from_device boolean true
 d-i partman-auto/choose_recipe select atomic
@@ -21,6 +21,7 @@ d-i partman-lvm/device_remove_lvm_span boolean true
 d-i partman-partitioning/confirm_write_new_label boolean true
 d-i partman/choose_partition select Finish partitioning \
     and write changes to disk
+d-i partman-md/device_remove_md boolean true
 d-i partman-md/confirm boolean true
 d-i partman/confirm boolean true
 d-i partman/confirm_nooverwrite boolean true

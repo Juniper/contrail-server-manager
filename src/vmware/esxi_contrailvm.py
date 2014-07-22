@@ -22,7 +22,10 @@
 import cgitb
 import paramiko
 import logging as LOG
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 import pdb
 import socket
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
