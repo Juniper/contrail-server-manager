@@ -2442,8 +2442,7 @@ class VncServerManager():
                     client = paramiko.SSHClient()
                     client.set_missing_host_key_policy(
                         paramiko.AutoAddPolicy())
-                    client.connect(
-                        server_ip, username='root', password=passwd)
+                    client.connect(server_ip, username='root', password=passwd)
                     stdin, stdout, stderr = client.exec_command('reboot')
                 # end else
                 # Update Server table to update time.

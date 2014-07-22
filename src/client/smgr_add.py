@@ -58,7 +58,7 @@ object_dict = {
             ("ifname", "Ethernet Interface name"),
             ("compute_non_mgmt_ip", "compute node non mgmt ip (default none)"),
             ("compute_non_mgmt_gway", "compute node non mgmt gway (default none)"),
-            ("disks", "Storage OSDs")])),
+            ("disks", "Storage OSDs (default none)")])),
         ("vns_id", "vns id the server belongs to"),
         ("cluster_id", "Physical cluster id the server belongs to"),
         ("pod_id", "pod id the server belongs to"),
