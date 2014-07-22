@@ -22,9 +22,13 @@
 import cgitb
 import paramiko
 import logging as LOG
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 import pdb
 import socket
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 
 def ssh(host, user, passwd, log=LOG):
     """ SSH to any host.
@@ -47,24 +51,32 @@ def execute_cmd_out(session, cmd, log=LOG):
     """Executing long running commands in background through fabric has issues
     So implemeted this to execute the command.
     """
-    log.debug("Executing command: %s" % cmd)
+    _smgr_log.log(_smgr_log.DEBUG, "Executing command: %s" % cmd)
     stdin, stdout, stderr = session.exec_command(cmd)
     out = None
     err = None
     out = stdout.read()
     err = stderr.read()
     if out:
-        log.debug("STDOUT: %s", out)
+        _smgr_log.log(_smgr_log.DEBUG, "STDOUT: %s" % out)
+        #log.debug("STDOUT: %s", out)
     if err: 
-        log.debug("STDERR: %s", err)
+        _smgr_log.log(_smgr_log.DEBUG, "STDERR: %s" % err)
+        #log.debug("STDERR: %s", err)
     return (out, err)
 # end execute_cmd_out
+
+_smgr_log = None
 
 class ContrailVM(object):
     """
     Create contrail VM
     """
     def __init__(self, vm_params):
+        global _smgr_log
+        _smgr_log = ServerMgrlogger()
+        _smgr_log.log(_smgr_log.DEBUG, "ContrailVM Init")
+
         self.vm = vm_params['vm']
         self.vmdk = vm_params['vmdk']
         self.datastore = vm_params['datastore']
@@ -307,59 +319,69 @@ class ContrailVM(object):
     # end _create_networking
 
     def _install_contrailvm_pkg(self, ip, user, passwd, domain, server ,
-					pkg, smgr_ip):
-        try:
-            ssh_session = paramiko.SSHClient()
-            ssh_session.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh_session.connect(ip, username=user, password=passwd, timeout=300)
-        except socket.error, paramiko.SSHException:
-            ssh_session.close()
-            return (("Connection to %s failed") % (ip))
+                    pkg, smgr_ip):
+        MAX_RETRIES = 5
+        retries = 0
+        connected = False
 
-	sftp = ssh_session.open_sftp()
-	sftp.put(pkg, "/root/contrail_pkg")
-	sftp.close()
+        while retries <= MAX_RETRIES and connected == False:
+            try:
+                connected = True
+                ssh_session = paramiko.SSHClient()
+                ssh_session.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh_session.connect(ip, username=user, password=passwd, timeout=300)
+                sftp = ssh_session.open_sftp()
+            except socket.error, paramiko.SSHException:
+                connected = False
+                ssh_session.close()
+                _smgr_log.log(_smgr_log.DEBUG,
+                     ("Connection to %s failed, Retry: %s" % (ip, retries)))
+                retries = retries + 1
+                continue
+
+        if retries > MAX_RETRIES:
+                return ( "Connection to %s failed" % (ip))
+
+
+        sftp.put(pkg, "/root/contrail_pkg")
+        sftp.close()
 
         install_cmd = ("/usr/bin/dpkg -i %s") % ("/root/contrail_pkg")
         out, err = execute_cmd_out(ssh_session, install_cmd)
         setup_cmd = "/opt/contrail/contrail_packages/setup.sh"
         out, err = execute_cmd_out(ssh_session, setup_cmd)
-	puppet_cmd = "echo \"[agent]\" >> /etc/puppet/puppet.conf; \
-			echo \"    pluginsync = true\" >> /etc/puppet/puppet.conf; \
-			echo \"    ignorecache = true\" >> /etc/puppet/puppet.conf; \
-			echo \"    usecacheonfailure = false\" >> /etc/puppet/puppet.conf; \
-			echo \"[main]\" >> /etc/puppet/puppet.conf; \
-			echo \"runinterval=60\" >> /etc/puppet/puppet.conf"
+        puppet_cmd = "echo \"[agent]\" >> /etc/puppet/puppet.conf; \
+                echo \"    pluginsync = true\" >> /etc/puppet/puppet.conf; \
+                echo \"    ignorecache = true\" >> /etc/puppet/puppet.conf; \
+                echo \"    usecacheonfailure = false\" >> /etc/puppet/puppet.conf; \
+                echo \"[main]\" >> /etc/puppet/puppet.conf; \
+                echo \"runinterval=60\" >> /etc/puppet/puppet.conf"
 
- 	out, err = execute_cmd_out(ssh_session, puppet_cmd)
+        out, err = execute_cmd_out(ssh_session, puppet_cmd)
 
+        etc_host_cmd = ('echo "%s %s.%s %s" >> /etc/hosts') % (ip , server, domain, server)
+        out, err = execute_cmd_out(ssh_session, etc_host_cmd)
+        etc_host_cmd = ('echo "%s %s >> /etc/hosts') % (ip , server)
+        out, err = execute_cmd_out(ssh_session, etc_host_cmd)
 
-#	puppet_start_cmd = "puppet agent --waitforcert 60 --test"
-#	out, err = execute_cmd_out(ssh_session, puppet_start_cmd)
+        etc_host_cmd = ('echo "%s puppet" >> /etc/hosts') % (smgr_ip)
+        out, err = execute_cmd_out(ssh_session, etc_host_cmd)
 
-	etc_host_cmd = ('echo "%s %s.%s %s" >> /etc/hosts') % (ip , server, domain, server)
-	out, err = execute_cmd_out(ssh_session, etc_host_cmd)
-	etc_host_cmd = ('echo "%s %s >> /etc/hosts') % (ip , server)
-	out, err = execute_cmd_out(ssh_session, etc_host_cmd)
-
-	etc_host_cmd = ('echo "%s puppet" >> /etc/hosts') % (smgr_ip)
-	out, err = execute_cmd_out(ssh_session, etc_host_cmd)
-
-	ntp_cmd = ('''/bin/mv /etc/ntp.conf /etc/ntp.conf.orig
-/bin/touch /var/lib/ntp/drift
-cat << __EOT__ > /etc/ntp.conf
-driftfile /var/lib/ntp/drift
-server %s
-server 172.17.28.5
-server 66.129.255.62
-server 172.28.16.17
-restrict 127.0.0.1
-restrict -6 ::1
-includefile /etc/ntp/crypto/pw
-keys /etc/ntp/keys
-__EOT__
- ''') % (smgr_ip)
-	out, err = execute_cmd_out(ssh_session, ntp_cmd)
+        ntp_cmd = ('''/bin/mv /etc/ntp.conf /etc/ntp.conf.orig
+    /bin/touch /var/lib/ntp/drift
+    cat << __EOT__ > /etc/ntp.conf
+    driftfile /var/lib/ntp/drift
+    server %s
+    server 172.17.28.5
+    server 66.129.255.62
+    server 172.28.16.17
+    restrict 127.0.0.1
+    restrict -6 ::1
+    includefile /etc/ntp/crypto/pw
+    keys /etc/ntp/keys
+    __EOT__
+     ''') % (smgr_ip)
+        out, err = execute_cmd_out(ssh_session, ntp_cmd)
 
         # close ssh session
         ssh_session.close()

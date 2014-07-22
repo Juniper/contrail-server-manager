@@ -125,5 +125,7 @@ then
     ./setup.sh
     echo "exec-contrail-setup-sh" >> exec-contrail-setup-sh.out
 fi
+#blacklist mei module for ocp
+echo "blacklist mei" >> /etc/modprobe.d/blacklist.conf
 wget http://$server/cblr/svc/op/trig/mode/post/system/$system_name
 %end
