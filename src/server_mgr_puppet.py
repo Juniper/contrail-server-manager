@@ -1117,7 +1117,6 @@ $__contrail_quantum_servers__
                 pass
             data += '''\n\n'''
 
-
         if 'storage-mgr' in provision_params['roles']:
             data += '''    # contrail-storage-manager role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
