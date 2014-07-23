@@ -58,7 +58,7 @@ object_dict = {
             ("ifname", "Ethernet Interface name"),
             ("compute_non_mgmt_ip", "compute node non mgmt ip (default none)"),
             ("compute_non_mgmt_gway", "compute node non mgmt gway (default none)"),
-            ("disks", "Storage OSDs")])),
+            ("disks", "Storage OSDs (default none)")])),
         ("vns_id", "vns id the server belongs to"),
         ("cluster_id", "Physical cluster id the server belongs to"),
         ("pod_id", "pod id the server belongs to"),
@@ -352,6 +352,8 @@ def add_payload(object, default_object):
                             if disks:
                                 disk_list = disks.split(',')
                                 user_input = [str(d) for d in disk_list]
+                            else:
+                                user_input = None
                         params_dict[key_selected] = user_input
                     elif key_selected == "roles":
                         msg = index_dict[eval(user_selection)] + ":"
@@ -407,6 +409,8 @@ def add_payload(object, default_object):
                             if disks:
                                 disk_list = disks.split(',')
                                 user_input = [str(d) for d in disk_list]
+                            else:
+                                user_input = None
                         else:
                             user_input = raw_input(msg)
                         if user_input:
