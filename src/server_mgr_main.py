@@ -2072,8 +2072,10 @@ class VncServerManager():
             for server in servers:
                 server_params = eval(server['server_params'])
                 server_roles = eval(server['roles'])
-                if 'storage' in server_roles:
+                if 'storage' in server_roles and 'disks' in server_params:
                     total_osd += len(server_params['disks'])
+                else:
+                    total_osd = 0
 
             packages = self._serverDb.get_image("image_id", package_image_id, True)
             if len(packages) == 0:
@@ -2232,8 +2234,9 @@ class VncServerManager():
                 for x in role_servers['storage']:
                     hosts_dict[x["server_id"]] = [x["server_id"], x["ip"]]
                 provision_params['storage_monitor_hosts'] = hosts_dict
-                provision_params['storage_server_disks'] = []
-                provision_params['storage_server_disks'].extend(server_params['disks'])
+                if 'disks' in server_params and total_osd > 0:
+                    provision_params['storage_server_disks'] = []
+                    provision_params['storage_server_disks'].extend(server_params['disks'])
 
                 self._do_provision_server(provision_params)
                 #end of for
