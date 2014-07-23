@@ -77,7 +77,7 @@ object_dict = {
         ("image_id", "Specify unique image id for this image"),
         ("image_version", "Specify version for this image"),
         ("image_type",
-         "ubuntu/centos/contrail-ubuntu-package/contrail-centos-package"),
+         "ubuntu/centos/contrail-ubuntu-package/contrail-centos-package/contrail-storage-ubuntu-package"),
         ("image_path", "complete path where image file is located on server")
     ]),
     "cluster" : OrderedDict ([

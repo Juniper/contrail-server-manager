@@ -587,7 +587,7 @@ class VncServerManager():
         if req_provision_params is not None:
             role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute", "zookeeper", "storage"]
+                "control", "collector", "webui", "compute", "zookeeper", "storage", "storage-mgr"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
@@ -1134,7 +1134,7 @@ class VncServerManager():
         image_type = bottle.request.forms.image_type
         if (image_type not in [
                 "centos", "fedora", "ubuntu",
-                "contrail-ubuntu-package", "contrail-centos-package"]):
+                "contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]):
             abort(404, "image type not specified or invalid")
         file_obj = bottle.request.files.file
         file_name = file_obj.filename
@@ -2100,7 +2100,7 @@ class VncServerManager():
                     for role in ['database', 'openstack',
                                  'config', 'control',
                                  'collector', 'webui',
-                                 'compute', 'storage']:
+                                 'compute', 'storage', 'storage-mgr']:
                         role_servers[role] = self.role_get_servers(
                             vns_servers, role)
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
@@ -2224,7 +2224,7 @@ class VncServerManager():
                 else:
                     provision_params['ext_bgp'] = ""
 
-                #storage role params
+                # Storage role params
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = vns_params['storage_fsid']
@@ -2237,6 +2237,14 @@ class VncServerManager():
                 if 'disks' in server_params and total_osd > 0:
                     provision_params['storage_server_disks'] = []
                     provision_params['storage_server_disks'].extend(server_params['disks'])
+
+                # Storage manager restrictions
+                if 'storage-mgr' in role_servers:
+                    if len(role_servers['storage-mgr']) != 1:
+                        msg = "There can only be only one node with the role 'storage-mgr'"
+                        raise ServerMgrException(msg)
+                    else:
+                        pass
 
                 self._do_provision_server(provision_params)
                 #end of for
