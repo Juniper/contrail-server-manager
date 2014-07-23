@@ -1087,12 +1087,14 @@ $__contrail_quantum_servers__
             data += '''    # contrail-storage role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
         contrail_storage_fsid => "%s",
+        contrail_storage_repo_id => "%s",
         contrail_storage_virsh_uuid => "%s",
         contrail_openstack_ip => "%s",
         contrail_storage_mon_secret => "%s",
         contrail_storage_mon_hosts => {
             ''' % (
                 provision_params['puppet_manifest_version'],
+                provision_params['storage_repo_id'],
                 provision_params['storage_fsid'],
                 provision_params['storage_virsh_uuid'],
                 contrail_openstack_mgmt_ip,

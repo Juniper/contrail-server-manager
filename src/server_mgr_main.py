@@ -2238,6 +2238,12 @@ class VncServerManager():
                     provision_params['storage_server_disks'] = []
                     provision_params['storage_server_disks'].extend(server_params['disks'])
 
+                # Multiple Repo support
+                if 'storage_repo_id' in server_params.keys():
+                    provision_params['storage_repo_id'] = server_params['storage_repo_id']
+                else:
+                    provision_params['storage_repo_id'] = ""
+
                 # Storage manager restrictions
                 if 'storage-mgr' in role_servers:
                     if len(role_servers['storage-mgr']) != 1:

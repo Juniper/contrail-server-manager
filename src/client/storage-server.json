@@ -7,6 +7,7 @@
             "server_params" : {
                 "ifname": "eth1",
                 "compute_non_mgmt_ip": "",
+                "storage_repo_id": "xyz_12",
                 "compute_non_mgmt_gway": "",
 		"disks": ["/dev/sda","/dev/sdb"]
             },
