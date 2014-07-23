@@ -571,7 +571,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_openstack_mgmt_ip', None) is None:
             self._params_dict['contrail_openstack_mgmt_ip'] = (
-                "\"%s\"" %(contrail_openstack_mgmt_ip_control))
+                "\"%s\"" %(contrail_openstack_mgmt_ip_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_compute_ip', None) is None:
             self._params_dict['contrail_compute_ip'] = (
@@ -655,7 +655,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_supervisorctl_lines', None) is None:
             self._params_dict['contrail_supervisorctl_lines'] = (
-                "\"%s\"" %(sctl_lines))
+                "'%s'" %(sctl_lines))
         if self._params_dict.get(
             'contrail_haproxy', None) is None:
             self._params_dict['contrail_haproxy'] = (
@@ -821,7 +821,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
-                "\"%s\"" %(server_ip_control))
+                "\"%s\"" %(server_ip_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_redis_master_ip', None) is None:
             self._params_dict['contrail_redis_master_ip'] = (
@@ -895,7 +895,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
-                "\"%s\"" %(collector_server_control))
+                "\"%s\"" %(collector_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_openstack_ip', None) is None:
             self._params_dict['contrail_openstack_ip'] = (
