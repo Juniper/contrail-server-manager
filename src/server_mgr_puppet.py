@@ -1094,8 +1094,8 @@ $__contrail_quantum_servers__
         contrail_storage_mon_hosts => {
             ''' % (
                 provision_params['puppet_manifest_version'],
-                provision_params['storage_repo_id'],
                 provision_params['storage_fsid'],
+                provision_params['storage_repo_id'],
                 provision_params['storage_virsh_uuid'],
                 contrail_openstack_mgmt_ip,
                 provision_params['storage_mon_secret'])

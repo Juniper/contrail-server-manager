@@ -11,7 +11,7 @@
                 "compute_non_mgmt_gway": "",
 		        "disks": ["/dev/sda","/dev/sdb"]
             },
-            "roles" : ["config","compute","openstack","control","collector","webui","database","storage"],
+            "roles" : ["config","compute","openstack","control","collector","webui","database","storage","storage-mgr"],
             "cluster_id": "nitish-cluster",
             "vns_id": "nitish-test-vns",
             "mask": "255.255.255.0",
