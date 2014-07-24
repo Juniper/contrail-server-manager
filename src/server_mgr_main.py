@@ -1011,15 +1011,20 @@ class VncServerManager():
                     subprocess.call(["cp", "-f", image_path, dest])
                     image_params = {}
                     if ((image_type == "contrail-centos-package") or
-                        (image_type == "contrail-ubuntu-package") or
-                        (image_type == "contrail-storage-ubuntu-package")):
+                        (image_type == "contrail-ubuntu-package") ):
                         subprocess.call(
                             ["cp", "-f", dest,
                              self._args.html_root_dir + "contrail/images"])
                         puppet_manifest_version = self._create_repo(
                             image_id, image_type, image_version, dest)
                         image_params['puppet_manifest_version'] = \
-                            puppet_manifest_version 
+                            puppet_manifest_version
+                    elif image_type == "contrail-storage-ubuntu-package":
+                        subprocess.call(
+                            ["cp", "-f", dest,
+                             self._args.html_root_dir + "contrail/images"])
+                        self._create_repo(
+                            image_id, image_type, image_version, dest)
                     else:
                         self._add_image_to_cobbler(image_id, image_type,
                                                    image_version, dest)
@@ -2237,6 +2242,12 @@ class VncServerManager():
                 if 'disks' in server_params and total_osd > 0:
                     provision_params['storage_server_disks'] = []
                     provision_params['storage_server_disks'].extend(server_params['disks'])
+
+                # Multiple Repo support
+                if 'storage_repo_id' in server_params.keys():
+                    provision_params['storage_repo_id'] = server_params['storage_repo_id']
+                else:
+                    provision_params['storage_repo_id'] = ""
 
                 # Storage manager restrictions
                 if 'storage-mgr' in role_servers:
