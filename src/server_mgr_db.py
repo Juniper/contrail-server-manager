@@ -112,8 +112,7 @@ class ServerMgrDb:
                          vns_id TEXT, cloud_id TEXT, base_image_id TEXT,
                          package_image_id TEXT, passwd TEXT,
                          update_time TEXT, disc_flag varchar default 'N',
-                         server_params TEXT,
-                         roles TEXT, power_user TEXT,
+                         server_params TEXT, roles TEXT, power_user TEXT,
                          power_pass TEXT, power_address TEXT,
                          power_type TEXT, intf_control TEXT,
                          intf_data TEXT, intf_bond TEXT,
@@ -477,7 +476,7 @@ class ServerMgrDb:
             #if image_data['image_path'] != db_image[0]['image_path']:
             #    raise ServerMgrException('Image path cannnot be modified')
             #TODO image path can be added in the db
-            image_data.pop("image_path", None)
+            image_data.pop("image_path", None) 
             if image_data['image_type'] != db_image[0]['image_type']:
                 raise ServerMgrException('Image type cannnot be modified')
             # Store image_params dictionary as a text field
@@ -549,7 +548,7 @@ class ServerMgrDb:
                         db_server_params[k] = v
             server_data['server_params'] = str(db_server_params)
 
-            # Store email list as text field
+            # Store email list as text field                   
             email = server_data.pop("email", None)
             if email is not None:
                 server_data['email'] = str(email)
