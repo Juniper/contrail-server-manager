@@ -1569,7 +1569,7 @@ class VncServerManager():
             abort(404, repr(e))
         self._smgr_trans_log.log(bottle.request,
                                     self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE)
-        return "Server Deleted" 
+        return "Image Deleted" 
     # End of delete_image
 
     # API to modify parameters for a server. User can modify IP, MAC, cluster
