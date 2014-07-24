@@ -1427,12 +1427,12 @@ $__contrail_quantum_servers__
             return
 
         # Storage params added to the top of the manifest file
-        resource_data += '''    $contrail_host_roles= ['''
+        resource_data += '''$contrail_host_roles= ['''
         for role in provision_params['host_roles']:
-            resource_data+= '''\"%s\",''' % (str(role))
-        resource_data = data[:len(resource_data)-1]+']'
+            resource_data += '''\"%s\",''' % (str(role))
+        resource_data = resource_data[:len(resource_data)-1]+']'
         resource_data += '''\n'''
-        resource_data += '''    $contrail_storage_num_osd= %s\n''' % (provision_params['storage_num_osd'])
+        resource_data += '''$contrail_storage_num_osd= %s\n''' % (provision_params['storage_num_osd'])
         # Create resource to have repository configuration setup on the
         # target
         resource_data += self._repository_config(provision_params)
