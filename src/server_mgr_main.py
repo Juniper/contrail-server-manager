@@ -1987,6 +1987,7 @@ class VncServerManager():
     # puppet manifest file for the server and adds it to site
     # manifest file.
     def provision_server(self):
+        package_type_list = ["contrail-ubuntu-package", "contrail-centos-package"]
         self._smgr_log.log(self._smgr_log.DEBUG, "provision_server")
         try:
             entity = bottle.request.json
@@ -2027,6 +2028,8 @@ class VncServerManager():
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
                         role_ids[role] = [x["server_id"] for x in role_servers[role]]
                 provision_params = {}
+                #TODO there is no need for image related stuff within the for
+                #loop, move them out
                 provision_params['package_image_id'] = package_image_id
                 # Get puppet manifest version corresponding to this package_image_id
                 images = self._serverDb.get_image(
@@ -2036,6 +2039,10 @@ class VncServerManager():
                     self._smgr_log.log(self._smgr_log.DEBUG, msg)
                     raise ServerMgrException(msg)
                 image = images [0]
+                if image['image_type'] not in package_type_list:
+                    msg = "Package %s is not a valid package." % (package_image_id)
+                    self._smgr_log.log(self._smgr_log.DEBUG, msg)
+                    raise ServerMgrException(msg)
                 puppet_manifest_version = eval(image['image_params'])['puppet_manifest_version']
                 provision_params['puppet_manifest_version'] = puppet_manifest_version
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
