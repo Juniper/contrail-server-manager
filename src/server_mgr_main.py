@@ -1712,7 +1712,7 @@ class VncServerManager():
                 msg = "No Image %s found" % (base_image_id)
                 raise ServerMgrException(msg)
             if ( images[0] ['image_type'] not in iso_types ):
-	            msg = "Image %s is not an iso" % (base_image_id)
+                msg = "Image %s is not an iso" % (base_image_id)
                 raise ServerMgrException(msg)
             if len(packages) == 0:
                 msg = "No Package %s found" % (package_image_id)
@@ -2029,8 +2029,13 @@ class VncServerManager():
                 provision_params = {}
                 provision_params['package_image_id'] = package_image_id
                 # Get puppet manifest version corresponding to this package_image_id
-                image = self._serverDb.get_image(
-                    "image_id", package_image_id, True)[0]
+                images = self._serverDb.get_image(
+                        "image_id", package_image_id, True)
+                if not len(images):
+                    msg = "Package %s not present" % (package_image_id)
+                    self._smgr_log.log(self._smgr_log.DEBUG, msg)
+                    raise ServerMgrException(msg)
+                image = images [0]
                 puppet_manifest_version = eval(image['image_params'])['puppet_manifest_version']
                 provision_params['puppet_manifest_version'] = puppet_manifest_version
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
