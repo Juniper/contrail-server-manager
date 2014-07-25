@@ -270,6 +270,9 @@ class ServerMgrDb:
                     EUI(server_data['mac'])).replace("-", ":")
             # Store roles list as a text field
             roles = server_data.pop("roles", None)
+            vns_id = server_data.get('vns_id', None)
+            if vns_id:
+                self.check_obj("vns", "vns_id", vns_id)
             if roles is not None:
                 server_data['roles'] = str(roles)
             intf_control = server_data.pop("control", None)
@@ -305,7 +308,6 @@ class ServerMgrDb:
             if cluster_id:
                 cluster_data = {"cluster_id": cluster_id}
                 self._add_row(cluster_table, cluster_data)
-            vns_id = server_data.get('vns_id', None)
             if vns_id:
                 vns_data = {"vns_id": vns_id}
                 self._add_row(vns_table, vns_data)
@@ -498,6 +500,10 @@ class ServerMgrDb:
             db_server = self.get_server('mac', server_data['mac'],
                                                     detail=True)
         try:
+            vns_id = server_data.get('vns_id', None)
+            if vns_id:
+                self.check_obj("vns", "vns_id", vns_id)
+
             if 'mac' in server_data:
                 server_data['mac'] = str(
                     EUI(server_data['mac'])).replace("-", ":")
@@ -567,7 +573,6 @@ class ServerMgrDb:
             if cluster_id:
                 cluster_data = {"cluster_id": cluster_id}
                 self._add_row(cluster_table, cluster_data)
-            vns_id = server_data.get('vns_id', None)
             if vns_id:
                 vns_data = {"vns_id": vns_id}
                 self._add_row(vns_table, vns_data)
