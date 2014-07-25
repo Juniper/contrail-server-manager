@@ -1638,7 +1638,7 @@ class VncServerManager():
             abort(404, repr(e))
         self._smgr_trans_log.log(bottle.request,
                                     self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE)
-        return "Server Deleted" 
+        return "Server Deleted"
     # End of delete_image
 
     # API to modify parameters for a server. User can modify IP, MAC, cluster
@@ -1764,6 +1764,7 @@ class VncServerManager():
     # If no server if provided, information about all the servers
     # in server manager configuration is returned.
     def reimage_server(self):
+        iso_types = ["centos", "ubuntu", "fedora", "esxi5.1", "esxi5.5"]
         self._smgr_log.log(self._smgr_log.DEBUG, "reimage_server")
         try:
             ret_data = self.validate_smgr_request("SERVER", "REIMAGE", bottle.request)
@@ -1778,6 +1779,9 @@ class VncServerManager():
             packages = self._serverDb.get_image("image_id", package_image_id, True)
             if len(images) == 0:
                 msg = "No Image %s found" % (base_image_id)
+                raise ServerMgrException(msg)
+            if ( images[0] ['image_type'] not in iso_types ):
+	            msg = "Image %s is not an iso" % (base_image_id)
                 raise ServerMgrException(msg)
             if len(packages) == 0:
                 msg = "No Package %s found" % (package_image_id)
