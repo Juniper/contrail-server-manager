@@ -1325,7 +1325,6 @@ $__contrail_quantum_servers__
             data += '''    # contrail-storage role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
         contrail_storage_fsid => "%s",
-        contrail_storage_repo_id => "%s",
         contrail_storage_virsh_uuid => "%s",
         contrail_openstack_ip => "%s",
         contrail_storage_mon_secret => "%s",
@@ -1333,7 +1332,6 @@ $__contrail_quantum_servers__
             ''' % (
                 provision_params['puppet_manifest_version'],
                 provision_params['storage_fsid'],
-                provision_params['storage_repo_id'],
                 provision_params['storage_virsh_uuid'],
                 contrail_openstack_mgmt_ip,
                 provision_params['storage_mon_secret'])
@@ -1427,12 +1425,12 @@ $__contrail_quantum_servers__
             return
 
         # Storage params added to the top of the manifest file
-        resource_data += '''    $contrail_host_roles= ['''
+        resource_data += '''$contrail_host_roles= ['''
         for role in provision_params['host_roles']:
-            resource_data+= '''\"%s\",''' % (str(role))
-        resource_data = data[:len(resource_data)-1]+']'
+            resource_data += '''\"%s\",''' % (str(role))
+        resource_data = resource_data[:len(resource_data)-1]+']'
         resource_data += '''\n'''
-        resource_data += '''    $contrail_storage_num_osd= %s\n''' % (provision_params['storage_num_osd'])
+        resource_data += '''$contrail_storage_num_osd= %s\n''' % (provision_params['storage_num_osd'])
         # Create resource to have repository configuration setup on the
         # target
         resource_data += self._repository_config(provision_params)
