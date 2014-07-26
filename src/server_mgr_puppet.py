@@ -1349,7 +1349,7 @@ $__contrail_quantum_servers__
         ''' % last_res_added
             if 'storage_server_disks' in provision_params:
                 for disk in provision_params['storage_server_disks']:
-                    data += '''contral_%s::contrail_storage::contrail_storage_osd_setup {'%s':
+                    data += '''contrail_%s::contrail_storage::contrail_storage_osd_setup {'%s':
         require => %s
         }
         ''' % (provision_params['puppet_manifest_version'], disk, req)
