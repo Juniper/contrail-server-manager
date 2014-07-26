@@ -214,7 +214,7 @@ define contrail-config (
     }
 
     # Ensure all config files with correct content are present.
-    config-template-scripts { ["api_server.conf",
+    config-template-scripts { ["contrail-api.conf",
                                "schema_transformer.conf",
                                "svc_monitor.conf",
                                "discovery.conf",
@@ -385,7 +385,7 @@ define contrail-config (
 
 ###############################
 
-    File["/etc/contrail/ctrl-details"]->File["/etc/contrail/service.token"]->Config-template-scripts["api_server.conf"]->File["/etc/contrail/contrail_plugin.ini"]->Config-template-scripts["schema_transformer.conf"]->Config-template-scripts["svc_monitor.conf"]->Config-template-scripts["discovery.conf"]->Config-template-scripts["vnc_api_lib.ini"]
+    File["/etc/contrail/ctrl-details"]->File["/etc/contrail/service.token"]->Config-template-scripts["contrail-api.conf"]->File["/etc/contrail/contrail_plugin.ini"]->Config-template-scripts["schema_transformer.conf"]->Config-template-scripts["svc_monitor.conf"]->Config-template-scripts["discovery.conf"]->Config-template-scripts["vnc_api_lib.ini"]
 
     # Initialize the multi tenancy option will update latter based on vns argument
     if ($contrail_multi_tenancy == "True") {
