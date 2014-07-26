@@ -2250,7 +2250,11 @@ class VncServerManager():
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = vns_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = vns_params['storage_virsh_uuid']
-                provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
+                if 'storage_mon_secret' in vns_params.keys():
+                    provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
+                else
+                    provision_params['storage_mon_secret'] = ""
+
                 hosts_dict = dict(list())
                 for x in role_servers['storage']:
                     hosts_dict[x["server_id"]] = [x["server_id"], x["ip"]]
