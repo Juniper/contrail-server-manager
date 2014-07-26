@@ -2252,7 +2252,7 @@ class VncServerManager():
                 provision_params['storage_virsh_uuid'] = vns_params['storage_virsh_uuid']
                 if 'storage_mon_secret' in vns_params.keys():
                     provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
-                else
+                else:
                     provision_params['storage_mon_secret'] = ""
 
                 hosts_dict = dict(list())
