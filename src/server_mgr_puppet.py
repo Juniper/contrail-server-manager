@@ -110,7 +110,7 @@ class ServerMgrPuppet:
                 provision_params['package_image_id'],
                 provision_params["server_mgr_ip"], before_param)
 
-        before_param = "Contrail_%s::Contrail_common::Contrail-common[\"contrail_common\"]" % \
+        before_param = "Contrail_%s::Contrail_common::Contrail_common[\"contrail_common\"]" % \
                        (provision_params['puppet_manifest_version'])
 
         data += '''    # Install repo on target.
