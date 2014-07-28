@@ -463,6 +463,13 @@ class VncServerManager():
                                    msg)
                 raise ServerMgrException(msg)
             """
+        if 'roles' in data:
+            if 'storage' in data['roles'] and 'compute' not in data['roles']:
+                msg = "role 'storage' needs role 'compute' in provision file"
+                raise ServerMgrException(msg)
+            elif 'storage-mgr' in data['roles'] and 'openstack' not in data['roles']:
+                msg = "role 'storage-mgr' needs role 'openstack' in provision file"
+                raise ServerMgrException(msg)
         return ret_data
 
     def validate_smgr_delete(self, validation_data, request, data = None):
@@ -538,7 +545,7 @@ class VncServerManager():
                             'vns_id', vns_id, detail=True)
         role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute"]
+                "control", "collector", "webui", "compute" ]
         roles_set = set(role_list)
 
         vns_role_list = []
@@ -580,7 +587,7 @@ class VncServerManager():
         if req_provision_params is not None:
             role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute", "zookeeper"]
+                "control", "collector", "webui", "compute", "zookeeper", "storage", "storage-mgr"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
@@ -976,7 +983,8 @@ class VncServerManager():
                     if (image_type not in [
                             "centos", "fedora", "ubuntu",
                             "contrail-ubuntu-package", "contrail-centos-package",
-				            "esxi5.5", "esxi5.1"]):
+                            "contrail-storage-ubuntu-package",
+			     "esxi5.5", "esxi5.1"]):
                         self._smgr_log.log(self._smgr_log.ERROR,
                                     "image type not specified or invalid for image %s" %(
                                     image_id))
@@ -1003,14 +1011,20 @@ class VncServerManager():
                     subprocess.call(["cp", "-f", image_path, dest])
                     image_params = {}
                     if ((image_type == "contrail-centos-package") or
-                        (image_type == "contrail-ubuntu-package")):
+                        (image_type == "contrail-ubuntu-package") ):
                         subprocess.call(
                             ["cp", "-f", dest,
                              self._args.html_root_dir + "contrail/images"])
                         puppet_manifest_version = self._create_repo(
                             image_id, image_type, image_version, dest)
                         image_params['puppet_manifest_version'] = \
-                            puppet_manifest_version 
+                            puppet_manifest_version
+                    elif image_type == "contrail-storage-ubuntu-package":
+                        subprocess.call(
+                            ["cp", "-f", dest,
+                             self._args.html_root_dir + "contrail/images"])
+                        self._create_repo(
+                            image_id, image_type, image_version, dest)
                     else:
                         self._add_image_to_cobbler(image_id, image_type,
                                                    image_version, dest)
@@ -1052,7 +1066,11 @@ class VncServerManager():
                     self.validate_smgr_request("VNS", "PUT", bottle.request,
                                                 cur_vns)
                     str_uuid = str(uuid.uuid4())
-                    cur_vns["vns_params"].update({"uuid":str_uuid})
+                    storage_fsid = str(uuid.uuid4())
+                    storage_virsh_uuid = str(uuid.uuid4())
+                    cur_vns["vns_params"].update({"uuid": str_uuid})
+                    cur_vns["vns_params"].update({"storage_fsid": storage_fsid})
+                    cur_vns["vns_params"].update({"storage_virsh_uuid": storage_virsh_uuid})
                     self._smgr_log.log(self._smgr_log.INFO, "VNS Data %s" % cur_vns)
                     self._serverDb.add_vns(cur_vns)
         except ServerMgrException as e:
@@ -1121,7 +1139,7 @@ class VncServerManager():
         image_type = bottle.request.forms.image_type
         if (image_type not in [
                 "centos", "fedora", "ubuntu",
-                "contrail-ubuntu-package", "contrail-centos-package"]):
+                "contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]):
             abort(404, "image type not specified or invalid")
         file_obj = bottle.request.files.file
         file_name = file_obj.filename
@@ -1312,6 +1330,53 @@ class VncServerManager():
             raise(e)
     # end _create_deb_repo
 
+    # Create storage debian repo
+    # Create storage debian repo for "debian" packages.
+    # repo created includes the wrapper package too.
+    def _create_storage_deb_repo(
+        self, image_id, image_type, image_version, dest):
+        try:
+            # create a repo-dir where we will create the repo
+            mirror = self._args.html_root_dir+"contrail/repo/"+image_id
+            cmd = "mkdir -p %s" %(mirror)
+            subprocess.call(cmd, shell=True)
+            # change directory to the new one created
+            cwd = os.getcwd()
+            os.chdir(mirror)
+            # add wrapper package itself to the repo
+            cmd = "cp -f %s %s" %(
+                dest, mirror)
+            subprocess.call(cmd, shell=True)
+            # Extract .tgz of other packages from the repo
+            cmd = (
+                "dpkg -x %s . > /dev/null" %(dest))
+            subprocess.call(cmd, shell=True)
+            cmd = ("mv ./opt/contrail/contrail_packages/contrail_storage_debs.tgz .")
+            subprocess.call(cmd, shell=True)
+            cmd = ("rm -rf opt")
+            subprocess.call(cmd, shell=True)
+            # untar tgz to get all packages
+            cmd = ("tar xvzf contrail_storage_debs.tgz > /dev/null")
+            subprocess.call(cmd, shell=True)
+            # remove the tgz file itself, not needed any more
+            cmd = ("rm -f contrail_storage_debs.tgz")
+            subprocess.call(cmd, shell=True)
+            # build repo using createrepo
+            cmd = (
+                "dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
+            subprocess.call(cmd, shell=True)
+            # change directory back to original
+            os.chdir(cwd)
+            # cobbler add repo
+            # TBD - This is working for "centos" only at the moment,
+            # will need to revisit and make it work for ubuntu - Abhay
+            # self._smgr_cobbler.create_repo(
+            #     image_id, mirror)
+        except Exception as e:
+            raise(e)
+    # end _create_storage_deb_repo
+
+
     # Given a package, create repo for it on cobbler. The repo created is
     # modified to include the wrapper package too (!!). This is needed as
     # setup.sh and other scripts needed on target can be easily installed.
@@ -1325,6 +1390,10 @@ class VncServerManager():
             elif (image_type == "contrail-ubuntu-package"):
                 puppet_manifest_version = self._create_deb_repo(
                     image_id, image_type, image_version, dest)
+            elif (image_type == "contrail-storage-ubuntu-package"):
+                self._create_storage_deb_repo(
+                    image_id, image_type, image_version, dest)
+
             else:
                 pass
             return puppet_manifest_version
@@ -1838,6 +1907,7 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
+            print 'Exception error is: %s' % e
             abort(404, "Error in upgrading Server")
         return "server(s) upgraded"
     # end reimage_server
@@ -1996,6 +2066,7 @@ class VncServerManager():
             role_servers = {}
             role_ips = {}
             role_ids = {}
+
             ret_data = self.validate_smgr_request("PROVISION", "PROVISION", bottle.request)
 
             if ret_data['status'] == 0:
@@ -2004,6 +2075,23 @@ class VncServerManager():
             else:
                 msg = "Error validating request"
                 raise ServerMgrException(msg)
+
+            # Calculate the total number of disks in the vns
+            total_osd = int(0)
+
+            for server in servers:
+                server_params = eval(server['server_params'])
+                server_roles = eval(server['roles'])
+                if 'storage' in server_roles and 'disks' in server_params:
+                    total_osd += len(server_params['disks'])
+                else:
+                    total_osd = 0
+
+            packages = self._serverDb.get_image("image_id", package_image_id, True)
+            if len(packages) == 0:
+                msg = "No Package %s found" % (package_image_id)
+                raise ServerMgrException(msg)
+            package_type = packages[0] ['image_type']
 
             for server in servers:
                 server_params = eval(server['server_params'])
@@ -2022,15 +2110,17 @@ class VncServerManager():
                     for role in ['database', 'openstack',
                                  'config', 'control',
                                  'collector', 'webui',
-                                 'compute']:
+                                 'compute', 'storage', 'storage-mgr']:
                         role_servers[role] = self.role_get_servers(
                             vns_servers, role)
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
                         role_ids[role] = [x["server_id"] for x in role_servers[role]]
+
                 provision_params = {}
                 #TODO there is no need for image related stuff within the for
                 #loop, move them out
                 provision_params['package_image_id'] = package_image_id
+                provision_params['package_type'] = package_type
                 # Get puppet manifest version corresponding to this package_image_id
                 images = self._serverDb.get_image(
                         "image_id", package_image_id, True)
@@ -2090,6 +2180,7 @@ class VncServerManager():
                 provision_params['compute_non_mgmt_gway'] = server_params['compute_non_mgmt_gway']
                 provision_params['server_gway'] = server['gway']
                 provision_params['haproxy'] = vns_params['haproxy']
+
                 if 'setup_interface' in server_params.keys():
                     provision_params['setup_interface'] = \
                                                     server_params['setup_interface']
@@ -2153,6 +2244,38 @@ class VncServerManager():
                     provision_params['ext_bgp'] = vns_params['ext_bgp']
                 else:
                     provision_params['ext_bgp'] = ""
+
+                # Storage role params
+                provision_params['host_roles'] = eval(server['roles'])
+                provision_params['storage_num_osd'] = total_osd
+                provision_params['storage_fsid'] = vns_params['storage_fsid']
+                provision_params['storage_virsh_uuid'] = vns_params['storage_virsh_uuid']
+                if 'storage_mon_secret' in vns_params.keys():
+                    provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
+                else:
+                    provision_params['storage_mon_secret'] = ""
+
+                hosts_dict = dict(list())
+                for x in role_servers['storage']:
+                    hosts_dict[x["server_id"]] = [x["server_id"], x["ip"]]
+                provision_params['storage_monitor_hosts'] = hosts_dict
+                if 'disks' in server_params and total_osd > 0:
+                    provision_params['storage_server_disks'] = []
+                    provision_params['storage_server_disks'].extend(server_params['disks'])
+
+                # Multiple Repo support
+                if 'storage_repo_id' in server_params.keys():
+                    provision_params['storage_repo_id'] = server_params['storage_repo_id']
+                else:
+                    provision_params['storage_repo_id'] = ""
+
+                # Storage manager restrictions
+                if 'storage-mgr' in role_servers:
+                    if len(role_servers['storage-mgr']) >= 1:
+                        msg = "There can only be only one node with the role 'storage-mgr'"
+                        raise ServerMgrException(msg)
+                    else:
+                        pass
 
                 self._do_provision_server(provision_params)
                 #end of for
@@ -2361,8 +2484,7 @@ class VncServerManager():
                     client = paramiko.SSHClient()
                     client.set_missing_host_key_policy(
                         paramiko.AutoAddPolicy())
-                    client.connect(
-                        server_ip, username='root', password=passwd)
+                    client.connect(server_ip, username='root', password=passwd)
                     stdin, stdout, stderr = client.exec_command('reboot')
                 # end else
                 # Update Server table to update time.
@@ -2517,6 +2639,7 @@ def main(args_str=None):
         bottle.run(app=pipe_start_app, host=server_ip, port=server_port)
     except Exception as e:
         # cleanup gracefully
+        print 'Exception error is: %s' % e
         vnc_server_mgr.cleanup()
 
 # End of main

@@ -10,8 +10,8 @@
 require 'facter'
 require 'timeout'
 
-timeout = 2
-cmd_timeout = 2
+timeout = 4
+cmd_timeout = 4
 
 # ceph_osd_bootstrap_key
 # Fact that gets the ceph key "client.bootstrap-osd"
@@ -28,6 +28,7 @@ end
 # Load the osds/uuids from ceph
 
 ceph_osds = Hash.new
+ceph_num_osds = 0
 begin
   Timeout::timeout(timeout) {
     if system("timeout #{cmd_timeout} ceph -s > /dev/null 2>&1")
@@ -35,6 +36,7 @@ begin
       ceph_osd_dump and ceph_osd_dump.each_line do |line|
         if line =~ /^osd\.(\d+).* ([a-f0-9\-]+)$/
           ceph_osds[$2] = $1
+	  ceph_num_osds += 1
         end
       end
 
@@ -63,4 +65,12 @@ end
 
 Facter.add("ceph_all_osds") do 
 	setcode { ceph_all_osds } 
+end
+
+Facter.add("ceph_pg_num") do 
+	setcode do 
+		#num_osds = Facter::Util::Resolution.exec("ceph -s| grep osdmap | awk ' {printf $3}'")  
+		pg_num = 2**((ceph_num_osds*100)/2).to_s(2).size
+		pg_num
+	end
 end

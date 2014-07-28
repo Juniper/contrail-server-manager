@@ -165,30 +165,43 @@ define contrail-setup-repo(
     if ($operatingsystem == "Centos" or $operatingsystem == "Fedora") {
         file { "/etc/yum.repos.d/cobbler-config.repo" :
             ensure  => present,
-            content => template("contrail-common/contrail-yum-repo.erb"),
-            before => Package["contrail-install-packages"]
+            content => template("contrail-common/contrail-yum-repo.erb")
         }
     }
     if ($operatingsystem == "Ubuntu") {
         $pattern1 = "deb http:\/\/$contrail_server_mgr_ip\/contrail\/repo\/$contrail_repo_name .\/"
         $pattern2 = "deb http://$contrail_server_mgr_ip/contrail/repo/$contrail_repo_name ./"
         $repo_cfg_file = "/etc/apt/sources.list"
-        exec { "update-sources-list" :
+        exec { "update-sources-list-$contrail_repo_name" :
             command   => "sed -i \"/$pattern1/d\" $repo_cfg_file && echo \"$pattern2\"|cat - $repo_cfg_file > /tmp/out && mv /tmp/out $repo_cfg_file && apt-get update",
             unless  => "head -1 $repo_cfg_file | grep -qx \"$pattern2\"",
             provider => shell,
-            logoutput => "true",
-            before => Package["contrail-install-packages"]
+            logoutput => "true"
         }
     }
-    # Setup contrail-install-packages
-    package {'contrail-install-packages': ensure => present}
-    # run setup.sh for now. To be modified with only logic needed later.
-    exec { "exec-contrail-setup-sh" :
-        command => "./setup.sh && echo exec-contrail-setup-sh >> exec-contrail-setup-sh.out",
+}
+
+define contrail-install-repo(
+	$contrail_repo_type
+	) {
+	if($contrail_repo_type == "contrail-ubuntu-package") {
+		$setup_script =  "./setup.sh && echo exec-contrail-setup-$contrail_repo_type-sh >> exec-contrail-setup-sh.out"
+		$package_name = "contrail-install-packages"
+	} elsif ($contrail_repo_type == "contrail-centos-repo") {
+		$setup_script =  "./setup.sh && echo exec-contrail-setup-$contrail_repo_type-sh >> exec-contrail-setup-sh.out"
+		$package_name = "contrail-install-packages"
+	} elsif ($contrail_repo_type == "contrail-ubuntu-stroage-repo") {
+		$setup_script =  "./setup_storage.sh && echo exec-contrail-setup-$contrail_repo_type-sh >> exec-contrail-setup-sh.out"
+		$package_name = "contrail-storage"
+	}
+
+    package {$package_name: ensure => present}
+
+    exec { "exec-contrail-setup-$contrail_repo_type-sh" :
+        command => $setup_script,
         cwd => "/opt/contrail/contrail_packages",
-        require => Package["contrail-install-packages"],
-        unless  => "grep -qx exec-contrail-setup-sh /opt/contrail/contrail_packages/exec-contrail-setup-sh.out",
+        require => Package[$package_name],
+        unless  => "grep -qx exec-contrail-setup-$contrail_repo_type-sh /opt/contrail/contrail_packages/exec-contrail-setup-sh.out",
         provider => shell,
         logoutput => "true"
     }
@@ -289,6 +302,22 @@ define contrail-common (
     exec { 'sysctl -e -p' : provider => shell, logoutput => on_failure }
     file { "/var/crashes":
         ensure => "directory",
+    }
+
+    group { "setup-nova-group" :
+	name => 'nova',
+	ensure => 'present',
+	before => User['setup-nova-user']
+    }
+
+    user { "setup-nova-user" : 
+	name => 'nova',
+	uid => '499',
+	system => 'true',
+	ensure => 'present',
+	shell => '/bin/false',
+	home => '/var/lib/nova',
+	gid => "nova"
     }
 
     # Make sure our scripts directory is present

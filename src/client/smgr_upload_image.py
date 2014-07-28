@@ -47,7 +47,7 @@ def parse_arguments(args_str=None):
     parser.add_argument(
         "image_type",
         help=("type of the image (fedora/centos/ubuntu/"
-              "contrail-ubuntu-package/contrail-centos-package)"))
+              "contrail-ubuntu-package/contrail-centos-package/contrail-storage-ubuntu-package)"))
     parser.add_argument("file_name",
                         help="complete path for the file")
     args = parser.parse_args(args_str)

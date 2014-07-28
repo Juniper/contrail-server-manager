@@ -1,6 +1,8 @@
 class contrail-storage {
 
 define contrail-storage (
+	$contrail_openstack_ip,
+	$contrail_storage_virsh_uuid,
 	$contrail_storage_fsid,
 	$contrail_storage_mon_secret,
 	$contrail_storage_auth_type = 'cephx',
@@ -8,7 +10,7 @@ define contrail-storage (
 	$contrail_mon_addr = $ipaddress,
 	$contrail_mon_port  = 6789,
 	$contrail_storage_hostname = $hostname,
-	$contrail_storage_journal_size_mb = 200
+	$contrail_storage_journal_size_mb = 2000
     ) {
         package { 'contrail-storage-packages' : ensure => present,}
         package { 'contrail-storage' : ensure => present,}
@@ -28,11 +30,14 @@ define contrail-storage (
 		contrail_storage_mon_hostname => $contrail_storage_hostname,
 		require => File['/etc/ceph/ceph.conf']
 	}
-	#contrail_storage_osd{'':
-		#journal => $contrail_storage_mon_secret,
-		#journal_size => $contrail_storage_hostname,
-		#require => File['/etc/ceph/ceph.conf']
-	#}
+
+	contrail_storage_pools{'config_pools':
+		contrail_storage_virsh_uuid => $contrail_storage_virsh_uuid,
+	}
+	contrail_storage_config_files{'contrail-storage-config-files':
+		contrail_openstack_ip => $contrail_openstack_ip,
+		contrail_storage_virsh_uuid => $contrail_storage_virsh_uuid,
+	}
     }
 
 define contrail_storage_osd_setup(
@@ -82,14 +87,6 @@ size=1024m -n size=64k ${name}1",
 
     if $osd_id != 'undefined' {
 
-      #ceph::conf::osd { $osd_id:
-        #device       => $name,
-        #cluster_addr => $::ceph::osd::cluster_address,
-        #public_addr  => $::ceph::osd::public_address,
-        #journal      => $journal,
-        #journalsize  => $journalsize,
-      #}
-
       $osd_data = "/var/lib/ceph/osd/ceph-$osd_id"
 
       file { $osd_data:
@@ -121,7 +118,6 @@ size=1024m -n size=64k ${name}1",
         unless  => "/usr/bin/ceph auth list | /bin/egrep '^osd.${osd_id}$'",
         require => [
           Mount[$osd_data],
-          #Concat['/etc/ceph/ceph.conf'],
           ],
       }
 
@@ -139,7 +135,7 @@ size=1024m -n size=64k ${name}1",
         start     => "service ceph start osd.${osd_id}",
         stop      => "service ceph stop osd.${osd_id}",
         status    => "service ceph status osd.${osd_id}",
-        #subscribe => Concat['/etc/ceph/ceph.conf'],
+        subscribe => File['/etc/ceph/ceph.conf'],
       }
 
     }
@@ -203,8 +199,138 @@ define contrail_storage_monitor(
 	    osd 'allow *' \
 	    mds allow)",
     creates => '/etc/ceph/keyring',
-    onlyif  => "/usr/bin/ceph --admin-daemon /var/run/ceph/ceph-mon.${contrail_storage_mon_hostname}.asok \
-mon_status|egrep -v '\"state\": \"(leader|peon)\"'",
+    onlyif  => "/usr/bin/ceph --admin-daemon \
+	/var/run/ceph/ceph-mon.${contrail_storage_mon_hostname}.asok \
+	mon_status|egrep -v '\"state\": \"(leader|peon)\"'",
   }
+}
+
+
+
+define contrail_storage_pools(
+	$contrail_storage_virsh_uuid
+	) {
+  exec { "pool_volumes":
+    command => "/usr/bin/rados mkpool volumes",
+    unless  => "/usr/bin/ceph osd dump | /bin/grep pool | /bin/grep -q volumes",
+  }
+
+  exec { "pool_images":
+    command => "/usr/bin/rados mkpool images",
+    unless  => "/usr/bin/ceph osd dump | /bin/grep pool | /bin/grep -q images",
+  }
+
+  exec { "volumes_set_pg_num":
+    command => "/usr/bin/ceph osd pool set volumes pg_num $ceph_pg_num",
+    require => Exec['pool_volumes']
+  }
+
+  exec { "volumes_set_pgp_num":
+    command => "/usr/bin/ceph osd pool set volumes pgp_num $ceph_pg_num",
+    require => [Exec['pool_volumes'], Exec['volumes_set_pg_num']]
+  }
+
+
+  exec { 'ceph-volumes-key':
+    command => "/usr/bin/ceph auth get-or-create client.volumes mon 'allow r' osd 'allow class-read object_prefix rbd_children, allow rwx pool=volumes, allow rx pool=images' -o /etc/ceph/client.volumes.keyring",
+    creates => '/etc/ceph/client.volumes.keyring',
+    require => Exec['volumes_set_pgp_num']
+
+  }
+
+  exec { 'ceph-images-key':
+    command => "/usr/bin/ceph auth get-or-create client.images mon 'allow r' osd 'allow class-read object_prefix rbd_children, allow rwx pool=images' -o /etc/ceph/client.images.keyring",
+    creates => '/etc/ceph/client.images.keyring',
+    require => Exec['volumes_set_pgp_num']
+  }
+
+  exec { 'ceph-virsh-secret' : 
+    command => "/bin/echo '<secret ephemeral=\"no\" private=\"no\"><uuid>${contrail_storage_virsh_uuid}</uuid><usage type=\"ceph\"><name>client.volumes secret</name></usage></secret>' > secret.xml && /usr/bin/virsh secret-define --file secret.xml && /bin/rm secret.xml",
+    unless  => "/usr/bin/virsh secret-list | grep -q ${contrail_storage_virsh_uuid}",
+    require => Exec['ceph-volumes-key']
+  }
+
+
+  exec { 'ceph-virsh-set-secret' : 
+    command => "/usr/bin/virsh secret-set-value ${contrail_storage_virsh_uuid} --base64 `/usr/bin/ceph auth get client.volumes  | grep \"key = \" | awk '{printf \$3}'`", 
+    unless  => "/usr/bin/virsh secret-get-value ${contrail_storage_virsh_uuid} ",
+    require => Exec['ceph-virsh-secret']
+  }
+
+  file { '/etc/ceph/virsh.conf':
+	ensure => present,
+	content => "hello new secret : ${contrail_storage_virsh_uuid}",
+  }
+
+  service { "ceph-virsh" :
+    ## Currently only Ubuntu is supported 
+    name => 'libvirt-bin',
+    ensure   => running,
+    provider => 'init',
+    hasrestart => 'true',
+    hasstatus => 'true',
+    require  => Exec['ceph-virsh-secret'],
+    subscribe => File['/etc/ceph/virsh.conf'],
+  }
+
+
+
+
+
+   }
+define contrail_storage_config_files(
+	$contrail_storage_virsh_uuid,
+	$contrail_openstack_ip
+	) {
+
+  if 'openstack' in $contrail_host_roles {
+	#notify { "role openstack":}
+    file { "/etc/contrail/contrail_setup_utils/config-storage-openstack.sh":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+        #require => Package["contrail-openstack-config"],
+        source => "puppet:///modules/contrail-storage/config-storage-openstack.sh"
+    }
+
+   ## XXX : add logic to call this only after all OSDs are up
+    exec { "setup-config-storage-openstack" :
+        command => "/etc/contrail/contrail_setup_utils/config-storage-openstack.sh \
+			${contrail_storage_virsh_uuid} && echo setup-config-storage-openstack \
+			>> /etc/contrail/contrail-storage-exec.out" ,
+        require => File["/etc/contrail/contrail_setup_utils/config-storage-openstack.sh"],
+        unless  => "grep -qx setup-config-storage-openstack/etc/contrail/contrail-storage-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+  }
+  
+
+  if 'compute' in $contrail_host_roles {
+    file { "/etc/contrail/contrail_setup_utils/config-storage-compute.sh":
+        ensure  => present,
+        mode => 0755,
+        owner => root,
+        group => root,
+        #require => Package["contrail-openstack-config"],
+        source => "puppet:///modules/contrail-storage/config-storage-compute.sh"
+    }
+
+   ## XXX : add logic to call this only after all OSDs are up
+    exec { "setup-config-storage-compute" :
+        command => "/etc/contrail/contrail_setup_utils/config-storage-compute.sh \
+			${contrail_storage_virsh_uuid} ${contrail_openstack_ip} \
+			&& echo setup-config-storage-compute \
+			>> /etc/contrail/contrail-storage-exec.out" ,
+        require => File["/etc/contrail/contrail_setup_utils/config-storage-compute.sh"],
+        unless  => "grep -qx setup-config-storage-compute/etc/contrail/contrail-storage-exec.out",
+        provider => shell,
+        logoutput => "true"
+    }
+  }
+
+
+
 	}
 }

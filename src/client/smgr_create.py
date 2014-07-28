@@ -45,7 +45,8 @@ object_dict = {
              ("ks_passwd", "keystone password"),
              ("ks_tenant", "keystone tenant name"),
              ("openstack_passwd", "open stack password"),
-             ("analytics_data_ttl", "analytics data TTL")]))
+             ("analytics_data_ttl", "analytics data TTL"),
+             ("storage_mon_secret", "Storage Monitor Secret Key")]))
     ]),
     "server": OrderedDict ([ 
         ("server_id", "server id value"),
@@ -55,7 +56,8 @@ object_dict = {
         ("server_params", OrderedDict([
             ("ifname", "Ethernet Interface name"),
             ("compute_non_mgmt_ip", "compute node non mgmt ip (default none)"),
-            ("compute_non_mgmt_gway", "compute node non mgmt gway (default none)")])),
+            ("compute_non_mgmt_gway", "compute node non mgmt gway (default none)"),
+            ("disks", "Storage OSDs")])),
         ("vns_id", "vns id the server belongs to"),
         ("cluster_id", "Physical cluster id the server belongs to"),
         ("pod_id", "pod id the server belongs to"),
@@ -186,8 +188,16 @@ def create_payload(object):
                     if pvalue:
                         msg += " (%s) " %(pvalue)
                     msg += ": "
-                    user_input = raw_input(msg)
-                    param_dict[param] = user_input
+                    user_input = ""
+                    if param == 'disks' and 'storage' in temp_dict["roles"]:
+                        disks = raw_input(msg)
+                        if disks:
+                            disk_list = disks.split(',')
+                            user_input = [str(d) for d in disk_list]
+                    else:
+                        user_input = raw_input(msg)
+                    if user_input:
+                        param_dict[param] = user_input
                 temp_dict[key] = param_dict
             # End if (key != (object+"_params"))
         # End for key, value in fields_dict 
@@ -195,7 +205,7 @@ def create_payload(object):
         choice = raw_input("More %s(s) to input? (y/N)" %(object))
         if ((not choice) or
             (choice.lower() != "y")):
-            break;
+            break
     # End while True
     payload[object] = objects
     return payload
