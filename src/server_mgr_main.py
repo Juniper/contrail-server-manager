@@ -2271,7 +2271,7 @@ class VncServerManager():
 
                 # Storage manager restrictions
                 if 'storage-mgr' in role_servers:
-                    if len(role_servers['storage-mgr']) >= 1:
+                    if len(role_servers['storage-mgr']) > 1:
                         msg = "There can only be only one node with the role 'storage-mgr'"
                         raise ServerMgrException(msg)
                     else:
