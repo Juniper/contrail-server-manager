@@ -2103,6 +2103,12 @@ class VncServerManager():
                 server_params = eval(server['server_params'])
                 vns = self._serverDb.get_vns(server['vns_id'],
                                              detail=True)[0]
+
+                # Check if storage parameters are present in VNS, else generate them
+                if 'storage_fsid' not in set(eval(vns['vns_params'])) or 'storage_virsh_uuid' not in set(eval(
+                        vns['vns_params'])):
+                    self._serverDb.modify_vns(vns)
+
                 vns_params = eval(vns['vns_params'])
                 # Get all the servers belonging to the VNS that this server
                 # belongs too.

@@ -446,7 +446,12 @@ class ServerMgrDb:
             if 'uuid' not in db_vns_params:
                 str_uuid = str(uuid.uuid4())
                 vns_data["vns_params"].update({"uuid":str_uuid})
-
+            if 'storage_fsid' not in db_vns_params:
+                storage_fsid = str(uuid.uuid4())
+                vns_data["vns_params"].update({"storage_fsid": storage_fsid})
+            if 'storage_virsh_uuid' not in db_vns_params:
+                storage_virsh_uuid = str(uuid.uuid4())
+                vns_data["vns_params"].update({"storage_virsh_uuid": storage_virsh_uuid})
             # Store vns_params dictionary as a text field
             vns_params = vns_data.pop("vns_params", {})
             for k,v in vns_params.iteritems():
