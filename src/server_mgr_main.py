@@ -195,7 +195,6 @@ class VncServerManager():
         # All bottle routes to be defined here...
         # REST calls for GET methods (Get Info about existing records)
         bottle.route('/all', 'GET', self.get_server_mgr_config)
-        bottle.route('/cluster', 'GET', self.get_cluster)
         bottle.route('/vns', 'GET', self.get_vns)
         bottle.route('/server', 'GET', self.get_server)
         bottle.route('/image', 'GET', self.get_image)
@@ -208,19 +207,16 @@ class VncServerManager():
 
 
         #smgr_add
-        bottle.route('/cluster', 'PUT', self.put_cluster)
         bottle.route('/server', 'PUT', self.put_server)
         bottle.route('/image', 'PUT', self.put_image)
         bottle.route('/vns', 'PUT', self.put_vns)
 
         # REST calls for DELETE methods (Remove records)
-        bottle.route('/cluster', 'DELETE', self.delete_cluster)
         bottle.route('/vns', 'DELETE', self.delete_vns)
         bottle.route('/server', 'DELETE', self.delete_server)
         bottle.route('/image', 'DELETE', self.delete_image)
 
         # REST calls for POST methods
-        bottle.route('/cluster', 'POST', self.modify_cluster)
         bottle.route('/vns', 'POST', self.modify_vns)
         bottle.route('/server', 'POST', self.modify_server)
         bottle.route('/image', 'POST', self.modify_image)
@@ -252,7 +248,6 @@ class VncServerManager():
                                   keep_blank_values=True)
             # Check if request arguments has detail parameter
             detail = ("detail" in query_args)
-            config['cluster'] = self._serverDb.get_cluster(detail=detail)
             config['vns'] = self._serverDb.get_vns(detail=detail)
             config['server'] = self._serverDb.get_server(detail=detail)
             config['image'] = self._serverDb.get_image(detail=detail)
@@ -265,37 +260,6 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_CFG_ALL)
         return config
     # end get_server_mgr_config
-
-    # REST API call to get sever manager config - configuration of all
-    # clusters, with all servers and roles is returned. This call
-    # provides all the configuration as in get_server_mgr_config() call
-    # above. This call additionally provides a way of getting all the
-    # configuration for a particular cluster.
-    def get_cluster(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "get_cluster")
-        try:
-            ret_data = self.validate_smgr_request("CLUSTER", "GET",
-                                                         bottle.request)
-            if ret_data["status"] == 0:
-                match_key = ret_data["match_key"]
-                match_value = ret_data["match_value"]
-                detail = ret_data["detail"]
-
-            entity = self._serverDb.get_cluster(match_value, detail)
-        except ServerMgrException as e:
-            abort(404, e.value)
-            self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.GET_SMGR_CFG_CLUSTER, False)
-        except Exception as e:
-            self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.GET_SMGR_CFG_CLUSTER, False)
-            self.log_trace()
-            abort(404, repr(e))
-
-        self._smgr_trans_log.log(bottle.request,
-                                 self._smgr_trans_log.GET_SMGR_CFG_CLUSTER)
-        return {"cluster": entity}
-    # end get_cluster
 
     # REST API call to get sever manager config - configuration of all
     # VNSs, with all servers and roles is returned. This call
@@ -748,8 +712,6 @@ class VncServerManager():
             validation_data = server_fields
         elif type == "VNS":
             validation_data = vns_fields
-        elif type == "CLUSTER":
-            validation_data = cluster_fields
         elif type == "IMAGE":
             validation_data = image_fields
         else: 
@@ -915,37 +877,6 @@ class VncServerManager():
             return servers[0]
         else:
             return None
-
-    def put_cluster(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "put_cluster")
-        entity = bottle.request.json
-        try:
-            self.validate_smgr_entity("cluster", entity)
-            clusters = entity.get('cluster', None)
-            for cluster in clusters:
-                if self._serverDb.check_obj("cluster", "cluster_id",
-                                            cluster['cluster_id'], False):
-                    self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
-                                                cluster, True)
-                    #nothing to do for now
-                    return
-                else:
-                    self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
-                                                cluster)
-                    self._serverDb.add_cluster(cluster)
-        except ServerMgrException as e:
-            self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER, False)
-            abort(404, e.value)
-        except Exception as e:
-            self.log_trace()
-            self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER, False)
-            abort(404, repr(e))
-        self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER)
-        return entity
-
 
     def put_image(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "add_image")
@@ -1401,37 +1332,6 @@ class VncServerManager():
             abort(404, repr(e))
     # End of _add_image_to_cobbler
 
-    # API call to delete a cluster from server manager config. Along with
-    # cluster, all servers in that cluster and associated roles are also
-    # deleted.
-    def delete_cluster(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "delete_cluster")
-        try:
-            ret_data = self.validate_smgr_request("CLUSTER", "DELETE",
-                                                         bottle.request)
-            if ret_data["status"] == 0:
-                match_key = ret_data["match_key"]
-                match_value = ret_data["match_value"]
-
-            self._serverDb.delete_cluster(match_value)
-        except ServerMgrException as e:
-            self._smgr_trans_log.log(bottle.request,
-                                self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER,
-                                     False)
-            abort(404, e.value)
-        except Exception as e:
-            self.log_trace()
-            self._smgr_trans_log.log(bottle.request,
-                                self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER,
-                                     False)
-            self._smgr_log.log(self._smgr_log.ERROR,
-                        "Error while deleting cluster %s" % (repr(e)))
-            abort(404, repr(e))
-        self._smgr_trans_log.log(bottle.request,
-            self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER)
-        return "Cluster deleted"
-    # end delete_cluster
-
     # API call to delete a vns from server manager config. Along with
     # vns, all servers in that vns and associated roles are also
     # deleted.
@@ -1654,12 +1554,6 @@ class VncServerManager():
 
         return entity
     # end modify_image
-
-    # API to modify parameters for a cluster. Currently no-op, but code
-    # will be added later to change other cluster parameters.
-    def modify_cluster(self):
-        return
-    # end modify_cluster
 
     # API to create the server manager configuration DB from provided JSON
     # file.
@@ -2476,10 +2370,6 @@ class VncServerManager():
 
     def _create_server_manager_config(self, config):
         try:
-            clusters = config.get("clusters", None)
-            if clusters:
-                for cluster in clusters:
-                    self._serverDb.add_cluster(cluster)
             vns_list = config.get("vns", None)
             if vns_list:
                 for vns in vns_list:
