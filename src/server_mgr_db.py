@@ -9,11 +9,7 @@ from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 
 def_server_db_file = 'smgr_data.db'
-pod_table = 'pod_table'
-rack_table = 'rack_table'
-cluster_table = 'cluster_table'
 vns_table = 'vns_table'
-cloud_table = 'cloud_table'
 server_table = 'server_table'
 image_table = 'image_table'
 server_status_table = 'status_table'
@@ -22,11 +18,7 @@ _DUMMY_STR = "DUMMY_STR"
 
 class ServerMgrDb:
 
-    _pod_table_cols = []
-    _rack_table_cols = []
-    _cluster_table_cols = []
     _vns_table_cols = []
-    _cloud_table_cols = []
     _server_table_cols = []
     _image_table_cols = []
     _status_table_cols = []
@@ -36,16 +28,6 @@ class ServerMgrDb:
         try:
             with self._con:
                 cursor = self._con.cursor()
-                cursor.execute("SELECT * FROM " +
-                               pod_table + " WHERE pod_id=?", (_DUMMY_STR,))
-                self._pod_table_cols = [x[0] for x in cursor.description]
-                cursor.execute("SELECT * FROM " +
-                               rack_table + " WHERE rack_id=?", (_DUMMY_STR,))
-                self._rack_table_cols = [x[0] for x in cursor.description]
-                cursor.execute(
-                    "SELECT * FROM " +
-                    cluster_table + " WHERE cluster_id=?", (_DUMMY_STR,))
-                self._cluster_table_cols = [x[0] for x in cursor.description]
                 cursor.execute(
                     "SELECT * FROM " +
                     server_table + " WHERE server_id=?", (_DUMMY_STR,))
@@ -57,10 +39,6 @@ class ServerMgrDb:
                 cursor.execute("SELECT * FROM " +
                                vns_table + " WHERE vns_id=?", (_DUMMY_STR,))
                 self._vns_table_cols = [x[0] for x in cursor.description]
-                cursor.execute(
-                    "SELECT * FROM " +
-                    cloud_table + " WHERE cloud_id=?", (_DUMMY_STR,))
-                self._cloud_table_cols = [x[0] for x in cursor.description]
                 cursor.execute(
                     "SELECT * FROM " +
                     server_status_table + " WHERE server_id=?", (_DUMMY_STR,))
@@ -75,24 +53,11 @@ class ServerMgrDb:
             self._con = lite.connect(db_file_name)
             with self._con:
                 cursor = self._con.cursor()
-                # Create pod table.
-                cursor.execute("CREATE TABLE IF NOT EXISTS " + pod_table +
-                               """ (pod_id TEXT PRIMARY KEY, rack_id TEXT)""")
-                # Create rack table.
-                cursor.execute(
-                    "CREATE TABLE IF NOT EXISTS " + rack_table +
-                    """ (rack_id TEXT PRIMARY KEY, cluster_id TEXT)""")
-                # Create cluster table.
-                cursor.execute("CREATE TABLE IF NOT EXISTS " + cluster_table +
-                               """ (cluster_id TEXT PRIMARY KEY)""")
                 # Create vns table.
                 cursor.execute("CREATE TABLE IF NOT EXISTS " + vns_table +
                                """ (vns_id TEXT PRIMARY KEY,
                                     vns_params TEXT,
                                     email TEXT)""")
-                # Create cloud table.
-                cursor.execute("CREATE TABLE IF NOT EXISTS " + cloud_table +
-                               """ (cloud_id TEXT PRIMARY KEY)""")
                 # Create image table
                 cursor.execute("CREATE TABLE IF NOT EXISTS " +
                                image_table + """ (image_id TEXT PRIMARY KEY,
@@ -138,11 +103,7 @@ class ServerMgrDb:
             with self._con:
                 cursor = self._con.cursor()
                 cursor.executescript("""
-                .DELETE FROM """ + pod_table + """;
-                .DELETE FROM """ + rack_table + """;
-                .DELETE FROM """ + cluster_table + """;
                 .DELETE FROM """ + vns_table + """;
-                .DELETE FROM """ + cloud_table + """;
                 .DELETE FROM """ + server_table + """;
                 .DELETE FROM """ + server_status_table + """;
                 .DELETE FROM """ + image_table + ";")
@@ -250,13 +211,6 @@ class ServerMgrDb:
             raise e
     # End _get_items
 
-    def add_cluster(self, cluster_data):
-        try:
-            self._add_row(cluster_table, cluster_data)
-        except Exception as e:
-            raise e
-    # End of add_cluster
-
     def add_vns(self, vns_data):
         try:
             # Store vns_params dictionary as a text field
@@ -304,26 +258,9 @@ class ServerMgrDb:
             if server_params is not None:
                 server_data['server_params'] = str(server_params)
             self._add_row(server_table, server_data)
-            # Create an entry for cluster, pod, rack etc if needed.
-            pod_id = server_data.get('pod_id', None)
-            if pod_id:
-                pod_data = {"pod_id": pod_id}
-                self._add_row(pod_table, pod_data)
-            rack_id = server_data.get('rack_id', None)
-            if rack_id:
-                rack_data = {"rack_id": rack_id}
-                self._add_row(rack_table, rack_data)
-            cluster_id = server_data.get('cluster_id', None)
-            if cluster_id:
-                cluster_data = {"cluster_id": cluster_id}
-                self._add_row(cluster_table, cluster_data)
             if vns_id:
                 vns_data = {"vns_id": vns_id}
                 self._add_row(vns_table, vns_data)
-            cloud_id = server_data.get('cloud_id', None)
-            if cloud_id:
-                cloud_data = {"cloud_id": cloud_id}
-                self._add_row(cloud_table, cloud_data)
         except Exception as e:
             raise e
         return 0
@@ -364,19 +301,6 @@ class ServerMgrDb:
         except Exception as e:
             raise e
     # End of add_image
-
-    def delete_cluster(self, cluster_id):
-        try:
-            self.check_obj("cluster", "cluster_id", cluster_id)
-            servers = self.get_server('cluster_id', cluster_id, True)
-            for server in servers:
-                server_data = {}
-                server_data['cluster_id'] = ''
-                self._modify_row(server_table, server_data, "server_id", server['server_id'])
-            self._delete_row(cluster_table, "cluster_id", cluster_id)
-        except Exception as e:
-            raise e
-    # End of delete_cluster
 
     def delete_vns(self, vns_id, force=False):
         try:
@@ -569,25 +493,9 @@ class ServerMgrDb:
             self._modify_row(server_table, server_data,
                              'mac', server_mac)
             # Create an entry for cluster, pod, rack etc if needed.
-            pod_id = server_data.get('pod_id', None)
-            if pod_id:
-                pod_data = {"pod_id": pod_id}
-                self._add_row(pod_table, pod_data)
-            rack_id = server_data.get('rack_id', None)
-            if rack_id:
-                rack_data = {"rack_id": rack_id}
-                self._add_row(rack_table, rack_data)
-            cluster_id = server_data.get('cluster_id', None)
-            if cluster_id:
-                cluster_data = {"cluster_id": cluster_id}
-                self._add_row(cluster_table, cluster_data)
             if vns_id:
                 vns_data = {"vns_id": vns_id}
                 self._add_row(vns_table, vns_data)
-            cloud_id = server_data.get('cloud_id', None)
-            if cloud_id:
-                cloud_data = {"cloud_id": cloud_id}
-                self._add_row(cloud_table, cloud_data)
         except Exception as e:
             raise e
     # End of modify_server
@@ -643,16 +551,6 @@ class ServerMgrDb:
             raise e
         return servers
     # End of get_server
-
-    def get_cluster(self, cluster_id=None,
-                    detail=False):
-        try:
-            clusters = self._get_items(cluster_table, "cluster_id",
-                                       cluster_id, detail, "cluster_id")
-        except Exception as e:
-            raise e
-        return clusters
-    # End of get_cluster
 
     def get_vns(self, vns_id=None,
                     detail=False):
