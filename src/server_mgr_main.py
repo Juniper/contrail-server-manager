@@ -2258,22 +2258,40 @@ class VncServerManager():
                     provision_params['ext_bgp'] = ""
 
                 # Storage role params
+
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = vns_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = vns_params['storage_virsh_uuid']
-                if 'storage_mon_secret' in vns_params.keys():
-                    provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
-                else:
-                    provision_params['storage_mon_secret'] = ""
+                if len(role_servers['storage']):
+                    if 'storage_mon_secret' in vns_params.keys():
+                        provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
+                    else:
+                        provision_params['storage_mon_secret'] = ""
+                    if 'osd_bootstrap_key' in vns_params.keys():
+                        if len(vns_params['osd_bootstrap_key']) == 40:
+                            provision_params['osd_bootstrap_key'] = vns_params['osd_bootstrap_key']
+                        else:
+                            msg = "OSD Bootstrap Key is the wrong length"
+                            raise ServerMgrException(msg)
+                    else:
+                        provision_params['osd_bootstrap_key'] = ""
+                    if 'admin_key' in vns_params.keys():
+                        if len(vns_params['admin_key']) == 40:
+                            provision_params['admin_key'] = vns_params['admin_key']
+                        else:
+                            msg = "Admin Key is the wrong length"
+                            raise ServerMgrException(msg)
+                    else:
+                        provision_params['admin_key'] = ""
+                    if 'disks' in server_params and total_osd > 0:
+                        provision_params['storage_server_disks'] = []
+                        provision_params['storage_server_disks'].extend(server_params['disks'])
 
                 hosts_dict = dict(list())
                 for x in role_servers['storage']:
                     hosts_dict[x["server_id"]] = [x["server_id"], x["ip"]]
                 provision_params['storage_monitor_hosts'] = hosts_dict
-                if 'disks' in server_params and total_osd > 0:
-                    provision_params['storage_server_disks'] = []
-                    provision_params['storage_server_disks'].extend(server_params['disks'])
 
                 # Multiple Repo support
                 if 'storage_repo_id' in server_params.keys():
@@ -2282,7 +2300,7 @@ class VncServerManager():
                     provision_params['storage_repo_id'] = ""
 
                 # Storage manager restrictions
-                if 'storage-mgr' in role_servers:
+                if len(role_servers['storage-mgr']):
                     if len(role_servers['storage-mgr']) > 1:
                         msg = "There can only be only one node with the role 'storage-mgr'"
                         raise ServerMgrException(msg)
