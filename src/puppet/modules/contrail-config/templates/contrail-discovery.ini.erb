@@ -1,5 +1,5 @@
 [program:contrail-discovery]
-command=/usr/bin/discovery-server --conf_file /etc/contrail/discovery.conf --listen_port <%= contrail_disc_port_base %>%(process_num)01d --worker_id %(process_num)s
+command=/usr/bin/contrail-discovery --conf_file /etc/contrail/discovery.conf --listen_port <%= contrail_disc_port_base %>%(process_num)01d --worker_id %(process_num)s
 numprocs=<%= contrail_disc_nworkers %>
 process_name=%(process_num)s
 redirect_stderr=true
