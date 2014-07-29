@@ -1321,7 +1321,7 @@ $__contrail_quantum_servers__
             contrail_openstack_mgmt_ip = provision_params["server_ip"]
         else:
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
-        if 'storage' in provision_params['roles']:
+        if provision_params['server_ip'] in provision_params['roles']['storage']:
             data += '''    # contrail-storage role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
         contrail_storage_fsid => "%s",
@@ -1354,8 +1354,15 @@ $__contrail_quantum_servers__
             else:
                 pass
             data += '''\n\n'''
+        return data
 
-        if 'storage-mgr' in provision_params['roles']:
+    def puppet_add_storage_manager_role(self, provision_params, last_res_added):
+        data = ''
+        if (provision_params['openstack_mgmt_ip'] == ''):
+            contrail_openstack_mgmt_ip = provision_params["server_ip"]
+        else:
+            contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
+        if provision_params['server_ip'] not in set(provision_params['roles']['storage']):
             data += '''    # contrail-storage-manager role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
         contrail_storage_fsid => "%s",
@@ -1379,7 +1386,6 @@ $__contrail_quantum_servers__
 
             data += '''\n\n'''
 
-
         return data
 
     #end puppet_add_storage_role
@@ -1395,7 +1401,7 @@ $__contrail_quantum_servers__
         "zookeeper": puppet_add_zk_role,
         "compute": puppet_add_compute_role,
         "storage": puppet_add_storage_role,
-        "storage-mgr": puppet_add_storage_role
+        "storage-mgr": puppet_add_storage_manager_role
     }
 
     def provision_server(self, provision_params):
@@ -1449,7 +1455,7 @@ $__contrail_quantum_servers__
                  'collector', 'webui', 'zookeeper', 'compute', 'storage', 'storage-mgr']
         for role in roles:
             if provision_params['roles'].get(role) and  provision_params['server_ip'] in \
-                provision_params['roles'] [role]:
+                provision_params['roles'][role]:
                 resource_data += self._roles_function_map[role](
                     self, provision_params, last_res_added)
             #if role == "config":
