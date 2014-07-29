@@ -335,6 +335,15 @@ class ServerMgrPuppet:
         contrail_openstack_mgmt_ip_control=self.get_control_ip(provision_params,contrail_openstack_mgmt_ip)
         config_server_control=self.get_control_ip(provision_params,config_server)
         compute_server_control=self.get_control_ip(provision_params,compute_server)
+      
+        config_servers_names = provision_params['role_ids']['config']
+        # Keeping openstack index hardcoded untill ha is implemented 
+        openstack_index="1"
+        rabbit_user_list=[]
+        for cfgm_name in config_servers_names:
+            rabbit_user_list.append('rabbit@'+str(cfgm_name))
+        rabbit_user_list=str(rabbit_user_list)
+        rabbit_user_list=rabbit_user_list.replace(" ","")
 
         # Build Params items
         if self._params_dict.get(
@@ -368,6 +377,23 @@ class ServerMgrPuppet:
             'contrail_haproxy', None) is None:
             self._params_dict['contrail_haproxy'] = (
                 "\"%s\"" %(provision_params["haproxy"]))
+        if self._params_dict.get(
+            'contrail_amqp_server_ip', None) is None:
+            self._params_dict['contrail_amqp_server_ip'] = (
+                "\"%s\"" %(config_server_control.replace('"', '')))
+        if self._params_dict.get(
+            'contrail_openstack_index', None) is None:
+            self._params_dict['contrail_openstack_index'] = (
+                "\"%s\"" %(openstack_index.replace('"', '')))
+        if self._params_dict.get(
+            'contrail_rabbit_user', None) is None:
+            self._params_dict['contrail_rabbit_user'] = (
+                "\"%s\"" %(rabbit_user_list.replace('"', '')))
+        if self._params_dict.get(
+            'contrail_cfgm_number', None) is None:
+            self._params_dict['contrail_cfgm_number'] = (
+                "\"%s\"" %(len(config_servers_names)))
+
         # Build resource items
         data += '''    # contrail-openstack role.
     contrail_%s::contrail_openstack::contrail_openstack{contrail_openstack:
@@ -576,6 +602,15 @@ $__contrail_disc_backend_servers__
             sctl_line = 'supervisorctl -s http://localhost:9004 ' + \
                         '${1} `basename ${0}:%s`' %(worker_id)
             sctl_lines = sctl_lines + sctl_line
+   
+        config_servers_names = provision_params['role_ids']['config']
+        # Keeping openstack index hardcoded untill ha is implemented 
+        openstack_index="1"
+        rabbit_user_list=[]
+        for cfgm_name in config_servers_names:
+            rabbit_user_list.append('rabbit@'+str(cfgm_name))
+        rabbit_user_list=str(rabbit_user_list)
+        rabbit_user_list=rabbit_user_list.replace(" ","")
 
         # Build Params items
         if self._params_dict.get(
@@ -702,6 +737,25 @@ $__contrail_disc_backend_servers__
             'contrail_bgp_params', None) is None:
             self._params_dict['contrail_bgp_params'] = (
                 "\"%s\"" %(provision_params['ext_bgp']))
+        if self._params_dict.get(
+            'contrail_amqp_server_ip', None) is None:
+            self._params_dict['contrail_amqp_server_ip'] = (
+                "\"%s\"" %(config_server_control.replace('"', '')))
+        if self._params_dict.get(
+            'contrail_openstack_index', None) is None:
+            self._params_dict['contrail_openstack_index'] = (
+                "\"%s\"" %(openstack_index.replace('"', '')))
+        if self._params_dict.get(
+            'contrail_rabbit_user', None) is None:
+            self._params_dict['contrail_rabbit_user'] = (
+                "\"%s\"" %(rabbit_user_list.replace('"', '')))
+        if self._params_dict.get(
+            'contrail_cfgm_number', None) is None:
+            self._params_dict['contrail_cfgm_number'] = (
+                "\"%s\"" %(len(config_servers_names)))
+        #-END HERE
+
+       
         # Build resource items
         data += '''    # contrail-config role.
     contrail_%s::contrail_config::contrail_config{contrail_config:
@@ -1214,7 +1268,9 @@ $__contrail_quantum_servers__
         else:
             non_mgmt_ip = provision_params["compute_non_mgmt_ip"]
             non_mgmt_gw = provision_params["compute_non_mgmt_gway"] 
-         
+        # Keeping openstack index hardcoded untill ha is implemented 
+        openstack_index="1"
+ 
 #	if provision_params['haproxy'] == 'enable':
 #            data += '''         #Source HA Proxy CFG
 #        contrail-common::haproxy-cfg{haproxy_cfg:
@@ -1297,6 +1353,14 @@ $__contrail_quantum_servers__
             'contrail_vswitch', None) is None:
             self._params_dict['contrail_vswitch'] = (
                 "\"%s\"" %(provision_params["esx_vm_vswitch"]))
+        if self._params_dict.get(
+            'contrail_amqp_server_ip', None) is None:
+            self._params_dict['contrail_amqp_server_ip'] = (
+                "\"%s\"" %(config_server_control.replace('"', '')))
+        if self._params_dict.get(
+            'contrail_openstack_index', None) is None:
+            self._params_dict['contrail_openstack_index'] = (
+                "\"%s\"" %(openstack_index.replace('"', '')))
         # Build resource items
         data += '''    # contrail-compute role.
     contrail_%s::contrail_compute::contrail_compute{contrail_compute:
