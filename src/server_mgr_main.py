@@ -548,6 +548,9 @@ class VncServerManager():
                 "control", "collector", "webui", "compute" ]
         roles_set = set(role_list)
 
+        optional_role_list = ["storage", "storage-mgr"]
+        optional_role_set = set(optional_role_list)
+
         vns_role_list = []
         for server in servers:
             vns_role_list.extend(eval(server['roles']))
@@ -562,6 +565,8 @@ class VncServerManager():
             raise ServerMgrException(msg)
 
         unknown_roles = vns_unique_roles.difference(roles_set)
+        unknown_roles.difference_update(optional_role_set)
+
         if len(unknown_roles):
             msg = "Unknown Roles: %s" % \
             ", ".join(str(e) for e in unknown_roles)
