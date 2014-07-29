@@ -1995,7 +1995,8 @@ class VncServerManager():
     def role_get_servers(self, vns_servers, role_type):
         servers = []
         for server in vns_servers:
-            if role_type in server['roles']:
+            role_set = set(eval(server['roles']))
+            if role_type in role_set:
                 servers.append(server)
         return servers
 
