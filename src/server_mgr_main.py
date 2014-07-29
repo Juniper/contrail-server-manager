@@ -2264,6 +2264,9 @@ class VncServerManager():
                 provision_params['storage_fsid'] = vns_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = vns_params['storage_virsh_uuid']
                 if len(role_servers['storage']):
+                    if len(role_servers['storage-mgr']) == 0:
+                        msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
+                        raise ServerMgrException(msg)
                     if 'storage_mon_secret' in vns_params.keys():
                         provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
                     else:
