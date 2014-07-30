@@ -1324,36 +1324,36 @@ $__contrail_quantum_servers__
         if provision_params['server_ip'] in provision_params['roles']['storage']:
             data += '''    # contrail-storage role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
+        contrail_storage_repo_id => %s,
         contrail_storage_fsid => "%s",
         contrail_storage_virsh_uuid => "%s",
         contrail_openstack_ip => "%s",
         contrail_storage_mon_secret => "%s",
-        contrail_storage_mon_hosts => {
-            ''' % (
+        contrail_storage_admin_key => "%s",
+        contrail_storage_osd_bootstrap_key => "%s",
+        contrail_storage_mon_hosts => \"''' % (
                 provision_params['puppet_manifest_version'],
+                provision_params['storage_repo_id'],
                 provision_params['storage_fsid'],
                 provision_params['storage_virsh_uuid'],
                 contrail_openstack_mgmt_ip,
-                provision_params['storage_mon_secret'])
+                provision_params['storage_mon_secret'],
+                provision_params['admin_key'],
+                provision_params['osd_bootstrap_key'])
             for key in provision_params['storage_monitor_hosts']:
-                data += '''\"%s\" => [\"%s\",\"%s\"],
-            ''' % (key,
-                    str(provision_params['storage_monitor_hosts'][str(key)][0]),
-                    str(provision_params['storage_monitor_hosts'][str(key)][1]))
-            data += '''},\n        require => %s
-        }
-        package { 'xfsprogs' : ensure => present,}
-        package { 'parted' : ensure => present,}\n
-        ''' % last_res_added
+                data += '''%s ,''' % key
+            data = data[:len(data)-1]+'''\",'''
             if 'storage_server_disks' in provision_params:
-                for disk in provision_params['storage_server_disks']:
-                    data += '''contrail_%s::contrail_storage::contrail_storage_osd_setup {'%s':
-        require => %s
-        }
-        ''' % (provision_params['puppet_manifest_version'], disk, req)
+                data += '''
+        contrail_storage_osd_disks => ['''
+                for key in provision_params['storage_server_disks']:
+                    data += '''\'%s\' ,''' % key
+                data = data[:len(data) - 1] + '''],'''
             else:
                 pass
-            data += '''\n\n'''
+            data += '''
+        require => %s
+    }\n''' % last_res_added
         return data
 
     def puppet_add_storage_manager_role(self, provision_params, last_res_added):
@@ -1365,24 +1365,29 @@ $__contrail_quantum_servers__
         if provision_params['server_ip'] not in set(provision_params['roles']['storage']):
             data += '''    # contrail-storage-manager role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
+        contrail_storage_repo_id => %s,
         contrail_storage_fsid => "%s",
         contrail_storage_virsh_uuid => "%s",
         contrail_openstack_ip => "%s",
         contrail_storage_mon_secret => "%s",
-        contrail_storage_mon_hosts => {
-            ''' % (provision_params['puppet_manifest_version'],
-                   provision_params['storage_fsid'],
-                   provision_params['storage_virsh_uuid'],
-                   contrail_openstack_mgmt_ip,
-                   provision_params['storage_mon_secret'])
+        contrail_storage_admin_key => "%s",
+        contrail_storage_osd_bootstrap_key => "%s",
+        contrail_storage_mon_hosts => \"''' % (
+                provision_params['puppet_manifest_version'],
+                provision_params['storage_repo_id'],
+                provision_params['storage_fsid'],
+                provision_params['storage_virsh_uuid'],
+                contrail_openstack_mgmt_ip,
+                provision_params['storage_mon_secret'],
+                provision_params['admin_key'],
+                provision_params['osd_bootstrap_key'])
             for key in provision_params['storage_monitor_hosts']:
-                data += '''\"%s\" => [\"%s\",\"%s\"],
-            ''' % (key,
-                    str(provision_params['storage_monitor_hosts'][str(key)][0]),
-                    str(provision_params['storage_monitor_hosts'][str(key)][1]))
-            data += '''},\n        require => %s
-        }
-        ''' % last_res_added
+                data += '''%s ,''' % key
+            data = data[:len(data) - 1] + '''\",'''
+            data += '''
+        require => %s
+    }
+    ''' % last_res_added
 
             data += '''\n\n'''
 

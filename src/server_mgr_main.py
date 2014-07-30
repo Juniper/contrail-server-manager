@@ -1208,8 +1208,20 @@ class VncServerManager():
             target_dir = "/etc/puppet/modules/contrail_" + version
             if not os.path.isdir(target_dir):
                 os.makedirs(target_dir)
+            if not os.path.isdir("/etc/puppet/modules/inifile"):
+                os.makedirs("/etc/puppet/modules/inifile")
+            if not os.path.isdir("/etc/puppet/modules/ceph"):
+                os.makedirs("/etc/puppet/modules/ceph")
+            if not os.path.isdir("/etc/puppet/modules/stdlib"):
+                os.makedirs("/etc/puppet/modules/stdlib")
             # This contrail puppet modules version does not exist. Add it.
             cmd = ("cp -rf ./contrail/* " + target_dir)
+            subprocess.call(cmd, shell=True)
+            cmd = ("cp -rf ./inifile/* " + "/etc/puppet/modules/inifile")
+            subprocess.call(cmd, shell=True)
+            cmd = ("cp -rf ./ceph/* " + "/etc/puppet/modules/ceph")
+            subprocess.call(cmd, shell=True)
+            cmd = ("cp -rf ./stdlib/* " + "/etc/puppet/modules/stdlib")
             subprocess.call(cmd, shell=True)
             # Replace the class names in .pp files to have the version number
             # of this contrail modules.
@@ -2295,10 +2307,13 @@ class VncServerManager():
                         provision_params['storage_server_disks'] = []
                         provision_params['storage_server_disks'].extend(server_params['disks'])
 
-                hosts_dict = dict(list())
+                storage_mon_host_ip_set = set()
                 for x in role_servers['storage']:
-                    hosts_dict[x["server_id"]] = [x["server_id"], x["ip"]]
-                provision_params['storage_monitor_hosts'] = hosts_dict
+                    storage_mon_host_ip_set.add(x["ip"])
+                for x in role_servers['storage-mgr']:
+                    storage_mon_host_ip_set.add(x["ip"])
+
+                provision_params['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
 
                 # Multiple Repo support
                 if 'storage_repo_id' in server_params.keys():
