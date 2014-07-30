@@ -2091,7 +2091,7 @@ class VncServerManager():
                 if 'storage' in server_roles and 'disks' in server_params:
                     total_osd += len(server_params['disks'])
                 else:
-                    total_osd = 0
+                    pass
 
             packages = self._serverDb.get_image("image_id", package_image_id, True)
             if len(packages) == 0:
@@ -2268,7 +2268,11 @@ class VncServerManager():
                         msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
                         raise ServerMgrException(msg)
                     if 'storage_mon_secret' in vns_params.keys():
-                        provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
+                        if len(vns_params['storage_mon_secret']) == 40:
+                            provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
+                        else:
+                            msg = "Storage Monitor Secret Key is the wrong length"
+                            raise ServerMgrException(msg)
                     else:
                         provision_params['storage_mon_secret'] = ""
                     if 'osd_bootstrap_key' in vns_params.keys():
