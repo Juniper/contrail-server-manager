@@ -2307,6 +2307,9 @@ class VncServerManager():
                     if len(role_servers['storage-mgr']) > 1:
                         msg = "There can only be only one node with the role 'storage-mgr'"
                         raise ServerMgrException(msg)
+                    elif len(role_servers['storage']) == 0:
+                        msg = "Storage manager node needs Storage nodes to also be provisioned"
+                        raise ServerMgrException(msg)
                     else:
                         pass
 
