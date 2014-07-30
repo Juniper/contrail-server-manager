@@ -602,7 +602,9 @@ $__contrail_disc_backend_servers__
             sctl_line = 'supervisorctl -s http://localhost:9004 ' + \
                         '${1} `basename ${0}:%s`' %(worker_id)
             sctl_lines = sctl_lines + sctl_line
-   
+  
+        config_server = provision_params['roles']['config'][0]
+        config_server_control=self.get_control_ip(provision_params,config_server) 
         config_servers_names = provision_params['role_ids']['config']
         # Keeping openstack index hardcoded untill ha is implemented 
         openstack_index="1"
