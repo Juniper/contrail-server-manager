@@ -123,7 +123,7 @@ class ServerMgrDb:
 
             # During init, we check if any of the VNS in DB are missing any Storage Parameters (Generated UUIDs)
             vns_list = self._get_items(vns_table, None,
-                                       None, False, None)
+                                       None, True, None)
             for vns in vns_list:
                 # Check if storage parameters are present in VNS, else generate them
                 if 'storage_fsid' not in set(eval(vns['vns_params'])) or 'storage_virsh_uuid' not in set(eval(
@@ -665,16 +665,9 @@ class ServerMgrDb:
     # End of get_vns
 
     # If any UUIDs are missing from an existing VNS, we add them during ServerManager DB init
-    def update_vns_uuids(self, vns_id):
+    def update_vns_uuids(self, vns):
         try:
-            if not vns_id:
-                raise Exception("No vns id specified")
-            self.check_obj("vns", "vns_id", vns_id)
-            db_vns = self.get_vns(vns_id, detail=True)
-            if not db_vns:
-                msg = "%s is not valid" % vns_id
-                raise ServerMgrException(msg)
-            db_vns_params_str = db_vns[0]['vns_params']
+            db_vns_params_str = vns['vns_params']
             db_vns_params = {}
             if db_vns_params_str:
                 db_vns_params = eval(db_vns_params_str)
@@ -690,9 +683,10 @@ class ServerMgrDb:
         except Exception as e:
             raise e
 
-        db_vns[0]['vns_params'] = str(db_vns_params)
-        self._modify_row(vns_table, db_vns[0],
-                         'vns_id', vns_id)
+        vns['vns_params'] = str(db_vns_params)
+        self._modify_row(vns_table, vns,
+                         'vns_id', vns['vns_id'])
+    # End of update_vns_uuids
 
 # End class ServerMgrDb
 
