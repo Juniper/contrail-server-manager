@@ -120,6 +120,15 @@ class ServerMgrDb:
                          UNIQUE (server_id))""")
             self._get_table_columns()
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
+
+            # During init, we check if any of the VNS in DB are missing any Storage Parameters (Generated UUIDs)
+            vns_list = self._get_items(vns_table, None,
+                                       None, True, None)
+            for vns in vns_list:
+                # Check if storage parameters are present in VNS, else generate them
+                if 'storage_fsid' not in set(eval(vns['vns_params'])) or 'storage_virsh_uuid' not in set(eval(
+                        vns['vns_params'])):
+                    self.update_vns_uuids(vns)
         except e:
             raise e
     # End of __init__
@@ -446,7 +455,6 @@ class ServerMgrDb:
             if 'uuid' not in db_vns_params:
                 str_uuid = str(uuid.uuid4())
                 vns_data["vns_params"].update({"uuid":str_uuid})
-
             # Store vns_params dictionary as a text field
             vns_params = vns_data.pop("vns_params", {})
             for k,v in vns_params.iteritems():
@@ -655,6 +663,30 @@ class ServerMgrDb:
             raise e
         return vns
     # End of get_vns
+
+    # If any UUIDs are missing from an existing VNS, we add them during ServerManager DB init
+    def update_vns_uuids(self, vns):
+        try:
+            db_vns_params_str = vns['vns_params']
+            db_vns_params = {}
+            if db_vns_params_str:
+                db_vns_params = eval(db_vns_params_str)
+            if 'uuid' not in db_vns_params:
+                str_uuid = str(uuid.uuid4())
+                db_vns_params.update({"uuid": str_uuid})
+            if 'storage_fsid' not in db_vns_params:
+                storage_fsid = str(uuid.uuid4())
+                db_vns_params.update({"storage_fsid": storage_fsid})
+            if 'storage_virsh_uuid' not in db_vns_params:
+                storage_virsh_uuid = str(uuid.uuid4())
+                db_vns_params.update({"storage_virsh_uuid": storage_virsh_uuid})
+        except Exception as e:
+            raise e
+
+        vns['vns_params'] = str(db_vns_params)
+        self._modify_row(vns_table, vns,
+                         'vns_id', vns['vns_id'])
+    # End of update_vns_uuids
 
 # End class ServerMgrDb
 
