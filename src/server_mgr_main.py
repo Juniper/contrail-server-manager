@@ -548,6 +548,9 @@ class VncServerManager():
                 "control", "collector", "webui", "compute" ]
         roles_set = set(role_list)
 
+        optional_role_list = ["storage", "storage-mgr"]
+        optional_role_set = set(optional_role_list)
+
         vns_role_list = []
         for server in servers:
             vns_role_list.extend(eval(server['roles']))
@@ -562,6 +565,8 @@ class VncServerManager():
             raise ServerMgrException(msg)
 
         unknown_roles = vns_unique_roles.difference(roles_set)
+        unknown_roles.difference_update(optional_role_set)
+
         if len(unknown_roles):
             msg = "Unknown Roles: %s" % \
             ", ".join(str(e) for e in unknown_roles)
@@ -1203,8 +1208,20 @@ class VncServerManager():
             target_dir = "/etc/puppet/modules/contrail_" + version
             if not os.path.isdir(target_dir):
                 os.makedirs(target_dir)
+            if not os.path.isdir("/etc/puppet/modules/inifile"):
+                os.makedirs("/etc/puppet/modules/inifile")
+            if not os.path.isdir("/etc/puppet/modules/ceph"):
+                os.makedirs("/etc/puppet/modules/ceph")
+            if not os.path.isdir("/etc/puppet/modules/stdlib"):
+                os.makedirs("/etc/puppet/modules/stdlib")
             # This contrail puppet modules version does not exist. Add it.
             cmd = ("cp -rf ./contrail/* " + target_dir)
+            subprocess.call(cmd, shell=True)
+            cmd = ("cp -rf ./inifile/* " + "/etc/puppet/modules/inifile")
+            subprocess.call(cmd, shell=True)
+            cmd = ("cp -rf ./ceph/* " + "/etc/puppet/modules/ceph")
+            subprocess.call(cmd, shell=True)
+            cmd = ("cp -rf ./stdlib/* " + "/etc/puppet/modules/stdlib")
             subprocess.call(cmd, shell=True)
             # Replace the class names in .pp files to have the version number
             # of this contrail modules.
@@ -1990,7 +2007,8 @@ class VncServerManager():
     def role_get_servers(self, vns_servers, role_type):
         servers = []
         for server in vns_servers:
-            if role_type in server['roles']:
+            role_set = set(eval(server['roles']))
+            if role_type in role_set:
                 servers.append(server)
         return servers
 
@@ -2085,7 +2103,7 @@ class VncServerManager():
                 if 'storage' in server_roles and 'disks' in server_params:
                     total_osd += len(server_params['disks'])
                 else:
-                    total_osd = 0
+                    pass
 
             packages = self._serverDb.get_image("image_id", package_image_id, True)
             if len(packages) == 0:
@@ -2097,6 +2115,7 @@ class VncServerManager():
                 server_params = eval(server['server_params'])
                 vns = self._serverDb.get_vns(server['vns_id'],
                                              detail=True)[0]
+
                 vns_params = eval(vns['vns_params'])
                 # Get all the servers belonging to the VNS that this server
                 # belongs too.
@@ -2246,22 +2265,50 @@ class VncServerManager():
                     provision_params['ext_bgp'] = ""
 
                 # Storage role params
+
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = vns_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = vns_params['storage_virsh_uuid']
-                if 'storage_mon_secret' in vns_params.keys():
-                    provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
-                else:
-                    provision_params['storage_mon_secret'] = ""
+                if len(role_servers['storage']):
+                    if len(role_servers['storage-mgr']) == 0:
+                        msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
+                        raise ServerMgrException(msg)
+                    if 'storage_mon_secret' in vns_params.keys():
+                        if len(vns_params['storage_mon_secret']) == 40:
+                            provision_params['storage_mon_secret'] = vns_params['storage_mon_secret']
+                        else:
+                            msg = "Storage Monitor Secret Key is the wrong length"
+                            raise ServerMgrException(msg)
+                    else:
+                        provision_params['storage_mon_secret'] = ""
+                    if 'osd_bootstrap_key' in vns_params.keys():
+                        if len(vns_params['osd_bootstrap_key']) == 40:
+                            provision_params['osd_bootstrap_key'] = vns_params['osd_bootstrap_key']
+                        else:
+                            msg = "OSD Bootstrap Key is the wrong length"
+                            raise ServerMgrException(msg)
+                    else:
+                        provision_params['osd_bootstrap_key'] = ""
+                    if 'admin_key' in vns_params.keys():
+                        if len(vns_params['admin_key']) == 40:
+                            provision_params['admin_key'] = vns_params['admin_key']
+                        else:
+                            msg = "Admin Key is the wrong length"
+                            raise ServerMgrException(msg)
+                    else:
+                        provision_params['admin_key'] = ""
+                    if 'disks' in server_params and total_osd > 0:
+                        provision_params['storage_server_disks'] = []
+                        provision_params['storage_server_disks'].extend(server_params['disks'])
 
-                hosts_dict = dict(list())
+                storage_mon_host_ip_set = set()
                 for x in role_servers['storage']:
-                    hosts_dict[x["server_id"]] = [x["server_id"], x["ip"]]
-                provision_params['storage_monitor_hosts'] = hosts_dict
-                if 'disks' in server_params and total_osd > 0:
-                    provision_params['storage_server_disks'] = []
-                    provision_params['storage_server_disks'].extend(server_params['disks'])
+                    storage_mon_host_ip_set.add(x["ip"])
+                for x in role_servers['storage-mgr']:
+                    storage_mon_host_ip_set.add(x["ip"])
+
+                provision_params['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
 
                 # Multiple Repo support
                 if 'storage_repo_id' in server_params.keys():
@@ -2270,9 +2317,12 @@ class VncServerManager():
                     provision_params['storage_repo_id'] = ""
 
                 # Storage manager restrictions
-                if 'storage-mgr' in role_servers:
+                if len(role_servers['storage-mgr']):
                     if len(role_servers['storage-mgr']) > 1:
                         msg = "There can only be only one node with the role 'storage-mgr'"
+                        raise ServerMgrException(msg)
+                    elif len(role_servers['storage']) == 0:
+                        msg = "Storage manager node needs Storage nodes to also be provisioned"
                         raise ServerMgrException(msg)
                     else:
                         pass

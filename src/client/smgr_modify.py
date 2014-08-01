@@ -46,6 +46,8 @@ object_dict = {
              ("ks_tenant", "keystone tenant name"),
              ("openstack_passwd", "open stack password"),
              ("analytics_data_ttl", "analytics data TTL"),
+             ("osd_bootstrap_key", "OSD Bootstrap Key"),
+             ("admin_key", "Admin Authentication Key"),
              ("storage_mon_secret", "Storage Monitor Secret Key")]))
     ]),
     "server": OrderedDict ([ 

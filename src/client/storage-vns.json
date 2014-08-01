@@ -24,7 +24,9 @@
                 "passwd": "c0ntrail123",
                 "ext_bgp": "",
                 "domain": "englab.juniper.net",
-		"storage_mon_secret": "17986a61-8266-4964-9a24-49654df1f60d"
+                "storage_mon_secret": "AQBM78tTEMz+GhAA3WiOXQI7UVdIy0YFFuTGdw==",
+                "osd_bootstrap_key": "AQCq7NFTeJUoBhAAlTVpxwWQJtBej/JDNhT6+Q==",
+                "admin_key": "AQDIgtNTgPLWARAAK6gs/fj8m88LnY9DwxJdYA=="
                 }
         }
     ]
