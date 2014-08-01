@@ -344,6 +344,10 @@ class ServerMgrPuppet:
             rabbit_user_list.append('rabbit@'+str(cfgm_name))
         rabbit_user_list=str(rabbit_user_list)
         rabbit_user_list=rabbit_user_list.replace(" ","")
+        #Chhnadak
+        amqp_server = provision_params['roles']['config'][0]
+        amqp_server_control=self.get_control_ip(provision_params,amqp_server)
+        #End here
 
         # Build Params items
         if self._params_dict.get(
@@ -380,7 +384,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_amqp_server_ip', None) is None:
             self._params_dict['contrail_amqp_server_ip'] = (
-                "\"%s\"" %(config_server_control.replace('"', '')))
+                "\"%s\"" %(amqp_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_openstack_index', None) is None:
             self._params_dict['contrail_openstack_index'] = (
@@ -613,6 +617,10 @@ $__contrail_disc_backend_servers__
             rabbit_user_list.append('rabbit@'+str(cfgm_name))
         rabbit_user_list=str(rabbit_user_list)
         rabbit_user_list=rabbit_user_list.replace(" ","")
+        #Chhnadak
+        amqp_server = provision_params['roles']['config'][0]
+        amqp_server_control=self.get_control_ip(provision_params,amqp_server)
+        #End here
 
         # Build Params items
         if self._params_dict.get(
@@ -742,7 +750,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_amqp_server_ip', None) is None:
             self._params_dict['contrail_amqp_server_ip'] = (
-                "\"%s\"" %(config_server_control.replace('"', '')))
+                "\"%s\"" %(amqp_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_openstack_index', None) is None:
             self._params_dict['contrail_openstack_index'] = (
@@ -1272,6 +1280,10 @@ $__contrail_quantum_servers__
             non_mgmt_gw = provision_params["compute_non_mgmt_gway"] 
         # Keeping openstack index hardcoded untill ha is implemented 
         openstack_index="1"
+        #Chhnadak
+        amqp_server = provision_params['roles']['config'][0]
+        amqp_server_control=self.get_control_ip(provision_params,amqp_server)
+        #End here
  
 #	if provision_params['haproxy'] == 'enable':
 #            data += '''         #Source HA Proxy CFG
@@ -1358,7 +1370,7 @@ $__contrail_quantum_servers__
         if self._params_dict.get(
             'contrail_amqp_server_ip', None) is None:
             self._params_dict['contrail_amqp_server_ip'] = (
-                "\"%s\"" %(config_server_control.replace('"', '')))
+                "\"%s\"" %(amqp_server_control.replace('"', '')))
         if self._params_dict.get(
             'contrail_openstack_index', None) is None:
             self._params_dict['contrail_openstack_index'] = (
