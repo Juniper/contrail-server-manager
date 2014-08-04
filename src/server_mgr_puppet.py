@@ -1466,7 +1466,7 @@ $__contrail_quantum_servers__
             data += '''    # contrail-storage-manager role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
         contrail_storage_repo_id => "%s",
-        contrail_num_storage_hosts = %s,
+        contrail_num_storage_hosts => %s,
         contrail_storage_fsid => "%s",
         contrail_storage_virsh_uuid => "%s",
         contrail_openstack_ip => "%s",
