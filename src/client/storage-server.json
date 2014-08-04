@@ -1,7 +1,7 @@
 {
     "server": [
         {
-            "server_id": "cmbu_gravity03",
+            "server_id": "cmbu-gravity-03",
             "server_params": {
                 "ifname": "eth0",
                 "disks": [
@@ -9,7 +9,7 @@
                     "/dev/sdc"
                 ],
                 "compute_non_mgmt_ip": "",
-                "storage_repo_id": "contrail-ubuntu-storage-2277",
+                "storage_repo_id": "contrail-storage-package-1.10",
                 "compute_non_mgmt_gway": ""
             },
             "roles": [
@@ -25,22 +25,22 @@
             "gway": "10.87.159.254",
             "ip": "10.87.140.209",
             "mask": "255.255.224.0",
-            "domain": "demo.juniper.net",
+            "domain": "englab.juniper.net",
             "passwd": "juniper",
             "mac": "00:25:90:7b:54:90",
             "power_address": "10.87.140.210",
-            "cluster_id": "nitish-cluster",
-            "vns_id": "nitish-test-vns"
+            "cluster_id": "test-cluster",
+            "vns_id": "test-vns"
         },
         {
-            "server_id": "cmbu_gravity04",
+            "server_id": "cmbu-gravity-04",
             "server_params": {
                 "ifname": "eth0",
                 "disks": [
                     "/dev/sdb"
                 ],
                 "compute_non_mgmt_ip": "",
-                "storage_repo_id": "contrail-ubuntu-storage-2277",
+                "storage_repo_id": "contrail-storage-package-1.10",
                 "compute_non_mgmt_gway": ""
             },
             "roles": [
@@ -55,12 +55,12 @@
             "gway": "10.87.159.254",
             "ip": "10.87.140.211",
             "mask": "255.255.224.0",
-            "domain": "demo.juniper.net",
+            "domain": "englab.juniper.net",
             "passwd": "juniper",
             "mac": "00:25:90:ab:9c:7e",
             "power_address": "10.87.140.212",
-            "cluster_id": "nitish-cluster",
-            "vns_id": "nitish-test-vns"
+            "cluster_id": "test-cluster",
+            "vns_id": "test-vns"
         }
     ]
 }

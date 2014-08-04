@@ -1,7 +1,7 @@
 {
     "vns" : [
         {
-            "vns_id" : "nitish-test-vns",
+            "vns_id" : "test-vns",
             "vns_params" : {
                 "router_asn": "64512",
                 "database_dir": "/home/cassandra",
