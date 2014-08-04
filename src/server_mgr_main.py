@@ -1340,12 +1340,21 @@ class VncServerManager():
             # This contrail puppet modules version does not exist. Add it.
             cmd = ("cp -rf ./contrail/* " + target_dir)
             subprocess.call(cmd, shell=True)
-            cmd = ("cp -rf ./inifile/* " + "/etc/puppet/modules/inifile")
-            subprocess.call(cmd, shell=True)
-            cmd = ("cp -rf ./ceph/* " + "/etc/puppet/modules/ceph")
-            subprocess.call(cmd, shell=True)
-            cmd = ("cp -rf ./stdlib/* " + "/etc/puppet/modules/stdlib")
-            subprocess.call(cmd, shell=True)
+            if os.path.isdir("./inifile"):
+                cmd = ("cp -rf ./inifile/* " + "/etc/puppet/modules/inifile")
+                subprocess.call(cmd, shell=True)
+            else:
+                self._smgr_log.log(self._smgr_log.ERROR, "directory inifile not in source tar ball - not copied")
+            if os.path.isdir("./ceph"):
+                cmd = ("cp -rf ./ceph/* " + "/etc/puppet/modules/ceph")
+                subprocess.call(cmd, shell=True)
+            else:
+                self._smgr_log.log(self._smgr_log.ERROR, "directory ceph not in source tar ball - not copied")
+            if os.path.isdir("./stdlib"):
+                cmd = ("cp -rf ./stdlib/* " + "/etc/puppet/modules/stdlib")
+                subprocess.call(cmd, shell=True)
+            else:
+                self._smgr_log.log(self._smgr_log.ERROR, "directory stdlib not in source tar ball - not copied")
             # Replace the class names in .pp files to have the version number
             # of this contrail modules.
             filelist = target_dir + "/manifests/*.pp"
@@ -2111,12 +2120,14 @@ class VncServerManager():
 
             # Calculate the total number of disks in the cluster
             total_osd = int(0)
-
+            num_storage_hosts = int(0)
             for server in servers:
                 server_params = eval(server['parameters'])
                 server_roles = eval(server['roles'])
-                if 'storage' in server_roles and 'disks' in server_params:
-                    total_osd += len(server_params['disks'])
+                if 'storage' in server_roles:
+                    num_storage_hosts += 1
+                    if 'disks' in server_params:
+                        total_osd += len(server_params['disks'])
                 else:
                     pass
 
@@ -2291,6 +2302,7 @@ class VncServerManager():
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = cluster_params['storage_virsh_uuid']
+                provision_params['num_storage_hosts'] = num_storage_hosts
                 if len(role_servers['storage']):
                     if len(role_servers['storage-mgr']) == 0:
                         msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"

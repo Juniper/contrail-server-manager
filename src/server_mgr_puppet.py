@@ -1422,7 +1422,8 @@ $__contrail_quantum_servers__
         if provision_params['server_ip'] in provision_params['roles']['storage']:
             data += '''    # contrail-storage role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
-        contrail_storage_repo_id => %s,
+        contrail_storage_repo_id => "%s",
+        contrail_num_storage_hosts => %s,
         contrail_storage_fsid => "%s",
         contrail_storage_virsh_uuid => "%s",
         contrail_openstack_ip => "%s",
@@ -1432,6 +1433,7 @@ $__contrail_quantum_servers__
         contrail_storage_mon_hosts => \"''' % (
                 provision_params['puppet_manifest_version'],
                 provision_params['storage_repo_id'],
+                provision_params['num_storage_hosts'],
                 provision_params['storage_fsid'],
                 provision_params['storage_virsh_uuid'],
                 contrail_openstack_mgmt_ip,
@@ -1463,7 +1465,8 @@ $__contrail_quantum_servers__
         if provision_params['server_ip'] not in set(provision_params['roles']['storage']):
             data += '''    # contrail-storage-manager role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
-        contrail_storage_repo_id => %s,
+        contrail_storage_repo_id => "%s",
+        contrail_num_storage_hosts = %s,
         contrail_storage_fsid => "%s",
         contrail_storage_virsh_uuid => "%s",
         contrail_openstack_ip => "%s",
@@ -1473,6 +1476,7 @@ $__contrail_quantum_servers__
         contrail_storage_mon_hosts => \"''' % (
                 provision_params['puppet_manifest_version'],
                 provision_params['storage_repo_id'],
+                provision_params['num_storage_hosts'],
                 provision_params['storage_fsid'],
                 provision_params['storage_virsh_uuid'],
                 contrail_openstack_mgmt_ip,
