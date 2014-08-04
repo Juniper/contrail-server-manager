@@ -2110,9 +2110,9 @@ class VncServerManager():
                 server_params = eval(server['server_params'])
                 server_roles = eval(server['roles'])
                 if 'storage' in server_roles:
-                    num_storage_hosts += 1
-                    if 'disks' in server_params:
+                    if 'disks' in server_params and len(server_params['disks']) > 0:
                         total_osd += len(server_params['disks'])
+                        num_storage_hosts += 1
                 else:
                     pass
 
@@ -2324,7 +2324,20 @@ class VncServerManager():
 
                 # Multiple Repo support
                 if 'storage_repo_id' in server_params.keys():
-                    provision_params['storage_repo_id'] = server_params['storage_repo_id']
+                    images = self.get_image()
+                    image_ids = dict()
+                    for image in images['image']:
+                        cur_image = self._serverDb.get_image("image_id", image['image_id'], True)
+                        image_ids[image['image_id']] = cur_image[0]['image_type']
+                    if server_params['storage_repo_id'] in image_ids:
+                        if image_ids[server_params['storage_repo_id']] == 'contrail-storage-ubuntu-package':
+                            provision_params['storage_repo_id'] = server_params['storage_repo_id']
+                        else:
+                            msg = "Storage repo id specified doesn't match a contrail storage package"
+                            raise ServerMgrException(msg)
+                    else:
+                        msg = "Storage repo id specified doesn't match any of the image ids"
+                        raise ServerMgrException(msg)
                 else:
                     provision_params['storage_repo_id'] = ""
 
