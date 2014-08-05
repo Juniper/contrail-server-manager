@@ -1,5 +1,5 @@
 [program:contrail-api]
-command=/usr/bin/contrail-api --conf_file /etc/contrail/api_server.conf --listen_port <%= contrail_api_port_base %>%(process_num)01d --worker_id %(process_num)s
+command=/usr/bin/contrail-api --conf_file /etc/contrail/contrail-api.conf --listen_port <%= contrail_api_port_base %>%(process_num)01d --worker_id %(process_num)s
 numprocs=<%= contrail_api_nworkers %>
 process_name=%(process_num)s
 redirect_stderr=true
