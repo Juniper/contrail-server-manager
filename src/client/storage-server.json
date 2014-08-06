@@ -9,7 +9,7 @@
                 "storage_repo_id": "xyz_12",
                 "disks": ["/dev/sda","/dev/sdb"]
             },
-            "roles" : ["config","compute","openstack","control","collector","webui","database","storage","storage-mgr"],
+            "roles" : ["config","compute","openstack","control","collector","webui","database","storage-compute","storage-master"],
             "cluster_id": "nitish-cluster",
             "subnet_mask": "255.255.255.0",
             "gateway": "10.204.221.46",

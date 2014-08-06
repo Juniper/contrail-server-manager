@@ -423,7 +423,7 @@ def add_payload(object, default_object):
                         if key_selected != 'disks':
                             user_input = rlinput(
                                 msg, smgr_params.get(key_selected, ''))
-                        elif key_selected == 'disks' and 'storage' in object_dict["roles"]:
+                        elif key_selected == 'disks' and 'storage-compute' in object_dict["roles"]:
                             disks = raw_input(msg)
                             if disks:
                                 disk_list = disks.split(',')
@@ -494,7 +494,7 @@ def add_payload(object, default_object):
                             default_value = ""
                         user_input = ""
                         if ((param == 'disks') and ('roles' in temp_dict) and
-                            ('storage' in temp_dict["roles"])):
+                            ('storage-compute' in temp_dict["roles"])):
                             disks = raw_input(msg)
                             if disks:
                                 disk_list = disks.split(',')

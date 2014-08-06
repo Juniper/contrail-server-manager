@@ -510,11 +510,11 @@ class VncServerManager():
                 raise ServerMgrException(msg)
             """
         if 'roles' in data:
-            if 'storage' in data['roles'] and 'compute' not in data['roles']:
-                msg = "role 'storage' needs role 'compute' in provision file"
+            if 'storage-compute' in data['roles'] and 'compute' not in data['roles']:
+                msg = "role 'storage-compute' needs role 'compute' in provision file"
                 raise ServerMgrException(msg)
-            elif 'storage-mgr' in data['roles'] and 'openstack' not in data['roles']:
-                msg = "role 'storage-mgr' needs role 'openstack' in provision file"
+            elif 'storage-master' in data['roles'] and 'openstack' not in data['roles']:
+                msg = "role 'storage-master' needs role 'openstack' in provision file"
                 raise ServerMgrException(msg)
         return ret_data
 
@@ -581,7 +581,7 @@ class VncServerManager():
                 "control", "collector", "webui", "compute" ]
         roles_set = set(role_list)
 
-        optional_role_list = ["storage", "storage-mgr"]
+        optional_role_list = ["storage-compute", "storage-master"]
         optional_role_set = set(optional_role_list)
 
         cluster_role_list = []
@@ -625,7 +625,7 @@ class VncServerManager():
         if req_provision_params is not None:
             role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute", "zookeeper", "storage", "storage-mgr"]
+                "control", "collector", "webui", "compute", "zookeeper", "storage-compute", "storage-master"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
@@ -2124,7 +2124,7 @@ class VncServerManager():
             for server in servers:
                 server_params = eval(server['parameters'])
                 server_roles = eval(server['roles'])
-                if 'storage' in server_roles:
+                if 'storage-compute' in server_roles:
                     if 'disks' in server_params and len(server_params['disks']) > 0:
                         total_osd += len(server_params['disks'])
                         num_storage_hosts += 1
@@ -2156,7 +2156,7 @@ class VncServerManager():
                     for role in ['database', 'openstack',
                                  'config', 'control',
                                  'collector', 'webui',
-                                 'compute', 'storage', 'storage-mgr']:
+                                 'compute', 'storage-compute', 'storage-master']:
                         role_servers[role] = self.role_get_servers(
                             cluster_servers, role)
                         role_ips[role] = [x["ip_address"] for x in role_servers[role]]
@@ -2303,8 +2303,8 @@ class VncServerManager():
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = cluster_params['storage_virsh_uuid']
                 provision_params['num_storage_hosts'] = num_storage_hosts
-                if len(role_servers['storage']):
-                    if len(role_servers['storage-mgr']) == 0:
+                if len(role_servers['storage-compute']):
+                    if len(role_servers['storage-master']) == 0:
                         msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
                         raise ServerMgrException(msg)
                     if 'storage_mon_secret' in cluster_params.keys():
@@ -2336,9 +2336,9 @@ class VncServerManager():
                         provision_params['storage_server_disks'].extend(server_params['disks'])
 
                 storage_mon_host_ip_set = set()
-                for x in role_servers['storage']:
+                for x in role_servers['storage-compute']:
                     storage_mon_host_ip_set.add(x["ip_address"])
-                for x in role_servers['storage-mgr']:
+                for x in role_servers['storage-master']:
                     storage_mon_host_ip_set.add(x["ip_address"])
 
                 provision_params['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
@@ -2363,11 +2363,11 @@ class VncServerManager():
                     provision_params['storage_repo_id'] = ""
 
                 # Storage manager restrictions
-                if len(role_servers['storage-mgr']):
-                    if len(role_servers['storage-mgr']) > 1:
-                        msg = "There can only be only one node with the role 'storage-mgr'"
+                if len(role_servers['storage-master']):
+                    if len(role_servers['storage-master']) > 1:
+                        msg = "There can only be only one node with the role 'storage-master'"
                         raise ServerMgrException(msg)
-                    elif len(role_servers['storage']) == 0:
+                    elif len(role_servers['storage-compute']) == 0:
                         msg = "Storage manager node needs Storage nodes to also be provisioned"
                         raise ServerMgrException(msg)
                     else:

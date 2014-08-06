@@ -1419,7 +1419,7 @@ $__contrail_quantum_servers__
             contrail_openstack_mgmt_ip = provision_params["server_ip"]
         else:
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
-        if provision_params['server_ip'] in provision_params['roles']['storage']:
+        if provision_params['server_ip'] in provision_params['roles']['storage-compute']:
             data += '''    # contrail-storage role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
         contrail_storage_repo_id => "%s",
@@ -1462,7 +1462,7 @@ $__contrail_quantum_servers__
             contrail_openstack_mgmt_ip = provision_params["server_ip"]
         else:
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
-        if provision_params['server_ip'] not in set(provision_params['roles']['storage']):
+        if provision_params['server_ip'] not in set(provision_params['roles']['storage-compute']):
             data += '''    # contrail-storage-manager role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
         contrail_storage_repo_id => "%s",
@@ -1507,8 +1507,8 @@ $__contrail_quantum_servers__
         "webui": puppet_add_webui_role,
         "zookeeper": puppet_add_zk_role,
         "compute": puppet_add_compute_role,
-        "storage": puppet_add_storage_role,
-        "storage-mgr": puppet_add_storage_manager_role
+        "storage-compute": puppet_add_storage_role,
+        "storage-master": puppet_add_storage_manager_role
     }
 
     def provision_server(self, provision_params):
@@ -1562,7 +1562,7 @@ $__contrail_quantum_servers__
         # list array used to ensure that the role definitions are added
         # in a particular order
         roles = ['database', 'openstack', 'config', 'control',
-                 'collector', 'webui', 'zookeeper', 'compute', 'storage', 'storage-mgr']
+                 'collector', 'webui', 'zookeeper', 'compute', 'storage-compute', 'storage-master']
         for role in roles:
             if provision_params['roles'].get(role) and  provision_params['server_ip'] in \
                 provision_params['roles'][role]:
