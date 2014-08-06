@@ -1,7 +1,7 @@
 {
     "cluster" : [
-        {  
-            "id" : "demo-cluster",
+        {
+            "id" : "nitish-cluster",
             "cluster_parameters" : {
                 "router_asn": "64512",
                 "database_dir": "/home/cassandra",
@@ -19,7 +19,10 @@
                 "gateway": "10.204.221.46",
                 "password": "c0ntrail123",
                 "external_bgp": "",
-                "domain": "englab.juniper.net"
+                "domain": "englab.juniper.net",
+                "storage_mon_secret": "AQBM78tTEMz+GhAA3WiOXQI7UVdIy0YFFuTGdw==",
+                "osd_bootstrap_key": "AQCq7NFTeJUoBhAAlTVpxwWQJtBej/JDNhT6+Q==",
+                "admin_key": "AQDIgtNTgPLWARAAK6gs/fj8m88LnY9DwxJdYA=="
                 }
         }
     ]

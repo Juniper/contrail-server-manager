@@ -5,7 +5,7 @@
    Name : smgr_status.py
    Author : Prasad Miriyala & Bharat Putta
    Description : This program is a simple cli interface to
-   get status of a server or all the servers in a VNS.
+   get status of a server or all the servers in a Cluster.
 """
 import argparse
 import cgitb
@@ -53,13 +53,13 @@ def parse_arguments():
     parser_server.set_defaults(get_status=get_server_status)
 
 
-    # Subparser for vns show
-    parser_vns = subparsers.add_parser(
-        "vns", help='Status vns')
-    parser_vns.add_argument("--vns_id",
-                        help=("vns id for vns"))
-    parser_vns.set_defaults(get_rest_params=vns_rest_params)
-    parser_vns.set_defaults(get_status=get_vns_status)
+    # Subparser for cluster show
+    parser_cluster = subparsers.add_parser(
+        "cluster", help='Status cluster')
+    parser_cluster.add_argument("--cluster_id",
+                        help=("id for cluster"))
+    parser_cluster.set_defaults(get_rest_params=cluster_rest_params)
+    parser_cluster.set_defaults(get_status=get_cluster_status)
 
     return parser
 # end def parse_arguments
@@ -93,7 +93,7 @@ def server_rest_params(args):
     rest_api_params = {}
     rest_api_params['object'] = 'status'
     if args.server_id:
-        rest_api_params['match_key'] = 'server_id'
+        rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
     else:
         rest_api_params['match_key'] = None
@@ -101,17 +101,17 @@ def server_rest_params(args):
     return rest_api_params
 #end def server_status_rest_params
 
-def vns_rest_params(args):
+def cluster_rest_params(args):
     rest_api_params = {}
     rest_api_params['object'] = 'server'
-    if args.vns_id:
-        rest_api_params['match_key'] = 'vns_id'
-        rest_api_params['match_value'] = args.vns_id
+    if args.cluster_id:
+        rest_api_params['match_key'] = 'cluster_id'
+        rest_api_params['match_value'] = args.cluster_id
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
     return rest_api_params
-#end def vns_status_rest_params
+#end def cluster_status_rest_params
 
 def get_obj(resp):
     try:
@@ -143,7 +143,7 @@ def get_server_status(args, smgr_ip, smgr_port):
         print modified_status
 #end def get_server_status
 
-def get_vns_status(args, smgr_ip, smgr_port):
+def get_cluster_status(args, smgr_ip, smgr_port):
     rest_api_params = args.get_rest_params(args)
     resp = send_REST_request(smgr_ip, smgr_port,
                              rest_api_params['object'],
@@ -152,10 +152,10 @@ def get_vns_status(args, smgr_ip, smgr_port):
                              args.detail)    
     servers = json.loads(resp)['server']
     for server in servers:
-        server_id = server['server_id']
+        server_id = server['id']
         server_resp = send_REST_request(smgr_ip, smgr_port,
                                         'status',
-                                        'server_id',
+                                        'id',
                                         server_id.encode('ascii','ignore'),
                                         args.detail)
         if server_resp is None:
@@ -175,7 +175,7 @@ def get_vns_status(args, smgr_ip, smgr_port):
         print modified_status
         print "\n"
 
-#end def get_vns_status
+#end def get_cluster_status
 
 def show_status(args_str=None):
     parser = parse_arguments()

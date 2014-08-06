@@ -91,7 +91,7 @@ class ServerMgrPuppet:
             intf_control = eval(provision_params['control_net'] [mgmt_ip])        
         for intf,values in intf_control.items():
             if intf:
-                return '"' + str(IPNetwork(values['ip']).ip) + '"'
+                return '"' + str(IPNetwork(values['ip_address']).ip) + '"'
             else:
                 return '"' + provision_params['server_ip'] + '"'
         return '"' + mgmt_ip + '"'
@@ -147,8 +147,8 @@ class ServerMgrPuppet:
             bond_opts = ""
             if intf in intf_bonds.keys():
                 bond = intf_bonds[intf]
-                members = bond['member']
-                bond_opts = bond['bond_options']
+                members = bond['member_interfaces']
+                bond_opts = bond['options']
             require_cmd = "Contrail_%s::Contrail_common::Contrail-setup-interface[\"%s\"]" %(
                 provision_params['puppet_manifest_version'], intf)
             require_list.append(require_cmd)
@@ -161,7 +161,7 @@ class ServerMgrPuppet:
         contrail_gw => "%s"
         }\n\n''' % (provision_params['puppet_manifest_version'],
         intf, intf, members , bond_opts,
-        values['ip'], values['gw'])
+        values['ip_address'], values['gateway'])
             
 
         if provision_params['intf_data']:
@@ -171,8 +171,8 @@ class ServerMgrPuppet:
             bond_opts = ""
             if intf in intf_bonds.keys():
                 bond = intf_bonds[intf]
-                members = bond['member']
-                bond_opts = bond['bond_options']
+                members = bond['member_interfaces']
+                bond_opts = bond['options']
             require_cmd = "Contrail_%s::Contrail_common::Contrail-setup-interface[\"%s\"]" %(
                 provision_params['puppet_manifest_version'], intf)
             require_list.append(require_cmd)
@@ -185,7 +185,7 @@ class ServerMgrPuppet:
         contrail_gw => "%s"
         }\n\n''' % (provision_params['puppet_manifest_version'],
         intf, intf, members , bond_opts,
-        values['ip'], values['gw'])
+        values['ip_address'], values['gateway'])
 
         data_first = '''    # Create repository config on target.
     contrail_%s::contrail_common::contrail-setup-repo{contrail_repo:
@@ -376,7 +376,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_ks_admin_passwd', None) is None:
             self._params_dict['contrail_ks_admin_passwd'] = (
-                "\"%s\"" %(provision_params["ks_passwd"]))
+                "\"%s\"" %(provision_params["keystone_password"]))
         if self._params_dict.get(
             'contrail_haproxy', None) is None:
             self._params_dict['contrail_haproxy'] = (
@@ -668,15 +668,15 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_ks_admin_user', None) is None:
             self._params_dict['contrail_ks_admin_user'] = (
-                "\"%s\"" %(provision_params["ks_user"]))
+                "\"%s\"" %(provision_params["keystone_username"]))
         if self._params_dict.get(
             'contrail_ks_admin_passwd', None) is None:
             self._params_dict['contrail_ks_admin_passwd'] = (
-                "\"%s\"" %(provision_params["ks_passwd"]))
+                "\"%s\"" %(provision_params["keystone_password"]))
         if self._params_dict.get(
             'contrail_ks_admin_tenant', None) is None:
             self._params_dict['contrail_ks_admin_tenant'] = (
-                "\"%s\"" %(provision_params["ks_tenant"]))
+                "\"%s\"" %(provision_params["keystone_tenant"]))
         if self._params_dict.get(
             'contrail_openstack_root_passwd', None) is None:
             self._params_dict['contrail_openstack_root_passwd'] = (
@@ -746,7 +746,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_bgp_params', None) is None:
             self._params_dict['contrail_bgp_params'] = (
-                "\"%s\"" %(provision_params['ext_bgp']))
+                "\"%s\"" %(provision_params['external_bgp']))
         if self._params_dict.get(
             'contrail_amqp_server_ip', None) is None:
             self._params_dict['contrail_amqp_server_ip'] = (
@@ -1226,11 +1226,11 @@ $__contrail_quantum_servers__
             vm_params['uplink_vswitch'] = provision_params['esx_fab_vswitch']
             vm_params['server'] = provision_params['esx_ip']
             vm_params['username'] = provision_params['esx_username']
-            vm_params['passwd'] = provision_params['esx_passwd']
+            vm_params['password'] = provision_params['esx_password']
             vm_params['thindisk'] =  provision_params['esx_vmdk']
             vm_params['smgr_ip'] = provision_params['smgr_ip'];
             vm_params['domain'] =  provision_params['domain']
-            vm_params['vm_passwd'] = provision_params['passwd']
+            vm_params['vm_password'] = provision_params['password']
             vm_params['vm_server'] = provision_params['server_id']
             vm_params['vm_deb'] = provision_params['vm_deb']
             out = ContrailVM(vm_params)
@@ -1258,23 +1258,17 @@ $__contrail_quantum_servers__
             openstack_server = provision_params['roles']['openstack'][0]
         openstack_server_control= self.get_control_ip(provision_params,openstack_server)
 
-        if (provision_params['openstack_mgmt_ip'] == ''):
-            contrail_openstack_mgmt_ip = provision_params['roles']['openstack'][0]
-        else:
-            contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
+        contrail_openstack_mgmt_ip = provision_params['roles']['openstack'][0]
         contrail_openstack_mgmt_ip_control= self.get_control_ip(provision_params,contrail_openstack_mgmt_ip)
         server_ip_control= self.get_control_ip(provision_params,provision_params["server_ip"])
-        #TODO Check
-        if provision_params["compute_non_mgmt_ip"] == "":
-            provision_params["compute_non_mgmt_ip"] = provision_params["server_ip"]
-        if provision_params["compute_non_mgmt_gway"] == "":
-            provision_params["compute_non_mgmt_gway"] = provision_params['server_gway']
+        provision_params["compute_non_mgmt_ip"] = provision_params["server_ip"]
+        provision_params["compute_non_mgmt_gway"] = provision_params['server_gway']
 
         if provision_params['intf_control']:
             intf_control = eval(provision_params['intf_control'])
             for intf,values in intf_control.items():
-                non_mgmt_ip= values['ip'].split("/")[0]
-                non_mgmt_gw= values['gw']
+                non_mgmt_ip= values['ip_address'].split("/")[0]
+                non_mgmt_gw= values['gateway']
         else:
             non_mgmt_ip = provision_params["compute_non_mgmt_ip"]
             non_mgmt_gw = provision_params["compute_non_mgmt_gway"] 
@@ -1338,15 +1332,15 @@ $__contrail_quantum_servers__
         if self._params_dict.get(
             'contrail_ks_admin_user', None) is None:
             self._params_dict['contrail_ks_admin_user'] = (
-                "\"%s\"" %(provision_params["ks_user"]))
+                "\"%s\"" %(provision_params["keystone_username"]))
         if self._params_dict.get(
             'contrail_ks_admin_passwd', None) is None:
             self._params_dict['contrail_ks_admin_passwd'] = (
-                "\"%s\"" %(provision_params["ks_passwd"]))
+                "\"%s\"" %(provision_params["keystone_password"]))
         if self._params_dict.get(
             'contrail_ks_admin_tenant', None) is None:
             self._params_dict['contrail_ks_admin_tenant'] = (
-                "\"%s\"" %(provision_params["ks_tenant"]))
+                "\"%s\"" %(provision_params["keystone_tenant"]))
         if self._params_dict.get(
             'contrail_haproxy', None) is None:
             self._params_dict['contrail_haproxy'] = (
@@ -1362,7 +1356,7 @@ $__contrail_quantum_servers__
         if self._params_dict.get(
             'contrail_vm_passwd', None) is None:
             self._params_dict['contrail_vm_passwd'] = (
-                "\"%s\"" %(provision_params["esx_passwd"]))
+                "\"%s\"" %(provision_params["esx_password"]))
         if self._params_dict.get(
             'contrail_vswitch', None) is None:
             self._params_dict['contrail_vswitch'] = (

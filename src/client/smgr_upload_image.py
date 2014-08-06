@@ -101,9 +101,9 @@ def upload_image(args_str=None):
     image_version = args.image_version
     image_type = args.image_type
     payload = {
-        'image_id' : image_id,
-        'image_version' : image_version,
-        'image_type' : image_type
+        'id' : image_id,
+        'version' : image_version,
+        'type' : image_type
     }
     file_name = args.file_name
     

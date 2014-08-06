@@ -6,7 +6,7 @@
    Author : Abhay Joshi
    Description : This program is a simple cli interface to
    delete server manager configuration objects.
-   Objects can be vns, cluster, server, or image.
+   Objects can be cluster, server, or image.
 """
 import argparse
 import pdb
@@ -51,31 +51,18 @@ def parse_arguments():
                         help=("mac address for server to be deleted"))
     group.add_argument("--ip",
                         help=("ip address for server to be deleted"))
-    group.add_argument("--vns_id",
-                        help=("vns id for server(s) to be deleted"))
     group.add_argument("--cluster_id",
                         help=("cluster id for server(s) to be deleted"))
-    group.add_argument("--rack_id",
-                        help=("rack id for server(s) to be deleted"))
-    group.add_argument("--pod_id",
-                        help=("pod id for server(s) to be deleted"))
     parser_server.set_defaults(func=delete_server)
-
-    # Subparser for vns delete
-    parser_vns = subparsers.add_parser(
-        "vns", help='Delete vns')
-    parser_vns.add_argument("vns_id",
-                        help=("vns id for vns to be deleted"))
-    parser_vns.add_argument("--force", "-f", action="store_true",
-                            help=("optional parameter to indicate ,"
-                                  "if vns association to be removed from server"))
-    parser_vns.set_defaults(func=delete_vns)
 
     # Subparser for cluster delete
     parser_cluster = subparsers.add_parser(
         "cluster", help='Delete cluster')
     parser_cluster.add_argument("cluster_id",
-                        help=("cluster id for cluster to be deleted"))
+                        help=("cluster id for vns to be deleted"))
+    parser_cluster.add_argument("--force", "-f", action="store_true",
+                            help=("optional parameter to indicate ,"
+                                  "if cluster association to be removed from server"))
     parser_cluster.set_defaults(func=delete_cluster)
 
     # Subparser for image delete
@@ -110,45 +97,27 @@ def delete_server(args):
     rest_api_params = {}
     rest_api_params['object'] = 'server'
     if args.server_id:
-        rest_api_params['match_key'] = 'server_id'
+        rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
     elif args.mac:
-        rest_api_params['match_key'] = 'mac'
+        rest_api_params['match_key'] = 'mac_address'
         rest_api_params['match_value'] = args.mac
     elif args.ip:
-        rest_api_params['match_key'] = 'ip'
+        rest_api_params['match_key'] = 'ip_address'
         rest_api_params['match_value'] = args.ip
-    elif args.vns_id:
-        rest_api_params['match_key'] = 'vns_id'
-        rest_api_params['match_value'] = args.vns_id
     elif args.cluster_id:
         rest_api_params['match_key'] = 'cluster_id'
         rest_api_params['match_value'] = args.cluster_id
-    elif args.rack_id:
-        rest_api_params['match_key'] = 'rack_id'
-        rest_api_params['match_value'] = args.rack_id
-    elif args.pod_id:
-        rest_api_params['match_key'] = 'pod_id'
-        rest_api_params['match_value'] = args.pod_id
     else:
         rest_api_params['match_key'] = ''
         rest_api_params['match_value'] = ''
     return rest_api_params
 #end def delete_server
 
-def delete_vns(args):
-    rest_api_params = {
-        'object' : 'vns',
-        'match_key' : 'vns_id',
-        'match_value' : args.vns_id
-    }
-    return rest_api_params
-#end def delete_vns
-
 def delete_cluster(args):
     rest_api_params = {
         'object' : 'cluster',
-        'match_key' : 'cluster_id',
+        'match_key' : 'id',
         'match_value' : args.cluster_id
     }
     return rest_api_params
@@ -157,7 +126,7 @@ def delete_cluster(args):
 def delete_image(args):
     rest_api_params = {
         'object' : 'image',
-        'match_key' : 'image_id',
+        'match_key' : 'id',
         'match_value' : args.image_id
     }
     return rest_api_params

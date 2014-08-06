@@ -6,7 +6,7 @@
    Author : Abhay Joshi
    Description : This program is a simple cli interface to
    get server manager configuration objects.
-   Objects can be vns, cluster, server, or image.
+   Objects can be cluster, server, or image.
    An optional parameter details is used to indicate if user
    wants to fetch details of the object.
 """
@@ -57,22 +57,9 @@ def parse_arguments():
                         help=("mac address for server"))
     group.add_argument("--ip",
                         help=("ip address for server"))
-    group.add_argument("--vns_id",
-                        help=("vns id for server(s)"))
     group.add_argument("--cluster_id",
                         help=("cluster id for server(s)"))
-    group.add_argument("--rack_id",
-                        help=("rack id for server(s)"))
-    group.add_argument("--pod_id",
-                        help=("pod id for server(s)"))
     parser_server.set_defaults(func=show_server)
-
-    # Subparser for vns show
-    parser_vns = subparsers.add_parser(
-        "vns", help='Show vns')
-    parser_vns.add_argument("--vns_id",
-                        help=("vns id for vns"))
-    parser_vns.set_defaults(func=show_vns)
 
     # Subparser for cluster show
     parser_cluster = subparsers.add_parser(
@@ -90,7 +77,7 @@ def parse_arguments():
 
     # Subparser for all show
     parser_all = subparsers.add_parser(
-        "all", help='Show all configuration (servers,vns,clusters, images)')
+        "all", help='Show all configuration (servers, clusters, images)')
     parser_all.set_defaults(func=show_all)
     return parser
 # end def parse_arguments
@@ -124,50 +111,26 @@ def show_server(args):
     rest_api_params = {}
     rest_api_params['object'] = 'server'
     if args.server_id:
-        rest_api_params['match_key'] = 'server_id'
+        rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
     elif args.mac:
-        rest_api_params['match_key'] = 'mac'
+        rest_api_params['match_key'] = 'mac_address'
         rest_api_params['match_value'] = args.mac
     elif args.ip:
-        rest_api_params['match_key'] = 'ip'
+        rest_api_params['match_key'] = 'ip_address'
         rest_api_params['match_value'] = args.ip
-    elif args.vns_id:
-        rest_api_params['match_key'] = 'vns_id'
-        rest_api_params['match_value'] = args.vns_id
     elif args.cluster_id:
         rest_api_params['match_key'] = 'cluster_id'
         rest_api_params['match_value'] = args.cluster_id
-    elif args.rack_id:
-        rest_api_params['match_key'] = 'rack_id'
-        rest_api_params['match_value'] = args.rack_id
-    elif args.pod_id:
-        rest_api_params['match_key'] = 'pod_id'
-        rest_api_params['match_value'] = args.pod_id
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
     return rest_api_params
 #end def show_server
 
-def show_vns(args):
-    if args.vns_id:
-        match_key = 'vns_id'
-        match_value = args.vns_id
-    else:
-        match_key = None
-        match_value = None
-    rest_api_params = {
-        'object' : 'vns',
-        'match_key' : match_key,
-        'match_value' : match_value
-    }
-    return rest_api_params
-#end def show_vns
-
 def show_cluster(args):
     if args.cluster_id:
-        match_key = 'cluster_id'
+        match_key = 'id'
         match_value = args.cluster_id
     else:
         match_key = None
@@ -182,7 +145,7 @@ def show_cluster(args):
 
 def show_image(args):
     if args.image_id:
-        match_key = 'image_id'
+        match_key = 'id'
         match_value = args.image_id
     else:
         match_key = None

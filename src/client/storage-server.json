@@ -2,21 +2,18 @@
     "server": [
         {
             "server_id": "nitish-test-server",
-            "mac": "52:54:00:30:FB:AB",
-            "ip": "192.168.121.101",
-            "server_params" : {
-                "ifname": "eth1",
-                "compute_non_mgmt_ip": "",
+            "mac_address": "52:54:00:30:FB:AB",
+            "ip_address": "192.168.121.101",
+            "server_parameters" : {
+                "interface_name": "eth1",
                 "storage_repo_id": "xyz_12",
-                "compute_non_mgmt_gway": "",
                 "disks": ["/dev/sda","/dev/sdb"]
             },
             "roles" : ["config","compute","openstack","control","collector","webui","database","storage","storage-mgr"],
             "cluster_id": "nitish-cluster",
-            "vns_id": "nitish-test-vns",
-            "mask": "255.255.255.0",
-            "gway": "10.204.221.46",
-            "passwd": "juniper",
+            "subnet_mask": "255.255.255.0",
+            "gateway": "10.204.221.46",
+            "password": "juniper",
             "domain": "demo.juniper.net",
             "power_address": "10.84.6.63"
         }
