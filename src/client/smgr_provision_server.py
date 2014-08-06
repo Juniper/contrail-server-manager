@@ -82,8 +82,8 @@ def get_provision_params():
         ("collector" , " (Comma separated list of server names for this role) : "),
         ("webui" , " (Comma separated list of server names for this role) : "),
         ("compute" , " (Comma separated list of server names for this role) : "),
-        ("storage", " (Comma separated list of server names for this role) : "),
-        ("storage-mgr", " (Comma separated list of server names for this role) : ")
+        ("storage-compute", " (Comma separated list of server names for this role) : "),
+        ("storage-master", " (Comma separated list of server names for this role) : ")
     ])
     # Accept all the role definitions
     print "****** List of role definitions ******"

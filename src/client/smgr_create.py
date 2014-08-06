@@ -191,7 +191,7 @@ def create_payload(object):
                         msg += " (%s) " %(pvalue)
                     msg += ": "
                     user_input = ""
-                    if param == 'disks' and 'storage' in temp_dict["roles"]:
+                    if param == 'disks' and 'storage-compute' in temp_dict["roles"]:
                         disks = raw_input(msg)
                         if disks:
                             disk_list = disks.split(',')
