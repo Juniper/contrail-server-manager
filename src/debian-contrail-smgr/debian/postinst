@@ -5,21 +5,38 @@ set -e
 
 echo "running post install"
 
-#cp -r /etc/contrail/cobbler /etc/
-cp -r /etc/contrail/puppet /etc/
+#cp -r /etc/contrail_smgr/cobbler /etc/
+cp -r /etc/contrail_smgr/puppet /etc/
+#mv /etc/cobbler/distro_signatures.json /etc/cobbler/distro_signatures.json-save
+#mv /var/lib/cobbler/distro_signatures.json /var/lib/cobbler/distro_signatures.json-save
+cp /etc/contrail_smgr/cobbler/distro_signatures.json-esxi55 /etc/cobbler/distro_signatures.json
+cp /etc/contrail_smgr/cobbler/distro_signatures.json-esxi55 /var/lib/cobbler/distro_signatures.json
 
-cp /etc/contrail/cobbler/dhcp.template.u /etc/cobbler/dhcp.template
+# Copy cobbler boot.cfg template file for esxi5.5
+cp -f /etc/contrail_smgr/cobbler/bootcfg_esxi55.template /etc/cobbler/pxe
+
+# Copy cobbler pxesystem template file for esxi
+#mv /etc/cobbler/pxe/pxesystem_esxi.template /etc/cobbler/pxe/pxesystem_esxi.template-save
+cp /etc/contrail_smgr/cobbler/pxesystem_esxi.template /etc/cobbler/pxe
+cp /etc/contrail_smgr/cobbler/dhcp.template.u /etc/cobbler/dhcp.template
 mkdir -p /var/www/html
 mkdir -p /var/www/html/kickstarts
-cp -r /etc/contrail/kickstarts /var/www/html/
+cp -r /etc/contrail_smgr/kickstarts /var/www/html/
+mkdir -p /var/www/html/contrail
+mkdir -p /etc/mail/
+cp /etc/contrail_smgr/sendmail.cf /etc/mail/
+
+#cp /usr/bin/server_manager/dhcp.template /etc/cobbler/
+#cp -r /usr/bin/server_manager/kickstarts /var/www/html/
 mkdir -p /var/www/html/contrail
 
 cp -u /etc/puppet/puppet_init_rd /var/www/cobbler/aux/puppet
 easy_install argparse
 easy_install paramiko
 easy_install pycrypto
+easy_install ordereddict
 
-mkdir -p /etc/contrail/images/
+mkdir -p /etc/contrail_smgr/images/
 
 sed -i 's/puppet_auto_setup: 0/puppet_auto_setup: 1/g' /etc/cobbler/settings
 sed -i 's/sign_puppet_certs_automatically: 0/sign_puppet_certs_automatically: 1/g' /etc/cobbler/settings
@@ -45,16 +62,15 @@ service apache2 restart
 service xinetd restart
 service cobbler restart
 
-
 service puppetmaster restart
+service postfix stop
+service sendmail restart
 
+#chkconfig apache2 on
+#chkconfig puppetmaster on
+#chkconfig contrail_smgrd on
 
-
-#update-rc.d apache2 defaults
-#update-rc.d xinetd defaults
-#update-rc.d cobbler defaults
-#update-rc.d puppetmaster defaults
-
-#puppet master
-service contrail_smgrd restart
-
+update-rc.d apache2 defaults
+update-rc.d xinetd defaults
+update-rc.d cobbler defaults
+update-rc.d puppetmaster defaults
