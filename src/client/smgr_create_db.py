@@ -520,10 +520,30 @@ def get_host_roles_from_testbed_py():
     return node
 # end get_host_roles_from_testbed_py
 
+def get_storage_node_config_from_testbed_py():
+    testbed = get_testbed()
+    storage_config = {}
+    allowed_disk_types = ['disks']
+    if not testbed.env.has_key('storage_node_config'):
+        return storage_config
+    for key in testbed.env.storage_node_config:
+        node_config_dict = dict(testbed.env.storage_node_config[key])
+        ip = getIp(key)
+        if not storage_config.has_key(ip):
+            storage_config[ip] = {}
+        for disk_type in node_config_dict:
+            if disk_type not in allowed_disk_types:
+                print ("ERROR: An invalid disk type has been specified in the testbed.py storage node config")
+            else:
+                storage_config[ip][disk_type] = node_config_dict[disk_type]
+    return storage_config
+# end get_storage_node_config_from_testbed_py
+
 
 def update_server_in_db_with_testbed_py():
     cluster_id = get_pref_cluster_id()  
     node = get_host_roles_from_testbed_py()
+    storage_config = get_storage_node_config_from_testbed_py()
     if not node:
         return
     u_server_dict = {}
@@ -539,6 +559,10 @@ def update_server_in_db_with_testbed_py():
         u_server['id'] = server_id
         u_server['cluster_id'] = cluster_id
         u_server['roles'] = node[key]
+        u_server['server_params'] = {}
+        if key in storage_config:
+            for disk_type in storage_config[key]:
+                u_server['server_params'][disk_type] = storage_config[key][disk_type]
         u_server_dict['server'].append(u_server)
     
     temp_dir= expanduser("~")
