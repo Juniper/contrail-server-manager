@@ -43,7 +43,7 @@ define contrail-collector (
     }
 
     # Ensure all config files with correct content are present.
-    collector-template-scripts { ["contrail-analytics-api.conf" , "collector.conf", "query-engine.conf"]: }
+    collector-template-scripts { ["contrail-analytics-api.conf" , "contrail-collector.conf", "contrail-query-engine.conf"]: }
 
     # The below commented code is not used in latest fab. Need to check with analytics team and then remove
     # if not needed.
@@ -83,8 +83,8 @@ define contrail-collector (
         enable => true,
         require => [ Package['contrail-openstack-analytics'],
                      Exec['analytics-venv'] ],
-        subscribe => [ File['/etc/contrail/collector.conf'],
-                       File['/etc/contrail/query-engine.conf'],
+        subscribe => [ File['/etc/contrail/contrail-collector.conf'],
+                       File['/etc/contrail/contrail-query-engine.conf'],
                        File['/etc/contrail/contrail-analytics-api.conf'] ],
         ensure => running,
     }
