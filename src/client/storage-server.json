@@ -20,7 +20,7 @@
                 "config",
                 "openstack",
                 "collector",
-                "storage-mgr"
+                "storage-master"
             ],
             "gway": "10.87.159.254",
             "ip": "10.87.140.209",
@@ -49,7 +49,7 @@
                 "compute",
                 "webui",
                 "config",
-                "storage",
+                "storage-compute",
                 "collector"
             ],
             "gway": "10.87.159.254",
