@@ -1014,7 +1014,7 @@ class VncServerManager():
                         (image_type == "contrail-ubuntu-package") ):
                         subprocess.call(
                             ["cp", "-f", dest,
-                             self._args.html_root_dir + "contrail/images"])
+                             self._args.html_root_dir + "contrail/images/"])
                         puppet_manifest_version = self._create_repo(
                             image_id, image_type, image_version, dest)
                         image_params['puppet_manifest_version'] = \
@@ -1022,7 +1022,7 @@ class VncServerManager():
                     elif image_type == "contrail-storage-ubuntu-package":
                         subprocess.call(
                             ["cp", "-f", dest,
-                             self._args.html_root_dir + "contrail/images"])
+                             self._args.html_root_dir + "contrail/images/"])
                         self._create_repo(
                             image_id, image_type, image_version, dest)
                     else:
@@ -1162,11 +1162,16 @@ class VncServerManager():
                 (image_type == "contrail-ubuntu-package")):
                 subprocess.call(
                     ["cp", "-f", dest,
-                     self._args.html_root_dir + "contrail/images"])
+                     self._args.html_root_dir + "contrail/images/"])
                 puppet_manifest_version = self._create_repo(
                     image_id, image_type, image_version, dest)
                 image_params['puppet_manifest_version'] = \
-                    puppet_manifest_version 
+                    puppet_manifest_version
+            elif image_type == "contrail-storage-ubuntu-package":
+                subprocess.call(["cp", "-f", dest,
+                                 self._args.html_root_dir + "contrail/images/"])
+                self._create_repo(
+                    image_id, image_type, image_version, dest)
             else:
                 self._add_image_to_cobbler(image_id, image_type,
                                            image_version, dest)
@@ -1592,11 +1597,12 @@ class VncServerManager():
                         msg)
             image = images[0]
             if ((image['image_type'] == 'contrail-ubuntu-package') or
-                (image['image_type'] == 'contrail-centos-package')):
+                (image['image_type'] == 'contrail-centos-package') or
+                (image['image_type'] == 'contrail-storage-ubuntu-package')):
                 ext_dir = {
                     "contrail-ubuntu-package" : ".deb",
-                    "contrail-centos-package": ".rpm" }
-                # remove the file
+                    "contrail-centos-package": ".rpm",
+                    "contrail-storage-ubuntu-package": ".deb"}
                 os.remove(self._args.smgr_base_dir + 'images/' +
                           image_id + ext_dir[image['image_type']])
                 os.remove(self._args.html_root_dir +
@@ -1638,7 +1644,7 @@ class VncServerManager():
             abort(404, repr(e))
         self._smgr_trans_log.log(bottle.request,
                                     self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE)
-        return "Server Deleted"
+        return "Image Deleted"
     # End of delete_image
 
     # API to modify parameters for a server. User can modify IP, MAC, cluster
@@ -2057,7 +2063,7 @@ class VncServerManager():
     # puppet manifest file for the server and adds it to site
     # manifest file.
     def provision_server(self):
-        package_type_list = ["contrail-ubuntu-package", "contrail-centos-package"]
+        package_type_list = ["contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]
         self._smgr_log.log(self._smgr_log.DEBUG, "provision_server")
         try:
             entity = bottle.request.json
