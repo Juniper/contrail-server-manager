@@ -304,7 +304,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_database_initial_token', None) is None:
             self._params_dict['contrail_database_initial_token'] = (
-                "\"%s\"" %(provision_params["db_initial_token"]))
+                "\"%s\"" %(provision_params["database_token"]))
         if self._params_dict.get(
             'contrail_cassandra_seeds', None) is None:
             self._params_dict['contrail_cassandra_seeds'] = (
@@ -664,7 +664,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_use_certs', None) is None:
             self._params_dict['contrail_use_certs'] = (
-                "\"%s\"" %(provision_params["use_certs"]))
+                "\"%s\"" %(provision_params["use_certificates"]))
         if self._params_dict.get(
             'contrail_multi_tenancy', None) is None:
             self._params_dict['contrail_multi_tenancy'] = (
@@ -768,7 +768,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_encap_priority', None) is None:
             self._params_dict['contrail_encap_priority'] = (
-                "\"%s\"" %(provision_params['encap_priority']))
+                "\"%s\"" %(provision_params['encapsulation_priority']))
         if self._params_dict.get(
             'contrail_bgp_params', None) is None:
             self._params_dict['contrail_bgp_params'] = (

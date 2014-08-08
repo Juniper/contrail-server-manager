@@ -2018,7 +2018,7 @@ class VncServerManager():
                     msg = "Package %s is not a valid package." % (package_image_id)
                     self._smgr_log.log(self._smgr_log.DEBUG, msg)
                     raise ServerMgrException(msg)
-                puppet_manifest_version = eval(image['image_parameters'])['puppet_manifest_version']
+                puppet_manifest_version = eval(image['parameters'])['puppet_manifest_version']
                 provision_params['puppet_manifest_version'] = puppet_manifest_version
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
                 provision_params['roles'] = role_ips
@@ -2046,9 +2046,11 @@ class VncServerManager():
                 if 'intf_bond' in server:
                     provision_params['intf_bond'] = server['intf_bond']
                 provision_params['control_net'] = self.get_control_net(cluster_servers)
-                provision_params['server_ip'] = server['ip']
+                provision_params['server_ip'] = server['ip_address']
                 provision_params['database_dir'] = cluster_params['database_dir']
                 provision_params['database_token'] = cluster_params['database_token']
+                provision_params['openstack_mgmt_ip'] = '' 
+                provision_params['openstack_passwd'] = '' 
                 provision_params['use_certificates'] = cluster_params['use_certificates']
                 provision_params['multi_tenancy'] = cluster_params['multi_tenancy']
                 provision_params['router_asn'] = cluster_params['router_asn']
