@@ -11,12 +11,18 @@
             },
             "roles" : ["config","openstack","control","compute","collector","webui","database"],
             "cluster_id": "demo-cluster",
-            "vns_id": "demo-vns",
             "mask": "255.255.255.0",
             "gway": "10.84.51.254",
             "passwd": "juniper",
             "domain": "demo.juniper.net",
-            "power_address": "10.84.6.63"
+            "power_address": "10.84.6.63",
+            "tag" : {
+                 "datacenter" : "demo-dc",
+                 "floor" : "demo-floor",
+                 "hall" : "demo-hall",
+                 "rack" : "demo-rack",
+                 "user_tag"  : "demo-user"
+             }
         }
     ]
 }

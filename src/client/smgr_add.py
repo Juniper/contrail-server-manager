@@ -78,6 +78,15 @@ object_dict = {
          "ubuntu/centos/contrail-ubuntu-package/contrail-centos-package"),
         ("image_path", "complete path where image file is located on server")
     ]),
+    "tag" : OrderedDict ([
+        ("tag1", "Specify tag name for tag1"),
+        ("tag2", "Specify tag name for tag2"),
+        ("tag3", "Specify tag name for tag3"),
+        ("tag4", "Specify tag name for tag4"),
+        ("tag5", "Specify tag name for tag5"),
+        ("tag6", "Specify tag name for tag6"),
+        ("tag7", "Specify tag name for tag7"),
+    ]),
     "cluster" : OrderedDict ([
         ("cluster_id", "Specify unique cluster_id for this cluster"),
     ]),
@@ -100,12 +109,7 @@ def parse_arguments(args_str=None):
             prog="server-manager add"
         )
     # end else
-    group1 = parser.add_mutually_exclusive_group()
-    group1.add_argument("--ip_port", "-i",
-                        help=("ip addr & port of server manager "
-                              "<ip-addr>[:<port>] format, default port "
-                              " 9001"))
-    group1.add_argument("--config_file", "-c",
+    parser.add_argument("--config_file", "-c",
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               smgr_client_def._DEF_SMGR_CFG_FILE)))
@@ -120,6 +124,13 @@ def parse_arguments(args_str=None):
     parser_server.add_argument(
         "--file_name", "-f",
         help="json file containing server param values")
+
+    # Subparser for server tags add
+    parser_tag = subparsers.add_parser(
+        "tag", help='Create tags')
+    parser_tag.add_argument(
+        "--file_name", "-f",
+        help="json file containing tag values")
 
     # Subparser for vns add
     parser_vns = subparsers.add_parser(
@@ -251,6 +262,50 @@ def merge_with_defaults(object, payload, config):
 
 # end create_vns_default_dict
 
+# Function to accept parameters from user and then build payload to be
+# sent with REST API request for creating the object of type tag.A
+# This function is kept separate as processing is quite different from
+# other objects.
+def add_tag_payload(object):
+    fields_dict = object_dict[object]
+    #post a request for each object
+    resp = send_REST_request(
+        smgr_ip, smgr_port, object, payload,
+        None, None, False, "GET")
+    json_str = resp.replace("null", "''")
+    payload = eval(json_str)
+    while True:
+        i = 0
+        for key in fields_dict.iterkeys():
+            value = payload.get(
+                key, '<UNDEFINED>')
+            data = str(i) + ". %s : %s\n" %(
+                key, value)
+            print data
+            i += 1
+        # end for
+        user_input = raw_input(
+            "Enter index=<tag_value>, "
+            "empty value to delete tag, Q to end :")
+        if user_input.upper() == "Q":
+            break;
+        try:
+            user_data = [x.strip() for x in user_input.split('=')]
+            index = int(user_data[0])
+            if index >= len(fields_dict):
+                print "Invalid Index"
+                continue
+            value = user_data[1]
+            if value is None:
+                payload.pop(fields_dict.keys()[index], None)
+            else:
+                payload[fields_dict.keys()[index]] = value
+        except ValueError:
+            print "Invalid Index"
+            continue
+    # end while
+    return payload
+# End add_tag_payload
 
 # Function to accept parameters from user and then build payload to be
 # sent with REST API request for creating the object.
@@ -408,6 +463,7 @@ def add_payload(object, default_object):
     payload[object] = objects
     return payload
 # End add_payload
+
 smgr_ip = None
 smgr_port = None
 
@@ -416,29 +472,23 @@ def add_config(args_str=None):
     global smgr_ip
     global smgr_port
 
-    if args.ip_port:
-        smgr_ip, smgr_port = args.ip_port.split(":")
-        if not smgr_port:
-            smgr_port = smgr_client_def._DEF_SMGR_PORT
+    if args.config_file:
+        config_file = args.config_file
     else:
-        if args.config_file:
-            config_file = args.config_file
-        else:
-            config_file = smgr_client_def._DEF_SMGR_CFG_FILE
-        # end args.config_file
-        try:
-            config = ConfigParser.SafeConfigParser()
-            config.read([config_file])
-            smgr_config = dict(config.items("SERVER-MANAGER"))
-            smgr_ip = smgr_config.get("listen_ip_addr", None)
-            if not smgr_ip:
-                sys.exit(("listen_ip_addr missing in config file"
-                          "%s" %config_file))
-            smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
-        except:
-            sys.exit("Error reading config file %s" %config_file)
-        # end except
-    # end else args.ip_port
+        config_file = smgr_client_def._DEF_SMGR_CFG_FILE
+    # end args.config_file
+    try:
+        config = ConfigParser.SafeConfigParser()
+        config.read([config_file])
+        smgr_config = dict(config.items("SERVER-MANAGER"))
+        smgr_ip = smgr_config.get("listen_ip_addr", None)
+        if not smgr_ip:
+            sys.exit(("listen_ip_addr missing in config file"
+                      "%s" %config_file))
+        smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
+    except:
+        sys.exit("Error reading config file %s" %config_file)
+    # end except
     object = args.object
     try:
         if args.file_name:
@@ -446,8 +496,11 @@ def add_config(args_str=None):
             merge_with_defaults(object, payload, config)
         else:
             # Accept parameters and construct json.
-            default_object = get_default_object(object, config)
-            payload = add_payload(object, default_object)
+            if object == 'tag':
+                payload = add_tag_payload(object)
+            else:
+                default_object = get_default_object(object, config)
+                payload = add_payload(object, default_object)
     except ValueError as e:
         print "Error in JSON Format : %s" % e
         sys.exit(1)

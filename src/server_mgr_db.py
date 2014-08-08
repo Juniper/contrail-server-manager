@@ -13,6 +13,7 @@ vns_table = 'vns_table'
 server_table = 'server_table'
 image_table = 'image_table'
 server_status_table = 'status_table'
+server_tags_table = 'server_tags_table'
 _DUMMY_STR = "DUMMY_STR"
 
 
@@ -22,6 +23,7 @@ class ServerMgrDb:
     _server_table_cols = []
     _image_table_cols = []
     _status_table_cols = []
+    _server_tags_table_cols = []
 
     # Keep list of table columns
     def _get_table_columns(self):
@@ -32,6 +34,10 @@ class ServerMgrDb:
                     "SELECT * FROM " +
                     server_table + " WHERE server_id=?", (_DUMMY_STR,))
                 self._server_table_cols = [x[0] for x in cursor.description]
+                cursor.execute(
+                    "SELECT * FROM " +
+                    server_tags_table + " WHERE tag_id=?", (_DUMMY_STR,))
+                self._server_tags_table_cols = [x[0] for x in cursor.description]
                 cursor.execute(
                     "SELECT * FROM " +
                     image_table + " WHERE image_id=?", (_DUMMY_STR,))
@@ -61,7 +67,7 @@ class ServerMgrDb:
                 # Create image table
                 cursor.execute("CREATE TABLE IF NOT EXISTS " +
                                image_table + """ (image_id TEXT PRIMARY KEY,
-                    image_version TEXT, image_type TEXT,
+                    image_version TEXT, image_type TEXT, image_path TEXT, 
                     image_params TEXT)""")
                 # Create status table
                 cursor.execute("CREATE TABLE IF NOT EXISTS " +
@@ -73,16 +79,23 @@ class ServerMgrDb:
                     """ (mac TEXT PRIMARY KEY NOT NULL,
                          server_id TEXT, static_ip varchar default 'N',
                          ip TEXT, mask TEXT, gway TEXT, domain TEXT,
-                         pod_id TEXT, rack_id TEXT, cluster_id TEXT,
-                         vns_id TEXT, cloud_id TEXT, base_image_id TEXT,
+                         vns_id TEXT, base_image_id TEXT,
                          package_image_id TEXT, passwd TEXT,
                          update_time TEXT, disc_flag varchar default 'N',
                          server_params TEXT, roles TEXT, power_user TEXT,
                          power_pass TEXT, power_address TEXT,
                          power_type TEXT, intf_control TEXT,
                          intf_data TEXT, intf_bond TEXT,
-                         email TEXT,
+                         email TEXT, tag1 TEXT, tag2 TEXT, tag3 TEXT,
+                         tag4 TEXT, tag5 TEXT, tag6 TAXT, tag7 TEXT,
                          UNIQUE (server_id))""")
+                # Create server tags table
+                cursor.execute(
+                    "CREATE TABLE IF NOT EXISTS " + server_tags_table +
+                    """ (tag_id TEXT PRIMARY KEY NOT NULL,
+                         value TEXT,
+                         UNIQUE (tag_id),
+                         UNIQUE (value))""")
             self._get_table_columns()
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
         except e:
@@ -94,10 +107,11 @@ class ServerMgrDb:
             with self._con:
                 cursor = self._con.cursor()
                 cursor.executescript("""
-                .DELETE FROM """ + vns_table + """;
-                .DELETE FROM """ + server_table + """;
-                .DELETE FROM """ + server_status_table + """;
-                .DELETE FROM """ + image_table + ";")
+                DELETE FROM """ + vns_table + """;
+                DELETE FROM """ + server_table + """;
+                DELETE FROM """ + server_tags_table + """;
+                DELETE FROM """ + server_status_table + """;
+                DELETE FROM """ + image_table + ";")
         except:
             raise e
     # End of delete_tables
@@ -119,6 +133,24 @@ class ServerMgrDb:
         except:
             return None
     # end get_server_id
+
+    # Below function returns value corresponding to tag_id from
+    # server_tags_table
+    def get_server_tag(self, tag_id):
+        try:
+            with self._con:
+                cursor = self._con.cursor()
+                cursor.execute("SELECT value FROM " +
+                               server_tags_table + " WHERE tag_id=?",
+                              (tag_id,))
+                row = cursor.fetchone()
+                if row:
+                    return row[0]
+                else:
+                    return None
+        except:
+            return None
+    # end get_server_tag
 
     def get_server_mac(self, server_id):
         try:
@@ -175,14 +207,14 @@ class ServerMgrDb:
             raise e
 
     def _get_items(self, table_name, match_key=None,
-                   match_value=None, detail=False, primary_key=None):
+                   match_value=None, detail=False, always_fields=None):
         try:
             with self._con:
                 cursor = self._con.cursor()
                 if detail:
                     sel_cols = "*"
                 else:
-                    sel_cols = primary_key
+                    sel_cols = ",".join(always_fields)
                 if ((not match_key) or (not match_value)):
                     select_str = "SELECT %s FROM %s" % (sel_cols, table_name)
                 else:
@@ -242,20 +274,42 @@ class ServerMgrDb:
             email = server_data.pop("email", None)
             if email:
                 server_data['email'] = str(email)
-
-
+            # store tags if any
+            server_tags = server_data.pop("tag", None)
+            if server_tags is not None:
+                tags_dict = self.get_server_tags(detail=True)
+                rev_tags_dict = dict((v,k) for k,v in tags_dict.iteritems())
+                for k,v in server_tags.iteritems():
+                    server_data[rev_tags_dict[k]] = v
             # Store server_params dictionary as a text field
             server_params = server_data.pop("server_params", None)
             if server_params is not None:
                 server_data['server_params'] = str(server_params)
             self._add_row(server_table, server_data)
-            if vns_id:
-                vns_data = {"vns_id": vns_id}
-                self._add_row(vns_table, vns_data)
         except Exception as e:
             raise e
         return 0
     # End of add_server
+
+    # This function for adding server tag is slightly different
+    # compared with add function for other tables. The tag_data
+    # contains tag information for all tags.
+    # This function is always called with complete list of tags
+    # so, clear the table first.
+    def add_server_tags(self, tag_data):
+        try:
+            with self._con:
+                cursor = self._con.cursor()
+                cursor.executescript("""
+                DELETE FROM """ + server_tags_table + ";")
+            for key,value in tag_data.iteritems():
+                row_data = {
+                    'tag_id' : key,
+                    'value' : value }
+                self._add_row(server_tags_table, row_data)
+        except Exception as e:
+            raise e
+    # End of add_server_tags
 
     def server_discovery(self, action, entity):
         try:
@@ -320,9 +374,6 @@ class ServerMgrDb:
         elif type == "vns":
             cb = self.get_vns
             db_obj = cb(match_value, detail=False)
-        elif type == "cluster":
-            cb = self.get_cluster
-            db_obj = cb(match_value, detail=False)
         elif type == "image":
             cb = self.get_image
             db_obj = cb(match_key, match_value, detail=False)
@@ -345,6 +396,13 @@ class ServerMgrDb:
         except Exception as e:
             raise e
     # End of delete_server
+
+    def delete_server_tag(self, match_key, match_value):
+        try:
+            self._delete_row(server_tags_table, match_key, match_value)
+        except Exception as e:
+            raise e
+    # End of delete_server_tag
 
     def delete_image(self, image_id):
         try:
@@ -399,10 +457,8 @@ class ServerMgrDb:
             #Reject if non mutable field changes
             db_image = self.get_image('image_id', image_data['image_id'],
                                                     detail=True)
-            #if image_data['image_path'] != db_image[0]['image_path']:
-            #    raise ServerMgrException('Image path cannnot be modified')
-            #TODO image path can be added in the db
-            image_data.pop("image_path", None) 
+            if image_data['image_path'] != db_image[0]['image_path']:
+                raise ServerMgrException('Image path cannnot be modified')
             if image_data['image_type'] != db_image[0]['image_type']:
                 raise ServerMgrException('Image type cannnot be modified')
             # Store image_params dictionary as a text field
@@ -460,7 +516,13 @@ class ServerMgrDb:
             intf_bond = server_data.pop("bond", None)
             if intf_bond:
                 server_data['intf_bond'] = str(intf_bond)
-
+            # store tags if any
+            server_tags = server_data.pop("tag", None)
+            if server_tags is not None:
+                tags_dict = self.get_server_tags(detail=True)
+                rev_tags_dict = dict((v,k) for k,v in tags_dict.iteritems())
+                for k,v in server_tags.iteritems():
+                    server_data[rev_tags_dict[k]] = v
             # Store server_params dictionary as a text field
             server_params = server_data.pop("server_params", None)
             #if server_params is not None:
@@ -484,31 +546,57 @@ class ServerMgrDb:
                 server_data['email'] = str(email)
             self._modify_row(server_table, server_data,
                              'mac', server_mac)
-            # Create an entry for cluster, pod, rack etc if needed.
-            if vns_id:
-                vns_data = {"vns_id": vns_id}
-                self._add_row(vns_table, vns_data)
         except Exception as e:
             raise e
     # End of modify_server
 
+    # This function for modifying server tag is slightly different
+    # compared with modify function for other tables. The tag_data
+    # contains tag information for all tags.
+    def modify_server_tags(self, tag_data):
+        try:
+            for key,value in tag_data.iteritems():
+                row_data = {
+                    'tag_id' : key,
+                    'value' : value }
+                self._modify_row(
+                    server_tags_table, row_data,
+                    'tag_id', key)
+        except Exception as e:
+            raise e
+    # End of modify_server_tags
+
     def get_image(self, match_key=None, match_value=None,
                   detail=False):
         try:
-            images = self._get_items(image_table, match_key,
-                                     match_value, detail, "image_id")
+            images = self._get_items(
+                image_table, match_key,
+                match_value, detail, ["image_id"])
         except Exception as e:
             raise e
         return images
     # End of get_image
 
-
+    def get_server_tags(self, match_key=None, match_value=None,
+                  detail=False):
+        try:
+            tag_dict = {}
+            tags = self._get_items(
+                server_tags_table, match_key,
+                match_value, detail, ["tag_id"])
+            for tag in tags:
+                tag_dict[tag['tag_id']] = tag['value']
+        except Exception as e:
+            raise e
+        return tag_dict
+    # End of get_server_tags
 
     def get_status(self, match_key=None, match_value=None,
                   detail=False):
         try:
-            status = self._get_items(server_status_table, match_key,
-                                     match_value, detail, "server_id")
+            status = self._get_items(
+                server_status_table, match_key,
+                match_value, detail, ["server_id"])
         except Exception as e:
             raise e
         return status
@@ -537,8 +625,9 @@ class ServerMgrDb:
             if ((match_key) and (match_key.lower() == "mac")):
                 if match_value:
                     match_value = str(EUI(match_value)).replace("-", ":")
-            servers = self._get_items(server_table, match_key,
-                                      match_value, detail, "server_id")
+            servers = self._get_items(
+                server_table, match_key,
+                match_value, detail, ["server_id", "mac"])
         except Exception as e:
             raise e
         return servers
@@ -547,8 +636,9 @@ class ServerMgrDb:
     def get_vns(self, vns_id=None,
                     detail=False):
         try:
-            vns = self._get_items(vns_table, "vns_id",
-                                       vns_id, detail, "vns_id")
+            vns = self._get_items(
+                vns_table, "vns_id",
+                vns_id, detail, ["vns_id"])
         except Exception as e:
             raise e
         return vns

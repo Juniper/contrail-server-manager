@@ -28,12 +28,7 @@ def parse_arguments():
             prog="server-manager status"
         )
     # end else
-    group1 = parser.add_mutually_exclusive_group()
-    group1.add_argument("--ip_port", "-i",
-                        help=("ip addr & port of server manager "
-                              "<ip-addr>[:<port>] format, default port "
-                              " 9001"))
-    group1.add_argument("--config_file", "-c",
+    parser.add_argument("--config_file", "-c",
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               smgr_client_def._DEF_SMGR_CFG_FILE)))
@@ -180,29 +175,23 @@ def get_vns_status(args, smgr_ip, smgr_port):
 def show_status(args_str=None):
     parser = parse_arguments()
     args = parser.parse_args(args_str)
-    if args.ip_port:
-        smgr_ip, smgr_port = args.ip_port.split(":")
-        if not smgr_port:
-            smgr_port = smgr_client_def._DEF_SMGR_PORT
+    if args.config_file:
+        config_file = args.config_file
     else:
-        if args.config_file:
-            config_file = args.config_file
-        else:
-            config_file = smgr_client_def._DEF_SMGR_CFG_FILE
-        # end args.config_file
-        try:
-            config = ConfigParser.SafeConfigParser()
-            config.read([config_file])
-            smgr_config = dict(config.items("SERVER-MANAGER"))
-            smgr_ip = smgr_config.get("listen_ip_addr", None)
-            if not smgr_ip:
-                sys.exit(("listen_ip_addr missing in config file"
-                          "%s" %config_file))
-            smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
-        except:
-            sys.exit("Error reading config file %s" %config_file)
-        # end except
-    # end else args.ip_port
+        config_file = smgr_client_def._DEF_SMGR_CFG_FILE
+    # end args.config_file
+    try:
+        config = ConfigParser.SafeConfigParser()
+        config.read([config_file])
+        smgr_config = dict(config.items("SERVER-MANAGER"))
+        smgr_ip = smgr_config.get("listen_ip_addr", None)
+        if not smgr_ip:
+            sys.exit(("listen_ip_addr missing in config file"
+                      "%s" %config_file))
+        smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
+    except:
+        sys.exit("Error reading config file %s" %config_file)
+    # end except
     args.get_status(args, smgr_ip, smgr_port)
 # End of show_status
 

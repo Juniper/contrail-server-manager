@@ -91,12 +91,7 @@ def parse_arguments(args_str=None):
             prog="server-manager create"
         )
     # end else
-    group1 = parser.add_mutually_exclusive_group()
-    group1.add_argument("--ip_port", "-i",
-                        help=("ip addr & port of server manager "
-                              "<ip-addr>[:<port>] format, default port "
-                              " 9001"))
-    group1.add_argument("--config_file", "-c",
+    parser.add_argument("--config_file", "-c",
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               smgr_client_def._DEF_SMGR_CFG_FILE)))
@@ -203,29 +198,23 @@ def create_payload(object):
 
 def create_config(args_str=None):
     args = parse_arguments(args_str)
-    if args.ip_port:
-        smgr_ip, smgr_port = args.ip_port.split(":")
-        if not smgr_port:
-            smgr_port = smgr_client_def._DEF_SMGR_PORT
+    if args.config_file:
+        config_file = args.config_file
     else:
-        if args.config_file:
-            config_file = args.config_file
-        else:
-            config_file = smgr_client_def._DEF_SMGR_CFG_FILE
-        # end args.config_file
-        try:
-            config = ConfigParser.SafeConfigParser()
-            config.read([config_file])
-            smgr_config = dict(config.items("SERVER-MANAGER"))
-            smgr_ip = smgr_config.get("listen_ip_addr", None)
-            if not smgr_ip:
-                sys.exit(("listen_ip_addr missing in config file"
-                          "%s" %config_file))
-            smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
-        except:
-            sys.exit("Error reading config file %s" %config_file)
-        # end except
-    # end else args.ip_port
+        config_file = smgr_client_def._DEF_SMGR_CFG_FILE
+    # end args.config_file
+    try:
+        config = ConfigParser.SafeConfigParser()
+        config.read([config_file])
+        smgr_config = dict(config.items("SERVER-MANAGER"))
+        smgr_ip = smgr_config.get("listen_ip_addr", None)
+        if not smgr_ip:
+            sys.exit(("listen_ip_addr missing in config file"
+                      "%s" %config_file))
+        smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
+    except:
+        sys.exit("Error reading config file %s" %config_file)
+    # end except
     object = args.object
     if args.file_name:
         payload = json.load(open(args.file_name))

@@ -6,7 +6,7 @@
    Author : Abhay Joshi
    Description : This program is a simple cli interface to
    get server manager configuration objects.
-   Objects can be vns, cluster, server, or image.
+   Objects can be vns, server, or image.
    An optional parameter details is used to indicate if user
    wants to fetch details of the object.
 """
@@ -32,17 +32,10 @@ def parse_arguments():
             prog="server-manager show"
         )
     # end else
-    group1 = parser.add_mutually_exclusive_group()
-    group1.add_argument("--ip_port", "-i",
-                        help=("ip addr & port of server manager "
-                              "<ip-addr>[:<port>] format, default port "
-                              " 9001"))
-    group1.add_argument("--config_file", "-c",
+    parser.add_argument("--config_file", "-c",
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               smgr_client_def._DEF_SMGR_CFG_FILE)))
-    parser.add_argument("--detail", "-d", action='store_true',
-                        help="Flag to indicate if details are requested")
     subparsers = parser.add_subparsers(title='objects',
                                        description='valid objects',
                                        help='help for object')
@@ -59,12 +52,15 @@ def parse_arguments():
                         help=("ip address for server"))
     group.add_argument("--vns_id",
                         help=("vns id for server(s)"))
-    group.add_argument("--cluster_id",
-                        help=("cluster id for server(s)"))
-    group.add_argument("--rack_id",
-                        help=("rack id for server(s)"))
-    group.add_argument("--pod_id",
-                        help=("pod id for server(s)"))
+    group.add_argument("--discovered",
+                        help=("flag to get list of "
+                              "newly discovered server(s)"))
+    group.add_argument("--configured",
+                        help=("flag to get list of "
+                              "configured server(s)"))
+    parser_server.add_argument(
+        "--detail", "-d", action='store_true',
+        help="Flag to indicate if details are requested")
     parser_server.set_defaults(func=show_server)
 
     # Subparser for vns show
@@ -72,26 +68,33 @@ def parse_arguments():
         "vns", help='Show vns')
     parser_vns.add_argument("--vns_id",
                         help=("vns id for vns"))
+    parser_vns.add_argument(
+        "--detail", "-d", action='store_true',
+        help="Flag to indicate if details are requested")
     parser_vns.set_defaults(func=show_vns)
-
-    # Subparser for cluster show
-    parser_cluster = subparsers.add_parser(
-        "cluster", help='Show cluster')
-    parser_cluster.add_argument("--cluster_id",
-                        help=("cluster id for cluster"))
-    parser_cluster.set_defaults(func=show_cluster)
 
     # Subparser for image show
     parser_image = subparsers.add_parser(
         "image", help='Show image')
     parser_image.add_argument("--image_id",
                         help=("image id for image"))
+    parser_image.add_argument(
+        "--detail", "-d", action='store_true',
+        help="Flag to indicate if details are requested")
     parser_image.set_defaults(func=show_image)
 
     # Subparser for all show
     parser_all = subparsers.add_parser(
-        "all", help='Show all configuration (servers,vns,clusters, images)')
+        "all", help='Show all configuration (servers, vns, images, tags)')
+    parser_all.add_argument(
+        "--detail", "-d", action='store_true',
+        help="Flag to indicate if details are requested")
     parser_all.set_defaults(func=show_all)
+
+    # Subparser for tags show
+    parser_tag = subparsers.add_parser(
+        "tag", help='Show list of server tags')
+    parser_tag.set_defaults(func=show_tag)
     return parser
 # end def parse_arguments
 
@@ -135,15 +138,12 @@ def show_server(args):
     elif args.vns_id:
         rest_api_params['match_key'] = 'vns_id'
         rest_api_params['match_value'] = args.vns_id
-    elif args.cluster_id:
-        rest_api_params['match_key'] = 'cluster_id'
-        rest_api_params['match_value'] = args.cluster_id
-    elif args.rack_id:
-        rest_api_params['match_key'] = 'rack_id'
-        rest_api_params['match_value'] = args.rack_id
-    elif args.pod_id:
-        rest_api_params['match_key'] = 'pod_id'
-        rest_api_params['match_value'] = args.pod_id
+    elif args.discovered:
+        rest_api_params['match_key'] = 'discovered'
+        rest_api_params['match_value'] = 'true'
+    elif args.configured:
+        rest_api_params['match_key'] = 'configured'
+        rest_api_params['match_value'] = 'true'
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
@@ -164,21 +164,6 @@ def show_vns(args):
     }
     return rest_api_params
 #end def show_vns
-
-def show_cluster(args):
-    if args.cluster_id:
-        match_key = 'cluster_id'
-        match_value = args.cluster_id
-    else:
-        match_key = None
-        match_value = None
-    rest_api_params = {
-        'object' : 'cluster',
-        'match_key' : match_key,
-        'match_value' : match_value
-    }
-    return rest_api_params
-#end def show_cluster
 
 def show_image(args):
     if args.image_id:
@@ -204,38 +189,45 @@ def show_all(args):
     return rest_api_params
 #end def show_all
 
+def show_tag(args):
+    rest_api_params = {
+        'object' : 'tag',
+        'match_key' : None,
+        'match_value' : None
+    }
+    return rest_api_params
+#end def show_all
+
 def show_config(args_str=None):
     parser = parse_arguments()
     args = parser.parse_args(args_str)
-    if args.ip_port:
-        smgr_ip, smgr_port = args.ip_port.split(":")
-        if not smgr_port:
-            smgr_port = smgr_client_def._DEF_SMGR_PORT
+    if args.config_file:
+        config_file = args.config_file
     else:
-        if args.config_file:
-            config_file = args.config_file
-        else:
-            config_file = smgr_client_def._DEF_SMGR_CFG_FILE
-        # end args.config_file
-        try:
-            config = ConfigParser.SafeConfigParser()
-            config.read([config_file])
-            smgr_config = dict(config.items("SERVER-MANAGER"))
-            smgr_ip = smgr_config.get("listen_ip_addr", None)
-            if not smgr_ip:
-                sys.exit(("listen_ip_addr missing in config file"
-                          "%s" %config_file))
-            smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
-        except:
-            sys.exit("Error reading config file %s" %config_file)
-        # end except
-    # end else args.ip_port
+        config_file = smgr_client_def._DEF_SMGR_CFG_FILE
+    # end args.config_file
+    if hasattr(args, 'detail'):
+        detail = args.detail
+    else:
+        detail = None
+    try:
+        config = ConfigParser.SafeConfigParser()
+        config.read([config_file])
+        smgr_config = dict(config.items("SERVER-MANAGER"))
+        smgr_ip = smgr_config.get("listen_ip_addr", None)
+        if not smgr_ip:
+            sys.exit(("listen_ip_addr missing in config file"
+                      "%s" %config_file))
+        smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
+    except:
+        sys.exit("Error reading config file %s" %config_file)
+    # end except
     rest_api_params = args.func(args)
     resp = send_REST_request(smgr_ip, smgr_port,
                       rest_api_params['object'],
                       rest_api_params['match_key'],
                       rest_api_params['match_value'],
-                      args.detail)
+                      detail)
     smgr_client_def.print_rest_response(resp)
 # End of show_config
 

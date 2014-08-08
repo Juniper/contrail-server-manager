@@ -25,7 +25,8 @@ server_fields = {
     "power_pass": "",
     "control": "",
     "bond": "",
-    "power_address": ""
+    "power_address": "",
+    "tag": ""
 }
 
 vns_fields = {

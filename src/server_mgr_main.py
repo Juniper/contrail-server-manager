@@ -48,6 +48,7 @@ _WEB_PORT = 9001
 _DEF_CFG_DB = 'vns_server_mgr.db'
 _DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
 _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'smgr_config.ini'
+_SERVER_TAGS_FILE = _DEF_SMGR_BASE_DIR + '.tags.ini'
 _DEF_HTML_ROOT_DIR = '/var/www/html/'
 _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = None
@@ -98,6 +99,9 @@ class VncServerManager():
     '''
     _smgr_log = None
     _smgr_trans_log = None
+    _tags_list = ['tag1', 'tag2', 'tag3', 'tag4',
+                  'tag5', 'tag6', 'tag7']
+    _tags_dict = {}
 
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
@@ -126,6 +130,22 @@ class VncServerManager():
             args_str = sys.argv[1:]
         self._parse_args(args_str)
 
+        # Reads the tags.ini file to get tags mapping (if it exists)
+        if os.path.isfile(_SERVER_TAGS_FILE):
+            tags_config = ConfigParser.SafeConfigParser()
+            tags_config.read(_SERVER_TAGS_FILE)
+            tags_config_dict = dict(tags_config.items("TAGS"))
+            for key, value in tags_config_dict.iteritems():
+                if key not in self._tags_list:
+                    self._smgr_log.log(
+                        self._smgr_log.DEBUG,
+                        "Invalid tag %s in tags ini file"
+                        %(key))
+                    exit()
+                if value:
+                    self._tags_dict[key] = value
+        # end if os.path.isfile()
+
         # Connect to the cluster-servers database
         try:
             self._serverDb = db(
@@ -134,6 +154,15 @@ class VncServerManager():
             self._smgr_log.log(self._smgr_log.DEBUG,
                      "Error Connecting to Server Database %s"
                     % (self._args.smgr_base_dir+self._args.db_name))
+            exit()
+
+        # Add server tags to the DB
+        try:
+            self._serverDb.add_server_tags(self._tags_dict)
+        except:
+            self._smgr_log.log(
+                self._smgr_log.ERROR,
+                "Error adding server tags to server manager DB")
             exit()
 
         # Create an instance of cobbler interface class and connect to it.
@@ -199,17 +228,18 @@ class VncServerManager():
         bottle.route('/server', 'GET', self.get_server)
         bottle.route('/image', 'GET', self.get_image)
         bottle.route('/status', 'GET', self.get_status)
+        bottle.route('/tag', 'GET', self.get_tags)
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
         bottle.route('/image/upload', 'PUT', self.upload_image)
         bottle.route('/status', 'PUT', self.put_status)
 
-
         #smgr_add
         bottle.route('/server', 'PUT', self.put_server)
         bottle.route('/image', 'PUT', self.put_image)
         bottle.route('/vns', 'PUT', self.put_vns)
+        bottle.route('/tag', 'PUT', self.put_tags)
 
         # REST calls for DELETE methods (Remove records)
         bottle.route('/vns', 'DELETE', self.delete_vns)
@@ -217,9 +247,6 @@ class VncServerManager():
         bottle.route('/image', 'DELETE', self.delete_image)
 
         # REST calls for POST methods
-        bottle.route('/vns', 'POST', self.modify_vns)
-        bottle.route('/server', 'POST', self.modify_server)
-        bottle.route('/image', 'POST', self.modify_image)
         bottle.route('/server/reimage', 'POST', self.reimage_server)
         bottle.route('/server/provision', 'POST', self.provision_server)
         bottle.route('/server/restart', 'POST', self.restart_server)
@@ -294,6 +321,27 @@ class VncServerManager():
                                  self._smgr_trans_log.GET_SMGR_CFG_VNS)
         return {"vns": entity}
     # end get_vns
+
+    # REST API call to get list of server tags. The tags are read from
+    # .ini file and stored in DB. There is also a copy maintained in a
+    # dictionary. Since all these are synced up, we return info from 
+    # dictionaty variable itself.
+    def get_tags(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_tags")
+        try:
+            query_args = parse_qs(urlparse(bottle.request.url).query,
+                                    keep_blank_values=True)
+            tag_dict = self._tags_dict.copy()
+        except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_TAG,
+                                     False)
+            self.log_trace()
+            abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.GET_SMGR_CFG_TAG)
+        return tag_dict
+    # end get_tags
 
     def validate_smgr_entity(self, type, entity):
         obj_list = entity.get(type, None)
@@ -705,9 +753,6 @@ class VncServerManager():
                               False):
         ret_data = {}
         ret_data['status'] = 1
-
-        ret_data = {}
-        ret_data['status'] = 1
         if type == "SERVER":
             validation_data = server_fields
         elif type == "VNS":
@@ -913,18 +958,6 @@ class VncServerManager():
                                     image_id))
                         raise ServerMgrException("image type not specified or invalid for image %s" %(
                                 image_id))
-                    #TODO:remove this
-                    '''
-                    db_images = self._serverDb.get_image(
-                        'image_id', image_id, False)
-                    if db_images:
-                        self._smgr_log.log(self._smgr_log.ERROR,
-                            "image %s already exists" %(
-                                image_id))
-                        raise ServerMgrException(
-                                "image %s already exists" %(
-                                image_id))
-                    '''
                     if not os.path.exists(image_path):
                         raise ServerMgrException("image not found at %s" % \
                                                 (image_path))
@@ -949,6 +982,7 @@ class VncServerManager():
                         'image_id': image_id,
                         'image_version': image_version,
                         'image_type': image_type,
+                        'image_path': image_path,
                         'image_params' : image_params}
                     self._serverDb.add_image(image_data)
         except ServerMgrException as e:
@@ -1002,6 +1036,20 @@ class VncServerManager():
                                 self._smgr_trans_log.PUT_SMGR_CFG_VNS)
         return entity
 
+    # Function to validate values of tag field, if present, in received
+    # server json object.
+    def validate_server_mgr_tags(self, server):
+        tags = server.get("tag", None)
+        if tags is None:
+            return
+        tag_values = [value for value in self._tags_dict.itervalues()]
+        for key in tags.iterkeys():
+            if key not in tag_values:
+                msg = "Invalid tag %s in server entry" %(
+                    key)
+                raise ServerMgrException(msg)
+    # end validate_server_mgr_tags
+
     def put_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "add_server")
         entity = bottle.request.json
@@ -1011,9 +1059,7 @@ class VncServerManager():
             self.validate_smgr_entity("server", entity)
             servers = entity.get("server", None)
             for server in servers:
-                #commenting out now, untill i find a better way for this code
-                # self.validate_smgr_request("SERVER", "PUT", bottle.request,
-                #                                                       server)
+                self.validate_server_mgr_tags(server)
                 if self._serverDb.check_obj("server", "server_id",
                                             server['server_id'], False):
                     #TODO - Revisit this logic
@@ -1040,6 +1086,66 @@ class VncServerManager():
             self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
         return entity
 
+    # Function to change tags used for grouping together servers.
+    def put_tags(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "add_tag")
+        entity = bottle.request.json
+        if (not entity):
+            abort(404, 'no tags specified')
+        try:
+            for key in entity.iterkeys():
+                if key not in self._tags_list:
+                    msg = ("Invalid tag %s "
+                           "specified" %(key))
+                    self._smgr_log.log(
+                        self._smgr_log.ERROR, msg)
+                    raise ServerMgrException(msg)
+
+            # Ensure that tag names being changed are not used
+            # for any server entries TBD - Need to optimize Abhay
+            servers = self._serverDb.get_server(detail=True)
+            for key, value in entity.iteritems():
+                current_value = self._tags_dict.get(key, None)
+                # if tag is defined, then check if new tag name is
+                # different from old one.
+                if (current_value and
+                    (value != current_value)):
+                    for server in servers:
+                        if server[key]:
+                            msg = (
+                                "Cannot modify tag name "
+                                "for %s, used in server table" %(key))
+                            self._smgr_log.log(
+                                self._smgr_log.ERROR, msg)
+                            raise ServerMgrException(msg)
+
+            for key, value in entity.iteritems():
+                if value:
+                    self._tags_dict[key] = value
+                else:
+                    self._tags_dict.pop(key, None)
+            # Now write to ini file
+            tags_config = ConfigParser.SafeConfigParser()
+            tags_config.add_section('TAGS')
+            for key, value in self._tags_dict.iteritems():
+                tags_config.set('TAGS', key, value)
+            with open(_SERVER_TAGS_FILE, 'wb') as configfile:
+                tags_config.write(configfile)
+            # Also write the tags to DB
+            self._serverDb.add_server_tags(self._tags_dict)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(
+                bottle.request, self._smgr_trans_log.PUT_SMGR_CFG_TAG, False)
+            abort(404, e.value)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_TAG, False)
+            abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+            self._smgr_trans_log.PUT_SMGR_CFG_TAG)
+        return self._tags_dict
+    # end put_tags
 
     # API Call to add image file to server manager (file is copied at
     # <default_base_path>/images/filename.iso and distro, profile
@@ -1087,6 +1193,7 @@ class VncServerManager():
                 'image_id': image_id,
                 'image_version': image_version,
                 'image_type': image_type,
+                'image_path': dest,
                 'image_params' : image_params}
             self._serverDb.add_image(image_data)
         except Exception as e:
@@ -1471,89 +1578,6 @@ class VncServerManager():
                                     self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE)
         return "Server Deleted"
     # End of delete_image
-
-    # API to modify parameters for a server. User can modify IP, MAC, cluster
-    # name (moving the server to a different cluster) , roles configured on
-    # the server, or server parameters.
-    def modify_server(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "modify_server")
-        entity = bottle.request.json
-        try:
-            self.validate_smgr_entity("server", entity)
-            servers = entity.get("server", None)
-            for server in servers:
-                self.validate_smgr_request("SERVER", "MODIFY", bottle.request,
-                                                server)
-
-            self._serverDb.modify_server(server)
-        except ServerMgrException as e:
-            self._smgr_trans_log.log(bottle.request,
-                                    self._smgr_trans_log.MODIFY_SMGR_CFG_SERVER,
-                                    False)
-            abort(404, e.value)
-        except Exception as e:
-            self._smgr_trans_log.log(bottle.request,
-                                    self._smgr_trans_log.MODIFY_SMGR_CFG_SERVER,
-                                    False)
-            abort(404, repr(e))
-        self._smgr_trans_log.log(bottle.request,
-                                    self._smgr_trans_log.MODIFY_SMGR_CFG_SERVER)
-        return entity
-    # end modify_server
-
-    # API to modify parameters for a VNS.
-    def modify_vns(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "modify_vns")
-        entity = bottle.request.json
-        try:
-            self.validate_smgr_entity("vns", entity)
-            vns_list = entity.get("vns", None)
-            for vns in vns_list:
-                self.validate_smgr_request("VNS", "MODIFY", bottle.request,
-                                                vns)
-                self._serverDb.modify_vns(vns)
-        except ServerMgrException as e:
-            self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.MODIFY_SMGR_CFG_VNS,
-                                     False)
-            abort(404, e.value)
-        except Exception as e:
-            self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.MODIFY_SMGR_CFG_VNS,
-                                     False)
-
-            abort(404, repr(e))
-        self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.MODIFY_SMGR_CFG_VNS)
-        return entity
-    # end modify_vns
-
-    # API to modify parameters for an image.
-    def modify_image(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "modify_image")
-        entity = bottle.request.json
-        try:
-            self.validate_smgr_entity("image", entity)
-            images = entity.get("image", None)
-            for image in images:
-               self.validate_smgr_request("IMAGE", "MODIFY", bottle.request,
-                                                image)
-               self._serverDb.modify_image(image)
-        except ServerMgrException as e:
-            self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.MODIFY_SMGR_CFG_IMAGE,
-                                     False)
-            abort(404, e.value)
-        except Exception as e:
-            self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.MODIFY_SMGR_CFG_IMAGE,
-                                     False)
-            abort(404, repr(e))
-        self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.MODIFY_SMGR_CFG_IMAGE)
-
-        return entity
-    # end modify_image
 
     # API to create the server manager configuration DB from provided JSON
     # file.
@@ -2353,10 +2377,10 @@ class VncServerManager():
             self._smgr_puppet.provision_server(
                 provision_params)
             # Now kickstart agent run on the target
-            host_name = provision_params['server_id'] + "." + \
+            server_id = provision_params['server_id'] + "." + \
                 provision_params.get('domain', '')
             rc = subprocess.call(
-                ["puppet", "kick", "--host", host_name])
+                ["puppet", "kick", "--host", server_id])
             # Log, return error if return code is non-null - TBD Abhay
 
             # TBD Update Server table to stamp provisioned time.
