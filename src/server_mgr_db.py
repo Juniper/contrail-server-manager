@@ -80,8 +80,8 @@ class ServerMgrDb:
                          power_password TEXT, power_address TEXT,
                          power_type TEXT, intf_control TEXT,
                          intf_data TEXT, intf_bond TEXT,
-                         email TEXT,
-                         UNIQUE (id))""")
+                         email TEXT, status TEXT,
+                         UNIQUE (server_id))""")
             self._get_table_columns()
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
 

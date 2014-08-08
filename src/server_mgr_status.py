@@ -1,0 +1,136 @@
+#!/usr/bin/env python
+
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
+"""
+   Name : server_manager_status.py
+   Author : Abhay Joshi
+   Description : This file contains code that provides REST api interface to
+                 configure, get and manage configurations for servers which
+                 are part of the contrail cluster of nodes, interacting
+                 together to provide a scalable virtual network system.
+
+"""
+
+
+import pdb
+import bottle
+from bottle import route, run, request, abort, Bottle
+from urlparse import urlparse, parse_qs
+import time
+import threading
+from server_mgr_db import ServerMgrDb as db
+from time import gmtime, strftime, localtime
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from send_mail import send_mail
+
+
+class ServerMgrStatusThread(threading.Thread):
+
+    _smgr_log = None
+    _status_serverDb = None
+
+
+    ''' Class to run function that keeps validating the cobbler token
+        periodically (every 30 minutes) on a new thread. '''
+    _pipe_start_app = None
+    def __init__(self, timer, server, token):
+        threading.Thread.__init__(self)
+
+
+
+    def run(self):
+        #create the logger
+        try:
+            self._smgr_log = ServerMgrlogger()
+        except:
+            print "Error Creating logger object"
+
+        # Connect to the cluster-servers database
+        try:
+            self._status_serverDb = db(
+                "/etc/contrail_smgr/smgr_data.db")
+        except:
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                     "Error Connecting to Server Database %s"
+                    % (self._args.smgr_base_dir+self._args.db_name))
+            exit()
+
+        #set the status related handlers
+        status_bottle_app = Bottle()
+        status_bottle_app.route('/server_status', 'PUT', self.put_server_status)
+
+        try:
+            bottle.run(status_bottle_app, host="10.84.17.1", port="9002")
+        except Exception as e:
+            # cleanup gracefully
+            exit()
+
+    def put_server_status(self):
+        print "put-status"
+        #query_args = parse_qs(urlparse(bottle.request.url).query,
+                                      #keep_blank_values=True)
+        #match_key, match_value = query_args.popitem()
+        server_id = request.query['server_id']
+        server_state = request.query['state']
+        body = request.body.read()
+        server_data = {}
+        server_data['server_id'] = server_id
+        server_data['status'] = server_state
+        try:
+            message = server_id + ' ' + server_state + \
+                                strftime(" (%Y-%m-%d %H:%M:%S)", localtime())
+            self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
+
+            if not self.send_status_mail_1(server_id, message, message):
+                servers = self._status_serverDb.modify_server(
+                                                    server_data)
+        except Exception as e:
+#            self.log_trace()
+            self._smgr_log.log(self._smgr_log.ERROR, "Error adding to db %s" % repr(e))
+            abort(404, repr(e))
+
+    def get_email_list(self, email):
+        email_to = []
+        if not email:
+            return email_to
+        if email.startswith('[') and email.endswith(']'):
+            email_to = eval(email)
+        else:
+            email_to = [s.strip() for s in email.split(',')]
+        return email_to
+    # end get_email_list
+
+
+    def send_status_mail_1(self, server_id, event, message):
+        # Get server entry and find configured e-mail
+        servers = self._status_serverDb.get_server("server_id", server_id, True)
+        if not servers:
+            msg = "No server found with server_id " + server_id
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            return -1
+        server = servers[0]
+        email_to = []
+        if 'email' in server and server['email']:
+            email_to = self.get_email_list(server['email'])
+        else:
+            # Get VNS entry to find configured e-mail
+            if 'vns_id' in server and server['vns_id']:
+                vns_id = server['vns_id']
+                vns = self._status_serverDb.get_vns(vns_id, True)
+                if vns and 'email' in vns[0] and vns[0]['email']:
+                        email_to = self.get_email_list(vns[0]['email'])
+                else:
+                    self._smgr_log.log(self._smgr_log.DEBUG,
+                                       "vns or server doesn't configured for email")
+                    return 0
+            else:
+                self._smgr_log.log(self._smgr_log.DEBUG, "server not associated with a vns")
+                return 0
+        send_mail(event, message, '', email_to, self._smgr_cobbler._cobbler_ip, '25')
+        msg = "An email is sent to " + ','.join(email_to) + " with content " + message
+        self._smgr_log.log(self._smgr_log.DEBUG, msg)
+    # send_status_mail
+
+
+
+

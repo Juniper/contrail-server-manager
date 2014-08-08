@@ -32,6 +32,7 @@ import ast
 import uuid
 import traceback
 from server_mgr_defaults import *
+from server_mgr_status import *
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
@@ -145,6 +146,19 @@ class VncServerManager():
                                                   self._args.cobbler_password)
         except:
             print "Error connecting to cobbler"
+            exit()
+
+        try:
+            # needed for testing...
+            status_thread = ServerMgrStatusThread(
+                            None, "Status-Thread", None)
+            # Make the thread as daemon
+            status_thread.daemon = True
+            status_thread.start()
+        except:
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                     "Error Connecting to Server Database %s"
+                    % (self._args.smgr_base_dir+self._args.db_name))
             exit()
 
         # Create an instance of puppet interface class.
@@ -798,46 +812,7 @@ class VncServerManager():
         return {"image": images}
     # end get_image
 
-    def get_email_list(self, email):
-        email_to = []
-        if not email:
-            return email_to
-        if email.startswith('[') and email.endswith(']'):
-            email_to = eval(email)
-        else:
-            email_to = [s.strip() for s in email.split(',')]
-        return email_to
-    # end get_email_list
 
-    def send_status_mail(self, server_id, event, message):
-        # Get server entry and find configured e-mail
-        servers = self._serverDb.get_server("id", server_id, True)
-        if not servers:
-            msg = "No server found with id " + server_id
-            self._smgr_log.log(self._smgr_log.ERROR, msg)
-            return
-        server = servers[0]
-        email_to = []
-        if 'email' in server and server['email']:
-            email_to = self.get_email_list(server['email'])
-        else:
-            # Get CLUSTER entry to find configured e-mail
-            if 'cluster_id' in server and server['cluster_id']:
-                cluster_id = server['cluster_id']
-                cluster = self._serverDb.get_cluster(cluster_id, True)
-                if cluster and 'email' in cluster[0] and cluster[0]['email']:
-                        email_to = self.get_email_list(cluster[0]['email'])
-                else:
-                    self._smgr_log.log(self._smgr_log.DEBUG,
-                                       "cluster or server doesn't configured for email")
-                    return
-            else:
-                self._smgr_log.log(self._smgr_log.DEBUG, "server not associated with a cluster")
-                return
-        send_mail(event, message, '', email_to, self._smgr_cobbler._cobbler_ip, '25')
-        msg = "An email is sent to " + ','.join(email_to) + " with content " + message
-        self._smgr_log.log(self._smgr_log.DEBUG, msg)
-    # send_status_mail
 
     def get_obj(self, resp):
         try:
@@ -916,7 +891,7 @@ class VncServerManager():
                             "centos", "fedora", "ubuntu",
                             "contrail-ubuntu-package", "contrail-centos-package",
                             "contrail-storage-ubuntu-package",
-			     "esxi5.5", "esxi5.1"]):
+                            "esxi5.5", "esxi5.1"]):
                         self._smgr_log.log(self._smgr_log.ERROR,
                                     "image type not specified or invalid for image %s" %(
                                     image_id))
@@ -1943,9 +1918,9 @@ class VncServerManager():
         if not exc_type or not exc_value or not exc_traceback:
             return
         self._smgr_log.log(self._smgr_log.DEBUG, "*****TRACEBACK-START*****")
-	tb_lines = traceback.format_exception(exc_type, exc_value,
+        tb_lines = traceback.format_exception(exc_type, exc_value,
                           exc_traceback)
-	for tb_line in tb_lines:
+        for tb_line in tb_lines:
             self._smgr_log.log(self._smgr_log.DEBUG, tb_line)
         self._smgr_log.log(self._smgr_log.DEBUG, "*****TRACEBACK-END******")
 

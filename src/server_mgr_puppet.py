@@ -97,6 +97,32 @@ class ServerMgrPuppet:
         return '"' + mgmt_ip + '"'
     # end get_control_ip
 
+    def _update_provision_start(self, provision_params):
+        # Get all the parameters needed to send to puppet manifest.
+        before_param = \
+        "Contrail_%s::Contrail_common::Contrail-setup-repo[\"contrail_repo\"]" %(
+                    provision_params['puppet_manifest_version'])
+        data = '''    # Create repository config on target.
+    contrail_%s::contrail_common::report_status{provision_started:
+        state => "%s",
+        before => %s
+    }\n\n''' % (provision_params['puppet_manifest_version'],
+                "provision_started" ,before_param)
+        return data
+    # end _update_provision_start
+
+    def _update_provision_complete(self, provision_params, require_param):
+        # Get all the parameters needed to send to puppet manifest.
+        data = '''    # Update the state of server that provision is complete
+    contrail_%s::contrail_common::report_status{provision_completed:
+        state => "%s",
+        require => %s
+    }\n\n''' % (provision_params['puppet_manifest_version'],
+                "provision_completed" , require_param)
+        return data
+    # end _update_provision_complete
+
+
     def _repository_config(self, provision_params):
         # Get all the parameters needed to send to puppet manifest.
         before_param = "Contrail_%s::Contrail_common::Contrail-install-repo[\"install_repo\"]" % (
@@ -1516,6 +1542,9 @@ $__contrail_quantum_servers__
         resource_data += '''$contrail_storage_num_osd= %s\n''' % (provision_params['storage_num_osd'])
         # Create resource to have repository configuration setup on the
         # target
+        resource_data += self._update_provision_start(provision_params)
+
+
         resource_data += self._repository_config(provision_params)
 
         # Always call common function for all the roles
@@ -1550,6 +1579,11 @@ $__contrail_quantum_servers__
         if provision_params['execute_script']:
             resource_data += self.puppet_add_script_end_role(provision_params,
                                                     last_res_added)
+            #TODO update last_res_added
+            #last_res_added = 
+
+        resource_data += self._update_provision_complete(provision_params,
+                                                         last_res_added)
 
         # params_data and resource_data are compiled now. Add those to data and write
         # to manifest file for this server node.
