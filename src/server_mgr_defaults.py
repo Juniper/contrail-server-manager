@@ -24,7 +24,8 @@ server_fields = {
     "power_password": "",
     "control_data_network": "",
     "bond_interface": "",
-    "power_address": ""
+    "power_address": "",
+    "tag": ""
 }
 
 cluster_fields = {

@@ -11,6 +11,7 @@
 import argparse
 import pdb
 import sys
+import smgr_create
 import smgr_delete
 import smgr_show
 import smgr_upload_image

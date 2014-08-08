@@ -32,17 +32,10 @@ def parse_arguments():
             prog="server-manager show"
         )
     # end else
-    group1 = parser.add_mutually_exclusive_group()
-    group1.add_argument("--ip_port", "-i",
-                        help=("ip addr & port of server manager "
-                              "<ip-addr>[:<port>] format, default port "
-                              " 9001"))
-    group1.add_argument("--config_file", "-c",
+    parser.add_argument("--config_file", "-c",
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               smgr_client_def._DEF_SMGR_CFG_FILE)))
-    parser.add_argument("--detail", "-d", action='store_true',
-                        help="Flag to indicate if details are requested")
     subparsers = parser.add_subparsers(title='objects',
                                        description='valid objects',
                                        help='help for object')
@@ -59,6 +52,15 @@ def parse_arguments():
                         help=("ip address for server"))
     group.add_argument("--cluster_id",
                         help=("cluster id for server(s)"))
+    group.add_argument("--discovered",
+                        help=("flag to get list of "
+                              "newly discovered server(s)"))
+    group.add_argument("--configured",
+                        help=("flag to get list of "
+                              "configured server(s)"))
+    parser_server.add_argument(
+        "--detail", "-d", action='store_true',
+        help="Flag to indicate if details are requested")
     parser_server.set_defaults(func=show_server)
 
     # Subparser for cluster show
@@ -66,6 +68,9 @@ def parse_arguments():
         "cluster", help='Show cluster')
     parser_cluster.add_argument("--cluster_id",
                         help=("cluster id for cluster"))
+    parser_image.add_argument(
+        "--detail", "-d", action='store_true',
+        help="Flag to indicate if details are requested")
     parser_cluster.set_defaults(func=show_cluster)
 
     # Subparser for image show
@@ -73,12 +78,23 @@ def parse_arguments():
         "image", help='Show image')
     parser_image.add_argument("--image_id",
                         help=("image id for image"))
+    parser_image.add_argument(
+        "--detail", "-d", action='store_true',
+        help="Flag to indicate if details are requested")
     parser_image.set_defaults(func=show_image)
 
     # Subparser for all show
     parser_all = subparsers.add_parser(
-        "all", help='Show all configuration (servers, clusters, images)')
+        "all", help='Show all configuration (servers, clusters, images, tags)')
+    parser_all.add_argument(
+        "--detail", "-d", action='store_true',
+        help="Flag to indicate if details are requested")
     parser_all.set_defaults(func=show_all)
+
+    # Subparser for tags show
+    parser_tag = subparsers.add_parser(
+        "tag", help='Show list of server tags')
+    parser_tag.set_defaults(func=show_tag)
     return parser
 # end def parse_arguments
 
@@ -122,6 +138,12 @@ def show_server(args):
     elif args.cluster_id:
         rest_api_params['match_key'] = 'cluster_id'
         rest_api_params['match_value'] = args.cluster_id
+    elif args.discovered:
+        rest_api_params['match_key'] = 'discovered'
+        rest_api_params['match_value'] = 'true'
+    elif args.configured:
+        rest_api_params['match_key'] = 'configured'
+        rest_api_params['match_value'] = 'true'
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
@@ -167,38 +189,45 @@ def show_all(args):
     return rest_api_params
 #end def show_all
 
+def show_tag(args):
+    rest_api_params = {
+        'object' : 'tag',
+        'match_key' : None,
+        'match_value' : None
+    }
+    return rest_api_params
+#end def show_all
+
 def show_config(args_str=None):
     parser = parse_arguments()
     args = parser.parse_args(args_str)
-    if args.ip_port:
-        smgr_ip, smgr_port = args.ip_port.split(":")
-        if not smgr_port:
-            smgr_port = smgr_client_def._DEF_SMGR_PORT
+    if args.config_file:
+        config_file = args.config_file
     else:
-        if args.config_file:
-            config_file = args.config_file
-        else:
-            config_file = smgr_client_def._DEF_SMGR_CFG_FILE
-        # end args.config_file
-        try:
-            config = ConfigParser.SafeConfigParser()
-            config.read([config_file])
-            smgr_config = dict(config.items("SERVER-MANAGER"))
-            smgr_ip = smgr_config.get("listen_ip_addr", None)
-            if not smgr_ip:
-                sys.exit(("listen_ip_addr missing in config file"
-                          "%s" %config_file))
-            smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
-        except:
-            sys.exit("Error reading config file %s" %config_file)
-        # end except
-    # end else args.ip_port
+        config_file = smgr_client_def._DEF_SMGR_CFG_FILE
+    # end args.config_file
+    if hasattr(args, 'detail'):
+        detail = args.detail
+    else:
+        detail = None
+    try:
+        config = ConfigParser.SafeConfigParser()
+        config.read([config_file])
+        smgr_config = dict(config.items("SERVER-MANAGER"))
+        smgr_ip = smgr_config.get("listen_ip_addr", None)
+        if not smgr_ip:
+            sys.exit(("listen_ip_addr missing in config file"
+                      "%s" %config_file))
+        smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
+    except:
+        sys.exit("Error reading config file %s" %config_file)
+    # end except
     rest_api_params = args.func(args)
     resp = send_REST_request(smgr_ip, smgr_port,
                       rest_api_params['object'],
                       rest_api_params['match_key'],
                       rest_api_params['match_value'],
-                      args.detail)
+                      detail)
     smgr_client_def.print_rest_response(resp)
 # End of show_config
 

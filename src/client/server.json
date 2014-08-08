@@ -13,7 +13,14 @@
             "gateway": "10.84.51.254",
             "password": "juniper",
             "domain": "demo.juniper.net",
-            "power_address": "10.84.6.63"
+            "power_address": "10.84.6.63",
+            "tag" : {
+                 "datacenter" : "demo-dc",
+                 "floor" : "demo-floor",
+                 "hall" : "demo-hall",
+                 "rack" : "demo-rack",
+                 "user_tag"  : "demo-user"
+             }
         }
     ]
 }
