@@ -693,7 +693,7 @@ class VncServerManager():
         elif len(entity) == 1:
             match_key, match_value = entity.popitem()
             # check that match key is a valid one
-            if (match_key not in ("server_id", "mac_address", "cluster_id")):
+            if (match_key not in ("id", "mac_address", "cluster_id")):
                 msg = "Invalid Query arguments"
                 raise ServerMgrException(msg)
         else:
@@ -852,7 +852,7 @@ class VncServerManager():
                                       keep_blank_values=True)
         match_key, match_value = query_args.popitem()
         if ((match_key not in (
-                            "id", "mac_address", "cluster_id", "ip_address")) or
+                            "server_id", "mac_address", "cluster_id", "ip_address")) or
                             (len(match_value) != 1)):
                 self._smgr_log.log(self._smgr_log.ERROR, "Invalid Query data")
                 abort(404, "Invalid Query arguments")
@@ -878,7 +878,7 @@ class VncServerManager():
 
 
     def get_status(self):
-        server_id = bottle.request.query['id']
+        server_id = bottle.request.query['server_id']
         servers = self._serverDb.get_status('id',
                         server_id, True)
         if servers:
@@ -2464,7 +2464,7 @@ class VncServerManager():
     def _encrypt_password(self, server_password):
         try:
             xyz = subprocess.Popen(
-                ["openssl", "password", "-1", "-noverify", server_password],
+                ["openssl", "passwd", "-1", "-noverify", server_password],
                 stdout=subprocess.PIPE).communicate()[0]
         except:
             return None
