@@ -2401,6 +2401,7 @@ class VncServerManager():
                 # end else
                 # Update Server table to update time.
                 update = {'id': server['id'],
+                          'status' : 'restart_issued',
                           'last_update': strftime(
                              "%Y-%m-%d %H:%M:%S", gmtime())}
                 self._serverDb.modify_server(update)

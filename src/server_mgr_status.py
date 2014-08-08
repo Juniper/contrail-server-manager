@@ -74,7 +74,7 @@ class ServerMgrStatusThread(threading.Thread):
         server_state = request.query['state']
         body = request.body.read()
         server_data = {}
-        server_data['server_id'] = server_id
+        server_data['id'] = server_id
         server_data['status'] = server_state
         try:
             message = server_id + ' ' + server_state + \
@@ -103,7 +103,7 @@ class ServerMgrStatusThread(threading.Thread):
 
     def send_status_mail_1(self, server_id, event, message):
         # Get server entry and find configured e-mail
-        servers = self._status_serverDb.get_server("server_id", server_id, True)
+        servers = self._status_serverDb.get_server("id", server_id, True)
         if not servers:
             msg = "No server found with server_id " + server_id
             self._smgr_log.log(self._smgr_log.ERROR, msg)
@@ -114,9 +114,9 @@ class ServerMgrStatusThread(threading.Thread):
             email_to = self.get_email_list(server['email'])
         else:
             # Get VNS entry to find configured e-mail
-            if 'vns_id' in server and server['vns_id']:
-                vns_id = server['vns_id']
-                vns = self._status_serverDb.get_vns(vns_id, True)
+            if 'cluster_id' in server and server['cluster_id']:
+                cluster_id = server['cluster_id']
+                vns = self._status_serverDb.get_vns(cluster_id, True)
                 if vns and 'email' in vns[0] and vns[0]['email']:
                         email_to = self.get_email_list(vns[0]['email'])
                 else:
