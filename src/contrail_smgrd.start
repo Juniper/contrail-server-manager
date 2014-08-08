@@ -19,3 +19,6 @@ service ntpd restart
 
 mkdir -p /var/run/contrail_smgrd/
 nohup /opt/contrail/server_manager/server_mgr_main.py -c /opt/contrail/server_manager/smgr_config.ini 0<&- &> /var/run/contrail_smgrd/contrail_smgrd.log&
+
+cd /var/www/html/thirdparty_packages
+dpkg-scanpackages . | gzip -9c > Packages.gz
