@@ -167,7 +167,7 @@ def add_cluster():
                           "cluster" : [
                               {
                                   "id" : "",
-                                  "cluster_parameters" : {
+                                  "parameters" : {
     
                                       }
                               }
@@ -262,17 +262,17 @@ def modify_cluster_from_testbed_py(cluster_dict):
     if testbed.env.has_key('mail_to'):
         cluster_dict['cluster'][0]['email'] = testbed.env.mail_to
     if testbed.env.has_key('encap_priority'):
-        cluster_dict['cluster'][0]['cluster_parameters']['encap_priority'] = testbed.env.encap_priority
+        cluster_dict['cluster'][0]['parameters']['encapsulation_priority'] = testbed.env.encap_priority
     if 'multi_tenancy' in dir(testbed):
-        cluster_dict['cluster'][0]['cluster_parameters']['multi_tenancy'] = testbed.multi_tenancy
+        cluster_dict['cluster'][0]['parameters']['multi_tenancy'] = testbed.multi_tenancy
     if 'os_username' in dir(testbed):
-        cluster_dict['cluster'][0]['cluster_parameters']['keystone_username'] = testbed.os_username
+        cluster_dict['cluster'][0]['parameters']['keystone_username'] = testbed.os_username
     if 'os_password' in dir(testbed):
-        cluster_dict['cluster'][0]['cluster_parameters']['keystone_password'] = testbed.os_password
+        cluster_dict['cluster'][0]['parameters']['keystone_password'] = testbed.os_password
     if 'os_tenant_name' in dir(testbed):
-        cluster_dict['cluster'][0]['cluster_parameters']['keystone_tenant'] = testbed.os_tenant_name
+        cluster_dict['cluster'][0]['parameters']['keystone_tenant'] = testbed.os_tenant_name
     if 'router_asn' in dir(testbed):
-        cluster_dict['cluster'][0]['cluster_parameters']['router_asn'] = testbed.router_asn
+        cluster_dict['cluster'][0]['parameters']['router_asn'] = testbed.router_asn
         
 
 
@@ -285,7 +285,7 @@ def new_cluster():
                   "cluster" : [
                       {
                           "id" : cluster_id,
-                          "cluster_parameters" : {
+                          "parameters" : {
                               "router_asn": "64512",
                               "database_dir": "/home/cassandra",
                               "database_token": "",
@@ -311,9 +311,9 @@ def new_cluster():
     config = ConfigParser.SafeConfigParser()
     config.read([smgr_client_def._DEF_SMGR_CFG_FILE])
     default_config_object = get_default_object("cluster", config)
-    cluster_params_dict = dict(cluster_dict["cluster"][0]["cluster_parameters"].items() + default_config_object["cluster_parameters"].items())
+    cluster_params_dict = dict(cluster_dict["cluster"][0]["parameters"].items() + default_config_object["parameters"].items())
     tmp_cluster_dict = dict(cluster_dict["cluster"][0].items() + default_config_object.items())
-    tmp_cluster_dict["cluster_parameters"] = cluster_params_dict
+    tmp_cluster_dict["parameters"] = cluster_params_dict
     clusetr_dict["cluster"][0] = tmp_cluster_dict
     return cluseter_dict
 
