@@ -388,9 +388,9 @@ class VncServerManager():
         for data_item_key, data_item_value in data.iteritems():
             #If json data name is not present in list of
             #allowable fields silently ignore them.
-            if data_item_key == obj_name + "_parameters" and modify == False:
+            if data_item_key == "parameters" and modify == False:
                 object_parameters = data_item_value
-                default_object_parameters = eval(validation_data[obj_name +'_parameters'])
+                default_object_parameters = eval(validation_data['parameters'])
                 for key,value in default_object_parameters.iteritems():
                     if key not in object_parameters:
                         msg = "Default Object param added is %s:%s" % \
@@ -975,9 +975,9 @@ class VncServerManager():
                     str_uuid = str(uuid.uuid4())
                     storage_fsid = str(uuid.uuid4())
                     storage_virsh_uuid = str(uuid.uuid4())
-                    cur_cluster["cluster_parameters"].update({"uuid": str_uuid})
-                    cur_cluster["cluster_parameters"].update({"storage_fsid": storage_fsid})
-                    cur_cluster["cluster_parameters"].update({"storage_virsh_uuid": storage_virsh_uuid})
+                    cur_cluster["parameters"].update({"uuid": str_uuid})
+                    cur_cluster["parameters"].update({"storage_fsid": storage_fsid})
+                    cur_cluster["parameters"].update({"storage_virsh_uuid": storage_virsh_uuid})
                     self._smgr_log.log(self._smgr_log.INFO, "Cluster Data %s" % cur_cluster)
                     self._serverDb.add_cluster(cur_cluster)
         except ServerMgrException as e:
@@ -1676,14 +1676,14 @@ class VncServerManager():
                 raise ServerMgrException(msg)
             for server in servers:
                 cluster = None
-                server_parameters = eval(server['server_parameters'])
+                server_parameters = eval(server['parameters'])
                 # build all parameters needed for re-imaging
                 if server['cluster_id']:
                     cluster = self._serverDb.get_cluster(server['cluster_id'],
                                                     detail=True)
                 cluster_parameters = {}
-                if cluster and cluster[0]['cluster_parameters']:
-                    cluster_parameters = eval(cluster[0]['cluster_parameters'])
+                if cluster and cluster[0]['parameters']:
+                    cluster_parameters = eval(cluster[0]['parameters'])
 
                 password = mask = gateway = domain = None
                 server_id = server['id']
@@ -1821,8 +1821,8 @@ class VncServerManager():
                     cluster = self._serverDb.get_cluster(server['cluster_id'],
                                              detail=True)
                 cluster_parameters = {}
-                if cluster and cluster[0]['cluster_parameters']:
-                    cluster_parameters = eval(cluster[0]['cluster_parameters'])
+                if cluster and cluster[0]['parameters']:
+                    cluster_parameters = eval(cluster[0]['parameters'])
 
                 server_id = server['id']
                 if 'password' in server:
@@ -1964,7 +1964,7 @@ class VncServerManager():
             total_osd = int(0)
 
             for server in servers:
-                server_params = eval(server['server_parameters'])
+                server_params = eval(server['parameters'])
                 server_roles = eval(server['roles'])
                 if 'storage' in server_roles and 'disks' in server_params:
                     total_osd += len(server_params['disks'])
@@ -1978,11 +1978,11 @@ class VncServerManager():
             package_type = packages[0] ['type']
 
             for server in servers:
-                server_params = eval(server['server_parameters'])
+                server_params = eval(server['parameters'])
                 cluster = self._serverDb.get_cluster(server['cluster_id'],
                                              detail=True)[0]
 
-                cluster_params = eval(cluster['cluster_parameters'])
+                cluster_params = eval(cluster['parameters'])
                 # Get all the servers belonging to the CLUSTER that this server
                 # belongs too.
                 cluster_servers = self._serverDb.get_server(

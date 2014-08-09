@@ -4,7 +4,7 @@
             "id": "nodec57",
             "mac_address": "00:25:90:c5:58:6e",
             "ip_address": "10.204.221.61",
-            "server_parameters" : {
+            "parameters" : {
                 "interface_name": "eth0",
 	    	"setup_interface": "Yes",
             },
@@ -26,7 +26,7 @@
             "id": "nodea4",
             "mac_address": "00:25:90:a5:3b:12",
             "ip_address": "10.204.221.60",
-            "server_parameters" : {
+            "parameters" : {
                 "interface_name": "eth5",
 		"setup_interface": "Yes",
             },
@@ -55,7 +55,7 @@
             "id": "nodec33",
             "mac_address": "00:25:90:c4:82:28",
             "ip_address": "10.204.221.59",
-            "server_parameters" : {
+            "parameters" : {
                 "interface_name": "eth0",
  		"setup_interface": "Yes",
             },
@@ -78,7 +78,7 @@
             "id": "nodec35",
             "mac_address": "00:25:90:c4:7a:70",
             "ip_address": "10.204.221.58",
-            "server_parameters" : {
+            "parameters" : {
                 "interface_name": "eth0",
 	        "setup_interface": "Yes",
             },
@@ -100,7 +100,7 @@
             "id": "nodec60",
             "mac_address": "00:25:90:c5:59:B0",
             "ip_address": "10.204.221.57",
-            "server_parameters" : {
+            "parameters" : {
                 "interface_name": "eth0",
 	        "setup_interface": "Yes",
             },

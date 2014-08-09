@@ -4,7 +4,7 @@
             "server_id": "nitish-test-server",
             "mac_address": "52:54:00:30:FB:AB",
             "ip_address": "192.168.121.101",
-            "server_parameters" : {
+            "parameters" : {
                 "interface_name": "eth1",
                 "storage_repo_id": "xyz_12",
                 "disks": ["/dev/sda","/dev/sdb"]

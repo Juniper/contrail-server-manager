@@ -9,7 +9,7 @@ server_fields = {
     "host_name": "",
     "mac_address": "",
     "ip_address": "",
-    "server_parameters": """{
+    "parameters": """{
                     'interface_name': ''
                     }""",
     "roles": ["config","openstack","control","compute","collector","webui","database"],
@@ -33,7 +33,7 @@ cluster_fields = {
     "id": "",
     "email": "",
     "primary_keys": "['id']",
-    "cluster_parameters": """{
+    "parameters": """{
                 'router_asn': '64512',
                 'database_dir': '/home/cassandra',
                 'database_token': '',

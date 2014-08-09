@@ -30,7 +30,7 @@ object_dict = {
     "cluster" : OrderedDict ([
         ("id", "Specify unique id for this cluster"),
         ("email", "Email id for notifications"),
-        ("cluster_parameters", OrderedDict ([
+        ("parameters", OrderedDict ([
              ("router_asn", "Router asn value"),
              ("subnet_mask", "Subnet mask"),
              ("gateway", "Default gateway for servers in this cluster"),
@@ -57,7 +57,7 @@ object_dict = {
         ("ip_address", "server ip address"),
         ("mac_address", "server mac address"),
         ("roles", "comma-separated list of roles for this server"),
-        ("server_parameters", OrderedDict([
+        ("parameters", OrderedDict([
             ("interface_name", "Ethernet Interface name"),
             ("disks", "Storage OSDs (default none)")])),
         ("cluster_id", "cluster id the server belongs to"),
@@ -208,12 +208,12 @@ def get_default_object(object, config):
     config_object_defaults = get_object_config_ini_entries(object, config)
     if not config_object_defaults:
         return default_object
-    default_object[object+"_parameters"] = {}
+    default_object["parameters"] = {}
     for key, value in config_object_defaults:
         if key in object_dict[object]:
             default_object[key] = value
-        elif key in object_dict[object][object+"_parameters"]:
-            default_object[object+"_parameters"][key] = value
+        elif key in object_dict[object]["parameters"]:
+            default_object["parameters"][key] = value
     return default_object
 # end get_default_object
 
@@ -229,13 +229,13 @@ def merge_with_defaults(object, payload, config):
         if object_exists(object, "id", str(obj[obj_id]), {}):
             continue
         param_object = {}
-        if object+"_parameters" in obj and object+"_parameters" in default_object:
-            param_object = dict(default_object[object+"_parameters"].items() + obj[object+"_parameters"].items())
-        elif object+"_parameters" in default_object:
-            param_object = default_object[object+"_parameters"] 
+        if "parameters" in obj and "parameters" in default_object:
+            param_object = dict(default_object["parameters"].items() + obj["parameters"].items())
+        elif "parameters" in default_object:
+            param_object = default_object["parameters"] 
         payload[object][i] = dict(default_object.items() + obj.items())
         if param_object:
-            payload[object][i][object+"_parameters"] = param_object
+            payload[object][i]["parameters"] = param_object
 
 # end merge_with_defaults
 
@@ -282,7 +282,7 @@ def add_payload(object, default_object):
             #form the fields to be displayed with index
             for key in fields_dict:
                 value = fields_dict[key]
-                if (key != (object+"_parameters")):
+                if (key != ("parameters")):
                     index_dict[i] = key
                     if key in non_mutable_fields :
                         data += str(i)+ ". %s : %s *\n" % (key, obj[key])
@@ -293,8 +293,8 @@ def add_payload(object, default_object):
                         data += str(i)+ ". %s : %s \n" % (key, obj[key])
                     i+=1
                 else:
-                    if obj.has_key(object+"_parameters") and obj[object+"_parameters"]:
-                        smgr_params = eval(obj[object+"_parameters"])
+                    if obj.has_key("parameters") and obj["parameters"]:
+                        smgr_params = eval(obj["parameters"])
                     else:
                         smgr_params = {}
                     for param in value:
@@ -313,7 +313,7 @@ def add_payload(object, default_object):
                                            " continue with next Object :")
                 if user_selection.strip() == 'C':
                     #print 'send output'
-                    temp_dict[object+"_parameters"] = params_dict
+                    temp_dict["parameters"] = params_dict
                     break
 
                 else:
@@ -327,7 +327,7 @@ def add_payload(object, default_object):
                         continue
      
                     key_selected = index_dict[eval(user_selection)]
-                    object_params = object_dict[object] [object+"_parameters"]
+                    object_params = object_dict[object] ["parameters"]
                     if key_selected in object_params.keys():
                         msg = key_selected + ":"
                         value = smgr_params.get(key_selected,"")
@@ -358,7 +358,7 @@ def add_payload(object, default_object):
                     continue
                 value = fields_dict[key]
                 #non server parameters
-                if (key != (object+"_parameters")):
+                if (key != ("parameters")):
                     msg = key
                     if value:
                         msg += " (%s) " %(value)
@@ -385,8 +385,8 @@ def add_payload(object, default_object):
                             msg += " (%s) " %(pvalue)
                         msg += ": "
                         #user_input = raw_input(msg)
-                        if default_object.has_key(object+"_parameters"):
-                            default_value = default_object[object+"_parameters"].get(param, "")
+                        if default_object.has_key("parameters"):
+                            default_value = default_object["parameters"].get(param, "")
                         else:
                             default_value = ""
                         user_input = ""
@@ -402,7 +402,7 @@ def add_payload(object, default_object):
                         if user_input:
                             param_dict[param] = user_input
                     temp_dict[key] = param_dict
-                # End if (key != (object+"_parameters"))
+                # End if (key != ("parameters"))
             # End for key, value in fields_dict 
         objects.append(temp_dict)
         choice = raw_input("More %s(s) to input? (y/N)" %(object))

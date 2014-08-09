@@ -56,7 +56,7 @@ class ServerMgrDb:
                 # Create cluster table.
                 cursor.execute("CREATE TABLE IF NOT EXISTS " + cluster_table +
                                """ (id TEXT PRIMARY KEY,
-                                    cluster_parameters TEXT,
+                                    parameters TEXT,
                                     email TEXT)""")
                 # Create image table
                 cursor.execute("CREATE TABLE IF NOT EXISTS " +
@@ -76,12 +76,12 @@ class ServerMgrDb:
                          cluster_id TEXT,  base_image_id TEXT,
                          package_image_id TEXT, password TEXT,
                          last_update TEXT, discovered varchar default 'N',
-                         server_parameters TEXT, roles TEXT, power_username TEXT,
+                         parameters TEXT, roles TEXT, power_username TEXT,
                          power_password TEXT, power_address TEXT,
                          power_type TEXT, intf_control TEXT,
                          intf_data TEXT, intf_bond TEXT,
                          email TEXT, status TEXT,
-                         UNIQUE (server_id))""")
+                         UNIQUE (id))""")
             self._get_table_columns()
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
 
@@ -90,8 +90,8 @@ class ServerMgrDb:
                                        None, True, None)
             for cluster in cluster_list:
                 # Check if storage parameters are present in Cluster, else generate them
-                if 'storage_fsid' not in set(eval(cluster['cluster_parameters'])) or 'storage_virsh_uuid' not in set(eval(
-                        cluster['cluster_parameters'])):
+                if 'storage_fsid' not in set(eval(cluster['parameters'])) or 'storage_virsh_uuid' not in set(eval(
+                        cluster['parameters'])):
                     self.update_cluster_uuids(cluster)
         except e:
             raise e
@@ -213,9 +213,9 @@ class ServerMgrDb:
     def add_cluster(self, cluster_data):
         try:
             # Store cluster_parameters dictionary as a text field
-            cluster_parameters = cluster_data.pop("cluster_parameters", None)
+            cluster_parameters = cluster_data.pop("parameters", None)
             if cluster_parameters is not None:
-                cluster_data['cluster_parameters'] = str(cluster_parameters)
+                cluster_data['parameters'] = str(cluster_parameters)
             # Store email list as text field
             email = cluster_data.pop("email", None)
             if email is not None:
@@ -250,9 +250,9 @@ class ServerMgrDb:
 
 
             # Store server_parameters dictionary as a text field
-            server_parameters = server_data.pop("server_parameters", None)
+            server_parameters = server_data.pop("parameters", None)
             if server_parameters is not None:
-                server_data['server_parameters'] = str(server_parameters)
+                server_data['parameters'] = str(server_parameters)
             self._add_row(server_table, server_data)
             if cluster_id:
                 cluster_data = {"id": cluster_id}
@@ -365,22 +365,22 @@ class ServerMgrDb:
             if not db_cluster:
                 msg = "%s is not valid" % cluster_id
                 raise ServerMgrException(msg)
-            db_cluster_params_str = db_cluster[0] ['cluster_parameters']
+            db_cluster_params_str = db_cluster[0] ['parameters']
             db_cluster_params = {}
             if db_cluster_params_str:
                 db_cluster_params = eval(db_cluster_params_str)
             if 'uuid' not in db_cluster_params:
                 str_uuid = str(uuid.uuid4())
-                cluster_data["cluster_parameters"].update({"uuid":str_uuid})
+                cluster_data["parameters"].update({"uuid":str_uuid})
             # Store cluster_params dictionary as a text field
-            cluster_params = cluster_data.pop("cluster_parameters", {})
+            cluster_params = cluster_data.pop("parameters", {})
             for k,v in cluster_params.iteritems():
                 if v == '""':
                     v = ''
                 db_cluster_params[k] = v
             cluster_params = db_cluster_params
             if cluster_params is not None:
-                cluster_data['cluster_parameters'] = str(cluster_params)
+                cluster_data['parameters'] = str(cluster_params)
 
             # Store email list as text field
             email = cluster_data.pop("email", None)
@@ -407,9 +407,9 @@ class ServerMgrDb:
             if image_data['type'] != db_image[0]['type']:
                 raise ServerMgrException('Image type cannnot be modified')
             # Store image_params dictionary as a text field
-            image_parameters = image_data.pop("image_parameters", None)
+            image_parameters = image_data.pop("parameters", None)
             if image_parameters is not None:
-                image_data['image_parameters'] = str(image_parameters)
+                image_data['parameters'] = str(image_parameters)
             self._modify_row(image_table, image_data,
                              'id', image_id)
         except Exception as e:
@@ -460,13 +460,13 @@ class ServerMgrDb:
                 server_data['intf_bond'] = str(intf_bond)
 
             # Store server_params dictionary as a text field
-            server_params = server_data.pop("server_parameters", None)
+            server_params = server_data.pop("parameters", None)
             #if server_params is not None:
             #    server_data['server_params'] = str(server_params)
             #check for modify in db server_params
             #Always Update DB server parmas
             db_server_params = {}
-            db_server_params_str = db_server[0] ['server_parameters']
+            db_server_params_str = db_server[0] ['parameters']
             if db_server_params_str:
                 db_server_params = eval(db_server_params_str)
                 if server_params:
@@ -474,7 +474,7 @@ class ServerMgrDb:
                         if v == '""':
                             v = ''
                         db_server_params[k] = v
-            server_data['server_parameters'] = str(db_server_params)
+            server_data['parameters'] = str(db_server_params)
 
             # Store email list as text field                   
             email = server_data.pop("email", None)
@@ -554,7 +554,7 @@ class ServerMgrDb:
     # If any UUIDs are missing from an existing Cluster, we add them during ServerManager DB init
     def update_cluster_uuids(self, cluster):
         try:
-            db_cluster_params_str = cluster['cluster_parameters']
+            db_cluster_params_str = cluster['parameters']
             db_cluster_params = {}
             if db_cluster_params_str:
                 db_cluster_params = eval(db_cluster_params_str)
@@ -570,7 +570,7 @@ class ServerMgrDb:
         except Exception as e:
             raise e
 
-        cluster['cluster_parameters'] = str(db_cluster_params)
+        cluster['parameters'] = str(db_cluster_params)
         self._modify_row(cluster_table, cluster,
                          'id', cluster['id'])
     # End of update_cluster_uuids

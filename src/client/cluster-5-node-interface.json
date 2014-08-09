@@ -2,7 +2,7 @@
     "cluster" : [
         {  
             "id" : "5-node",
-            "cluster_parameters" : {
+            "parameters" : {
                 "router_asn": "64512",
                 "database_dir": "/home/cassandra",
                 "database_token": "",
