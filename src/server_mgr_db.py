@@ -81,7 +81,7 @@ class ServerMgrDb:
                          ip TEXT, mask TEXT, gway TEXT, domain TEXT,
                          vns_id TEXT, base_image_id TEXT,
                          package_image_id TEXT, passwd TEXT,
-                         update_time TEXT, disc_flag varchar default 'N',
+                         update_time TEXT, disc_flag TEXT default 'false',
                          server_params TEXT, roles TEXT, power_user TEXT,
                          power_pass TEXT, power_address TEXT,
                          power_type TEXT, intf_control TEXT,
@@ -364,11 +364,11 @@ class ServerMgrDb:
                         server_table, entity,
                         {"mac": mac}, {})
                     return
-                entity['disc_flag'] = "Y"
+                entity['disc_flag'] = "true"
                 self._add_row(server_table, entity)
             elif action.lower() == "delete":
                 servers = self.get_server({"mac" : mac}, detail=True)
-                if ((servers) and (servers[0]['disc_flag'] == "Y")):
+                if ((servers) and (servers[0]['disc_flag'] == "true")):
                     self._delete_row(server_table,
                                      {"mac" : mac})
             else:
