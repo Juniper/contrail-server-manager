@@ -22,7 +22,7 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="Contrail Server Manager"
 NAME=contrail-server-manager
 DAEMON=/usr/sbin/$NAME
-DAEMON_ARGS="-c /opt/contrail/server_manager/smgr_config.ini"
+DAEMON_ARGS="-c /opt/contrail/server_manager/sm-config.ini"
 PIDFILE=/var/run/contrail-server-manager/contrail-server-manager.pid
 SCRIPTNAME=/etc/init.d/$NAME
 

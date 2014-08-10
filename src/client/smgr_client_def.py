@@ -6,7 +6,7 @@ import os
 import json
 
 _DEF_SMGR_PORT = 9001
-_DEF_SMGR_CFG_FILE = os.path.dirname(__file__) + "/smgr_client_config.ini"
+_DEF_SMGR_CFG_FILE = os.path.dirname(__file__) + "/sm-client-config.ini"
 
 def print_rest_response(resp):
     if resp:
