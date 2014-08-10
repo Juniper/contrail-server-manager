@@ -882,13 +882,14 @@ class VncServerManager():
                 x['server_params'] = eval(x['server_params'])
             if x.get("roles", None) is not None:
                 x['roles'] = eval(x['roles'])
-            x['tag'] = {}
-            for i in range(1, len(self._tags_list)+1):
-                tag = "tag" + str(i)
-                if x[tag]:
-                    x['tag'][self._tags_dict[tag]] = x.pop(tag, None)
-                else:
-                    x.pop(tag, None)
+            if detail:
+                x['tag'] = {}
+                for i in range(1, len(self._tags_list)+1):
+                    tag = "tag" + str(i)
+                    if x[tag]:
+                        x['tag'][self._tags_dict[tag]] = x.pop(tag, None)
+                    else:
+                        x.pop(tag, None)
         return {"server": servers}
     # end get_server
 
