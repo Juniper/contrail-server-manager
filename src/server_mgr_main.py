@@ -381,9 +381,10 @@ class VncServerManager():
             match_key, match_value = query_args.popitem()
             match_keys_str = validation_data['match_keys']
             match_keys = eval(match_keys_str)
-            # TBD - Append "discovered" as one of the values, though
+            # TBD - Append "discovered" and "tag" as one of the values, though
             # its not part of server table fields.
             match_keys.append("discovered")
+            match_keys.append("tag")
             if (match_key not in match_keys):
                 raise ServerMgrException("Match Key not present")
             if match_value == None or match_value[0] == '':
@@ -846,9 +847,19 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, servers)
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
+        # Convert some of the fields in server entry to match what is accepted for put
         for x in servers:
             if x.get("server_params", None) is not None:
                 x['server_params'] = eval(x['server_params'])
+            if x.get("roles", None) is not None:
+                x['roles'] = eval(x['roles'])
+            x['tag'] = {}
+            for i in range(1, len(self._tags_list)+1):
+                tag = "tag" + str(i)
+                if x[tag]:
+                    x['tag'][self._tags_dict[tag]] = x.pop(tag, None)
+                else:
+                    x.pop(tag, None)
         return {"server": servers}
     # end get_server
 

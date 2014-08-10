@@ -52,6 +52,9 @@ def parse_arguments():
                         help=("ip address for server"))
     group.add_argument("--vns_id",
                         help=("vns id for server(s)"))
+    group.add_argument("--tag",
+                        help=("tag values for the server"
+                              "in t1=v1,t2=v2,... format"))
     group.add_argument("--discovered",
                         help=("flag to get list of "
                               "newly discovered server(s)"))
@@ -135,6 +138,9 @@ def show_server(args):
     elif args.vns_id:
         rest_api_params['match_key'] = 'vns_id'
         rest_api_params['match_value'] = args.vns_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
     elif args.discovered:
         rest_api_params['match_key'] = 'discovered'
         rest_api_params['match_value'] = args.discovered

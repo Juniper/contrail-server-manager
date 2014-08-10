@@ -48,12 +48,9 @@ def parse_arguments():
                         help=("ip address for server to be deleted"))
     group.add_argument("--vns_id",
                         help=("vns id for server(s) to be deleted"))
-    group.add_argument("--cluster_id",
-                        help=("cluster id for server(s) to be deleted"))
-    group.add_argument("--rack_id",
-                        help=("rack id for server(s) to be deleted"))
-    group.add_argument("--pod_id",
-                        help=("pod id for server(s) to be deleted"))
+    group.add_argument("--tag",
+                        help=("tag values for the server to be deleted "
+                              "in t1=v1,t2=v2,... format"))
     parser_server.set_defaults(func=delete_server)
 
     # Subparser for vns delete
@@ -116,15 +113,9 @@ def delete_server(args):
     elif args.vns_id:
         rest_api_params['match_key'] = 'vns_id'
         rest_api_params['match_value'] = args.vns_id
-    elif args.cluster_id:
-        rest_api_params['match_key'] = 'cluster_id'
-        rest_api_params['match_value'] = args.cluster_id
-    elif args.rack_id:
-        rest_api_params['match_key'] = 'rack_id'
-        rest_api_params['match_value'] = args.rack_id
-    elif args.pod_id:
-        rest_api_params['match_key'] = 'pod_id'
-        rest_api_params['match_value'] = args.pod_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
     else:
         rest_api_params['match_key'] = ''
         rest_api_params['match_value'] = ''
