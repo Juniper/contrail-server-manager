@@ -246,7 +246,7 @@ class VncServerManager():
         bottle.route('/server', 'GET', self.get_server)
         bottle.route('/image', 'GET', self.get_image)
         bottle.route('/status', 'GET', self.get_status)
-        bottle.route('/tag', 'GET', self.get_tags)
+        bottle.route('/tag', 'GET', self.get_server_tags)
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
@@ -257,7 +257,7 @@ class VncServerManager():
         bottle.route('/server', 'PUT', self.put_server)
         bottle.route('/image', 'PUT', self.put_image)
         bottle.route('/cluster', 'PUT', self.put_cluster)
-        bottle.route('/tag', 'PUT', self.put_tags)
+        bottle.route('/tag', 'PUT', self.put_server_tags)
 
         # REST calls for DELETE methods (Remove records)
         bottle.route('/cluster', 'DELETE', self.delete_cluster)
@@ -296,6 +296,7 @@ class VncServerManager():
             config['cluster'] = self._serverDb.get_cluster(detail=detail)
             config['server'] = self._serverDb.get_server(detail=detail)
             config['image'] = self._serverDb.get_image(detail=detail)
+            config['tag'] = self._serverDb.get_server_tags(detail=detail)
         except Exception as e:
             self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_ALL,
                                      False)
@@ -319,8 +320,12 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
                 detail = ret_data["detail"]
-                entity = self._serverDb.get_cluster(match_value, detail)
+                entity = self._serverDb.get_cluster(
+                    match_dict, detail=detail)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_CLUSTER,
@@ -337,6 +342,9 @@ class VncServerManager():
                                      False)
         self._smgr_trans_log.log(bottle.request,
                                  self._smgr_trans_log.GET_SMGR_CFG_CLUSTER)
+        for x in entity:
+            if x.get("parameters", None) is not None:
+                x['parameters'] = eval(x['parameters'])
         return {"cluster": entity}
     # end get_cluster
 
@@ -344,8 +352,8 @@ class VncServerManager():
     # .ini file and stored in DB. There is also a copy maintained in a
     # dictionary. Since all these are synced up, we return info from 
     # dictionaty variable itself.
-    def get_tags(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "get_tags")
+    def get_server_tags(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_server_tags")
         try:
             query_args = parse_qs(urlparse(bottle.request.url).query,
                                     keep_blank_values=True)
@@ -359,7 +367,7 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
                                  self._smgr_trans_log.GET_SMGR_CFG_TAG)
         return tag_dict
-    # end get_tags
+    # end get_server_tags
 
     def validate_smgr_entity(self, type, entity):
         obj_list = entity.get(type, None)
@@ -559,7 +567,7 @@ class VncServerManager():
     def _validate_roles(self, match_key, match_value):
         if match_key == 'id':
             server = self._serverDb.get_server(
-                        "id", match_value, detail=True)
+                        {"id" : match_value}, detail=True)
             if server and server[0]:
                 cluster_id = server [0] ['cluster_id']
                 if cluster_id is None:
@@ -572,7 +580,7 @@ class VncServerManager():
             cluster_id = match_value
 
         servers = self._serverDb.get_server(
-                            'cluster_id', cluster_id, detail=True)
+            {'cluster_id': cluster_id}, detail=True)
         role_list = [
                 "database", "openstack", "config",
                 "control", "collector", "webui", "compute" ]
@@ -651,7 +659,7 @@ class VncServerManager():
             servers = []
             for key in prov_servers:
                 server = self._serverDb.get_server(
-                    "id", key, detail=True)
+                    {"id" : key}, detail=True)
                 if server:
                     server = server[0]
                 servers.append(server)
@@ -689,7 +697,7 @@ class VncServerManager():
                 raise ServerMgrException(msg)
             # end else
             servers = self._serverDb.get_server(
-                match_key, match_value, detail=True)
+                {match_key : match_value}, detail=True)
             if len(servers) == 0:
                 msg = "No servers found for %s" % \
                             (match_value)
@@ -817,9 +825,12 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
                 detail = ret_data["detail"]
-                servers = self._serverDb.get_server(match_key, match_value,
-                                                    detail)
+                servers = self._serverDb.get_server(
+                    match_dict, detail=detail)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
@@ -832,6 +843,9 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, servers)
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
+        for x in servers:
+            if x.get("server_params", None) is not None:
+                x['server_params'] = eval(x['server_params'])
         return {"server": servers}
     # end get_server
 
@@ -844,9 +858,12 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
                 detail = ret_data["detail"]
-            images = self._serverDb.get_image(match_key, match_value,
-                                              detail)
+            images = self._serverDb.get_image(match_dict,
+                                              detail=detail)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
@@ -860,8 +877,6 @@ class VncServerManager():
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE)
         return {"image": images}
     # end get_image
-
-
 
     def get_obj(self, resp):
         try:
@@ -903,8 +918,8 @@ class VncServerManager():
 
     def get_status(self):
         server_id = bottle.request.query['server_id']
-        servers = self._serverDb.get_status('id',
-                        server_id, True)
+        servers = self._serverDb.get_status(
+            {'id' : server_id}, detail=True)
         if servers:
             return servers[0]
         else:
@@ -918,8 +933,9 @@ class VncServerManager():
             images = entity.get("image", None)
             for image in images:
                 #use macros for obj type
-                if self._serverDb.check_obj("image", "id",
-                                            image['id'], False):
+                if self._serverDb.check_obj(
+                    "image", {"id" : image['id']},
+                    raise_exception=False):
                     self.validate_smgr_request("IMAGE", "PUT", bottle.request,
                                                 image, True)
 
@@ -1001,8 +1017,9 @@ class VncServerManager():
             cluster = entity.get('cluster', None)
             for cur_cluster in cluster:
                 #use macros for obj type
-                if self._serverDb.check_obj("cluster", "id",
-                                            cur_cluster['id'], False):
+                if self._serverDb.check_obj(
+                    "cluster", {"id" : cur_cluster['id']},
+                    raise_exception=False):
                     #TODO Handle uuid here
                     self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
                                                 cur_cluster, True)
@@ -1058,8 +1075,9 @@ class VncServerManager():
             servers = entity.get("server", None)
             for server in servers:
                 self.validate_server_mgr_tags(server)
-                if self._serverDb.check_obj("server", "id",
-                                            server['id'], False):
+                if self._serverDb.check_obj(
+                    "server", {"id" : server['id']},
+                    raise_exception=False):
                     #TODO - Revisit this logic
                     # Do we need mac to be primary MAC
                     server_fields['primary_keys'] = "['id']"
@@ -1085,7 +1103,7 @@ class VncServerManager():
         return entity
 
     # Function to change tags used for grouping together servers.
-    def put_tags(self):
+    def put_server_tags(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "add_tag")
         entity = bottle.request.json
         if (not entity):
@@ -1099,17 +1117,15 @@ class VncServerManager():
                         self._smgr_log.ERROR, msg)
                     raise ServerMgrException(msg)
 
-            # Ensure that tag names being changed are not used
-            # for any server entries TBD - Need to optimize Abhay
-            servers = self._serverDb.get_server(detail=True)
             for key, value in entity.iteritems():
                 current_value = self._tags_dict.get(key, None)
                 # if tag is defined, then check if new tag name is
                 # different from old one.
                 if (current_value and
                     (value != current_value)):
-                    for server in servers:
-                        if server[key]:
+                    servers = self._serverDb.get_server(
+                        {}, {key : ''}, detail=False)
+                    if servers:
                             msg = (
                                 "Cannot modify tag name "
                                 "for %s, used in server table" %(key))
@@ -1143,7 +1159,7 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
             self._smgr_trans_log.PUT_SMGR_CFG_TAG)
         return self._tags_dict
-    # end put_tags
+    # end put_server_tags
 
     # API Call to add image file to server manager (file is copied at
     # <default_base_path>/images/filename.iso and distro, profile
@@ -1161,7 +1177,7 @@ class VncServerManager():
         file_obj = bottle.request.files.file
         file_name = file_obj.filename
         db_images = self._serverDb.get_image(
-            'id', image_id, False)
+            {'id' : image_id}, detail=False)
         if db_images:
             abort(
                 404,
@@ -1511,8 +1527,10 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
-                force = ret_data["force"]
-                self._serverDb.delete_cluster(match_value, force)
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
+                self._serverDb.delete_cluster(match_dict)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER,
@@ -1541,17 +1559,13 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
 
-            servers = self._serverDb.get_server(match_key, match_value, False)
-            '''
-            if not servers:
-                msg = "No Server found for match key %s" % \
-                        (match_key)
-                self._smgr_log.log(self._smgr_log.ERROR,
-                        msg )
-                raise ServerMgrException(msg)
-            '''
-            self._serverDb.delete_server(match_key, match_value)
+            servers = self._serverDb.get_server(
+                match_dict, detail= False)
+            self._serverDb.delete_server(match_dict)
             # delete the system entries from cobbler
             for server in servers:
                 self._smgr_cobbler.delete_system(server['id'])
@@ -1583,7 +1597,8 @@ class VncServerManager():
             if not image_id:
                 msg = "Image Id not specified"
                 raise ServerMgrException(msg)
-            images = self._serverDb.get_image("id", image_id, True)
+            image_dict = {"id" : image_id}
+            images = self._serverDb.get_image(image_dict, True)
             if not images:
                 msg = "Image %s doesn't exist" % (image_id)
                 raise ServerMgrException(msg)
@@ -1621,7 +1636,7 @@ class VncServerManager():
                     'contrail/images/' + image_id
                 shutil.rmtree(dir_path, True)
             # remove the entry from DB
-            self._serverDb.delete_image(image_id)
+            self._serverDb.delete_image(image_dict)
         except ServerMgrException as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
@@ -1683,10 +1698,15 @@ class VncServerManager():
                 package_image_id = ret_data['package_image_id']
                 match_key = ret_data['match_key']
                 match_value = ret_data['match_value']
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
                 do_reboot = ret_data['do_reboot']
             reboot_server_list = []
-            images = self._serverDb.get_image("id", base_image_id, True)
-            packages = self._serverDb.get_image("id", package_image_id, True)
+            images = self._serverDb.get_image(
+                {"id" : base_image_id}, detail=True)
+            packages = self._serverDb.get_image(
+                {"id" : package_image_id}, detail=True)
             if len(images) == 0:
                 msg = "No Image %s found" % (base_image_id)
                 raise ServerMgrException(msg)
@@ -1698,7 +1718,7 @@ class VncServerManager():
                 raise ServerMgrException(msg)
             base_image = images[0]
             servers = self._serverDb.get_server(
-                match_key, match_value, detail=True)
+                match_dict, detail=True)
             if len(servers) == 0:
                 msg = "No Servers found for %s" % (match_value)
                 raise ServerMgrException(msg)
@@ -1707,8 +1727,9 @@ class VncServerManager():
                 server_parameters = eval(server['parameters'])
                 # build all parameters needed for re-imaging
                 if server['cluster_id']:
-                    cluster = self._serverDb.get_cluster(server['cluster_id'],
-                                                    detail=True)
+                    vns = self._serverDb.get_cluster(
+                        {"cluster_id" : server['cluster_id']},
+                        detail=True)
                 cluster_parameters = {}
                 if cluster and cluster[0]['parameters']:
                     cluster_parameters = eval(cluster[0]['parameters'])
@@ -1834,10 +1855,13 @@ class VncServerManager():
                 do_net_boot = ret_data['net_boot']
                 match_key = ret_data['match_key']
                 match_value = ret_data['match_value']
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
             reboot_server_list = []
             # if the key is server_id, server_table server key is 'id'
             servers = self._serverDb.get_server(
-                    match_key, match_value, detail=True)
+                    match_dict, detail=True)
             if len(servers) == 0:
                 msg = "No Servers found for match %s" % \
                     (match_value)
@@ -1846,8 +1870,9 @@ class VncServerManager():
                 cluster = None
                 #if its None,It gets the CLUSTER list
                 if server['cluster_id']:
-                    cluster = self._serverDb.get_cluster(server['cluster_id'],
-                                             detail=True)
+                    cluster = self._serverDb.get_cluster(
+                        {"id" : server['cluster_id']},
+                        detail=True)
                 cluster_parameters = {}
                 if cluster and cluster[0]['parameters']:
                     cluster_parameters = eval(cluster[0]['parameters'])
@@ -2007,14 +2032,14 @@ class VncServerManager():
 
             for server in servers:
                 server_params = eval(server['parameters'])
-                cluster = self._serverDb.get_cluster(server['cluster_id'],
-                                             detail=True)[0]
-
+                cluster = self._serverDb.get_cluster(
+                    {"id" : server['cluster_id']},
+                    detail=True)[0]
                 cluster_params = eval(cluster['parameters'])
                 # Get all the servers belonging to the CLUSTER that this server
                 # belongs too.
                 cluster_servers = self._serverDb.get_server(
-                    match_key="cluster_id", match_value=server["cluster_id"],
+                    {"cluster_id" : server["cluster_id"]},
                     detail="True")
                 # build roles dictionary for this cluster. Roles dictionary will be
                 # keyed by role-id and value would be list of servers configured
@@ -2036,7 +2061,7 @@ class VncServerManager():
                 provision_params['package_type'] = package_type
                 # Get puppet manifest version corresponding to this package_image_id
                 images = self._serverDb.get_image(
-                        "id", package_image_id, True)
+                        {"id" : package_image_id}, detail=True)
                 if not len(images):
                     msg = "Package %s not present" % (package_image_id)
                     self._smgr_log.log(self._smgr_log.DEBUG, msg)
@@ -2112,8 +2137,9 @@ class VncServerManager():
                     provision_params['esx_vm_port_group'] = server_params['esx_vm_port_group']
                     provision_params['vm_deb'] = server_params['vm_deb'] if server_params.has_key('vm_deb') else ""
                     provision_params['esx_vmdk'] = server_params['esx_vmdk']
-                    esx_servers = self._serverDb.get_server('id', server_params['esx_server'],
-                                                            detail=True)
+                    esx_servers = self._serverDb.get_server(
+                        {'id' : server_params['esx_server']},
+                        detail=True)
                     esx_server = esx_servers[0]
                     provision_params['esx_ip'] = esx_server['ip_address']
                     provision_params['esx_username'] = "root"

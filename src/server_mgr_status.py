@@ -83,7 +83,7 @@ class ServerMgrStatusThread(threading.Thread):
                                 strftime(" (%Y-%m-%d %H:%M:%S)", localtime())
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
 
-            if not self.send_status_mail_1(server_id, message, message):
+            if not self.send_status_mail(server_id, message, message):
                 servers = self._status_serverDb.modify_server(
                                                     server_data)
         except Exception as e:
@@ -102,10 +102,10 @@ class ServerMgrStatusThread(threading.Thread):
         return email_to
     # end get_email_list
 
-
-    def send_status_mail_1(self, server_id, event, message):
+    def send_status_mail(self, server_id, event, message):
         # Get server entry and find configured e-mail
-        servers = self._status_serverDb.get_server("id", server_id, True)
+        servers = self._serverDb.get_server(
+            {"id" : server_id}, detail=True)
         if not servers:
             msg = "No server found with server_id " + server_id
             self._smgr_log.log(self._smgr_log.ERROR, msg)
@@ -115,24 +115,22 @@ class ServerMgrStatusThread(threading.Thread):
         if 'email' in server and server['email']:
             email_to = self.get_email_list(server['email'])
         else:
-            # Get VNS entry to find configured e-mail
+            # Get cluster entry to find configured e-mail
             if 'cluster_id' in server and server['cluster_id']:
                 cluster_id = server['cluster_id']
-                vns = self._status_serverDb.get_vns(cluster_id, True)
-                if vns and 'email' in vns[0] and vns[0]['email']:
-                        email_to = self.get_email_list(vns[0]['email'])
+                cluster = self._serverDb.get_cluster(
+                    {"id" : cluster_id}, True)
+                if cluster and 'email' in cluster[0] and cluster[0]['email']:
+                        email_to = self.get_email_list(cluster[0]['email'])
                 else:
                     self._smgr_log.log(self._smgr_log.DEBUG,
-                                       "vns or server doesn't configured for email")
+                                       "cluster or server doesn't configured for email")
                     return 0
             else:
-                self._smgr_log.log(self._smgr_log.DEBUG, "server not associated with a vns")
+                self._smgr_log.log(self._smgr_log.DEBUG, "server not associated with a cluster")
                 return 0
         send_mail(event, message, '', email_to, self._smgr_cobbler._cobbler_ip, '25')
         msg = "An email is sent to " + ','.join(email_to) + " with content " + message
         self._smgr_log.log(self._smgr_log.DEBUG, msg)
     # send_status_mail
-
-
-
 
