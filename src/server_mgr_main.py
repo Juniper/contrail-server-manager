@@ -2536,7 +2536,7 @@ def main(args_str=None):
     server_port = vnc_server_mgr.get_server_port()
 
     server_mgr_pid = os.getpid()
-    pid_file = "/var/run/contrail_smgrd/contrail_smgrd.pid"
+    pid_file = "/var/run/contrail-server-manager/contrail-server-manager.pid"
     dir = os.path.dirname(pid_file)
     if not os.path.exists(dir):
         os.mkdir(dir)

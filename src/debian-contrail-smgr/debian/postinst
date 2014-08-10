@@ -34,8 +34,8 @@ HOST_IP=`echo $HOST_IP_LIST | cut -d',' -f1`
 echo $HOST_IP
 
 sed -i "s/10.84.51.11/$HOST_IP/" /etc/cobbler/settings
-update-rc.d contrail_smgrd defaults
-#/sbin/chkconfig --add contrail_smgrd
+update-rc.d contrail-server-manager defaults
+#/sbin/chkconfig --add contrail-server-manager
 sed -i "s/authn_denyall/authn_testing/g" /etc/cobbler/modules.conf
 sed -i "s/authn_configfile/authn_testing/g" /etc/cobbler/modules.conf
 
@@ -56,5 +56,5 @@ service puppetmaster restart
 #update-rc.d puppetmaster defaults
 
 #puppet master
-service contrail_smgrd restart
+service contrail-server-manager restart
 

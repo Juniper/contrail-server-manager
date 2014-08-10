@@ -43,10 +43,9 @@ override_dh_auto_install:
 	cp -r $(src_path)/smgr_dhcp_event.py  $(WS)/$(build_root)/opt/contrail/server_manager/
 	cp -r $(src_path)/smgr_config.ini  $(WS)/$(build_root)/opt/contrail/server_manager/
 	cp -r $(src_path)/client  $(WS)/$(build_root)/opt/contrail/server_manager/
-	cp -r $(src_path)/contrail_smgrd.start  $(WS)/$(build_root)/usr/sbin/contrail_smgrd
+	cp -r $(src_path)/contrail-server-manager.start  $(WS)/$(build_root)/usr/sbin/contrail-server-manager
 	cp -r $(src_path)/third_party/bottle.py  $(WS)/$(build_root)/opt/contrail/server_manager/
-	cp $(src_path)/contrail_smgrd.u  $(WS)/$(build_root)/etc/init.d/contrail_smgrd
-#	cp $(src_path)/contrail_smgrd.sbin $(WS)/$(build_root)/usr/sbin/contrail_smgrd
+	cp $(src_path)/contrail-server-manager.u  $(WS)/$(build_root)/etc/init.d/contrail-server-manager
 	cp -r $(src_path)/puppet  $(WS)/$(build_root)/etc/contrail_smgr/
 	cp -r $(src_path)/cobbler  $(WS)/$(build_root)/etc/contrail_smgr/
 	cp -r $(src_path)/kickstarts  $(WS)/$(build_root)/etc/contrail_smgr/
