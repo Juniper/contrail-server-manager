@@ -33,9 +33,9 @@ class ServerMgrStatusThread(threading.Thread):
     ''' Class to run function that keeps validating the cobbler token
         periodically (every 30 minutes) on a new thread. '''
     _pipe_start_app = None
-    def __init__(self, timer, server, token):
+    def __init__(self, timer, server, status_thread_config):
         threading.Thread.__init__(self)
-
+        self._status_thread_config = status_thread_config
 
 
     def run(self):
@@ -60,7 +60,9 @@ class ServerMgrStatusThread(threading.Thread):
         status_bottle_app.route('/server_status', 'PUT', self.put_server_status)
 
         try:
-            bottle.run(status_bottle_app, host="10.84.17.1", port="9002")
+            bottle.run(status_bottle_app,
+                       host=self._status_thread_config['listen_ip'],
+                       port=self._status_thread_config['listen_port'])
         except Exception as e:
             # cleanup gracefully
             exit()

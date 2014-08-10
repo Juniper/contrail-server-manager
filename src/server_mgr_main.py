@@ -150,8 +150,12 @@ class VncServerManager():
 
         try:
             # needed for testing...
+            status_thread_config = {}
+            status_thread_config['listen_ip'] = self._args.listen_ip_addr
+            status_thread_config['listen_port'] = '9002'
+
             status_thread = ServerMgrStatusThread(
-                            None, "Status-Thread", None)
+                            None, "Status-Thread", status_thread_config)
             # Make the thread as daemon
             status_thread.daemon = True
             status_thread.start()
