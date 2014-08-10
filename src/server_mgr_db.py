@@ -181,10 +181,26 @@ class ServerMgrDb:
             raise e
     # end _add_row
 
-    def _delete_row(self, table_name, match_key, match_value):
+    # Generic function to delete rows matching given criteria
+    # from given table.
+    # Match dict is dictionary of columns and values to match for.
+    # unmatch dict is not of dictionaty of columns and values to match for.
+    def _delete_row(self, table_name,
+                    match_dict=None, unmatch_dict=None):
         try:
-            delete_str = "DELETE FROM %s WHERE %s='%s'" \
-                % (table_name, match_key, match_value)
+            delete_str = "DELETE FROM %s" %(table_name)
+            # form a string to provide to where match clause
+            match_list = []
+            if match_dict:
+                match_list = ["%s = \'%s\'" %(
+                k,v) for k,v in match_dict.iteritems()]
+            if unmatch_dict:
+                match_list += ["%s != \'%s\'" %(
+                    k,v) for k,v in unmatch_dict.iteritems()]
+            if match_list:
+                match_str = " and ".join(match_list)
+                delete_str+= " WHERE " + match_str
+            # end if match_list
             with self._con:
                 cursor = self._con.cursor()
                 cursor.execute(delete_str)
@@ -192,22 +208,36 @@ class ServerMgrDb:
             raise e
     # End _delete_row
 
-    def _modify_row(self, table_name, dict, match_key, match_value):
+    def _modify_row(self, table_name, dict,
+                    match_dict=None, unmatch_dict=None):
         try:
             keys, values = zip(*dict.items())
             modify_str = "UPDATE %s SET " % (table_name)
             update_list = ",".join(key + "=?" for key in keys)
             modify_str += update_list
-            modify_str += " WHERE %s=?" % (match_key)
-            values = values + (match_value,)
+            match_list = []
+            if match_dict:
+                match_list = ["%s = ?" %(
+                    k) for k in match_dict.iterkeys()]
+                match_values = [v for v in match_dict.itervalues()]
+            if unmatch_dict:
+                match_list += ["%s != ?" %(
+                    k) for k in unmatch_dict.iterkeys()]
+                match_values += [v for v in unmatch_dict.itervalues()]
+            if match_list:
+                match_str = " and ".join(match_list)
+                match_values_str = ",".join(match_values)
+                modify_str += " WHERE " + match_str
+                values += (match_values_str,)
             with self._con:
                 cursor = self._con.cursor()
                 cursor.execute(modify_str, values)
         except Exception as e:
             raise e
 
-    def _get_items(self, table_name, match_key=None,
-                   match_value=None, detail=False, always_fields=None):
+    def _get_items(
+        self, table_name, match_dict=None,
+        unmatch_dict=None, detail=False, always_fields=None):
         try:
             with self._con:
                 cursor = self._con.cursor()
@@ -215,11 +245,18 @@ class ServerMgrDb:
                     sel_cols = "*"
                 else:
                     sel_cols = ",".join(always_fields)
-                if ((not match_key) or (not match_value)):
-                    select_str = "SELECT %s FROM %s" % (sel_cols, table_name)
-                else:
-                    select_str = "SELECT %s FROM %s WHERE %s=\'%s\'" \
-                        % (sel_cols, table_name, match_key, match_value)
+                select_str = "SELECT %s FROM %s" % (sel_cols, table_name)
+                # form a string to provide to where match clause
+                match_list = []
+                if match_dict:
+                    match_list = ["%s = \'%s\'" %(
+                        k,v) for k,v in match_dict.iteritems()]
+                if unmatch_dict:
+                    match_list += ["%s != \'%s\'" %(
+                        k,v) for k,v in unmatch_dict.iteritems()]
+                if match_list:
+                    match_str = " and ".join(match_list)
+                    select_str+= " WHERE " + match_str
                 cursor.execute(select_str)
             rows = [x for x in cursor]
             cols = [x[0] for x in cursor.description]
@@ -258,7 +295,7 @@ class ServerMgrDb:
             roles = server_data.pop("roles", None)
             vns_id = server_data.get('vns_id', None)
             if vns_id:
-                self.check_obj("vns", "vns_id", vns_id)
+                self.check_obj("vns", {"vns_id" : vns_id})
             if roles is not None:
                 server_data['roles'] = str(roles)
             intf_control = server_data.pop("control", None)
@@ -319,17 +356,21 @@ class ServerMgrDb:
             if action.lower() == "add":
                 # If this server is already present in our table,
                 # update IP address if DHCP was not static.
-                servers = self._get_items(server_table, "mac", mac, True)
+                servers = self._get_items(
+                    server_table, {"mac" : mac},detail=True)
                 if servers:
                     server = servers[0]
-                    self._modify_row(server_table, entity, "mac", mac)
+                    self._modify_row(
+                        server_table, entity,
+                        {"mac": mac}, {})
                     return
                 entity['disc_flag'] = "Y"
                 self._add_row(server_table, entity)
             elif action.lower() == "delete":
-                servers = self.get_server("mac", mac, True)
+                servers = self.get_server({"mac" : mac}, detail=True)
                 if ((servers) and (servers[0]['disc_flag'] == "Y")):
-                    self._delete_row(server_table, "mac", mac)
+                    self._delete_row(server_table,
+                                     {"mac" : mac})
             else:
                 return
         except:
@@ -347,66 +388,70 @@ class ServerMgrDb:
             raise e
     # End of add_image
 
-    def delete_vns(self, vns_id, force=False):
+    def delete_vns(self, match_dict=None, unmatch_dict=None):
         try:
-            self.check_obj("vns", "vns_id", vns_id)
-            servers = self.get_server('vns_id', vns_id, True)
+            self.check_obj("vns", match_dict, unmatch_dict)
+            vns_id = match_dict.get("vns_id", None)
+            servers = None
+            if vns_id:
+                servers = self.get_server({'vns_id' : vns_id}, detail=True)
             if servers:
-                if force:
-                    for server in servers:
-                        server_data = {}
-                        server_data['vns_id'] = ''
-                        self._modify_row(server_table, server_data, \
-                                        "server_id", server['server_id'])
-                else:
-                    msg = ("Servers are present in this vns, "
-                            "remove vns association, prior to vns delete.")
-                    raise ServerMgrException(msg)
-            self._delete_row(vns_table, "vns_id", vns_id)
+                msg = ("Servers are present in this vns, "
+                        "remove vns association, prior to vns delete.")
+                raise ServerMgrException(msg)
+            self._delete_row(vns_table, match_dict, unmatch_dict)
         except Exception as e:
             raise e
     # End of delete_vns
 
-    def check_obj(self, type, match_key, match_value, raise_exception=True):
+    def check_obj(self, type,
+                  match_dict=None, unmatch_dict=None, raise_exception=True):
         if type == "server":
             cb = self.get_server
-            db_obj = cb(match_key, match_value, detail=False)
+            db_obj = cb(match_dict, unmatch_dict, detail=False)
         elif type == "vns":
             cb = self.get_vns
-            db_obj = cb(match_value, detail=False)
+            db_obj = cb(match_dict, unmatch_dict, detail=False)
         elif type == "image":
             cb = self.get_image
-            db_obj = cb(match_key, match_value, detail=False)
+            db_obj = cb(match_dict, unmatch_dict, detail=False)
 
         if not db_obj:
-            msg = "%s %s not found" % (type, match_value)
+            msg = "%s not found" % (type)
             if raise_exception:
                 raise ServerMgrException(msg)
             return False
         return True
-        #end of check_obj
+    #end of check_obj
 
-    def delete_server(self, match_key, match_value):
+    def delete_server(self, match_dict=None, unmatch_dict=None):
         try:
-            if (match_key.lower() == "mac"):
-                if match_value:
-                    match_value = str(EUI(match_value)).replace("-", ":")
-            self.check_obj("server", match_key, match_value)
-            self._delete_row(server_table, match_key, match_value)
+            if match_dict and match_dict.get("mac", None):
+                if match_dict["mac"]:
+                    match_dict["mac"] = str(
+                        EUI(match_dict["mac"])).replace("-", ":")
+            if unmatch_dict and unmatch_dict.get("mac", None):
+                if unmatch_dict["mac"]:
+                    unmatch_dict["mac"] = str(
+                        EUI(unmatch_dict["mac"])).replace("-", ":")
+            self.check_obj("server", match_dict, unmatch_dict)
+            self._delete_row(server_table,
+                             match_dict, unmatch_dict)
         except Exception as e:
             raise e
     # End of delete_server
 
-    def delete_server_tag(self, match_key, match_value):
+    def delete_server_tag(self, match_dict=None, unmatch_dict=None):
         try:
-            self._delete_row(server_tags_table, match_key, match_value)
+            self._delete_row(server_tags_table, match_dict, unmatch_dict)
         except Exception as e:
             raise e
     # End of delete_server_tag
 
-    def delete_image(self, image_id):
+    def delete_image(self, match_dict=None, unmatch_dict=None):
         try:
-            self._delete_row(image_table, "image_id", image_id)
+            self.check_obj("image", match_dict, unmatch_dict)
+            self._delete_row(image_table, match_dict, unmatch_dict)
         except Exception as e:
             raise e
     # End of delete_image
@@ -416,8 +461,9 @@ class ServerMgrDb:
             vns_id = vns_data.get('vns_id', None)
             if not vns_id:
                 raise Exception("No vns id specified")
-            self.check_obj("vns", "vns_id", vns_id)
-            db_vns = self.get_vns(vns_id, detail=True)
+            self.check_obj("vns", {"vns_id" : vns_id})
+            db_vns = self.get_vns(
+                {"vns_id" : vns_id}, detail=True)
             if not db_vns:
                 msg = "%s is not valid" % vns_id
                 raise ServerMgrException(msg)
@@ -443,8 +489,9 @@ class ServerMgrDb:
             email = vns_data.pop("email", None)
             if email is not None:
                 vns_data['email'] = str(email)
-            self._modify_row(vns_table, vns_data,
-                             'vns_id', vns_id)
+            self._modify_row(
+                vns_table, vns_data,
+                {'vns_id' : vns_id}, {})
         except Exception as e:
             raise e
     # End of modify_vns
@@ -455,8 +502,9 @@ class ServerMgrDb:
             if not image_id:
                 raise Exception("No image id specified")
             #Reject if non mutable field changes
-            db_image = self.get_image('image_id', image_data['image_id'],
-                                                    detail=True)
+            db_image = self.get_image(
+                {'image_id' : image_data['image_id']},
+                detail=True)
             if image_data['image_path'] != db_image[0]['image_path']:
                 raise ServerMgrException('Image path cannnot be modified')
             if image_data['image_type'] != db_image[0]['image_type']:
@@ -465,8 +513,9 @@ class ServerMgrDb:
             image_params = image_data.pop("image_params", None)
             if image_params is not None:
                 image_data['image_params'] = str(image_params)
-            self._modify_row(image_table, image_data,
-                             'image_id', image_id)
+            self._modify_row(
+                image_table, image_data,
+                {'image_id' : image_id}, {})
         except Exception as e:
             raise e
     # End of modify_image
@@ -474,15 +523,17 @@ class ServerMgrDb:
     def modify_server(self, server_data):
         db_server = None
         if 'server_id' in server_data.keys():
-            db_server = self.get_server('server_id', server_data['server_id'],
-                                                    detail=True)
+            db_server = self.get_server(
+                {'server_id': server_data['server_id']},
+                detail=True)
         elif 'mac' in server_data.keys():
-            db_server = self.get_server('mac', server_data['mac'],
-                                                    detail=True)
+            db_server = self.get_server(
+                {'mac' : server_data['mac']},
+                detail=True)
         try:
             vns_id = server_data.get('vns_id', None)
             if vns_id:
-                self.check_obj("vns", "vns_id", vns_id)
+                self.check_obj("vns", {"vns_id" : vns_id})
 
             if 'mac' in server_data:
                 server_data['mac'] = str(
@@ -497,8 +548,8 @@ class ServerMgrDb:
             #Check if object exists
             if 'server_id' in server_data.keys() and \
                     'server_mac' in server_data.keys():
-                self.check_obj('server', 'server_id',
-                                        server_data['server_id'])
+                self.check_obj('server',
+                               {'server_id' : server_data['server_id']})
                 #Reject if primary key values change
                 if server_data['mac'] != db_server[0]['mac']:
                     raise ServerMgrException('MAC address cannnot be modified')
@@ -544,8 +595,9 @@ class ServerMgrDb:
             email = server_data.pop("email", None)
             if email is not None:
                 server_data['email'] = str(email)
-            self._modify_row(server_table, server_data,
-                             'mac', server_mac)
+            self._modify_row(
+                server_table, server_data,
+                {'mac' : server_mac}, {})
         except Exception as e:
             raise e
     # End of modify_server
@@ -561,29 +613,29 @@ class ServerMgrDb:
                     'value' : value }
                 self._modify_row(
                     server_tags_table, row_data,
-                    'tag_id', key)
+                    {'tag_id' : key}, {})
         except Exception as e:
             raise e
     # End of modify_server_tags
 
-    def get_image(self, match_key=None, match_value=None,
+    def get_image(self, match_dict=None, unmatch_dict=None,
                   detail=False):
         try:
             images = self._get_items(
-                image_table, match_key,
-                match_value, detail, ["image_id"])
+                image_table, match_dict,
+                unmatch_dict, detail, ["image_id"])
         except Exception as e:
             raise e
         return images
     # End of get_image
 
-    def get_server_tags(self, match_key=None, match_value=None,
+    def get_server_tags(self, match_dict=None, unmatch_dict=None,
                   detail=False):
         try:
             tag_dict = {}
             tags = self._get_items(
-                server_tags_table, match_key,
-                match_value, detail, ["tag_id"])
+                server_tags_table, match_dict,
+                unmatch_dict, detail, ["tag_id"])
             for tag in tags:
                 tag_dict[tag['tag_id']] = tag['value']
         except Exception as e:
@@ -595,8 +647,8 @@ class ServerMgrDb:
                   detail=False):
         try:
             status = self._get_items(
-                server_status_table, match_key,
-                match_value, detail, ["server_id"])
+                server_status_table, {match_key : match_value},
+                detail=detail, always_field=["server_id"])
         except Exception as e:
             raise e
         return status
@@ -608,10 +660,12 @@ class ServerMgrDb:
             if not server_id:
                 raise Exception("No server id specified")
             # Store vns_params dictionary as a text field
-            servers = self._get_items(server_status_table, "server_id", server_id, True)
+            servers = self._get_items(
+                server_status_table, {"server_id" : server_id},detail=True)
             if servers:
-                self._modify_row(server_status_table, server_data,
-                             'server_id', server_id)
+                self._modify_row(
+                    server_status_table, server_data,
+                    {'server_id' : server_id}, {})
             else:
                 self._add_row(server_status_table, server_data)
         except Exception as e:
@@ -619,26 +673,29 @@ class ServerMgrDb:
     # End of put_status
 
 
-    def get_server(self, match_key=None, match_value=None,
+    def get_server(self, match_dict=None, unmatch_dict=None,
                    detail=False):
         try:
-            if ((match_key) and (match_key.lower() == "mac")):
-                if match_value:
-                    match_value = str(EUI(match_value)).replace("-", ":")
+            if match_dict and match_dict.get("mac", None):
+                if match_dict["mac"]:
+                    match_dict["mac"] = str(
+                        EUI(match_dict["mac"])).replace("-", ":")
+            # For server table, when detail is false, return server_id, mac
+            # and ip.
             servers = self._get_items(
-                server_table, match_key,
-                match_value, detail, ["server_id", "mac"])
+                server_table, match_dict,
+                unmatch_dict, detail, ["server_id", "mac", "ip"])
         except Exception as e:
             raise e
         return servers
     # End of get_server
 
-    def get_vns(self, vns_id=None,
-                    detail=False):
+    def get_vns(self, match_dict=None,
+                unmatch_dict=None, detail=False):
         try:
             vns = self._get_items(
-                vns_table, "vns_id",
-                vns_id, detail, ["vns_id"])
+                vns_table, match_dict,
+                unmatch_dict, detail, ["vns_id"])
         except Exception as e:
             raise e
         return vns
