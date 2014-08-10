@@ -464,11 +464,11 @@ class VncServerManager():
                 raise ServerMgrException(msg)
             """
         if 'roles' in data:
-            if 'storage' in data['roles'] and 'compute' not in data['roles']:
-                msg = "role 'storage' needs role 'compute' in provision file"
+            if 'storage-compute' in data['roles'] and 'compute' not in data['roles']:
+                msg = "role 'storage-compute' needs role 'compute' in provision file"
                 raise ServerMgrException(msg)
-            elif 'storage-mgr' in data['roles'] and 'openstack' not in data['roles']:
-                msg = "role 'storage-mgr' needs role 'openstack' in provision file"
+            elif 'storage-master' in data['roles'] and 'openstack' not in data['roles']:
+                msg = "role 'storage-master' needs role 'openstack' in provision file"
                 raise ServerMgrException(msg)
         return ret_data
 
@@ -548,7 +548,7 @@ class VncServerManager():
                 "control", "collector", "webui", "compute" ]
         roles_set = set(role_list)
 
-        optional_role_list = ["storage", "storage-mgr"]
+        optional_role_list = ["storage-compute", "storage-master"]
         optional_role_set = set(optional_role_list)
 
         vns_role_list = []
@@ -592,7 +592,7 @@ class VncServerManager():
         if req_provision_params is not None:
             role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute", "zookeeper", "storage", "storage-mgr"]
+                "control", "collector", "webui", "compute", "zookeeper", "storage-compute", "storage-master"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
@@ -1019,7 +1019,7 @@ class VncServerManager():
                         (image_type == "contrail-ubuntu-package") ):
                         subprocess.call(
                             ["cp", "-f", dest,
-                             self._args.html_root_dir + "contrail/images"])
+                             self._args.html_root_dir + "contrail/images/"])
                         puppet_manifest_version = self._create_repo(
                             image_id, image_type, image_version, dest)
                         image_params['puppet_manifest_version'] = \
@@ -1027,7 +1027,7 @@ class VncServerManager():
                     elif image_type == "contrail-storage-ubuntu-package":
                         subprocess.call(
                             ["cp", "-f", dest,
-                             self._args.html_root_dir + "contrail/images"])
+                             self._args.html_root_dir + "contrail/images/"])
                         self._create_repo(
                             image_id, image_type, image_version, dest)
                     else:
@@ -1167,11 +1167,17 @@ class VncServerManager():
                 (image_type == "contrail-ubuntu-package")):
                 subprocess.call(
                     ["cp", "-f", dest,
-                     self._args.html_root_dir + "contrail/images"])
+                     self._args.html_root_dir + "contrail/images/"])
                 puppet_manifest_version = self._create_repo(
                     image_id, image_type, image_version, dest)
                 image_params['puppet_manifest_version'] = \
-                    puppet_manifest_version 
+                    puppet_manifest_version
+            elif image_type == "contrail-storage-ubuntu-package":
+                subprocess.call(
+                    ["cp", "-f", dest,
+                     self._args.html_root_dir + "contrail/images/"])
+                self._create_repo(
+                    image_id, image_type, image_version, dest)
             else:
                 self._add_image_to_cobbler(image_id, image_type,
                                            image_version, dest)
@@ -1217,12 +1223,21 @@ class VncServerManager():
             # This contrail puppet modules version does not exist. Add it.
             cmd = ("cp -rf ./contrail/* " + target_dir)
             subprocess.call(cmd, shell=True)
-            cmd = ("cp -rf ./inifile/* " + "/etc/puppet/modules/inifile")
-            subprocess.call(cmd, shell=True)
-            cmd = ("cp -rf ./ceph/* " + "/etc/puppet/modules/ceph")
-            subprocess.call(cmd, shell=True)
-            cmd = ("cp -rf ./stdlib/* " + "/etc/puppet/modules/stdlib")
-            subprocess.call(cmd, shell=True)
+            if os.path.isdir("./inifile"):
+                cmd = ("cp -rf ./inifile/* " + "/etc/puppet/modules/inifile")
+                subprocess.call(cmd, shell=True)
+            else:
+                self._smgr_log.log(self._smgr_log.ERROR, "directory inifile not in source tar ball - not copied")
+            if os.path.isdir("./ceph"):
+                cmd = ("cp -rf ./ceph/* " + "/etc/puppet/modules/ceph")
+                subprocess.call(cmd, shell=True)
+            else:
+                self._smgr_log.log(self._smgr_log.ERROR, "directory ceph not in source tar ball - not copied")
+            if os.path.isdir("./stdlib"):
+                cmd = ("cp -rf ./stdlib/* " + "/etc/puppet/modules/stdlib")
+                subprocess.call(cmd, shell=True)
+            else:
+                self._smgr_log.log(self._smgr_log.ERROR, "directory stdlib not in source tar ball - not copied")
             # Replace the class names in .pp files to have the version number
             # of this contrail modules.
             filelist = target_dir + "/manifests/*.pp"
@@ -1609,10 +1624,12 @@ class VncServerManager():
                         msg)
             image = images[0]
             if ((image['image_type'] == 'contrail-ubuntu-package') or
-                (image['image_type'] == 'contrail-centos-package')):
+                (image['image_type'] == 'contrail-centos-package') or
+                (image['image_type'] == 'contrail-storage-ubuntu-package')):
                 ext_dir = {
                     "contrail-ubuntu-package" : ".deb",
-                    "contrail-centos-package": ".rpm" }
+                    "contrail-centos-package": ".rpm",
+                    "contrail-storage-ubuntu-package": ".deb"}
                 # remove the file
                 os.remove(self._args.smgr_base_dir + 'images/' +
                           image_id + ext_dir[image['image_type']])
@@ -1655,7 +1672,7 @@ class VncServerManager():
             abort(404, repr(e))
         self._smgr_trans_log.log(bottle.request,
                                     self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE)
-        return "Server Deleted"
+        return "Image Deleted"
     # End of delete_image
 
     # API to modify parameters for a server. User can modify IP, MAC, cluster
@@ -2075,7 +2092,7 @@ class VncServerManager():
     # puppet manifest file for the server and adds it to site
     # manifest file.
     def provision_server(self):
-        package_type_list = ["contrail-ubuntu-package", "contrail-centos-package"]
+        package_type_list = ["contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]
         self._smgr_log.log(self._smgr_log.DEBUG, "provision_server")
         try:
             entity = bottle.request.json
@@ -2096,12 +2113,14 @@ class VncServerManager():
 
             # Calculate the total number of disks in the vns
             total_osd = int(0)
-
+            num_storage_hosts = int(0)
             for server in servers:
                 server_params = eval(server['server_params'])
                 server_roles = eval(server['roles'])
-                if 'storage' in server_roles and 'disks' in server_params:
-                    total_osd += len(server_params['disks'])
+                if 'storage-compute' in server_roles:
+                    if 'disks' in server_params and len(server_params['disks']) > 0:
+                        total_osd += len(server_params['disks'])
+                        num_storage_hosts += 1
                 else:
                     pass
 
@@ -2129,7 +2148,7 @@ class VncServerManager():
                     for role in ['database', 'openstack',
                                  'config', 'control',
                                  'collector', 'webui',
-                                 'compute', 'storage', 'storage-mgr']:
+                                 'compute', 'storage-compute', 'storage-master']:
                         role_servers[role] = self.role_get_servers(
                             vns_servers, role)
                         role_ips[role] = [x["ip"] for x in role_servers[role]]
@@ -2268,10 +2287,11 @@ class VncServerManager():
 
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
+                provision_params['num_storage_hosts'] = num_storage_hosts
                 provision_params['storage_fsid'] = vns_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = vns_params['storage_virsh_uuid']
-                if len(role_servers['storage']):
-                    if len(role_servers['storage-mgr']) == 0:
+                if len(role_servers['storage-compute']):
+                    if len(role_servers['storage-master']) == 0:
                         msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
                         raise ServerMgrException(msg)
                     if 'storage_mon_secret' in vns_params.keys():
@@ -2303,25 +2323,38 @@ class VncServerManager():
                         provision_params['storage_server_disks'].extend(server_params['disks'])
 
                 storage_mon_host_ip_set = set()
-                for x in role_servers['storage']:
+                for x in role_servers['storage-compute']:
                     storage_mon_host_ip_set.add(x["ip"])
-                for x in role_servers['storage-mgr']:
+                for x in role_servers['storage-master']:
                     storage_mon_host_ip_set.add(x["ip"])
 
                 provision_params['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
 
                 # Multiple Repo support
                 if 'storage_repo_id' in server_params.keys():
-                    provision_params['storage_repo_id'] = server_params['storage_repo_id']
+                    images = self.get_image()
+                    image_ids = dict()
+                    for image in images['image']:
+                        cur_image = self._serverDb.get_image("image_id", image['image_id'], True)
+                        image_ids[image['image_id']] = cur_image[0]['image_type']
+                    if server_params['storage_repo_id'] in image_ids:
+                        if image_ids[server_params['storage_repo_id']] == 'contrail-storage-ubuntu-package':
+                            provision_params['storage_repo_id'] = server_params['storage_repo_id']
+                        else:
+                            msg = "Storage repo id specified doesn't match a contrail storage package"
+                            raise ServerMgrException(msg)
+                    else:
+                        msg = "Storage repo id specified doesn't match any of the image ids"
+                        raise ServerMgrException(msg)
                 else:
                     provision_params['storage_repo_id'] = ""
 
                 # Storage manager restrictions
-                if len(role_servers['storage-mgr']):
-                    if len(role_servers['storage-mgr']) > 1:
-                        msg = "There can only be only one node with the role 'storage-mgr'"
+                if len(role_servers['storage-master']):
+                    if len(role_servers['storage-master']) > 1:
+                        msg = "There can only be only one node with the role 'storage-master'"
                         raise ServerMgrException(msg)
-                    elif len(role_servers['storage']) == 0:
+                    elif len(role_servers['storage-compute']) == 0:
                         msg = "Storage manager node needs Storage nodes to also be provisioned"
                         raise ServerMgrException(msg)
                     else:
