@@ -56,6 +56,9 @@ def parse_arguments(args_str=None):
                         help=("server id for the server to be reimaged"))
     group.add_argument("--cluster_id",
                         help=("cluster id for the server(s) to be reimaged"))
+    group.add_argument("--tag",
+                        help=("tag values for the servers to be reimaged"
+                              "in t1=v1,t2=v2,... format"))
     args = parser.parse_args(args_str)
     return args
 # end parse arguments
@@ -105,6 +108,9 @@ def reimage_server(args_str=None):
     elif args.cluster_id:
         match_key='cluster_id'
         match_value = args.cluster_id
+    elif args.tag:
+        match_key='tag'
+        match_value = args.tag
     else:
         pass
     

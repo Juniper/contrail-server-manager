@@ -50,6 +50,8 @@ def parse_arguments(args_str=None):
                         help=("server id for the server to be provisioned"))
     group.add_argument("--cluster_id",
                         help=("cluster id for the server(s) to be provisioned"))
+    group.add_argument("--tag",
+                        help=("tag values for the servers to be provisioned"
     group.add_argument("--provision_params_file", "-f", 
                         help=("Optional json file containing parameters "
                              " for provisioning server"))
@@ -131,6 +133,9 @@ def provision_server(args_str=None):
     elif args.cluster_id:
         match_key='cluster_id'
         match_value = args.cluster_id
+    elif args.tag:
+        match_key='tag'
+        match_value = args.tag
     elif args.interactive:
        provision_params = get_provision_params()
     elif args.provision_params_file:
