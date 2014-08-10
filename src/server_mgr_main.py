@@ -103,6 +103,7 @@ class VncServerManager():
     _tags_list = ['tag1', 'tag2', 'tag3', 'tag4',
                   'tag5', 'tag6', 'tag7']
     _tags_dict = {}
+    _rev_tags_dict = {}
 
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
@@ -145,6 +146,7 @@ class VncServerManager():
                     exit()
                 if value:
                     self._tags_dict[key] = value
+                    self._rev_tags_dict[value] = key
         # end if os.path.isfile()
 
         # Connect to the cluster-servers database
@@ -397,6 +399,9 @@ class VncServerManager():
             match_key, match_value = query_args.popitem()
             match_keys_str = validation_data['match_keys']
             match_keys = eval(match_keys_str)
+            # TBD - Append "discovered" as one of the values, though
+            # its not part of server table fields.
+            match_keys.append("discovered")
             if (match_key not in match_keys):
                 raise ServerMgrException("Match Key not present")
             if match_value == None or match_value[0] == '':
@@ -689,15 +694,20 @@ class VncServerManager():
                 match_key, match_value = entity.popitem()
                 # check that match key is a valid one
                 if (match_key not in (
-                    "id", "mac_address", "cluster_id")):
+                    "id", "mac_address", "cluster_id", "tag")):
                     msg = "Invalid Query arguments"
                     raise ServerMgrException(msg)
             else:
                 msg = "No servers specified"
                 raise ServerMgrException(msg)
             # end else
+            match_dict = {}
+            if match_key == "tag":
+                match_dict = self._process_server_tags(match_value)
+            elif match_key:
+                match_dict[match_key] = match_value
             servers = self._serverDb.get_server(
-                {match_key : match_value}, detail=True)
+                match_dict, detail=True)
             if len(servers) == 0:
                 msg = "No servers found for %s" % \
                             (match_value)
@@ -728,7 +738,8 @@ class VncServerManager():
         elif len(entity) == 1:
             match_key, match_value = entity.popitem()
             # check that match key is a valid one
-            if (match_key not in ("server_id", "mac_address", "cluster_id")):
+            if (match_key not in ("server_id", "mac_address",
+                                  "tag", "cluster_id")):
                 msg = "Invalid Query arguments"
                 raise ServerMgrException(msg)
         else:
@@ -767,7 +778,8 @@ class VncServerManager():
         elif len(entity) == 1:
             match_key, match_value = entity.popitem()
             # check that match key is a valid one
-            if (match_key not in ("id", "mac_address", "cluster_id")):
+            if (match_key not in ("id", "mac_address",
+                                  "tag","cluster_id")):
                 msg = "Invalid Query arguments"
                 raise ServerMgrException(msg)
         else:
@@ -812,6 +824,22 @@ class VncServerManager():
         elif oper == "REIMAGE":
             return self.validate_smgr_reimage(validation_data, request, data)
 
+    # This function converts the string of tags received in REST call and make
+    # a dictionary of tag keys that can be passed to match servers from DB.
+    # The match_value (tags received are in form tag1=value,tag2=value etc.
+    # This function maps the tag name to tag number and value and makes
+    # a dictionary of those.
+    def _process_server_tags(self, match_value):
+        if not match_value:
+            return {}
+        match_dict = {}
+        tag_list = match_value.split(',')
+        for x in tag_list:
+            tag = x.strip().split('=')
+            if tag[0] in self._rev_tags_dict:
+                match_dict[self._rev_tags_dict[tag[0]]] = tag[1]
+        return match_dict
+    # end _process_server_tags
 
     # This call returns information about a provided server. If no server
     # if provided, information about all the servers in server manager
@@ -826,7 +854,11 @@ class VncServerManager():
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
                 match_dict = {}
-                if match_key:
+                if match_key == "tag":
+                    match_dict = self._process_server_tags(match_value)
+                elif match_key == "discovered":
+                    match_dict["disc_flag"] = match_value
+                elif match_key:
                     match_dict[match_key] = match_value
                 detail = ret_data["detail"]
                 servers = self._serverDb.get_server(
@@ -1057,9 +1089,8 @@ class VncServerManager():
         tags = server.get("tag", None)
         if tags is None:
             return
-        tag_values = [value for value in self._tags_dict.itervalues()]
         for key in tags.iterkeys():
-            if key not in tag_values:
+            if key not in self._rev_tags_dict:
                 msg = "Invalid tag %s in server entry" %(
                     key)
                 raise ServerMgrException(msg)
@@ -1136,8 +1167,10 @@ class VncServerManager():
             for key, value in entity.iteritems():
                 if value:
                     self._tags_dict[key] = value
+                    self._rev_tags_dict[value] = key
                 else:
-                    self._tags_dict.pop(key, None)
+                    current_value = self._tags_dict.pop(key, None)
+                    self._rev_tags_dict.pop(current_value, None)
             # Now write to ini file
             tags_config = ConfigParser.SafeConfigParser()
             tags_config.add_section('TAGS')
@@ -1560,7 +1593,9 @@ class VncServerManager():
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
                 match_dict = {}
-                if match_key:
+                if match_key == "tag":
+                    match_dict = self._process_server_tags(match_value)
+                elif match_key:
                     match_dict[match_key] = match_value
 
             servers = self._serverDb.get_server(
@@ -1699,7 +1734,9 @@ class VncServerManager():
                 match_key = ret_data['match_key']
                 match_value = ret_data['match_value']
                 match_dict = {}
-                if match_key:
+                if match_key == "tag":
+                    match_dict = self._process_server_tags(match_value)
+                elif match_key:
                     match_dict[match_key] = match_value
                 do_reboot = ret_data['do_reboot']
             reboot_server_list = []
@@ -1856,7 +1893,9 @@ class VncServerManager():
                 match_key = ret_data['match_key']
                 match_value = ret_data['match_value']
                 match_dict = {}
-                if match_key:
+                if match_key == "tag":
+                    match_dict = self._process_server_tags(match_value)
+                elif match_key:
                     match_dict[match_key] = match_value
             reboot_server_list = []
             # if the key is server_id, server_table server key is 'id'

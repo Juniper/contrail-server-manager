@@ -55,9 +55,6 @@ def parse_arguments():
     group.add_argument("--discovered",
                         help=("flag to get list of "
                               "newly discovered server(s)"))
-    group.add_argument("--configured",
-                        help=("flag to get list of "
-                              "configured server(s)"))
     parser_server.add_argument(
         "--detail", "-d", action='store_true',
         help="Flag to indicate if details are requested")
@@ -140,10 +137,7 @@ def show_server(args):
         rest_api_params['match_value'] = args.cluster_id
     elif args.discovered:
         rest_api_params['match_key'] = 'discovered'
-        rest_api_params['match_value'] = 'true'
-    elif args.configured:
-        rest_api_params['match_key'] = 'configured'
-        rest_api_params['match_value'] = 'true'
+        rest_api_params['match_value'] = args.discovered
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None

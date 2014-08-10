@@ -81,7 +81,7 @@ class ServerMgrDb:
                          ip_address TEXT, subnet_mask TEXT, gateway TEXT, domain TEXT,
                          cluster_id TEXT,  base_image_id TEXT,
                          package_image_id TEXT, password TEXT,
-                         last_update TEXT, discovered varchar default 'N',
+                         last_update TEXT, discovered varchar default 'false',
                          parameters TEXT, roles TEXT, power_username TEXT,
                          power_password TEXT, power_address TEXT,
                          power_type TEXT, intf_control TEXT,
@@ -371,7 +371,7 @@ class ServerMgrDb:
                         server_table, entity,
                         {"mac_address": mac_address}, {})
                     return
-                entity['discovered'] = "Y"
+                entity['discovered'] = "true"
                 self._add_row(server_table, entity)
             elif action.lower() == "delete":
                 servers = self.get_server({"mac_address" : mac_address}, detail=True)
