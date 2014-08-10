@@ -39,7 +39,7 @@ update-rc.d contrail-server-manager defaults
 sed -i "s/authn_denyall/authn_testing/g" /etc/cobbler/modules.conf
 sed -i "s/authn_configfile/authn_testing/g" /etc/cobbler/modules.conf
 
-sed -i "s/127.0.0.1/$HOST_IP/g" /opt/contrail/server_manager/smgr_config.ini
+sed -i "s/127.0.0.1/$HOST_IP/g" /opt/contrail/server_manager/sm-config.ini
 
 service apache2 restart
 service xinetd restart
