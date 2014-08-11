@@ -111,7 +111,7 @@ service sendmail restart
 
 sed -i "s/10.84.51.11/$HOST_IP/" /etc/cobbler/settings
 /sbin/chkconfig --add contrail-server-manager
-sed -i "s/authn_denyall/authn_testing/g" /etc/cobbler/modules.conf
+sed -i "s/module = authn_.*/module = authn_configfile/g" /etc/cobbler/modules.conf
 sed -i "s/127.0.0.1/$HOST_IP/g" /opt/contrail/server_manager/sm-config.ini
 
 
