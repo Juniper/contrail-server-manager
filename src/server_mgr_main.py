@@ -1753,16 +1753,11 @@ class VncServerManager():
             reboot_server_list = []
             images = self._serverDb.get_image(
                 {"id" : base_image_id}, detail=True)
-            packages = self._serverDb.get_image(
-                {"id" : package_image_id}, detail=True)
             if len(images) == 0:
                 msg = "No Image %s found" % (base_image_id)
                 raise ServerMgrException(msg)
             if ( images[0] ['type'] not in iso_types ):
                 msg = "Image %s is not an iso" % (base_image_id)
-                raise ServerMgrException(msg)
-            if len(packages) == 0:
-                msg = "No Package %s found" % (package_image_id)
                 raise ServerMgrException(msg)
             base_image = images[0]
             servers = self._serverDb.get_server(
@@ -1775,8 +1770,8 @@ class VncServerManager():
                 server_parameters = eval(server['parameters'])
                 # build all parameters needed for re-imaging
                 if server['cluster_id']:
-                    vns = self._serverDb.get_cluster(
-                        {"cluster_id" : server['cluster_id']},
+                    cluster = self._serverDb.get_cluster(
+                        {"id" : server['cluster_id']},
                         detail=True)
                 cluster_parameters = {}
                 if cluster and cluster[0]['parameters']:
@@ -1887,8 +1882,8 @@ class VncServerManager():
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
             print 'Exception error is: %s' % e
-            abort(404, "Error in upgrading Server")
-        return "server(s) upgraded"
+            abort(404, "Error in reimaging the Server")
+        return "server(s) reimage issued"
     # end reimage_server
 
     # API call to power-cycle the server (IMPI Interface)
