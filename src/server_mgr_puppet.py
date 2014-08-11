@@ -37,7 +37,7 @@ class ServerMgrPuppet:
 
     def pupp_create_server_manifest_file(self, provision_params):
         server_manifest_file = self.puppet_directory + "manifests/" + \
-            provision_params['host_name'] + "." + \
+            provision_params['server_id'] + "." + \
             provision_params['domain'] + ".pp"
         if not os.path.exists(os.path.dirname(server_manifest_file)):
             os.makedirs(os.path.dirname(server_manifest_file))
@@ -246,7 +246,7 @@ class ServerMgrPuppet:
         if self._params_dict.get('system_name', None) is None:
             self._params_dict['system_name'] = (
                 "\"%s\"" %(
-                    provision_params["host_name"]))
+                    provision_params["server_id"]))
         # Build resource items
         data += '''    # custom type common for all roles.
     contrail_%s::contrail_common::contrail_common{contrail_common:
@@ -312,7 +312,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'system_name', None) is None:
             self._params_dict['system_name'] = (
-                "\"%s\"" %(provision_params["host_name"]))
+                "\"%s\"" %(provision_params["server_id"]))
         if self._params_dict.get(
             'contrail_config_ip', None) is None:
             self._params_dict['contrail_config_ip'] = (
@@ -340,8 +340,8 @@ class ServerMgrPuppet:
 #if provision_params['haproxy'] == 'enable':
  #           data += '''         #Source HA Proxy CFG
   #      contrail_common::haproxy-cfg{haproxy_cfg:
-   #         host_name => "%s"}\n\n
-#''' % (server["host_name"])
+   #         server_id => "%s"}\n\n
+#''' % (server["server_id"])
 
 
         if (provision_params['openstack_mgmt_ip'] == ''):
@@ -513,7 +513,7 @@ $__contrail_disc_backend_servers__
              '__contrail_hap_passwd__': 'contrail123',
              })
 
-        ha_proxy_cfg = staging_dir + provision_params['host_name'] + ".cfg"
+        ha_proxy_cfg = staging_dir + provision_params['server_id'] + ".cfg"
         shutil.copy2(smgr_dir + "haproxy.cfg", ha_proxy_cfg)
         cfg_file = open(ha_proxy_cfg, 'a')
         cfg_file.write(haproxy_config)
@@ -571,7 +571,7 @@ $__contrail_disc_backend_servers__
             compute_server = provision_params['roles']['compute'][0]
         compute_server_control= self.get_control_ip(provision_params,compute_server)
 
-        control_host_name_lst = ['"%s"' %(x) for x in \
+        control_server_id_lst = ['"%s"' %(x) for x in \
             provision_params['role_ids']['control']]
 
         config_servers = provision_params['roles']['config']
@@ -682,7 +682,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_control_name_list', None) is None:
             self._params_dict['contrail_control_name_list'] = (
-                "[%s]" %(','.join(control_host_name_lst)))
+                "[%s]" %(','.join(control_server_id_lst)))
         if self._params_dict.get(
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
@@ -860,7 +860,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'hostname', None) is None:
             self._params_dict['hostname'] = (
-                "\"%s\"" %(provision_params["host_name"]))
+                "\"%s\"" %(provision_params["server_id"]))
         if self._params_dict.get(
             'host_ip', None) is None:
             self._params_dict['host_ip'] = (
@@ -1151,7 +1151,7 @@ $__contrail_glance_apis__
             '__contrail_qpid_stanza__': '',
             })
 
-        ha_proxy_cfg = staging_dir + provision_params['host_name'] + ".cfg"
+        ha_proxy_cfg = staging_dir + provision_params['server_id'] + ".cfg"
 
         shutil.copy2(smgr_dir + "haproxy.cfg", ha_proxy_cfg)
         cfg_file = open(ha_proxy_cfg, 'a')
@@ -1222,7 +1222,7 @@ $__contrail_quantum_servers__
                 '__contrail_quantum_stanza__': q_stanza,
                 })
 
-            ha_proxy_cfg = staging_dir + provision_params['host_name'] + ".cfg"
+            ha_proxy_cfg = staging_dir + provision_params['server_id'] + ".cfg"
 
             shutil.copy2(smgr_dir + "haproxy.cfg", ha_proxy_cfg)
             cfg_file = open(ha_proxy_cfg, 'a')
@@ -1308,8 +1308,8 @@ $__contrail_quantum_servers__
 #	if provision_params['haproxy'] == 'enable':
 #            data += '''         #Source HA Proxy CFG
 #        contrail-common::haproxy-cfg{haproxy_cfg:
-#            host_name => "%s"}\n\n
-#''' % (server["host_name"])
+#            server_id => "%s"}\n\n
+#''' % (server["server_id"])
         # Build Params items
         if self._params_dict.get(
             'contrail_config_ip', None) is None:
@@ -1318,7 +1318,7 @@ $__contrail_quantum_servers__
         if self._params_dict.get(
             'contrail_compute_hostname', None) is None:
             self._params_dict['contrail_compute_hostname'] = (
-                "\"%s\"" %(provision_params["host_name"]))
+                "\"%s\"" %(provision_params["server_id"]))
         if self._params_dict.get(
             'contrail_compute_ip', None) is None:
             self._params_dict['contrail_compute_ip'] = (
@@ -1516,7 +1516,7 @@ $__contrail_quantum_servers__
         # variables list
         self._params_dict.clear()
         data = '''node '%s.%s' {\n''' % (
-            provision_params["host_name"],
+            provision_params["server_id"],
             provision_params["domain"])
         if provision_params['setup_interface'] == "Yes":
             data += self.create_interface(provision_params)
