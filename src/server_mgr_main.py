@@ -2074,7 +2074,8 @@ class VncServerManager():
                 else:
                     pass
 
-            packages = self._serverDb.get_image("id", package_image_id, True)
+            packages = self._serverDb.get_image(
+                {"id" : package_image_id}, detail=True)
             if len(packages) == 0:
                 msg = "No Package %s found" % (package_image_id)
                 raise ServerMgrException(msg)
