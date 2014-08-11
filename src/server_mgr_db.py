@@ -305,7 +305,8 @@ class ServerMgrDb:
             roles = server_data.pop("roles", None)
             cluster_id = server_data.get('cluster_id', None)
             if cluster_id:
-                self.check_obj("cluster", "id", cluster_id)
+                self.check_obj(
+                    "cluster", {"id" : cluster_id})
             if roles is not None:
                 server_data['roles'] = str(roles)
             intf_control = server_data.pop("control_data_network", None)
@@ -556,8 +557,6 @@ class ServerMgrDb:
             #Check if object exists
             if 'id' in server_data.keys() and \
                     'server_mac' in server_data.keys():
-                self.check_obj('server', 'id',
-                                        server_data['id'])
                 self.check_obj('server',
                                {'id' : server_data['id']})
                 #Reject if primary key values change
