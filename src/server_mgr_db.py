@@ -636,12 +636,12 @@ class ServerMgrDb:
     # End of get_image
 
     def get_server_tags(self, match_dict=None, unmatch_dict=None,
-                  detail=False):
+                  detail=True):
         try:
             tag_dict = {}
             tags = self._get_items(
                 server_tags_table, match_dict,
-                unmatch_dict, detail, ["tag_id"])
+                unmatch_dict, True, ["tag_id"])
             for tag in tags:
                 tag_dict[tag['tag_id']] = tag['value']
         except Exception as e:

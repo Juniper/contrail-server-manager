@@ -298,7 +298,8 @@ class VncServerManager():
             config['cluster'] = self._serverDb.get_cluster(detail=detail)
             config['server'] = self._serverDb.get_server(detail=detail)
             config['image'] = self._serverDb.get_image(detail=detail)
-            config['tag'] = self._serverDb.get_server_tags(detail=detail)
+            # always call get_server_tags with detail=True
+            config['tag'] = self._serverDb.get_server_tags(detail=True)
         except Exception as e:
             self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_ALL,
                                      False)
