@@ -13,6 +13,7 @@ mkdir -p /var/www/html
 mkdir -p /var/www/html/kickstarts
 cp -r /etc/contrail/kickstarts /var/www/html/
 mkdir -p /var/www/html/contrail
+mkdir -p /var/www/html/thirdparty_packages
 
 cp -u /etc/puppet/puppet_init_rd /var/www/cobbler/aux/puppet
 easy_install argparse

@@ -1644,7 +1644,7 @@ class VncServerManager():
                 msg = "Image Id not specified"
                 raise ServerMgrException(msg)
             image_dict = {"id" : image_id}
-            images = self._serverDb.get_image(image_dict, True)
+            images = self._serverDb.get_image(image_dict, detail=True)
             if not images:
                 msg = "Image %s doesn't exist" % (image_id)
                 raise ServerMgrException(msg)
