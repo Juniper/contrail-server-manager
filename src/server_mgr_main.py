@@ -49,7 +49,7 @@ _WEB_PORT = 9001
 _DEF_CFG_DB = 'cluster_server_mgr.db'
 _DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
 _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
-_SERVER_TAGS_FILE = _DEF_SMGR_BASE_DIR + '.tags.ini'
+_SERVER_TAGS_FILE = _DEF_SMGR_BASE_DIR + 'tags.ini'
 _DEF_HTML_ROOT_DIR = '/var/www/html/'
 _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = None
@@ -857,8 +857,6 @@ class VncServerManager():
                 match_dict = {}
                 if match_key == "tag":
                     match_dict = self._process_server_tags(match_value)
-                elif match_key == "discovered":
-                    match_dict["disc_flag"] = match_value
                 elif match_key:
                     match_dict[match_key] = match_value
                 detail = ret_data["detail"]

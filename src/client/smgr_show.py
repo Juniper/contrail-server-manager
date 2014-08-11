@@ -68,7 +68,7 @@ def parse_arguments():
         "cluster", help='Show cluster')
     parser_cluster.add_argument("--cluster_id",
                         help=("cluster id for cluster"))
-    parser_image.add_argument(
+    parser_cluster.add_argument(
         "--detail", "-d", action='store_true',
         help="Flag to indicate if details are requested")
     parser_cluster.set_defaults(func=show_cluster)

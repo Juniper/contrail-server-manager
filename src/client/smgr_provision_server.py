@@ -51,7 +51,7 @@ def parse_arguments(args_str=None):
     group.add_argument("--cluster_id",
                         help=("cluster id for the server(s) to be provisioned"))
     group.add_argument("--tag",
-                        help=("tag values for the servers to be provisioned"
+                        help=("tag values for the servers to be provisioned"))
     group.add_argument("--provision_params_file", "-f", 
                         help=("Optional json file containing parameters "
                              " for provisioning server"))
