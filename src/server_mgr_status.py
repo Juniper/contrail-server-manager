@@ -119,7 +119,7 @@ class ServerMgrStatusThread(threading.Thread):
             if 'cluster_id' in server and server['cluster_id']:
                 cluster_id = server['cluster_id']
                 cluster = self._status_serverDb.get_cluster(
-                    {"id" : cluster_id}, True)
+                    {"id" : cluster_id}, detail=True)
                 if cluster and 'email' in cluster[0] and cluster[0]['email']:
                         email_to = self.get_email_list(cluster[0]['email'])
                 else:
