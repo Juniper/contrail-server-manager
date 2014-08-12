@@ -989,9 +989,17 @@ class VncServerManager():
 
 
     def get_status(self):
-        server_id = bottle.request.query['server_id']
+        match_key = match_value = None
+        match_dict = None
+        if 'id' in bottle.request.query:
+            server_id = bottle.request.query['id']
+            match_key = 'id'
+            match_value = server_id
+            match_dict[match_key] = match_value
+
         servers = self._serverDb.get_status(
-            {'id' : server_id}, detail=True)
+                    match_dict, detail=True)
+
         if servers:
             return servers[0]
         else:
