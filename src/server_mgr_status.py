@@ -129,7 +129,8 @@ class ServerMgrStatusThread(threading.Thread):
             else:
                 self._smgr_log.log(self._smgr_log.DEBUG, "server not associated with a cluster")
                 return 0
-        send_mail(event, message, '', email_to, self._smgr_cobbler._cobbler_ip, '25')
+        send_mail(event, message, '', email_to,
+                                    self._status_thread_config['listen_ip'], '25')
         msg = "An email is sent to " + ','.join(email_to) + " with content " + message
         self._smgr_log.log(self._smgr_log.DEBUG, msg)
     # send_status_mail
