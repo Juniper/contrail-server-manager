@@ -2211,7 +2211,13 @@ class VncServerManager():
                 provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
                 provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
                 provision_params['phy_interface'] = server_params['interface_name']
-                provision_params['server_gway'] = server['gateway']
+                if 'gateway' in server and server['gateway']:
+                    provision_params['server_gway'] = server['gateway']
+                elif 'gateway' in cluster_params and cluster_params['gateway']:
+                    provision_params['server_gway'] = cluster_params['gateway']
+                else:
+                    provision_params['server_gway'] = ''
+
                 provision_params['haproxy'] = cluster_params['haproxy']
 
                 if 'setup_interface' in server_params.keys():
