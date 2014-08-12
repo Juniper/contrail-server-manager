@@ -61,17 +61,17 @@ object_dict = {
             ("interface_name", "Ethernet Interface name"),
             ("disks", "Storage OSDs (default none)")])),
         ("cluster_id", "cluster id the server belongs to"),
-        ("tag1", "tag value for tag1 for server (used for grouping"),
-        ("tag2", "tag value for tag2 for server (used for grouping"),
-        ("tag3", "tag value for tag3 for server (used for grouping"),
-        ("tag4", "tag value for tag4 for server (used for grouping"),
-        ("tag5", "tag value for tag5 for server (used for grouping"),
-        ("tag6", "tag value for tag6 for server (used for grouping"),
-        ("tag7", "tag value for tag7 for server (used for grouping"),
-        ("subnet_mask", "subnet mask (default use value from vns table)"),
-        ("gateway", "gateway (default use value from vns table)"),
-        ("domain", "domain name (default use value from vns table)"),
-        ("password", "root password (default use value from vns table)"),
+        ("tag1", "tag value for this tag"),
+        ("tag2", "tag value for this tag"),
+        ("tag3", "tag value for this tag"),
+        ("tag4", "tag value for this tag"),
+        ("tag5", "tag value for this tag"),
+        ("tag6", "tag value for this tag"),
+        ("tag7", "tag value for this tag"),
+        ("subnet_mask", "subnet mask (default use value from cluster table)"),
+        ("gateway", "gateway (default use value from cluster table)"),
+        ("domain", "domain name (default use value from cluster table)"),
+        ("password", "root password (default use value from cluster table)"),
         ("power_password", "Power password"),
         ("power_username", "Power user"),
         ("power_address", "Power Address"),
@@ -262,6 +262,7 @@ def merge_with_defaults(object, payload, config):
 # This function is kept separate as processing is quite different from
 # other objects.
 def add_tag_payload(object):
+    payload = {}
     fields_dict = object_dict[object]
     #post a request for each object
     resp = send_REST_request(
@@ -274,7 +275,7 @@ def add_tag_payload(object):
         for key in fields_dict.iterkeys():
             value = payload.get(
                 key, '<UNDEFINED>')
-            data = str(i) + ". %s : %s\n" %(
+            data = str(i) + ". %s : %s" %(
                 key, value)
             print data
             i += 1
@@ -291,12 +292,12 @@ def add_tag_payload(object):
                 print "Invalid Index"
                 continue
             value = user_data[1]
-            if value is None:
-                payload.pop(fields_dict.keys()[index], None)
-            else:
+            if value:
                 payload[fields_dict.keys()[index]] = value
-        except ValueError:
-            print "Invalid Index"
+            else:
+                payload.pop(fields_dict.keys()[index], None)
+        except:
+            print "Invalid input <tag-index>=<tag-value>"
             continue
     # end while
     return payload
@@ -307,6 +308,14 @@ def add_tag_payload(object):
 def add_payload(object, default_object):
     payload = {}
     objects = []
+    # get current tag settings
+    resp = send_REST_request(
+        smgr_ip, smgr_port,
+        "tag", payload, None,
+        None, True, "GET" )
+    json_str = resp.replace("null", "''")
+    tag_dict = eval(json_str)
+    
     while True:
         temp_dict = {}
         fields_dict = object_dict[object]
@@ -415,18 +424,31 @@ def add_payload(object, default_object):
         #Add a new object
         else:
             obj_id = "id"
+            tag = {}
             for key in fields_dict:
                 if key == obj_id:
                     continue
                 value = fields_dict[key]
-                #non server parameters
-                if (key != ("parameters")):
+                if (key in ["tag1", "tag2", "tag3",
+                            "tag4", "tag5", "tag6",
+                            "tag7"]):
+                    msg = tag_dict.get(key, None)
+                    if not msg:
+                        continue
+                    if value:
+                        msg += " (%s) " %(value)
+                    msg += ": "
+                    default_value = default_object.get(key, "")
+                    user_input = rlinput(msg, default_value) 
+                    if user_input:
+                        tag[tag_dict[key]] = user_input
+                    temp_dict['tag'] = tag
+                elif (key != ("parameters")):
                     msg = key
                     if value:
                         msg += " (%s) " %(value)
                     msg += ": "
                     default_value = default_object.get(key, "")
-                    #user_input = raw_input(msg)
                     user_input = rlinput(msg, default_value) 
                     if user_input:
                         # Special case for roles -
