@@ -400,7 +400,7 @@ class ServerMgrDb:
     def delete_cluster(self, match_dict=None, unmatch_dict=None):
         try:
             self.check_obj("cluster", match_dict, unmatch_dict)
-            cluster_id = match_dict.get("cluster_id", None)
+            cluster_id = match_dict.get("id", None)
             servers = None
             if cluster_id:
                 servers = self.get_server({'cluster_id' : cluster_id}, detail=True)
@@ -472,7 +472,7 @@ class ServerMgrDb:
                 raise Exception("No cluster id specified")
             self.check_obj("cluster", {"id" : cluster_id})
             db_cluster = self.get_cluster(
-                {"cluster_id" : cluster_id}, detail=True)
+                {"id" : cluster_id}, detail=True)
             if not db_cluster:
                 msg = "%s is not valid" % cluster_id
                 raise ServerMgrException(msg)

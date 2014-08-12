@@ -315,6 +315,7 @@ def add_payload(object, default_object):
         None, True, "GET" )
     json_str = resp.replace("null", "''")
     tag_dict = eval(json_str)
+    rev_tag_dict = dict((v,k) for k,v in tag_dict.iteritems())
     
     while True:
         temp_dict = {}
@@ -350,32 +351,44 @@ def add_payload(object, default_object):
             data = ''
             i = 0
             index_dict = {}
+            server_tags = obj.get("tag", {})
             #form the fields to be displayed with index
             for key in fields_dict:
                 value = fields_dict[key]
-                if (key != ("parameters")):
+                if (key in ["tag1", "tag2", "tag3",
+                            "tag4", "tag5", "tag6",
+                            "tag7"]):
+                    tag = tag_dict.get(key, None)
+                    if not tag:
+                        continue
+                    data += str(i)+ ". %s : %s \n" %(
+                        tag, server_tags.get(tag, ''))
+                    index_dict[i] = tag
+                    i+=1
+                elif (key != ("parameters")):
                     index_dict[i] = key
                     if key in non_mutable_fields :
                         data += str(i)+ ". %s : %s *\n" % (key, obj[key])
                     elif key == "roles":
-                        data += str(i)+ ". %s : %s \n" % (key,
-                                                    ','.join(eval(obj[key])))
+                        data += str(i)+ ". %s : %s \n" % (
+                            key, ','.join(obj[key]))
                     else:
                         data += str(i)+ ". %s : %s \n" % (key, obj[key])
                     i+=1
                 else:
-                    if obj.has_key("parameters") and obj["parameters"]:
-                        smgr_params = eval(obj["parameters"])
+                    if ("parameters" in obj) and obj["parameters"]:
+                        smgr_params = obj["parameters"].copy()
                     else:
                         smgr_params = {}
                     for param in value:
-                        data += str(i)+ ". %s : %s \n" % (param,
-                                                smgr_params.get(param, ""))
+                        data += str(i)+ ". %s : %s \n" % (
+                            param, smgr_params.get(param, ""))
                         index_dict[i] = param
                         i+=1
             #display them
             print data
             params_dict = {}
+            tags = {}
             #Prompt if users wants to modify a field in
             # the existing object or continue
             # adding a new object
@@ -385,6 +398,7 @@ def add_payload(object, default_object):
                 if user_selection.strip() == 'C':
                     #print 'send output'
                     temp_dict["parameters"] = params_dict
+                    temp_dict["tag"] = tags
                     break
 
                 else:
@@ -399,11 +413,16 @@ def add_payload(object, default_object):
      
                     key_selected = index_dict[eval(user_selection)]
                     object_params = object_dict[object] ["parameters"]
-                    if key_selected in object_params.keys():
+                    if key_selected in rev_tag_dict:
+                        msg = key_selected + ":"
+                        user_input = rlinput(msg, server_tags.get(key_selected, ''))
+                        tags[key_selected] = user_input
+                    elif key_selected in object_params.keys():
                         msg = key_selected + ":"
                         value = smgr_params.get(key_selected,"")
                         if key_selected != 'disks':
-                            user_input = rlinput(msg, default_value)
+                            user_input = rlinput(
+                                msg, smgr_params.get(key_selected, ''))
                         elif key_selected == 'disks' and 'storage' in object_dict["roles"]:
                             disks = raw_input(msg)
                             if disks:
