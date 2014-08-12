@@ -1,0 +1,10 @@
+{
+    "tag1" : "data-center",
+    "tag2" : "floor",
+    "tag3" : "room",
+    "tag4" : "pod",
+    "tag5" : "rack",
+    "tag6" : "user-defined-1",
+    "tag7" : "user-defined-2"
+}
+

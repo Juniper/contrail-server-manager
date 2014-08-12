@@ -9,9 +9,9 @@ rpm:
 	mkdir -p ~/rpmbuild/SOURCES
 	mkdir -p ~/rpmbuild/SPECS
 	mkdir -p ~/rpmbuild/SRPMS
-	cp contrail_smgr.spec ~/rpmbuild/SPECS
-	rpmbuild -bb ~/rpmbuild/SPECS/contrail_smgr.spec
-	cp ~/rpmbuild/RPMS/noarch/contrail_smgr-1.0-1.noarch.rpm ~/rpmbuild/RPMS/noarch/contrail_smgr-1.0-1_$(commit_id).noarch.rpm
+	cp contrail-server-manager.spec ~/rpmbuild/SPECS
+	rpmbuild -bb ~/rpmbuild/SPECS/contrail-server-manager.spec
+	cp ~/rpmbuild/RPMS/noarch/contrail_server-manager-1.0-1.noarch.rpm ~/rpmbuild/RPMS/noarch/contrail_server-manager-1.0-1_$(commit_id).noarch.rpm
 
 deb:
 	(cd debian-contrail-smgr; fakeroot debian/rules binary)
@@ -25,8 +25,8 @@ client-rpm:
 	mkdir -p ~/rpmbuild/SOURCES
 	mkdir -p ~/rpmbuild/SPECS
 	mkdir -p ~/rpmbuild/SRPMS
-	cp contrail_smgr_client.spec ~/rpmbuild/SPECS
-	rpmbuild -bb ~/rpmbuild/SPECS/contrail_smgr_client.spec
+	cp contrail-server-manager-client.spec ~/rpmbuild/SPECS
+	rpmbuild -bb ~/rpmbuild/SPECS/contrail-server-manager-client.spec
 
 client-deb:
 	(cd debian-contrail-smgr-client; fakeroot debian/rules binary)

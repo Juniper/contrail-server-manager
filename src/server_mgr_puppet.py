@@ -91,11 +91,37 @@ class ServerMgrPuppet:
             intf_control = eval(provision_params['control_net'] [mgmt_ip])        
         for intf,values in intf_control.items():
             if intf:
-                return '"' + str(IPNetwork(values['ip']).ip) + '"'
+                return '"' + str(IPNetwork(values['ip_address']).ip) + '"'
             else:
                 return '"' + provision_params['server_ip'] + '"'
         return '"' + mgmt_ip + '"'
     # end get_control_ip
+
+    def _update_provision_start(self, provision_params):
+        # Get all the parameters needed to send to puppet manifest.
+        before_param = \
+        "Contrail_%s::Contrail_common::Contrail-setup-repo[\"contrail_repo\"]" %(
+                    provision_params['puppet_manifest_version'])
+        data = '''    # Create repository config on target.
+    contrail_%s::contrail_common::report_status{provision_started:
+        state => "%s",
+        before => %s
+    }\n\n''' % (provision_params['puppet_manifest_version'],
+                "provision_started" ,before_param)
+        return data
+    # end _update_provision_start
+
+    def _update_provision_complete(self, provision_params, require_param):
+        # Get all the parameters needed to send to puppet manifest.
+        data = '''    # Update the state of server that provision is complete
+    contrail_%s::contrail_common::report_status{provision_completed:
+        state => "%s",
+        require => %s
+    }\n\n''' % (provision_params['puppet_manifest_version'],
+                "provision_completed" , require_param)
+        return data
+    # end _update_provision_complete
+
 
     def _repository_config(self, provision_params):
         # Get all the parameters needed to send to puppet manifest.
@@ -147,8 +173,8 @@ class ServerMgrPuppet:
             bond_opts = ""
             if intf in intf_bonds.keys():
                 bond = intf_bonds[intf]
-                members = bond['member']
-                bond_opts = bond['bond_options']
+                members = bond['member_interfaces']
+                bond_opts = bond['options']
             require_cmd = "Contrail_%s::Contrail_common::Contrail-setup-interface[\"%s\"]" %(
                 provision_params['puppet_manifest_version'], intf)
             require_list.append(require_cmd)
@@ -161,7 +187,7 @@ class ServerMgrPuppet:
         contrail_gw => "%s"
         }\n\n''' % (provision_params['puppet_manifest_version'],
         intf, intf, members , bond_opts,
-        values['ip'], values['gw'])
+        values['ip_address'], values['gateway'])
             
 
         if provision_params['intf_data']:
@@ -171,8 +197,8 @@ class ServerMgrPuppet:
             bond_opts = ""
             if intf in intf_bonds.keys():
                 bond = intf_bonds[intf]
-                members = bond['member']
-                bond_opts = bond['bond_options']
+                members = bond['member_interfaces']
+                bond_opts = bond['options']
             require_cmd = "Contrail_%s::Contrail_common::Contrail-setup-interface[\"%s\"]" %(
                 provision_params['puppet_manifest_version'], intf)
             require_list.append(require_cmd)
@@ -185,7 +211,7 @@ class ServerMgrPuppet:
         contrail_gw => "%s"
         }\n\n''' % (provision_params['puppet_manifest_version'],
         intf, intf, members , bond_opts,
-        values['ip'], values['gw'])
+        values['ip_address'], values['gateway'])
 
         data_first = '''    # Create repository config on target.
     contrail_%s::contrail_common::contrail-setup-repo{contrail_repo:
@@ -278,7 +304,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_database_initial_token', None) is None:
             self._params_dict['contrail_database_initial_token'] = (
-                "\"%s\"" %(provision_params["db_initial_token"]))
+                "\"%s\"" %(provision_params["database_token"]))
         if self._params_dict.get(
             'contrail_cassandra_seeds', None) is None:
             self._params_dict['contrail_cassandra_seeds'] = (
@@ -376,7 +402,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_ks_admin_passwd', None) is None:
             self._params_dict['contrail_ks_admin_passwd'] = (
-                "\"%s\"" %(provision_params["ks_passwd"]))
+                "\"%s\"" %(provision_params["keystone_password"]))
         if self._params_dict.get(
             'contrail_haproxy', None) is None:
             self._params_dict['contrail_haproxy'] = (
@@ -638,7 +664,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_use_certs', None) is None:
             self._params_dict['contrail_use_certs'] = (
-                "\"%s\"" %(provision_params["use_certs"]))
+                "\"%s\"" %(provision_params["use_certificates"]))
         if self._params_dict.get(
             'contrail_multi_tenancy', None) is None:
             self._params_dict['contrail_multi_tenancy'] = (
@@ -668,15 +694,15 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_ks_admin_user', None) is None:
             self._params_dict['contrail_ks_admin_user'] = (
-                "\"%s\"" %(provision_params["ks_user"]))
+                "\"%s\"" %(provision_params["keystone_username"]))
         if self._params_dict.get(
             'contrail_ks_admin_passwd', None) is None:
             self._params_dict['contrail_ks_admin_passwd'] = (
-                "\"%s\"" %(provision_params["ks_passwd"]))
+                "\"%s\"" %(provision_params["keystone_password"]))
         if self._params_dict.get(
             'contrail_ks_admin_tenant', None) is None:
             self._params_dict['contrail_ks_admin_tenant'] = (
-                "\"%s\"" %(provision_params["ks_tenant"]))
+                "\"%s\"" %(provision_params["keystone_tenant"]))
         if self._params_dict.get(
             'contrail_openstack_root_passwd', None) is None:
             self._params_dict['contrail_openstack_root_passwd'] = (
@@ -742,11 +768,11 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_encap_priority', None) is None:
             self._params_dict['contrail_encap_priority'] = (
-                "\"%s\"" %(provision_params['encap_priority']))
+                "\"%s\"" %(provision_params['encapsulation_priority']))
         if self._params_dict.get(
             'contrail_bgp_params', None) is None:
             self._params_dict['contrail_bgp_params'] = (
-                "\"%s\"" %(provision_params['ext_bgp']))
+                "\"%s\"" %(provision_params['external_bgp']))
         if self._params_dict.get(
             'contrail_amqp_server_ip', None) is None:
             self._params_dict['contrail_amqp_server_ip'] = (
@@ -1226,11 +1252,11 @@ $__contrail_quantum_servers__
             vm_params['uplink_vswitch'] = provision_params['esx_fab_vswitch']
             vm_params['server'] = provision_params['esx_ip']
             vm_params['username'] = provision_params['esx_username']
-            vm_params['passwd'] = provision_params['esx_passwd']
+            vm_params['password'] = provision_params['esx_password']
             vm_params['thindisk'] =  provision_params['esx_vmdk']
             vm_params['smgr_ip'] = provision_params['smgr_ip'];
             vm_params['domain'] =  provision_params['domain']
-            vm_params['vm_passwd'] = provision_params['passwd']
+            vm_params['vm_password'] = provision_params['password']
             vm_params['vm_server'] = provision_params['server_id']
             vm_params['vm_deb'] = provision_params['vm_deb']
             out = ContrailVM(vm_params)
@@ -1258,23 +1284,17 @@ $__contrail_quantum_servers__
             openstack_server = provision_params['roles']['openstack'][0]
         openstack_server_control= self.get_control_ip(provision_params,openstack_server)
 
-        if (provision_params['openstack_mgmt_ip'] == ''):
-            contrail_openstack_mgmt_ip = provision_params['roles']['openstack'][0]
-        else:
-            contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
+        contrail_openstack_mgmt_ip = provision_params['roles']['openstack'][0]
         contrail_openstack_mgmt_ip_control= self.get_control_ip(provision_params,contrail_openstack_mgmt_ip)
         server_ip_control= self.get_control_ip(provision_params,provision_params["server_ip"])
-        #TODO Check
-        if provision_params["compute_non_mgmt_ip"] == "":
-            provision_params["compute_non_mgmt_ip"] = provision_params["server_ip"]
-        if provision_params["compute_non_mgmt_gway"] == "":
-            provision_params["compute_non_mgmt_gway"] = provision_params['server_gway']
+        provision_params["compute_non_mgmt_ip"] = provision_params["server_ip"]
+        provision_params["compute_non_mgmt_gway"] = provision_params['server_gway']
 
         if provision_params['intf_control']:
             intf_control = eval(provision_params['intf_control'])
             for intf,values in intf_control.items():
-                non_mgmt_ip= values['ip'].split("/")[0]
-                non_mgmt_gw= values['gw']
+                non_mgmt_ip= values['ip_address'].split("/")[0]
+                non_mgmt_gw= values['gateway']
         else:
             non_mgmt_ip = provision_params["compute_non_mgmt_ip"]
             non_mgmt_gw = provision_params["compute_non_mgmt_gway"] 
@@ -1338,15 +1358,15 @@ $__contrail_quantum_servers__
         if self._params_dict.get(
             'contrail_ks_admin_user', None) is None:
             self._params_dict['contrail_ks_admin_user'] = (
-                "\"%s\"" %(provision_params["ks_user"]))
+                "\"%s\"" %(provision_params["keystone_username"]))
         if self._params_dict.get(
             'contrail_ks_admin_passwd', None) is None:
             self._params_dict['contrail_ks_admin_passwd'] = (
-                "\"%s\"" %(provision_params["ks_passwd"]))
+                "\"%s\"" %(provision_params["keystone_password"]))
         if self._params_dict.get(
             'contrail_ks_admin_tenant', None) is None:
             self._params_dict['contrail_ks_admin_tenant'] = (
-                "\"%s\"" %(provision_params["ks_tenant"]))
+                "\"%s\"" %(provision_params["keystone_tenant"]))
         if self._params_dict.get(
             'contrail_haproxy', None) is None:
             self._params_dict['contrail_haproxy'] = (
@@ -1362,7 +1382,7 @@ $__contrail_quantum_servers__
         if self._params_dict.get(
             'contrail_vm_passwd', None) is None:
             self._params_dict['contrail_vm_passwd'] = (
-                "\"%s\"" %(provision_params["esx_passwd"]))
+                "\"%s\"" %(provision_params["esx_password"]))
         if self._params_dict.get(
             'contrail_vswitch', None) is None:
             self._params_dict['contrail_vswitch'] = (
@@ -1399,64 +1419,75 @@ $__contrail_quantum_servers__
             contrail_openstack_mgmt_ip = provision_params["server_ip"]
         else:
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
-        if 'storage' in provision_params['roles']:
+        if provision_params['server_ip'] in provision_params['roles']['storage']:
             data += '''    # contrail-storage role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
+        contrail_storage_repo_id => %s,
         contrail_storage_fsid => "%s",
         contrail_storage_virsh_uuid => "%s",
         contrail_openstack_ip => "%s",
         contrail_storage_mon_secret => "%s",
-        contrail_storage_mon_hosts => {
-            ''' % (
+        contrail_storage_admin_key => "%s",
+        contrail_storage_osd_bootstrap_key => "%s",
+        contrail_storage_mon_hosts => \"''' % (
                 provision_params['puppet_manifest_version'],
+                provision_params['storage_repo_id'],
                 provision_params['storage_fsid'],
                 provision_params['storage_virsh_uuid'],
                 contrail_openstack_mgmt_ip,
-                provision_params['storage_mon_secret'])
+                provision_params['storage_mon_secret'],
+                provision_params['admin_key'],
+                provision_params['osd_bootstrap_key'])
             for key in provision_params['storage_monitor_hosts']:
-                data += '''\"%s\" => [\"%s\",\"%s\"],
-            ''' % (key,
-                    str(provision_params['storage_monitor_hosts'][str(key)][0]),
-                    str(provision_params['storage_monitor_hosts'][str(key)][1]))
-            data += '''},\n        require => %s
-        }
-        package { 'xfsprogs' : ensure => present,}
-        package { 'parted' : ensure => present,}\n
-        ''' % last_res_added
+                data += '''%s ,''' % key
+            data = data[:len(data)-1]+'''\",'''
             if 'storage_server_disks' in provision_params:
-                for disk in provision_params['storage_server_disks']:
-                    data += '''contrail_%s::contrail_storage::contrail_storage_osd_setup {'%s':
-        require => %s
-        }
-        ''' % (provision_params['puppet_manifest_version'], disk, req)
+                data += '''
+        contrail_storage_osd_disks => ['''
+                for key in provision_params['storage_server_disks']:
+                    data += '''\'%s\' ,''' % key
+                data = data[:len(data) - 1] + '''],'''
             else:
                 pass
-            data += '''\n\n'''
+            data += '''
+        require => %s
+    }\n''' % last_res_added
+        return data
 
-        if 'storage-mgr' in provision_params['roles']:
+    def puppet_add_storage_manager_role(self, provision_params, last_res_added):
+        data = ''
+        if (provision_params['openstack_mgmt_ip'] == ''):
+            contrail_openstack_mgmt_ip = provision_params["server_ip"]
+        else:
+            contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
+        if provision_params['server_ip'] not in set(provision_params['roles']['storage']):
             data += '''    # contrail-storage-manager role.
     contrail_%s::contrail_storage::contrail_storage{contrail_storage:
+        contrail_storage_repo_id => %s,
         contrail_storage_fsid => "%s",
         contrail_storage_virsh_uuid => "%s",
         contrail_openstack_ip => "%s",
         contrail_storage_mon_secret => "%s",
-        contrail_storage_mon_hosts => {
-            ''' % (provision_params['puppet_manifest_version'],
-                   provision_params['storage_fsid'],
-                   provision_params['storage_virsh_uuid'],
-                   contrail_openstack_mgmt_ip,
-                   provision_params['storage_mon_secret'])
+        contrail_storage_admin_key => "%s",
+        contrail_storage_osd_bootstrap_key => "%s",
+        contrail_storage_mon_hosts => \"''' % (
+                provision_params['puppet_manifest_version'],
+                provision_params['storage_repo_id'],
+                provision_params['storage_fsid'],
+                provision_params['storage_virsh_uuid'],
+                contrail_openstack_mgmt_ip,
+                provision_params['storage_mon_secret'],
+                provision_params['admin_key'],
+                provision_params['osd_bootstrap_key'])
             for key in provision_params['storage_monitor_hosts']:
-                data += '''\"%s\" => [\"%s\",\"%s\"],
-            ''' % (key,
-                    str(provision_params['storage_monitor_hosts'][str(key)][0]),
-                    str(provision_params['storage_monitor_hosts'][str(key)][1]))
-            data += '''},\n        require => %s
-        }
-        ''' % last_res_added
+                data += '''%s ,''' % key
+            data = data[:len(data) - 1] + '''\",'''
+            data += '''
+        require => %s
+    }
+    ''' % last_res_added
 
             data += '''\n\n'''
-
 
         return data
 
@@ -1473,7 +1504,7 @@ $__contrail_quantum_servers__
         "zookeeper": puppet_add_zk_role,
         "compute": puppet_add_compute_role,
         "storage": puppet_add_storage_role,
-        "storage-mgr": puppet_add_storage_role
+        "storage-mgr": puppet_add_storage_manager_role
     }
 
     def provision_server(self, provision_params):
@@ -1511,6 +1542,9 @@ $__contrail_quantum_servers__
         resource_data += '''$contrail_storage_num_osd= %s\n''' % (provision_params['storage_num_osd'])
         # Create resource to have repository configuration setup on the
         # target
+        resource_data += self._update_provision_start(provision_params)
+
+
         resource_data += self._repository_config(provision_params)
 
         # Always call common function for all the roles
@@ -1527,7 +1561,7 @@ $__contrail_quantum_servers__
                  'collector', 'webui', 'zookeeper', 'compute', 'storage', 'storage-mgr']
         for role in roles:
             if provision_params['roles'].get(role) and  provision_params['server_ip'] in \
-                provision_params['roles'] [role]:
+                provision_params['roles'][role]:
                 resource_data += self._roles_function_map[role](
                     self, provision_params, last_res_added)
             #if role == "config":
@@ -1545,6 +1579,11 @@ $__contrail_quantum_servers__
         if provision_params['execute_script']:
             resource_data += self.puppet_add_script_end_role(provision_params,
                                                     last_res_added)
+            #TODO update last_res_added
+            #last_res_added = 
+
+        resource_data += self._update_provision_complete(provision_params,
+                                                         last_res_added)
 
         # params_data and resource_data are compiled now. Add those to data and write
         # to manifest file for this server node.

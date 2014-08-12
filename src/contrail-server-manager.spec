@@ -21,7 +21,7 @@
 %define         _pysitepkg    /usr/lib/python%{_pyver}/site-packages
 
 
-Name: contrail_smgr
+Name: contrail-server-manager
 Version: 1.0
 Release: 1
 Summary: A server manager
@@ -110,18 +110,18 @@ service postfix stop
 service sendmail restart
 
 sed -i "s/10.84.51.11/$HOST_IP/" /etc/cobbler/settings
-/sbin/chkconfig --add contrail_smgrd
-sed -i "s/authn_denyall/authn_testing/g" /etc/cobbler/modules.conf
-sed -i "s/127.0.0.1/$HOST_IP/g" /opt/contrail/server_manager/smgr_config.ini
+/sbin/chkconfig --add contrail-server-manager
+sed -i "s/module = authn_.*/module = authn_configfile/g" /etc/cobbler/modules.conf
+sed -i "s/127.0.0.1/$HOST_IP/g" /opt/contrail/server_manager/sm-config.ini
 
 
 chkconfig httpd on
 chkconfig puppetmaster on
-chkconfig contrail_smgrd on
+chkconfig contrail-server-manager on
 chkconfig puppet on
 
 
-#service contrail_smgrd restart
+#service contrail-server-manager restart
 %build
 
 %install
@@ -148,11 +148,14 @@ cp %{_contrail_smgr_src}server_mgr_cobbler.py %{buildroot}%{_contrailopt}%{_cont
 cp %{_contrail_smgr_src}server_mgr_puppet.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}server_mgr_exception.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}server_mgr_logger.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}server_mgr_status.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}smgr_dhcp_event.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
+
 cp %{_contrail_smgr_src}server_mgr_defaults.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
 cp %{_contrail_smgr_src}utils/send_mail.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
-cp %{_contrail_smgr_src}smgr_config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}sm-config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}tags.ini %{buildroot}%{_contrailetc}
 cp %{_contrail_smgr_src}logger.conf %{buildroot}%{_contrailopt}%{_contrail_smgr}
 cp %{_contrail_smgr_src}%{_vmware}esxi_contrailvm.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
@@ -160,12 +163,12 @@ cp %{_contrail_smgr_src}%{_vmware}esxi_contrailvm.py %{buildroot}%{_contrailopt}
 cp %{_contrail_smgr_src}third_party/bottle.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
 
-cp %{_contrail_smgr_src}contrail_smgrd %{buildroot}%{_initdetc}
+cp %{_contrail_smgr_src}contrail-server-manager %{buildroot}%{_initdetc}
 cp -r %{_contrail_smgr_src}/puppet %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}repos/contrail-centos-repo %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}cobbler %{buildroot}%{_contrailetc}
 cp -r %{_contrail_smgr_src}kickstarts %{buildroot}%{_contrailetc}
-cp %{_contrail_smgr_src}contrail_smgrd.start %{buildroot}%{_sbinusr}contrail_smgrd
+cp %{_contrail_smgr_src}contrail-server-manager.start %{buildroot}%{_sbinusr}contrail-server-manager
 cp %{_contrail_smgr_src}utils/sendmail.cf %{buildroot}%{_contrailetc}
 
 #install -p -m 755 %{_contrail_smgr_src}cobbler/dhcp.template %{buildroot}%{_bindir}%{_contrail_smgr}
@@ -183,7 +186,7 @@ rm -rf %{buildroot}
 #%config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
 %{_contrailopt}/*
 /usr/sbin/*
-/etc/init.d/contrail_smgrd
+/etc/init.d/contrail-server-manager
 %{_contrailetc}/*
 #/etc/cobbler/dhcp.template
 #/etc/cobbler/dhcp.template

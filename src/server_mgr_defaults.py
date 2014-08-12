@@ -2,77 +2,68 @@
 
 #validation DS
 server_fields = {
-    "match_keys": "['server_id', 'mac', 'cluster_id', 'rack_id', 'pod_id', 'vns_id', 'ip']",
+    "match_keys": "['id', 'mac_address', 'cluster_id', 'ip_address']",
     "obj_name": "server",
-    "primary_keys": "['server_id', 'mac']",
-    "server_id": "",
-    "mac": "",
-    "ip": "",
-    "server_params": """{
-                    'compute_non_mgmt_ip': '',
-                    'compute_non_mgmt_gway': ''
+    "primary_keys": "['id', 'mac_address']",
+    "id": "",
+    "host_name": "",
+    "mac_address": "",
+    "ip_address": "",
+    "parameters": """{
+                    'interface_name': ''
                     }""",
     "roles": ["config","openstack","control","compute","collector","webui","database"],
     "cluster_id": "",
-    "vns_id": "",
-    "mask": "",
-    "gway": "",
-    "passwd": "",
+    "subnet_mask": "",
+    "gateway": "",
+    "password": "",
     "domain": "",
     "email": "",
-    "power_user": "",
+    "power_username": "",
     "power_type": "",
-    "power_pass": "",
-    "control": "",
-    "bond": "",
-    "power_address": ""
+    "power_password": "",
+    "control_data_network": "",
+    "bond_interface": "",
+    "power_address": "",
+    "tag": ""
 }
 
-vns_fields = {
-    "match_keys": "['vns_id']",
-    "obj_name": "vns",
-    "vns_id": "",
+cluster_fields = {
+    "match_keys": "['id']",
+    "obj_name": "cluster",
+    "id": "",
     "email": "",
-    "primary_keys": "['vns_id']",
-    "vns_params": """{
+    "primary_keys": "['id']",
+    "parameters": """{
                 'router_asn': '64512',
                 'database_dir': '/home/cassandra',
-                'db_initial_token': '',
+                'database_token': '',
                 'openstack_mgmt_ip': '',
-                'use_certs': 'False',
+                'use_certificates': 'False',
                 'multi_tenancy': 'False',
-                'encap_priority': 'MPLSoUDP,MPLSoGRE,VXLAN',
+                'encapsulation_priority': 'MPLSoUDP,MPLSoGRE,VXLAN',
                 'service_token': 'contrail123',
-                'ks_user': 'admin',
-                'ks_passwd': 'contrail123',
-                'ks_tenant': 'admin',
+                'keystone_username': 'admin',
+                'keystone_password': 'contrail123',
+                'keystone_tenant': 'admin',
                 'openstack_passwd': 'contrail123',
                 'analytics_data_ttl': '168',
-                'compute_non_mgmt_ip': '',
-                'compute_non_mgmt_gway': '',
                 'haproxy': 'disable',
-                'mask': '255.255.255.0',
-                'gway': '10.204.221.46',
-                'passwd': 'c0ntrail123',
-                'ext_bgp': '',
+                'subnet_mask': '255.255.255.0',
+                'gateway': '10.204.221.46',
+                'password': 'c0ntrail123',
+                'external_bgp': '',
                 'domain': 'contrail.juniper.net'
                 }"""
 }
 
-cluster_fields = {
-    "match_keys": "['cluster_id']",
-    "obj_name": "cluster",
-    "primary_keys": "['cluster_id']",
-    "cluster_id": ""
-}
-
 image_fields = {
-    "match_keys": "['image_id']",
+    "match_keys": "['id']",
     "obj_name": "image",
-    "primary_keys": "['image_id']",
-    "image_id": "",
-    "image_type": "",
-    "image_version": "",
-    "image_path": ""
+    "primary_keys": "['id']",
+    "id": "",
+    "type": "",
+    "version": "",
+    "path": ""
 }
 
