@@ -681,7 +681,7 @@ class ServerMgrDb:
 
 
     def get_server(self, match_dict=None, unmatch_dict=None,
-                   detail=False):
+                   detail=False, field_list=None):
         try:
             if match_dict and match_dict.get("mac_address", None):
                 if match_dict["mac_address"]:
@@ -689,9 +689,14 @@ class ServerMgrDb:
                         EUI(match_dict["mac_address"])).replace("-", ":")
             # For server table, when detail is false, return server_id, mac
             # and ip.
-            servers = self._get_items(
-                server_table, match_dict,
-                unmatch_dict, detail, ["id", "mac_address", "ip_address"])
+            if field_list:
+                servers = self._get_items(
+                   server_table, match_dict,
+                   unmatch_dict, detail, field_list)
+            else:
+                servers = self._get_items(
+                   server_table, match_dict,
+                   unmatch_dict, detail, ["id", "mac_address", "ip_address"])
         except Exception as e:
             raise e
         return servers

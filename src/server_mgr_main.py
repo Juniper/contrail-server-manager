@@ -248,6 +248,7 @@ class VncServerManager():
         bottle.route('/server', 'GET', self.get_server)
         bottle.route('/image', 'GET', self.get_image)
         bottle.route('/status', 'GET', self.get_status)
+        bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
 
         # REST calls for PUT methods (Create New Records)
@@ -832,6 +833,44 @@ class VncServerManager():
                 match_dict[self._rev_tags_dict[tag[0]]] = tag[1]
         return match_dict
     # end _process_server_tags
+
+    # This call returns status information about a provided server. If no server
+    # if provided, information about all the servers in server manager
+    # configuration is returned.
+    def get_server_status(self):
+        ret_data = None
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_server_status")
+        try:
+            ret_data = self.validate_smgr_request("SERVER", "GET",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                match_dict = {}
+                if match_key == "tag":
+                    match_dict = self._process_server_tags(match_value)
+                elif match_key:
+                    match_dict[match_key] = match_value
+                detail = False
+                servers = self._serverDb.get_server(
+                    match_dict, detail=detail ,
+                    field_list = ["id", "mac_address", "ip_address", "status"])
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
+            abort(404, e.value)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
+            abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER)
+        # Convert some of the fields in server entry to match what is accepted for put
+        return {"server": servers}
+    # end get_server_status
+
+
 
     # This call returns information about a provided server. If no server
     # if provided, information about all the servers in server manager
