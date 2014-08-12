@@ -830,6 +830,13 @@ class VncServerManager():
             tag = x.strip().split('=')
             if tag[0] in self._rev_tags_dict:
                 match_dict[self._rev_tags_dict[tag[0]]] = tag[1]
+            else:
+                msg = ("Unknown tag %s specified" %(
+                    tag[0]))
+                self._smgr_log.log(
+                    self._smgr_log.INFO, msg)
+                raise ServerMgrException(msg)
+            # end else
         return match_dict
     # end _process_server_tags
 
@@ -867,8 +874,8 @@ class VncServerManager():
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
         # Convert some of the fields in server entry to match what is accepted for put
         for x in servers:
-            if x.get("server_params", None) is not None:
-                x['server_params'] = eval(x['server_params'])
+            if x.get("parameters", None) is not None:
+                x['parameters'] = eval(x['parameters'])
             if x.get("roles", None) is not None:
                 x['roles'] = eval(x['roles'])
             if detail:
