@@ -1279,7 +1279,7 @@ class VncServerManager():
             if file_obj.file:
                 with open(dest, 'w') as open_file:
                     open_file.write(file_obj.file.read())
-            image_parameters = {}
+            image_params = {}
             if ((image_type == "contrail-centos-package") or
                 (image_type == "contrail-ubuntu-package")):
                 subprocess.call(
@@ -1302,7 +1302,7 @@ class VncServerManager():
                 'version': image_version,
                 'type': image_type,
                 'path': dest,
-                'parameters' : image_parameters}
+                'parameters' : image_params}
             self._serverDb.add_image(image_data)
         except Exception as e:
             self.log_trace()
