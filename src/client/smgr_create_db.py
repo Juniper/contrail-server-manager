@@ -5,8 +5,10 @@
    Author : rishiv@juniper.net
    Description : This program is a simple cli interface to
    create server manager database with objects.
-   Objects can becluster, server, or image.
-   Takes  -t testbed.py or/and --cluster_id <cluster_id> as command line input
+   Objects can be cluster, server or image.
+   Mandatory Parameter : testbed.py
+   Optional Parameter : cluster_id
+   Optional Parameter : server Manager specific config file
 """
 
 
@@ -58,6 +60,8 @@ def modify_server_json():
     server_dict = json.loads(in_data)
 
     update_roles_from_testbed_py(server_dict)
+    update_bond_from_testbed_py(server_dict)
+    update_multi_if_from_testbed_py(server_dict)
 
     out_file = open(server_file, 'w')
     out_data = json.dumps(server_dict, indent=4)
@@ -78,7 +82,7 @@ def update_roles_from_testbed_py(server_dict):
           continue
         for  host_string in testbed.env.roledefs[key]:
           ip = getIp(host_string)
-          if node['ip'] == ip:
+          if node['ip_address'] == ip:
             if key == 'cfgm':
                 roles.append("config")
             else:
@@ -93,6 +97,56 @@ def update_roles_from_testbed_py(server_dict):
 
     return server_dict
 # end update_roles_from_testbed_py
+
+def update_bond_from_testbed_py(server_dict):
+    testbed = get_testbed()
+    if 'control_data' in dir(testbed):
+      for  node in server_dict['server']:
+        for  key in testbed.bond:
+          ip = getIp(key)
+          if node['ip_address'] == ip:
+              node['parameters']['setup_interface'] = "Yes"
+              node['parameters']['compute_non_mgmt_ip'] = ""
+              node['parameters']['compute_non_mgmt_gw'] = ""
+
+              name = testbed.bond[key]['name']
+              mode = testbed.bond[key]['mode']
+              member = testbed.bond[key]['member']
+              option = {}
+              option['miimon'] = '100'
+              option['mode'] = mode
+              option['xmit_hash_policy'] = 'layer3+4'
+
+              node['bond']={}
+              node['bond'][name]={}
+              node['bond'][name]['bond_options'] = "%s"%option
+              node['bond'][name]['member'] = "%s"%member
+    return server_dict
+#End update_bond_from_testbed_py(server_dict):
+
+
+def update_multi_if_from_testbed_py(server_dict):
+    testbed = get_testbed()
+    if 'control_data' in dir(testbed):
+      for  node in server_dict['server']:
+        for  key in testbed.control_data:
+          ip = getIp(key)
+          if node['ip_address'] == ip:
+              node['parameters']['setup_interface'] = "Yes"
+              node['parameters']['compute_non_mgmt_ip'] = ""
+              node['parameters']['compute_non_mgmt_gway'] = ""
+
+              ip = testbed.control_data[key]['ip']
+              gw = testbed.control_data[key]['gw']
+              device = testbed.control_data[key]['device']
+
+              node['control']={}
+              node['control'][device] = {}
+              node['control'][device]['ip'] = ip
+              node['control'][device]['gw'] = gw
+    return server_dict
+#End update_multi_if_from_testbed_py(server_dict):
+
 
 
 def getIp(string) :
@@ -159,6 +213,7 @@ def add_cluster():
 
     cluster_id = get_pref_cluster_id()
     if not cluster_file:
+        cluster_dict = {}
         cluster_dict = get_cluster_with_cluster_id_from_db()
         if not len(cluster_dict['cluster']):
             cluster_dict = new_cluster()
@@ -281,7 +336,7 @@ def new_cluster():
     cluster_id = get_user_cluster_id()
     if not cluster_id:
         cluster_id = params['cluster_id']
-    cluster_dict = {
+    cluster_dict={
                   "cluster" : [
                       {
                           "id" : cluster_id,
@@ -314,15 +369,20 @@ def new_cluster():
     cluster_params_dict = dict(cluster_dict["cluster"][0]["parameters"].items() + default_config_object["parameters"].items())
     tmp_cluster_dict = dict(cluster_dict["cluster"][0].items() + default_config_object.items())
     tmp_cluster_dict["parameters"] = cluster_params_dict
-    clusetr_dict["cluster"][0] = tmp_cluster_dict
-    return cluseter_dict
+    cluster_dict["cluster"][0] = tmp_cluster_dict
+    return cluster_dict
 
 # End new_cluster()
 
 
 def parse_arguments(args_str=None):
     parser = argparse.ArgumentParser(
-            description='''Server Manager Tool to generate json from testbed.py'''
+            description='''Server Manager Tool to generate json from testbed.py .
+                           Value specified in --cluster_id will override value in 
+                           server.json and vns.json .
+                        ''',
+            usage= '''server-manager [-f <config_file>] [-c <cluster_id>]  -t testbed.py '''
+
     )
     #group1 = parser.add_mutually_exclusive_group()
 
@@ -367,7 +427,7 @@ def get_testbed_py(args_str=None):
 # End read_ini_file
 
 
-def get_user_cluseter_id(args_str=None):
+def get_user_cluster_id(args_str=None):
     args = parse_arguments(args_str)
     cluster_id = None
     if args.cluster_id:

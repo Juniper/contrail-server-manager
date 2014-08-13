@@ -16,14 +16,12 @@ def convert_xml_to_json(input_file, output_file):
     smgr_server_dict['server'] = []
     for server in servers_list:
     	smgr_server = {}
-	smgr_server['server_id'] = server['hostname']
-	smgr_server['mac'] = server['mac']
-    	smgr_server['ip'] = server['ipaddr']
+	smgr_server['id'] = server['hostname']
+	smgr_server['mac_address'] = server['mac']
+    	smgr_server['ip_address'] = server['ipaddr']
     	server_params = {}
-    	server_params['ifname'] = 'eth1'
-    	server_params['compute_non_mgmt_ip'] = ''
-    	server_params['compute_non_mgmt_gway'] = ''
-    	smgr_server['server_params'] = server_params
+    	server_params['interface_name'] = 'eth1'
+    	smgr_server['parameters'] = server_params
     	smgr_server['power_address'] = server['ipmi']
     	smgr_server_dict['server'].append(smgr_server)
 
