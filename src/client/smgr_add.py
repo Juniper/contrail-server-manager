@@ -502,7 +502,7 @@ def add_payload(object, default_object):
                             else:
                                 user_input = None
                         else:
-                            user_input = raw_input(msg)
+                            user_input = rlinput(msg, default_value)
                         if user_input:
                             param_dict[param] = user_input
                     temp_dict[key] = param_dict
