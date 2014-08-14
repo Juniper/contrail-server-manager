@@ -2347,8 +2347,14 @@ class VncServerManager():
                     images = self.get_image()
                     image_ids = dict()
                     for image in images['image']:
-                        cur_image = self._serverDb.get_image("image_id", image['image_id'], True)
-                        image_ids[image['image_id']] = cur_image[0]['image_type']
+                        match_dict = dict()
+                        match_dict["id"] = image['id']
+                        cur_image = self._serverDb.get_image(match_dict, None, detail=True)
+                        if cur_image is not None:
+                            image_ids[image['id']] = cur_image[0]['type']
+                        else:
+                            msg = "No images found"
+                            raise ServerMgrException(msg)
                     if server_params['storage_repo_id'] in image_ids:
                         if image_ids[server_params['storage_repo_id']] == 'contrail-storage-ubuntu-package':
                             provision_params['storage_repo_id'] = server_params['storage_repo_id']

@@ -1573,6 +1573,11 @@ $__contrail_quantum_servers__
                 if role == "zookeeper":
                     last_res_added =  "Contrail_$s::Contrail_common::Contrail-cfg-zk[\"contrail_cfg_zk\"]" %(
                         provision_params['puppet_manifest_version'])
+                elif role == "storage-master" or role == "storage-compute":
+                    storage_role = "storage"
+                    last_res_added = (
+                        "Contrail_%s::Contrail_%s::Contrail_%s[\"contrail_%s\"]")\
+                            % (provision_params['puppet_manifest_version'], storage_role, storage_role, storage_role)
                 else:
                     last_res_added = (
                         "Contrail_%s::Contrail_%s::Contrail_%s[\"contrail_%s\"]")\
