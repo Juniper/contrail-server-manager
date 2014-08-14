@@ -23,7 +23,7 @@ sys.path.insert(0, mod_path)
 #[root@a3s17 modules]# more /var/log/cobbler/install.log
 #system  a3s10   10.84.16.3      start    1401606565.15
 
-_DEF_SMGR_PORT=9002
+_DEF_SMGR_STATUS_PORT=9002
 
 def register():
     # trigger type
@@ -57,7 +57,7 @@ def run(api, args, logger):
     object = 'server_status'
     url_str = object + "?" + "server_id=" + name + "&state=reimage_started"
     payload = 'reimage start'
-    send_REST_request(ip, '9002', url_str, payload)
+    send_REST_request(ip, str(_DEF_SMGR_STATUS_PORT), url_str, payload)
     fd = open("/var/log/cobbler/contrail_install.log","a+")
     fd.write("\n%s\t%s\t%s\tstart\t%s\n" % (objtype,name,ip,time.asctime(time.localtime(time.time()))))
     fd.write("url:%s, payload:%s\n" % (url_str, payload))
