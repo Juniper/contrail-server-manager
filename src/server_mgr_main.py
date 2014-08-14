@@ -401,10 +401,9 @@ class VncServerManager():
             match_key, match_value = query_args.popitem()
             match_keys_str = validation_data['match_keys']
             match_keys = eval(match_keys_str)
-            # TBD - Append "discovered" and "tag" as one of the values, though
+            # Append "discovered" as one of the values, though
             # its not part of server table fields.
             match_keys.append("discovered")
-            match_keys.append("tag")
             if (match_key not in match_keys):
                 raise ServerMgrException("Match Key not present")
             if match_value == None or match_value[0] == '':
