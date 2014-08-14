@@ -2,7 +2,7 @@
 
 #validation DS
 server_fields = {
-    "match_keys": "['id', 'mac_address', 'cluster_id', 'ip_address']",
+    "match_keys": "['id', 'mac_address', 'cluster_id', 'ip_address', 'tag']",
     "obj_name": "server",
     "primary_keys": "['id', 'mac_address']",
     "id": "",
