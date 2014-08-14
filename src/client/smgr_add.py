@@ -432,9 +432,9 @@ def add_payload(object, default_object):
                                 user_input = None
                         params_dict[key_selected] = user_input
                     elif key_selected == "roles":
-                        msg = index_dict[eval(user_selection)] + ":"
+                        msg = key_selected + ":"
                         user_input = rlinput(msg,
-                                ','.join(eval(obj[index_dict[eval(user_selection)]])))
+                                ','.join(obj[key_selected]))
                         temp_dict[key_selected] = user_input.replace(' ','').split(",")
                     else:
                         msg = index_dict[eval(user_selection)] + ":"
