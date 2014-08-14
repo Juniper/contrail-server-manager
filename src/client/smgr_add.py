@@ -222,16 +222,29 @@ def get_object_config_ini_entries(object, config):
 # end get_object_config_ini_entries
 
 def get_default_object(object, config):
+    # get current tag settings
+    payload = {}
+    resp = send_REST_request(
+        smgr_ip, smgr_port,
+        "tag", payload, None,
+        None, True, "GET" )
+    json_str = resp.replace("null", "''")
+    tag_dict = eval(json_str)
+    rev_tag_dict = dict((v,k) for k,v in tag_dict.iteritems())
+
     default_object = {}
     config_object_defaults = get_object_config_ini_entries(object, config)
     if not config_object_defaults:
         return default_object
     default_object["parameters"] = {}
+    default_object["tag"] = {}
     for key, value in config_object_defaults:
         if key in object_dict[object]:
             default_object[key] = value
         elif key in object_dict[object]["parameters"]:
             default_object["parameters"][key] = value
+        elif key in rev_tag_dict:
+            default_object["tag"][key] = value
     return default_object
 # end get_default_object
 
@@ -251,9 +264,16 @@ def merge_with_defaults(object, payload, config):
             param_object = dict(default_object["parameters"].items() + obj["parameters"].items())
         elif "parameters" in default_object:
             param_object = default_object["parameters"] 
+        tag_object = {}
+        if "tag" in obj and "tag" in default_object:
+            tag_object = dict(default_object["tag"].items() + obj["tag"].items())
+        elif "tag" in default_object:
+            tag_object = default_object["tag"] 
         payload[object][i] = dict(default_object.items() + obj.items())
         if param_object:
             payload[object][i]["parameters"] = param_object
+        if tag_object:
+            payload[object][i]["tag"] = tag_object
 
 # end merge_with_defaults
 
@@ -457,7 +477,7 @@ def add_payload(object, default_object):
                     if value:
                         msg += " (%s) " %(value)
                     msg += ": "
-                    default_value = default_object.get(key, "")
+                    default_value = default_object["tag"].get(tag_dict[key], "")
                     user_input = rlinput(msg, default_value) 
                     if user_input:
                         tag[tag_dict[key]] = user_input
