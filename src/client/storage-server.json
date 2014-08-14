@@ -1,7 +1,7 @@
 {
     "server": [
         {
-            "server_id": "nitish-test-server",
+            "id": "nitish-test-server",
             "mac_address": "52:54:00:30:FB:AB",
             "ip_address": "192.168.121.101",
             "parameters" : {
