@@ -916,6 +916,12 @@ class VncServerManager():
                 x['parameters'] = eval(x['parameters'])
             if x.get("roles", None) is not None:
                 x['roles'] = eval(x['roles'])
+            if x.get("intf_control", None) is not None:
+                x['control_data_network'] = eval(x['intf_control'])
+                x.pop('intf_control', None)
+            if x.get("intf_bond", None) is not None:
+                x['bond_interface'] = eval(x['intf_bond'])
+                x.pop('intf_bond', None)
             if detail:
                 x['tag'] = {}
                 for i in range(1, len(self._tags_list)+1):
