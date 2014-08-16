@@ -1426,7 +1426,7 @@ $__contrail_quantum_servers__
         contrail_num_storage_hosts => %s,
         contrail_storage_fsid => "%s",
         contrail_storage_virsh_uuid => "%s",
-        contrail_openstack_ip => "%s",
+        contrail_openstack_ip => "$contrail_openstack_ip",
         contrail_storage_mon_secret => "%s",
         contrail_storage_admin_key => "%s",
         contrail_storage_osd_bootstrap_key => "%s",
@@ -1436,7 +1436,6 @@ $__contrail_quantum_servers__
                 provision_params['num_storage_hosts'],
                 provision_params['storage_fsid'],
                 provision_params['storage_virsh_uuid'],
-                contrail_openstack_mgmt_ip,
                 provision_params['storage_mon_secret'],
                 provision_params['admin_key'],
                 provision_params['osd_bootstrap_key'])
@@ -1469,7 +1468,7 @@ $__contrail_quantum_servers__
         contrail_num_storage_hosts => %s,
         contrail_storage_fsid => "%s",
         contrail_storage_virsh_uuid => "%s",
-        contrail_openstack_ip => "%s",
+        contrail_openstack_ip => "$contrail_openstack_ip",
         contrail_storage_mon_secret => "%s",
         contrail_storage_admin_key => "%s",
         contrail_storage_osd_bootstrap_key => "%s",
@@ -1479,7 +1478,6 @@ $__contrail_quantum_servers__
                 provision_params['num_storage_hosts'],
                 provision_params['storage_fsid'],
                 provision_params['storage_virsh_uuid'],
-                contrail_openstack_mgmt_ip,
                 provision_params['storage_mon_secret'],
                 provision_params['admin_key'],
                 provision_params['osd_bootstrap_key'])
