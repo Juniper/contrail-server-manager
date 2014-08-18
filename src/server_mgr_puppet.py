@@ -262,35 +262,29 @@ class ServerMgrPuppet:
         database_server = provision_params['roles']['database']
         database_ip_control = self.get_control_ip(
             provision_params, provision_params['server_ip'])
+        database_ip_control_list=[]
+        for item in database_server:
+            database_ip_control_list.append(self.get_control_ip(provision_params,str(item)))
+        
         config_server_control = self.get_control_ip(
             provision_params, config_server)
-        cassandra_seeds = ["\"%s\""%(x) for x in \
-            provision_params['roles']['database']]
-        if len(cassandra_seeds) > 2:
-            cassandra_seeds_control = [
-                self.get_control_ip(
-                    provision_params,str(cassandra_seeds[0])),
-                self.get_control_ip(
-                    provision_params,str(cassandra_seeds[1]))]
-        else:
-            cassandra_seeds_control = [
-                self.get_control_ip(
-                    provision_params,str(cassandra_seeds[0]))]
-
-        config_servers = provision_params['roles']['config']
         if 'zookeeper' in provision_params['roles']:
             zk_servers = provision_params['roles']['zookeeper']
         else:
             zk_servers = []
             db_ip_list = ["\"%s\""%(x) for x in database_server]
             zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
-            #zk_ip_list = cassandra_seeds_control + zoo_ip_list
             zk_ip_list_control=[]
-            #for itr in zk_ip_list:
-            #    zk_ip_list_control.append(self.get_control_ip(provision_params,str(itr)))
-            zk_ip_list_control= cassandra_seeds_control
-            contrail_cfgm_index = database_server.index(
+            contrail_database_index = database_server.index(
                 provision_params["server_ip"])+1
+
+        #####-
+        cassandra_seeds = ["\"%s\""%(x) for x in \
+            provision_params['roles']['config']]
+        cassandra_seeds_control_list=[]
+        for item in cassandra_seeds:
+            cassandra_seeds_control_list.append(self.get_control_ip(provision_params,str(item)))
+        #####-
 
         # Build Params items
         if self._params_dict.get(
@@ -308,7 +302,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_cassandra_seeds', None) is None:
             self._params_dict['contrail_cassandra_seeds'] = (
-                "[%s]" %(','.join(cassandra_seeds_control)))
+                "[%s]" %(','.join(cassandra_seeds_control_list)))
         if self._params_dict.get(
             'system_name', None) is None:
             self._params_dict['system_name'] = (
@@ -320,11 +314,11 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_zookeeper_ip_list', None) is None:
             self._params_dict['contrail_zookeeper_ip_list'] = (
-                "[%s]" %(','.join(cassandra_seeds_control)))
+                "[%s]" %(','.join(database_ip_control_list)))
         if self._params_dict.get(
-            'contrail_cfgm_index', None) is None:
-            self._params_dict['contrail_cfgm_index'] = (
-                "\"%s\"" %(contrail_cfgm_index))
+            'contrail_database_index', None) is None:
+            self._params_dict['contrail_database_index'] = (
+                "\"%s\"" %(contrail_database_index))
         # Build resource items
         data += '''    # contrail-database role.
     contrail_%s::contrail_database::contrail_database{contrail_database:
