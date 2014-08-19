@@ -67,3 +67,4 @@ image_fields = {
     "path": ""
 }
 
+email_events = ["reimage_started", "reimage_completed", "provision_started", "provision_completed"]

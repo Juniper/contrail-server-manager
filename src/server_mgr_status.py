@@ -22,7 +22,7 @@ from server_mgr_db import ServerMgrDb as db
 from time import gmtime, strftime, localtime
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from send_mail import send_mail
-
+from server_mgr_defaults import *
 
 class ServerMgrStatusThread(threading.Thread):
 
@@ -83,9 +83,12 @@ class ServerMgrStatusThread(threading.Thread):
                                 strftime(" (%Y-%m-%d %H:%M:%S)", localtime())
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
 
-            if not self.send_status_mail(server_id, message, message):
-                servers = self._status_serverDb.modify_server(
+            servers = self._status_serverDb.modify_server(
                                                     server_data)
+
+            if server_state in email_events:
+                self.send_status_mail(server_id, message, message)
+
         except Exception as e:
 #            self.log_trace()
             self._smgr_log.log(self._smgr_log.ERROR, "Error adding to db %s" % repr(e))
