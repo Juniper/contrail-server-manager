@@ -24,12 +24,12 @@ def parse_arguments():
     # Process the arguments
     if __name__ == "__main__":
         parser = argparse.ArgumentParser(
-            description='''Show a Server Manager object'''
+            description='''Show a Server's Status'''
         )
     else:
         parser = argparse.ArgumentParser(
-            description='''Show a Server Manager object''',
-            prog="server-manager show"
+            description='''Show a Servers status''',
+            prog="server-manager status"
         )
     # end else
     parser.add_argument("--config_file", "-c",
