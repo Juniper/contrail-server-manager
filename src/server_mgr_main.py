@@ -585,6 +585,11 @@ class VncServerManager():
 
         cluster_role_list = []
         for server in servers:
+            duplicate_roles = self.list_duplicates(eval(server['roles']))
+            if len(duplicate_roles):
+                msg = "Duplicate Roles '%s' present" % \
+                        ", ".join(str(e) for e in duplicate_roles)
+                raise ServerMgrException(msg)
             cluster_role_list.extend(eval(server['roles']))
 
         cluster_unique_roles = set(cluster_role_list)
@@ -606,6 +611,15 @@ class VncServerManager():
             raise ServerMgrException(msg)
 
         return 0
+
+    def list_duplicates(self, seq):
+        seen = set()
+        seen_add = seen.add
+        # adds all elements it doesn't know yet to seen and all other to
+        # seen_twice
+        seen_twice = set( x for x in seq if x in seen or seen_add(x) )
+        # turn the set into a list (as requested)
+        return list( seen_twice )
 
     def validate_smgr_provision(self, validation_data, request , data=None):
 
@@ -1312,7 +1326,23 @@ class VncServerManager():
         except Exception as e:
             self.log_trace()
             abort(404, repr(e))
+        #TODO use the below method to return a JSON for all operations commands
+        #with status, Move the codes and msg to a seprate file
+        entity = {}
+        new_entity = self._add_return_status(entity, 0, "Image Uploaded")
+        return new_entity
     # End of upload_image
+
+
+    #menthod to add status code and msg for json to be returned.
+    def _add_return_status(self, entity, code, msg):
+        status = {}
+        status['code'] = code
+        status['message'] = msg
+        entity['status'] = status
+        return entity
+
+    #End of _add_return_status
 
     # The below function takes the tgz path for puppet modules in the repo
     # being added, checks if that version of modules is already added to
