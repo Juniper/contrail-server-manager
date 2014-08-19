@@ -12,7 +12,6 @@
 """
 
 
-import pdb
 import subprocess
 import json
 import string
@@ -106,8 +105,8 @@ def update_bond_from_testbed_py(server_dict):
           ip = getIp(key)
           if node['ip_address'] == ip:
               node['parameters']['setup_interface'] = "Yes"
-              node['parameters']['compute_non_mgmt_ip'] = ""
-              node['parameters']['compute_non_mgmt_gw'] = ""
+              #node['parameters']['compute_non_mgmt_ip'] = ""
+              #node['parameters']['compute_non_mgmt_gw'] = ""
 
               name = testbed.bond[key]['name']
               mode = testbed.bond[key]['mode']
@@ -133,8 +132,8 @@ def update_multi_if_from_testbed_py(server_dict):
           ip = getIp(key)
           if node['ip_address'] == ip:
               node['parameters']['setup_interface'] = "Yes"
-              node['parameters']['compute_non_mgmt_ip'] = ""
-              node['parameters']['compute_non_mgmt_gway'] = ""
+              #node['parameters']['compute_non_mgmt_ip'] = ""
+              #node['parameters']['compute_non_mgmt_gway'] = ""
 
               ip = testbed.control_data[key]['ip']
               gw = testbed.control_data[key]['gw']
@@ -241,8 +240,7 @@ def add_cluster():
     else :
         timestamp = dt.now().strftime("%Y_%m_%d_%H_%M_%S")
         subprocess.call( 'cp %s %s.org.%s' %(cluster_file, cluster_file, timestamp), shell=True )
-        subprocess.call("sed -i 's/\"cluster_id\".*,/\"cluster_id\":\"%s\",/'  %s" %(cluster_id,cluster_file), shell=True )
-        subprocess.call("sed -i 's/\"cluster_id\".*/\"cluster_id\":\"%s\"/'  %s" %(cluster_id,cluster_file), shell=True )
+        subprocess.call("sed -i 's/\"id\":.*,/\"id\":\"%s\",/'  %s" %(cluster_id,cluster_file), shell=True )
 
     subprocess.call('server-manager add  cluster -f %s' %(cluster_file), shell=True )
 
@@ -318,8 +316,16 @@ def modify_cluster_from_testbed_py(cluster_dict):
         cluster_dict['cluster'][0]['email'] = testbed.env.mail_to
     if testbed.env.has_key('encap_priority'):
         cluster_dict['cluster'][0]['parameters']['encapsulation_priority'] = testbed.env.encap_priority
+    #if 'multi_tenancy' in dir(testbed):
+    #    cluster_dict['cluster'][0]['parameters']['multi_tenancy'] = testbed.multi_tenancy
     if 'multi_tenancy' in dir(testbed):
-        cluster_dict['cluster'][0]['parameters']['multi_tenancy'] = testbed.multi_tenancy
+        if testbed.multi_tenancy == True :
+            cluster_dict['cluster'][0]['parameters']['multi_tenancy'] = "True"
+        elif testbed.multi_tenancy == False :
+            cluster_dict['cluster'][0]['parameters']['multi_tenancy'] = "False"
+        else:
+            cluster_dict['cluster'][0]['parameters']['multi_tenancy'] = "False"
+
     if 'os_username' in dir(testbed):
         cluster_dict['cluster'][0]['parameters']['keystone_username'] = testbed.os_username
     if 'os_password' in dir(testbed):
@@ -440,7 +446,7 @@ def get_server_with_cluster_id_from_db():
 
     temp_dir= expanduser("~")
     file_name = '%s/server_with_cluster_id_from_db.json' %(temp_dir)
-    subprocess.call('server-manager show --detail server --cluster_id %s \
+    subprocess.call('server-manager show  server --cluster_id %s --detail \
                  | tr -d "\n" \
                  | sed "s/[^{]*//" \
                  > %s' %(cluster_id, file_name), shell=True )
@@ -464,7 +470,7 @@ def get_cluster_with_cluster_id_from_db():
 
     file_name = '%s/cluster.json' %(temp_dir)
 
-    subprocess.call('server-manager show --detail cluster --cluster_id %s \
+    subprocess.call('server-manager show  cluster --cluster_id %s --detail \
                  | tr -d "\n" \
                  | sed "s/[^{]*//" \
                  > %s' %(cluster_id, file_name), shell=True )
@@ -489,7 +495,7 @@ def get_server_with_ip_from_db(ip=None):
 
     file_name = '%s/server.json' %(temp_dir)
 
-    subprocess.call('server-manager show --detail server --ip %s \
+    subprocess.call('server-manager show  server --ip %s --detail \
                  | tr -d "\n" \
                  | sed "s/[^{]*//" \
                  > %s' %(ip, file_name), shell=True )
@@ -575,7 +581,7 @@ def update_server_in_db_with_testbed_py():
 
     subprocess.call('server-manager add  server -f %s' %(server_file), shell=True )
     for u_server in u_server_dict['server']:
-        subprocess.call('server-manager show --detail server --server_id %s' \
+        subprocess.call('server-manager show  server --server_id %s --detail' \
                   % u_server['id'], shell=True )
 #End  update_server_in_db_with_cluster_id
 
