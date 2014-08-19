@@ -477,7 +477,8 @@ def add_payload(object, default_object):
                     if value:
                         msg += " (%s) " %(value)
                     msg += ": "
-                    default_value = default_object["tag"].get(tag_dict[key], "")
+                    default_tag = default_object.get("tag", {})
+                    default_value = default_tag.get(tag_dict[key], "")
                     user_input = rlinput(msg, default_value) 
                     if user_input:
                         tag[tag_dict[key]] = user_input
