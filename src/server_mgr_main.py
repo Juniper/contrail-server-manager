@@ -1074,11 +1074,11 @@ class VncServerManager():
                     extn = os.path.splitext(image_path)[1]
                     dest = self._args.server_manager_base_dir + 'images/' + \
                         image_id + extn
-                    subprocess.call(["cp", "-f", image_path, dest])
+                    subprocess.check_call(["cp", "-f", image_path, dest])
                     image_params = {}
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") ):
-                        subprocess.call(
+                        subprocess.check_call(
                             ["cp", "-f", dest,
                              self._args.html_root_dir + "contrail/images/"])
                         puppet_manifest_version = self._create_repo(
@@ -1086,7 +1086,7 @@ class VncServerManager():
                         image_params['puppet_manifest_version'] = \
                             puppet_manifest_version
                     elif image_type == "contrail-storage-ubuntu-package":
-                        subprocess.call(
+                        subprocess.check_call(
                             ["cp", "-f", dest,
                              self._args.html_root_dir + "contrail/images/"])
                         self._create_repo(
@@ -1101,6 +1101,14 @@ class VncServerManager():
                         'path': image_path,
                         'parameters' : image_params}
                     self._serverDb.add_image(image_data)
+        except subprocess.CalledProcessError as e:
+            msg = ("put_image: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            self._smgr_trans_log.log(
+                bottle.request,
+                self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
+            abort(404, msg)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
@@ -1301,7 +1309,7 @@ class VncServerManager():
             image_params = {}
             if ((image_type == "contrail-centos-package") or
                 (image_type == "contrail-ubuntu-package")):
-                subprocess.call(
+                subprocess.check_call(
                     ["cp", "-f", dest,
                      self._args.html_root_dir + "contrail/images/"])
                 puppet_manifest_version = self._create_repo(
@@ -1309,7 +1317,7 @@ class VncServerManager():
                 image_params['puppet_manifest_version'] = \
                     puppet_manifest_version
             elif image_type == "contrail-storage-ubuntu-package":
-                subprocess.call(["cp", "-f", dest,
+                subprocess.check_call(["cp", "-f", dest,
                                  self._args.html_root_dir + "contrail/images/"])
                 self._create_repo(
                     image_id, image_type, image_version, dest)
@@ -1323,6 +1331,14 @@ class VncServerManager():
                 'path': dest,
                 'parameters' : image_params}
             self._serverDb.add_image(image_data)
+        except subprocess.CalledProcessError as e:
+            msg = ("upload_image: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            self._smgr_trans_log.log(
+                bottle.request,
+                self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
+            abort(404, msg)
         except Exception as e:
             self.log_trace()
             abort(404, repr(e))
@@ -1355,10 +1371,10 @@ class VncServerManager():
             os.chdir(tmpdirname)
             # Copy the tgz to tempdir
             cmd = ("cp -f %s ." %(puppet_modules_tgz))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # untar the puppet modules tgz file
             cmd = ("tar xvzf contrail-puppet-manifest.tgz > /dev/null")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # Extract contents of version file.
             with open('version','r') as f:
                 version = f.read().splitlines()[0]
@@ -1374,20 +1390,20 @@ class VncServerManager():
                 os.makedirs("/etc/puppet/modules/stdlib")
             # This contrail puppet modules version does not exist. Add it.
             cmd = ("cp -rf ./contrail/* " + target_dir)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             if os.path.isdir("./inifile"):
                 cmd = ("cp -rf ./inifile/* " + "/etc/puppet/modules/inifile")
-                subprocess.call(cmd, shell=True)
+                subprocess.check_call(cmd, shell=True)
             else:
                 self._smgr_log.log(self._smgr_log.ERROR, "directory inifile not in source tar ball - not copied")
             if os.path.isdir("./ceph"):
                 cmd = ("cp -rf ./ceph/* " + "/etc/puppet/modules/ceph")
-                subprocess.call(cmd, shell=True)
+                subprocess.check_call(cmd, shell=True)
             else:
                 self._smgr_log.log(self._smgr_log.ERROR, "directory ceph not in source tar ball - not copied")
             if os.path.isdir("./stdlib"):
                 cmd = ("cp -rf ./stdlib/* " + "/etc/puppet/modules/stdlib")
-                subprocess.call(cmd, shell=True)
+                subprocess.check_call(cmd, shell=True)
             else:
                 self._smgr_log.log(self._smgr_log.ERROR, "directory stdlib not in source tar ball - not copied")
             # Replace the class names in .pp files to have the version number
@@ -1395,9 +1411,15 @@ class VncServerManager():
             filelist = target_dir + "/manifests/*.pp"
             cmd = ("sed -i \"s/__\$version__/contrail_%s/g\" %s" %(
                     version, filelist))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             os.chdir(cwd)
             return version
+        except subprocess.CalledProcessError as e:
+            shutil.rmtree(tmpdirname) # delete directory
+            msg = ("add_puppet_modules: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg)
         finally:
             try:
                 shutil.rmtree(tmpdirname) # delete directory
@@ -1415,19 +1437,19 @@ class VncServerManager():
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
             cmd = "mkdir -p %s" %(mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory to the new one created
             cwd = os.getcwd()
             os.chdir(mirror)
             # add wrapper package itself to the repo
             cmd = "cp -f %s %s" %(
                 dest, mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # Extract .tgz of contrail puppet manifest files 
             cmd = (
                 "rpm2cpio %s | cpio -ivd ./opt/contrail/puppet/"
                 "contrail-puppet-manifest.tgz > /dev/null" %(dest))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # Handle the puppet manifests in this package.
             puppet_modules_tgz_path = mirror + \
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
@@ -1437,26 +1459,31 @@ class VncServerManager():
             cmd = (
                 "rpm2cpio %s | cpio -ivd ./opt/contrail/contrail_packages/"
                 "contrail_rpms.tgz > /dev/null" %(dest))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_rpms.tgz .")
             subprocess.call(cmd, shell=True)
             cmd = ("rm -rf opt")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # untar tgz to get all packages
             cmd = ("tar xvzf contrail_rpms.tgz > /dev/null")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # remove the tgz file itself, not needed any more
             cmd = ("rm -f contrail_rpms.tgz")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # build repo using createrepo
             cmd = ("createrepo . > /dev/null")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory back to original
             os.chdir(cwd)
             # cobbler add repo
             self._smgr_cobbler.create_repo(
                 image_id, mirror)
             return puppet_manifest_version
+        except subprocess.CalledProcessError as e:
+            msg = ("create_yum_repo: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg)
         except Exception as e:
             raise(e)
     # end _create_yum_repo
@@ -1471,37 +1498,37 @@ class VncServerManager():
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
             cmd = "mkdir -p %s" %(mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory to the new one created
             cwd = os.getcwd()
             os.chdir(mirror)
             # add wrapper package itself to the repo
             cmd = "cp -f %s %s" %(
                 dest, mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # Extract .tgz of other packages from the repo
             cmd = (
                 "dpkg -x %s . > /dev/null" %(dest))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # Handle the puppet manifests in this package.
             puppet_modules_tgz_path = mirror + \
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
             puppet_manifest_version = self._add_puppet_modules(
                 puppet_modules_tgz_path)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_debs.tgz .")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             cmd = ("rm -rf opt")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # untar tgz to get all packages
             cmd = ("tar xvzf contrail_debs.tgz > /dev/null")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # remove the tgz file itself, not needed any more
             cmd = ("rm -f contrail_debs.tgz")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # build repo using createrepo
             cmd = (
                 "dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory back to original
             os.chdir(cwd)
             # cobbler add repo
@@ -1510,6 +1537,11 @@ class VncServerManager():
             # self._smgr_cobbler.create_repo(
             #     image_id, mirror)
             return puppet_manifest_version
+        except subprocess.CalledProcessError as e:
+            msg = ("create_deb_repo: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg)
         except Exception as e:
             raise(e)
     # end _create_deb_repo
@@ -1523,32 +1555,32 @@ class VncServerManager():
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
             cmd = "mkdir -p %s" %(mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory to the new one created
             cwd = os.getcwd()
             os.chdir(mirror)
             # add wrapper package itself to the repo
             cmd = "cp -f %s %s" %(
                 dest, mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # Extract .tgz of other packages from the repo
             cmd = (
                 "dpkg -x %s . > /dev/null" %(dest))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_storage_debs.tgz .")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             cmd = ("rm -rf opt")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # untar tgz to get all packages
             cmd = ("tar xvzf contrail_storage_debs.tgz > /dev/null")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # remove the tgz file itself, not needed any more
             cmd = ("rm -f contrail_storage_debs.tgz")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # build repo using createrepo
             cmd = (
                 "dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory back to original
             os.chdir(cwd)
             # cobbler add repo
@@ -1556,6 +1588,11 @@ class VncServerManager():
             # will need to revisit and make it work for ubuntu - Abhay
             # self._smgr_cobbler.create_repo(
             #     image_id, mirror)
+        except subprocess.CalledProcessError as e:
+            msg = ("create_storage_deb_repo: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg)
         except Exception as e:
             raise(e)
     # end _create_storage_deb_repo
@@ -2599,20 +2636,20 @@ class VncServerManager():
                         server['id'], server['domain'])
                     self._smgr_log.log(self._smgr_log.DEBUG,
                                         cmd)
-                    subprocess.call(cmd, shell=True)
+                    subprocess.check_call(cmd, shell=True)
                     # Remove manifest file for this server
                     cmd = "rm -f /etc/puppet/manifests/%s.%s.pp" %(
                         server['id'], server['domain'])
                     self._smgr_log.log(self._smgr_log.DEBUG,
                                         cmd)
 
-                    subprocess.call(cmd, shell=True)
+                    subprocess.check_call(cmd, shell=True)
                     # Remove entry for that server from site.pp
                     cmd = "sed -i \"/%s.%s.pp/d\" /etc/puppet/manifests/site.pp" %(
                         server['id'], server['domain'])
                     self._smgr_log.log(self._smgr_log.DEBUG,
                                         cmd)
-                    subprocess.call(cmd, shell=True)
+                    subprocess._call(cmd, shell=True)
                 # end if
                 if server['power_address']:
                     power_reboot_list.append(
@@ -2631,10 +2668,17 @@ class VncServerManager():
                              "%Y-%m-%d %H:%M:%S", gmtime())}
                 self._serverDb.modify_server(update)
                 success_list.append(server['id'])
+            except subprocess.CalledProcessError as e:
+                msg = ("power_cycle_servers: error %d when executing"
+                       "\"%s\"" %(e.returncode, e.cmd))
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                "Failed re-booting for server %s" % \
+                                (server['id']))
+                failed_list.append(server['id'])
             except Exception as e:
                 self._smgr_log.log(self._smgr_log.ERROR,
                                             repr(e))
-
                 self._smgr_log.log(self._smgr_log.ERROR,
                                 "Failed re-booting for server %s" % \
                                 (server['id']))
@@ -2721,7 +2765,7 @@ class VncServerManager():
             # Now kickstart agent run on the target
             host_name = provision_parameters['server_id'] + "." + \
                 provision_parameters.get('domain', '')
-            rc = subprocess.call(
+            rc = subprocess.check_call(
                 ["puppet", "kick", "--host", host_name])
             # Log, return error if return code is non-null - TBD Abhay
 
@@ -2729,7 +2773,11 @@ class VncServerManager():
             # update = {'server_id':server_id,
             #          'image_id':image_id}
             # self._serverDb.modify_server(update)
-
+        except subprocess.CalledProcessError as e:
+            msg = ("do_provision_server: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg)
         except Exception as e:
             raise e
     # end _do_provision_server
