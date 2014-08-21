@@ -147,6 +147,18 @@ class ServerMgrPuppet:
                 provision_params['package_type'],
                 before_param)
 
+	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
+        	print "found"
+		data += '''   # Install storage repo on target.
+    contrail_%s::contrail_common::contrail-setup-repo{contrail_storage_repo:
+        contrail_repo_name => "%s",
+	contrail_server_mgr_ip => "%s",
+	before => %s
+    }\n\n''' % (provision_params['puppet_manifest_version'],
+		provision_params['storage_repo_id'],
+		provision_params["server_mgr_ip"], before_param)
+
+
         return data
 
     # end _repository_config
