@@ -2649,7 +2649,7 @@ class VncServerManager():
                         server['id'], server['domain'])
                     self._smgr_log.log(self._smgr_log.DEBUG,
                                         cmd)
-                    subprocess._call(cmd, shell=True)
+                    subprocess.check_call(cmd, shell=True)
                 # end if
                 if server['power_address']:
                     power_reboot_list.append(
