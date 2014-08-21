@@ -2777,7 +2777,6 @@ class VncServerManager():
             msg = ("do_provision_server: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
             self._smgr_log.log(self._smgr_log.ERROR, msg)
-            raise ServerMgrException(msg)
         except Exception as e:
             raise e
     # end _do_provision_server
