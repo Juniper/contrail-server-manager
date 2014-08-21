@@ -19,10 +19,10 @@ set vendorclass = option vendor-class-identifier;
 subnet 10.204.217.0 netmask 255.255.255.0 {
     option routers              10.204.217.254;
     option subnet-mask          255.255.255.0;
-    option domain-name-servers  10.204.208.221, 8.8.8.8;
+    option domain-name-servers  $next_server, 8.8.8.8;
     option domain-search        "englab.juniper.net", "juniper.net";
     option domain-name          "englab.juniper.net" ;
-     option ntp-servers         172.17.28.5 ;
+     option ntp-servers         $next_server ;
      default-lease-time         21600;
      max-lease-time             43200;
      next-server                $next_server;
@@ -31,34 +31,34 @@ subnet 10.204.217.0 netmask 255.255.255.0 {
      on commit {
          set clip = binary-to-ascii(10, 8, ".", leased-address);
          set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "commit", clip, clhw);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "commit", clip, clhw);
          set ClientHost = pick-first-value(host-decl-name,
                                            option fqdn.hostname,
                                           option host-name,
                                            "none");
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "commit", clip, clhw, ClientHost);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "commit", clip, clhw, ClientHost);
      }
 
      on release {
          set clip = binary-to-ascii(10, 8, ".", leased-address);
          set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "release", clip, clhw);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "release", clip, clhw);
          set ClientHost = pick-first-value(host-decl-name,
                                            option fqdn.hostname,
                                            option host-name,
                                            "none");
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "release", clip, clhw, ClientHost);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "release", clip, clhw, ClientHost);
      }
 
      on expiry {
          set clip = binary-to-ascii(10, 8, ".", leased-address);
          set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw);
          set ClientHost = pick-first-value(host-decl-name,
                                            option fqdn.hostname,
                                            option host-name,
                                            "none");
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw, ClientHost);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw, ClientHost);
      }
 }
 
@@ -118,7 +118,17 @@ group {
         #if $iface.gateway:
         option routers $iface.gateway;
         #end if
+        #if $iface.enable_gpxe:
+        if exists user-class and option user-class = "gPXE" {
+            filename "http://$cobbler_server/cblr/svc/op/gpxe/system/$iface.owne                                                                                                                     r";
+        } else {
+            filename "undionly.kpxe";
+        }
+        #else if $dhcp_tag == "xenserver"
+        filename "pxelinux.0.$iface.distro.name";
+        #else
         filename "$iface.filename";
+        #end if
         ## Cobbler defaults to $next_server, but some users
         ## may like to use $iface.system.server for proxied setups
         next-server $next_server;
