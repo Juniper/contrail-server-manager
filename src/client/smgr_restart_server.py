@@ -53,6 +53,9 @@ def parse_arguments(args_str=None):
     parser.add_argument("--net_boot", "-n", action="store_true",
                         help=("optional parameter to indicate"
                              " if server should be netbooted."))
+    parser.add_argument("--no_confirm", "-F", action="store_true",
+                        help=("flag to bypass confirmation message, "
+                              "default = do not bypass"))
     args = parser.parse_args(args_str)
     return args
 # end def parse_arguments
@@ -113,6 +116,14 @@ def restart_server(args_str=None):
         payload[match_key] = match_value
     if (args.net_boot):
         payload['net_boot'] = "y"
+
+    if (not args.no_confirm):
+        msg = "Restart servers (%s:%s)? (y/N) :" %(
+            match_key, match_value)
+        user_input = raw_input(msg).lower()
+        if user_input not in ["y", "yes"]:
+            sys.exit()
+    # end if
  
     resp = send_REST_request(smgr_ip, smgr_port,
                              payload)

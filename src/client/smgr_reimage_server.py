@@ -59,6 +59,9 @@ def parse_arguments(args_str=None):
     group.add_argument("--tag",
                         help=("tag values for the servers to be reimaged"
                               "in t1=v1,t2=v2,... format"))
+    parser.add_argument("--no_confirm", "-F", action="store_true",
+                        help=("flag to bypass confirmation message, "
+                              "default = do not bypass"))
     args = parser.parse_args(args_str)
     return args
 # end parse arguments
@@ -121,6 +124,14 @@ def reimage_server(args_str=None):
         payload['no_reboot'] = "y"
     if match_key:
         payload[match_key] = match_value
+
+    if (not args.no_confirm):
+        msg = "Reimage servers (%s:%s) with %s? (y/N) :" %(
+            match_key, match_value, args.base_image_id)
+        user_input = raw_input(msg).lower()
+        if user_input not in ["y", "yes"]:
+            sys.exit()
+    # end if
  
     resp = send_REST_request(smgr_ip, smgr_port,
                              payload)
