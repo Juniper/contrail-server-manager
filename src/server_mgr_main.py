@@ -744,7 +744,7 @@ class VncServerManager():
         elif len(entity) == 1:
             match_key, match_value = entity.popitem()
             # check that match key is a valid one
-            if (match_key not in ("server_id", "mac_address",
+            if (match_key not in ("id", "mac_address",
                                   "tag", "cluster_id")):
                 msg = "Invalid Query arguments"
                 raise ServerMgrException(msg)
