@@ -78,7 +78,11 @@ class ServerMgrCobbler:
             self._server.save_repo(rid, self._token)
             # Issue cobbler reposync for this repo
             cmd = "cobbler reposync --only=" + _CONTRAIL_CENTOS_REPO
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            msg = ("Cobbler Init: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            raise ServerMgrException(msg)
         except Exception as e:
             raise e
     # End of __init__
@@ -204,7 +208,11 @@ class ServerMgrCobbler:
             self._server.save_repo(rid, self._token)
             # Issue cobbler reposync for this repo
             cmd = "cobbler reposync --only=" + repo_name
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            msg = ("create_repo: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            raise ServerMgrException(msg)
         except Exception as e:
             raise e
     # End of create_repo
