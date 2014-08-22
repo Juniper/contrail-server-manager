@@ -31,6 +31,7 @@ import server_mgr_db
 import ast
 import uuid
 import traceback
+import platform
 from server_mgr_defaults import *
 from server_mgr_status import *
 from server_mgr_db import ServerMgrDb as db
@@ -354,7 +355,7 @@ class VncServerManager():
 
     # REST API call to get list of server tags. The tags are read from
     # .ini file and stored in DB. There is also a copy maintained in a
-    # dictionary. Since all these are synced up, we return info from 
+    # dictionary. Since all these are synced up, we return info from
     # dictionaty variable itself.
     def get_server_tags(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "get_server_tags")
@@ -812,7 +813,7 @@ class VncServerManager():
             validation_data = cluster_fields
         elif type == "IMAGE":
             validation_data = image_fields
-        else: 
+        else:
             validation_data = None
 
         if oper == "GET":
@@ -1452,7 +1453,7 @@ class VncServerManager():
             cmd = "cp -f %s %s" %(
                 dest, mirror)
             subprocess.check_call(cmd, shell=True)
-            # Extract .tgz of contrail puppet manifest files 
+            # Extract .tgz of contrail puppet manifest files
             cmd = (
                 "rpm2cpio %s | cpio -ivd ./opt/contrail/puppet/"
                 "contrail-puppet-manifest.tgz > /dev/null" %(dest))
@@ -1678,7 +1679,7 @@ class VncServerManager():
                 self._smgr_log.log(self._smgr_log.ERROR, "Invalid image type")
                 abort(404, "invalid image type")
             self._mount_and_copy_iso(dest, copy_path, distro_name,
-                                     kernel_file, initrd_file)
+                                     kernel_file, initrd_file, image_type)
             # Setup distro information in cobbler
             self._smgr_cobbler.create_distro(
                 distro_name, image_type,
@@ -2289,8 +2290,8 @@ class VncServerManager():
                 provision_params['server_ip'] = server['ip_address']
                 provision_params['database_dir'] = cluster_params['database_dir']
                 provision_params['database_token'] = cluster_params['database_token']
-                provision_params['openstack_mgmt_ip'] = '' 
-                provision_params['openstack_passwd'] = '' 
+                provision_params['openstack_mgmt_ip'] = ''
+                provision_params['openstack_passwd'] = ''
                 provision_params['use_certificates'] = cluster_params['use_certificates']
                 provision_params['multi_tenancy'] = cluster_params['multi_tenancy']
                 provision_params['router_asn'] = cluster_params['router_asn']
@@ -2579,7 +2580,7 @@ class VncServerManager():
 
     # Private method to mount a given iso before calling cobbler functions.
     def _mount_and_copy_iso(self, full_image_name, copy_path, distro_name,
-                            kernel_file, initrd_file):
+                            kernel_file, initrd_file, image_type):
         try:
             mount_path = self._args.server_manager_base_dir + "mnt/"
             self._unmount_iso(mount_path)
@@ -2599,6 +2600,31 @@ class VncServerManager():
             # Copy the files from mounted ISO.
             shutil.rmtree(copy_path, True)
             shutil.copytree(mount_path, copy_path, True)
+            # Temporary Bug Fix for Corrupt Packages.gz issue reported by boot loader
+            # during PXE booting if using Server Manager on Ubuntu
+            # Final permanent fix TBD
+
+            if platform.dist()[0].lower() == 'ubuntu' and image_type == 'ubuntu':
+                if os.path.exists(copy_path + "/dists/precise/restricted/binary-amd64"):
+                    return_code = subprocess.call(["cd", copy_path + "/dists/precise/restricted/binary-amd64"])
+                    if (return_code != 0):
+                        return return_code
+                    return_code = subprocess.call(["cp", "Packages.gz", "Packages_copy.gz"])
+                    if (return_code != 0):
+                        return return_code
+                    return_code = subprocess.call(["gunzip", "Packages_copy.gz"])
+                    if (return_code != 0):
+                        return return_code
+                    file_size = os.stat(copy_path + "/dists/precise/restricted/binary-amd64/Packages_copy").st_size
+                    if str(file_size) == '0':
+                        return_code = subprocess.call(["mv", "Packages_copy", "Packages"])
+                        if (return_code != 0):
+                            return return_code
+                    else:
+                        return_code = subprocess.call(["rm", "Packages_copy"])
+                        if (return_code != 0):
+                            return return_code
+            # End Temporary Bug Fix
             # Need to change mode to kernel and initrd files to read for all.
             kernel_file_full_path = copy_path + kernel_file
             return_code = subprocess.call(
