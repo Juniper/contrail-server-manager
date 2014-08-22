@@ -1363,7 +1363,7 @@ class VncServerManager():
     # The below function takes the tgz path for puppet modules in the repo
     # being added, checks if that version of modules is already added to
     # puppet and adds it if not already added.
-    def _add_puppet_modules(self, puppet_modules_tgz):
+    def _add_puppet_modules(self, puppet_modules_tgz, image_id):
         tmpdirname = tempfile.mkdtemp()
         try:
             # change dir to the temp dir created
@@ -1375,9 +1375,16 @@ class VncServerManager():
             # untar the puppet modules tgz file
             cmd = ("tar xvzf contrail-puppet-manifest.tgz > /dev/null")
             subprocess.check_call(cmd, shell=True)
+            # Changing the below logic. Instead of reading version from
+            # version file, use image id as the version. Image id is unique
+            # and hence it would be easy to correlate puppet modules to
+            # contrail package being added. With this change, every image would
+            # have it's own manifests, even though manifests between two contrail
+            # versions might be identical.
             # Extract contents of version file.
-            with open('version','r') as f:
-                version = f.read().splitlines()[0]
+            #with open('version','r') as f:
+            #    version = f.read().splitlines()[0]
+            version = image_id
             # Create modules directory if it does not exist.
             target_dir = "/etc/puppet/modules/contrail_" + version
             if not os.path.isdir(target_dir):
@@ -1454,7 +1461,7 @@ class VncServerManager():
             puppet_modules_tgz_path = mirror + \
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
             puppet_manifest_version = self._add_puppet_modules(
-                puppet_modules_tgz_path)
+                puppet_modules_tgz_path, image_id)
             # Extract .tgz of other packages from the repo
             cmd = (
                 "rpm2cpio %s | cpio -ivd ./opt/contrail/contrail_packages/"
@@ -1514,7 +1521,7 @@ class VncServerManager():
             puppet_modules_tgz_path = mirror + \
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
             puppet_manifest_version = self._add_puppet_modules(
-                puppet_modules_tgz_path)
+                puppet_modules_tgz_path, image_id)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_debs.tgz .")
             subprocess.check_call(cmd, shell=True)
             cmd = ("rm -rf opt")
