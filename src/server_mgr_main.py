@@ -2606,24 +2606,19 @@ class VncServerManager():
 
             if platform.dist()[0].lower() == 'ubuntu' and image_type == 'ubuntu':
                 if os.path.exists(copy_path + "/dists/precise/restricted/binary-amd64"):
-                    return_code = subprocess.call(["cd", copy_path + "/dists/precise/restricted/binary-amd64"])
-                    if (return_code != 0):
-                        return return_code
-                    return_code = subprocess.call(["cp", "Packages.gz", "Packages_copy.gz"])
-                    if (return_code != 0):
-                        return return_code
+                    cwd = os.getcwd()
+                    packages_dir_path = str(copy_path + "/dists/precise/restricted/binary-amd64");
+                    os.chdir(packages_dir_path)
+                    shutil.copyfile('Packages.gz', 'Packages_copy.gz')
                     return_code = subprocess.call(["gunzip", "Packages_copy.gz"])
                     if (return_code != 0):
                         return return_code
-                    file_size = os.stat(copy_path + "/dists/precise/restricted/binary-amd64/Packages_copy").st_size
-                    if str(file_size) == '0':
-                        return_code = subprocess.call(["mv", "Packages_copy", "Packages"])
-                        if (return_code != 0):
-                            return return_code
+                    file_size = os.stat(packages_dir_path + "/Packages_copy").st_size
+                    if file_size == 0:
+                        shutil.move('Packages_copy', 'Packages')
                     else:
-                        return_code = subprocess.call(["rm", "Packages_copy"])
-                        if (return_code != 0):
-                            return return_code
+                        shutil.rmtree('Packages_copy')
+                    os.chdir(cwd)
             # End Temporary Bug Fix
             # Need to change mode to kernel and initrd files to read for all.
             kernel_file_full_path = copy_path + kernel_file
