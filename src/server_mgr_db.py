@@ -521,8 +521,6 @@ class ServerMgrDb:
             image_parameters = image_data.pop("parameters", None)
             if image_parameters is not None:
                 image_data['parameters'] = str(image_parameters)
-            self._modify_row(image_table, image_data,
-                             'id', image_id)
             self._modify_row(
                 image_table, image_data,
                 {'id' : image_id}, {})
@@ -733,8 +731,9 @@ class ServerMgrDb:
             raise e
 
         cluster['parameters'] = str(db_cluster_params)
-        self._modify_row(cluster_table, cluster,
-                         'id', cluster['id'])
+        self._modify_row(
+            cluster_table, cluster,
+            {'id' : cluster['id']}, {})
     # End of update_cluster_uuids
 
 # End class ServerMgrDb
