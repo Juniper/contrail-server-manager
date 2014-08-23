@@ -5,7 +5,8 @@
             "mac_address": "00:25:90:aa:36:32",
             "ip_address": "10.84.51.13",
             "parameters" : {
-                "interface_name": "eth1"
+                "interface_name": "eth1",
+		"partition": ""
             },
             "roles" : ["config","openstack","control","compute","collector","webui","database"],
             "cluster_id": "demo-cluster",

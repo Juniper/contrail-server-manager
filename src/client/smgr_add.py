@@ -59,6 +59,7 @@ object_dict = {
         ("roles", "comma-separated list of roles for this server"),
         ("parameters", OrderedDict([
             ("interface_name", "Ethernet Interface name"),
+            ("partition", "Use this partition and create lvm"),
             ("disks", "Storage OSDs (default none)")])),
         ("cluster_id", "cluster id the server belongs to"),
         ("tag1", "tag value for this tag"),

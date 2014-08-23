@@ -221,7 +221,7 @@ class ServerMgrCobbler:
                       mac, ip, subnet, gway, system_domain,
                       ifname, enc_passwd, server_license, esx_nicname,
                       power_type, power_user, power_pass, power_address,
-                      base_image, server_ip):
+                      base_image, server_ip, partition=None):
         try:
             # Validate cobbler token
             self._validate_token(self._token, "system")
@@ -286,6 +286,10 @@ class ServerMgrCobbler:
             ks_metadata += ' ip_address=' + ip
             ks_metadata += ' system_name=' + system_name
             ks_metadata += ' system_domain=' + system_domain
+            if partition:
+                ks_metadata += ' partition=' + partition
+            else:
+                ks_metadata += ' partition=' + '/dev/sd?'
             if package_image_id:
                 ks_metadata += ' contrail_repo_name=' + \
                     package_image_id

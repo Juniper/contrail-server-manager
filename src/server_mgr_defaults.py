@@ -10,7 +10,8 @@ server_fields = {
     "mac_address": "",
     "ip_address": "",
     "parameters": """{
-                    'interface_name': ''
+                    'interface_name': '',
+                    'partition': '',
                     }""",
     "roles": ["config","openstack","control","compute","collector","webui","database"],
     "cluster_id": "",

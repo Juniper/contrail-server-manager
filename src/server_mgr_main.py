@@ -1990,6 +1990,7 @@ class VncServerManager():
                     reimage_parameters['power_password'] = self._args.power_password
                 reimage_parameters['power_address'] = server.get(
                     'power_address', '')
+                reimage_parameters['partition'] = server_parameters.get('partition', '')
                 self._do_reimage_server(
                     base_image, package_image_id, reimage_parameters)
 
@@ -2763,7 +2764,8 @@ class VncServerManager():
                 reimage_parameters.get('power_username',self._args.power_username),
                 reimage_parameters.get('power_password',self._args.power_password),
                 reimage_parameters.get('power_address',''),
-                base_image, self._args.listen_ip_addr)
+                base_image, self._args.listen_ip_addr,
+                reimage_parameters.get('partition', ''))
 
             # Sync the above information
             #self._smgr_cobbler.sync()
