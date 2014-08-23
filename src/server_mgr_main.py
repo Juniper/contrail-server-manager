@@ -2605,9 +2605,9 @@ class VncServerManager():
             # Final permanent fix TBD
 
             if platform.dist()[0].lower() == 'ubuntu' and image_type == 'ubuntu':
-                if os.path.exists(copy_path + "/dists/precise/restricted/binary-amd64"):
+                packages_dir_path = str(copy_path + "/dists/precise/restricted/binary-amd64")
+                if os.path.exists(packages_dir_path):
                     cwd = os.getcwd()
-                    packages_dir_path = str(copy_path + "/dists/precise/restricted/binary-amd64");
                     os.chdir(packages_dir_path)
                     shutil.copyfile('Packages.gz', 'Packages_copy.gz')
                     return_code = subprocess.call(["gunzip", "Packages_copy.gz"])
