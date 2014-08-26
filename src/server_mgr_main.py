@@ -2663,22 +2663,24 @@ class VncServerManager():
                         server['id'])
                     cmd = "puppet cert clean %s.%s" % (
                         server['id'], server['domain'])
-                    self._smgr_log.log(self._smgr_log.DEBUG,
-                                        cmd)
-                    subprocess.check_call(cmd, shell=True)
+                    ret_code = subprocess.call(cmd, shell=True)
+                    self._smgr_log.log(
+                        self._smgr_log.DEBUG,
+                        cmd + "; ret_code = %d" %(ret_code))
                     # Remove manifest file for this server
                     cmd = "rm -f /etc/puppet/manifests/%s.%s.pp" %(
                         server['id'], server['domain'])
-                    self._smgr_log.log(self._smgr_log.DEBUG,
-                                        cmd)
-
-                    subprocess.check_call(cmd, shell=True)
+                    ret_code = subprocess.call(cmd, shell=True)
+                    self._smgr_log.log(
+                        self._smgr_log.DEBUG,
+                        cmd + "; ret_code = %d" %(ret_code))
                     # Remove entry for that server from site.pp
                     cmd = "sed -i \"/%s.%s.pp/d\" /etc/puppet/manifests/site.pp" %(
                         server['id'], server['domain'])
-                    self._smgr_log.log(self._smgr_log.DEBUG,
-                                        cmd)
-                    subprocess.check_call(cmd, shell=True)
+                    ret_code = subprocess.call(cmd, shell=True)
+                    self._smgr_log.log(
+                        self._smgr_log.DEBUG,
+                        cmd + "; ret_code = %d" %(ret_code))
                 # end if
                 if server['power_address']:
                     power_reboot_list.append(
