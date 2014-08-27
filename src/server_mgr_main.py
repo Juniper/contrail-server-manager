@@ -2180,7 +2180,7 @@ class VncServerManager():
     # puppet manifest file for the server and adds it to site
     # manifest file.
     def provision_server(self):
-        package_type_list = ["contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]
+        package_type_list = ["contrail-ubuntu-package", "contrail-centos-package"]
         self._smgr_log.log(self._smgr_log.DEBUG, "provision_server")
         try:
             entity = bottle.request.json
@@ -2257,7 +2257,8 @@ class VncServerManager():
                     raise ServerMgrException(msg)
                 image = images [0]
                 if image['type'] not in package_type_list:
-                    msg = "Package %s is not a valid package." % (package_image_id)
+                    msg = "Package %s is not a valid package. " \
+                          "Node can be provisioned only with a Contrail Install debian or rpm." % (package_image_id)
                     self._smgr_log.log(self._smgr_log.DEBUG, msg)
                     raise ServerMgrException(msg)
                 puppet_manifest_version = eval(image['parameters'])['puppet_manifest_version']
