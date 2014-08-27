@@ -92,7 +92,7 @@ define contrail-database (
         ensure => running,
     }
 
-    database-template-scripts { ["contrail-nodemgr-database.conf", "database_nodemgr_param"]: }
+    database-template-scripts { ["contrail-database-nodemgr.conf", "database_nodemgr_param"]: }
 
  }
 	
