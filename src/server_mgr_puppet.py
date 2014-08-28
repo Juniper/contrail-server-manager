@@ -97,6 +97,26 @@ class ServerMgrPuppet:
         return '"' + mgmt_ip + '"'
     # end get_control_ip
 
+    ## return 1.1.1.0/24 format network and mask
+    def get_control_network_mask(self, provision_params, mgmt_ip_str):
+        intf_control = {}
+	##netaddr.IPNetwork(ip_cidr).network, netaddr.IPNetwork(ip_cidr).prefixlen
+        mgmt_ip = mgmt_ip_str.strip("\"")
+        if provision_params['control_net'] [mgmt_ip]:
+            intf_control = eval(provision_params['control_net'] [mgmt_ip])        
+        for intf,values in intf_control.items():
+            if intf:
+        	self._smgr_log.log(self._smgr_log.DEBUG, "ip_address : %s" % values['ip_address'])
+                return '"' + str(IPNetwork(values['ip_address']).network) + '/'+ str(IPNetwork(values['ip_address']).prefixlen) + '"'
+            else:
+        	self._smgr_log.log(self._smgr_log.DEBUG, "server_ip : %s" % values['server_ip'])
+                return '"' + str(IPNetwork(provision_params['server_ip']).network) + '/'+ str(IPNetwork(provision_params['server_ip']).prefixlen) + '"'
+                #return '"' + provision_params['server_ip'] + '"'
+	ip_address_cidr = mgmt_ip + '/' + provision_params['subnet-mask']
+        return '"' + str(IPNetwork(ip_address_cidr).network) + '/'+ str(IPNetwork(ip_address_cidr).prefixlen) + '"'
+        #return '"' + mgmt_ip + '"'
+    # end get_control_network_mask 
+
     def _update_provision_start(self, provision_params):
         # Get all the parameters needed to send to puppet manifest.
         before_param = \
@@ -1543,6 +1563,11 @@ $__contrail_quantum_servers__
             ret_code = subprocess.call(cmd, shell=True)
             return
 
+        if (provision_params['openstack_mgmt_ip'] == ''):
+            contrail_openstack_mgmt_ip = provision_params["server_ip"]
+        else:
+            contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
+	contrail_storage_cluster_network=self.get_control_network_mask(provision_params,contrail_openstack_mgmt_ip)
         # Storage params added to the top of the manifest file
         resource_data += '''$contrail_host_roles= ['''
         for role in provision_params['host_roles']:
@@ -1550,6 +1575,7 @@ $__contrail_quantum_servers__
         resource_data = resource_data[:len(resource_data)-1]+']'
         resource_data += '''\n'''
         resource_data += '''$contrail_storage_num_osd= %s\n''' % (provision_params['storage_num_osd'])
+        resource_data += '''$contrail_storage_cluster_network= %s\n''' % (str(contrail_storage_cluster_network))
         # Create resource to have repository configuration setup on the
         # target
         resource_data += self._update_provision_start(provision_params)

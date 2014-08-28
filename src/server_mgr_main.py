@@ -2379,6 +2379,12 @@ class VncServerManager():
 
                 # Storage role params
 
+                if 'subnet_mask' in server and server['subnet_mask']:
+                    subnet_mask = server['subnet_mask']
+                elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
+                    subnet_mask = cluster_params['subnet_mask']
+
+		provision_params['subnet-mask'] = subnet_mask
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
@@ -2418,9 +2424,9 @@ class VncServerManager():
 
                 storage_mon_host_ip_set = set()
                 for x in role_servers['storage-compute']:
-                    storage_mon_host_ip_set.add(x["ip_address"])
+                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip( provision_params, x["ip_address"]).strip('"'))
                 for x in role_servers['storage-master']:
-                    storage_mon_host_ip_set.add(x["ip_address"])
+                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
 
                 provision_params['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
 
