@@ -1539,6 +1539,8 @@ $__contrail_quantum_servers__
                 lines = f.readlines()
                 if not server_line in lines:
                     f.write(server_line)
+            cmd = "touch %s" %(self._site_manifest_file)
+            ret_code = subprocess.call(cmd, shell=True)
             return
 
         # Storage params added to the top of the manifest file
@@ -1616,6 +1618,8 @@ $__contrail_quantum_servers__
             lines = f.readlines()
             if not server_line in lines:
                 f.write(server_line)
+        cmd = "touch %s" %(self._site_manifest_file)
+        ret_code = subprocess.call(cmd, shell=True)
     # end provision_server
 # class ServerMgrPuppet
 
