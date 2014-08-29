@@ -119,7 +119,10 @@ class ServerMgrPuppet:
 
     def _update_kernel(self, provision_params):
         # Get all the parameters needed to send to puppet manifest.
-	    if 'kernel_upgrade' in provision_params and provision_params['kernel_upgrade'] == 'yes':
+        if 'kernel_upgrade' in provision_params and \
+             provision_params['kernel_upgrade'] == "yes" and \
+            'kernel_version' in provision_params and \
+            provision_params['kernel_version'] != '' :
             before_param = \
             "Contrail_%s::Contrail_common::Contrail_common[\"contrail_common\"]" %(
                         provision_params['puppet_manifest_version'])
@@ -174,7 +177,11 @@ class ServerMgrPuppet:
                 provision_params['package_image_id'],
                 provision_params["server_mgr_ip"], before_param)
 
-        if 'kernel_upgrade' in provision_params['kernel_upgrade'] == "yes":
+        if 'kernel_upgrade' in provision_params['kernel_upgrade'] and \
+             provision_params['kernel_upgrade'] == "yes" and \
+            'kernel_version' in provision_params['kernel_version '] and \
+            provision_params['kernel_version'] != '' :
+
             before_param = "Contrail_%s::Contrail_common::Upgrade-kernel[\"upgrade_kernel\"]" % \
                        (provision_params['puppet_manifest_version'])
         else:
@@ -1591,7 +1598,7 @@ $__contrail_quantum_servers__
             contrail_openstack_mgmt_ip = provision_params["server_ip"]
         else:
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
-	    contrail_storage_cluster_network = self.get_control_network_mask(provision_params,contrail_openstack_mgmt_ip)
+        contrail_storage_cluster_network = self.get_control_network_mask(provision_params,contrail_openstack_mgmt_ip)
         # Storage params added to the top of the manifest file
         resource_data += '''$contrail_host_roles= ['''
         for role in provision_params['host_roles']:
