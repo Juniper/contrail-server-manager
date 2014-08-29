@@ -2310,6 +2310,21 @@ class VncServerManager():
                 else:
                     provision_params['server_gway'] = ''
 
+                if 'kernel_upgrade' in server_params and server_params['kernel_upgrade']:
+                    provision_params['kernel_upgrade'] = server_params['kernel_upgrade']
+                elif 'kernel_upgrade' in cluster_params and cluster_params['kernel_upgrade']:
+                    provision_params['kernel_upgrade'] = cluster_params['kernel_upgrade']
+                else:
+                    provision_params['kernel_upgrade'] = 'no'
+
+                if 'kernel_version' in server_params and server_params['kernel_version']:
+                    provision_params['kernel_version'] = server_params['kernel_version']
+                elif 'kernel_version' in cluster_params and cluster_params['kernel_version']:
+                    provision_params['kernel_version'] = cluster_params['kernel_version']
+                else:
+                    provision_params['kernel_version'] = ''
+
+
                 provision_params['haproxy'] = cluster_params['haproxy']
 
                 if 'setup_interface' in server_params.keys():
