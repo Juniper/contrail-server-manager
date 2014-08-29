@@ -87,7 +87,7 @@ killasgroup=false             ; SIGKILL the UNIX process group (def false)
 ; sent by supervisor.
 
 [eventlistener:contrail-database-nodemgr]
-command=/bin/bash -c "/usr/bin/contrail-nodemgr --rules=/etc/contrail/supervisord_contrail_database_files/supervisord_contrail_database.rules --nodetype=contrail-database  --discovery_server <%= contrail_config_ip %>"
+command=/bin/bash -c "/usr/bin/contrail-nodemgr --rules=/etc/contrail/supervisord_database_files/supervisord_contrail_database.rules --nodetype=contrail-database  --discovery_server <%= contrail_config_ip %>"
 events=PROCESS_COMMUNICATION,PROCESS_STATE
 environment_file= /etc/contrail/database_nodemgr_param
 
@@ -135,5 +135,5 @@ stderr_logfile=/var/log/contrail/contrail-database-nodemgr-stderr.log ; stderr l
 ; include files themselves.
 
 ;[include]
-;files = /etc/contrail/supervisord_contrail_database_files/*.ini
+;files = /etc/contrail/supervisord_database_files/*.ini
 
