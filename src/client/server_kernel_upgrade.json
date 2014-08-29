@@ -1,0 +1,29 @@
+{
+    "server": [
+        {
+            "id": "demo2-server",
+            "mac_address": "00:25:90:aa:36:32",
+            "ip_address": "10.84.51.13",
+            "parameters" : {
+                "interface_name": "eth1",
+                "kernel_version": "3.13.0-34",
+                "kernel_upgrade": "no",
+		"partition": ""
+            },
+            "roles" : ["config","openstack","control","compute","collector","webui","database"],
+            "cluster_id": "demo-cluster",
+            "subnet_mask": "255.255.255.0",
+            "gateway": "10.84.51.254",
+            "password": "juniper",
+            "domain": "demo.juniper.net",
+            "power_address": "10.84.6.63",
+            "tag" : {
+                 "datacenter" : "demo-dc",
+                 "floor" : "demo-floor",
+                 "hall" : "demo-hall",
+                 "rack" : "demo-rack",
+                 "user_tag"  : "demo-user"
+             }
+        }
+    ]
+}
