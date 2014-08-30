@@ -603,7 +603,7 @@ $__contrail_disc_backend_servers__
         nworkers = 1
         sctl_lines = ''
         for worker_id in range(int(nworkers)):
-            sctl_line = 'supervisorctl -s http://localhost:9004 ' + \
+            sctl_line = 'supervisorctl -s unix:///tmp/supervisord_config.sock ' + \
                         '${1} `basename ${0}:%s`' %(worker_id)
             sctl_lines = sctl_lines + sctl_line
   

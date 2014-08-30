@@ -3,7 +3,7 @@ command=/bin/bash -c "source /opt/contrail/api-venv/bin/activate && exec python 
 numprocs=<%= contrail_disc_nworkers %>
 process_name=%(process_num)s
 redirect_stderr=true
-stdout_logfile= /var/log/contrail/contrail-discovery-%(process_num)s.log
+stdout_logfile= /var/log/contrail/contrail-discovery-stdout-%(process_num)s.log
 stderr_logfile=/dev/null
 priority=430
 autostart=true
