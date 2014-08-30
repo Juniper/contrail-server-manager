@@ -117,6 +117,27 @@ class ServerMgrPuppet:
         #return '"' + mgmt_ip + '"'
     # end get_control_network_mask 
 
+    def _update_kernel(self, provision_params):
+        # Get all the parameters needed to send to puppet manifest.
+        if 'kernel_upgrade' in provision_params and \
+             provision_params['kernel_upgrade'] == "yes" and \
+            'kernel_version' in provision_params and \
+            provision_params['kernel_version'] != '' :
+            before_param = \
+            "Contrail_%s::Contrail_common::Contrail_common[\"contrail_common\"]" %(
+                        provision_params['puppet_manifest_version'])
+            data = '''    # Upgrade the kernel.
+        contrail_%s::contrail_common::upgrade-kernel{upgrade_kernel:
+            contrail_kernel_version => "%s",
+            before => %s
+        }\n\n''' % (provision_params['puppet_manifest_version'],
+                    provision_params['kernel_version'],
+                    before_param)
+            return data
+        else: 
+            return ''
+    # end _update_kernel
+
     def _update_provision_start(self, provision_params):
         # Get all the parameters needed to send to puppet manifest.
         before_param = \
@@ -156,8 +177,18 @@ class ServerMgrPuppet:
                 provision_params['package_image_id'],
                 provision_params["server_mgr_ip"], before_param)
 
-        before_param = "Contrail_%s::Contrail_common::Contrail_common[\"contrail_common\"]" % \
+        if 'kernel_upgrade' in provision_params['kernel_upgrade'] and \
+             provision_params['kernel_upgrade'] == "yes" and \
+            'kernel_version' in provision_params['kernel_version '] and \
+            provision_params['kernel_version'] != '' :
+
+            before_param = "Contrail_%s::Contrail_common::Upgrade-kernel[\"upgrade_kernel\"]" % \
                        (provision_params['puppet_manifest_version'])
+        else:
+            before_param = \
+            "Contrail_%s::Contrail_common::Contrail_common[\"contrail_common\"]" %(
+                        provision_params['puppet_manifest_version'])
+
 
         data += '''    # Install repo on target.
     contrail_%s::contrail_common::contrail-install-repo{install_repo:
@@ -1567,7 +1598,7 @@ $__contrail_quantum_servers__
             contrail_openstack_mgmt_ip = provision_params["server_ip"]
         else:
             contrail_openstack_mgmt_ip = provision_params['openstack_mgmt_ip']
-	contrail_storage_cluster_network=self.get_control_network_mask(provision_params,contrail_openstack_mgmt_ip)
+        contrail_storage_cluster_network = self.get_control_network_mask(provision_params,contrail_openstack_mgmt_ip)
         # Storage params added to the top of the manifest file
         resource_data += '''$contrail_host_roles= ['''
         for role in provision_params['host_roles']:
@@ -1582,6 +1613,8 @@ $__contrail_quantum_servers__
 
 
         resource_data += self._repository_config(provision_params)
+
+        resource_data += self._update_kernel(provision_params)
 
         # Always call common function for all the roles
         resource_data += self._roles_function_map["common"](self, provision_params)
