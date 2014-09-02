@@ -22,7 +22,7 @@ def convert_xml_to_json(input_file, output_file):
     	server_params = {}
     	server_params['interface_name'] = 'eth1'
     	smgr_server['parameters'] = server_params
-    	smgr_server['power_address'] = server['ipmi']
+    	smgr_server['ipmi_address'] = server['ipmi']
     	smgr_server_dict['server'].append(smgr_server)
 
     servers_jdump = json.dumps(smgr_server_dict, indent=4)

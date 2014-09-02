@@ -20,12 +20,12 @@ server_fields = {
     "password": "",
     "domain": "",
     "email": "",
-    "power_username": "",
-    "power_type": "",
-    "power_password": "",
+    "ipmi_username": "",
+    "ipmi_type": "",
+    "ipmi_password": "",
     "control_data_network": "",
     "bond_interface": "",
-    "power_address": "",
+    "ipmi_address": "",
     "tag": ""
 }
 
