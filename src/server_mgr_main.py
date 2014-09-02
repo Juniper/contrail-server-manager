@@ -56,9 +56,9 @@ _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = None
 _DEF_COBBLER_USERNAME = 'cobbler'
 _DEF_COBBLER_PASSWORD = 'cobbler'
-_DEF_POWER_USERNAME = 'ADMIN'
-_DEF_POWER_PASSWORD = 'ADMIN'
-_DEF_POWER_TYPE = 'ipmilan'
+_DEF_IPMI_USERNAME = 'ADMIN'
+_DEF_IPMI_PASSWORD = 'ADMIN'
+_DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
 
 @bottle.error(403)
@@ -1975,21 +1975,21 @@ class VncServerManager():
                 if 'interface_name' not in server_parameters:
                     msg = "Missing interface name for " + server_id
                     raise ServerMgrException(msg)
-                if 'power_addresss' in server and server['power_addresss'] == None:
-                    msg = "Missing power address for " + server_id
+                if 'ipmi_addresss' in server and server['ipmi_addresss'] == None:
+                    msg = "Missing ipmi address for " + server_id
                     raise ServerMgrException(msg)
                 reimage_parameters['server_ifname'] = server_parameters['interface_name']
-                reimage_parameters['power_type'] = server.get('power_type')
-                if not reimage_parameters['power_type']:
-                    reimage_parameters['power_type'] = self._args.power_type
-                reimage_parameters['power_username'] = server.get('power_username')
-                if not reimage_parameters['power_username']:
-                    reimage_parameters['power_username'] = self._args.power_username
-                reimage_parameters['power_password'] = server.get('power_password')
-                if not reimage_parameters['power_password']:
-                    reimage_parameters['power_password'] = self._args.power_password
-                reimage_parameters['power_address'] = server.get(
-                    'power_address', '')
+                reimage_parameters['ipmi_type'] = server.get('ipmi_type')
+                if not reimage_parameters['ipmi_type']:
+                    reimage_parameters['ipmi_type'] = self._args.ipmi_type
+                reimage_parameters['ipmi_username'] = server.get('ipmi_username')
+                if not reimage_parameters['ipmi_username']:
+                    reimage_parameters['ipmi_username'] = self._args.ipmi_username
+                reimage_parameters['ipmi_password'] = server.get('ipmi_password')
+                if not reimage_parameters['ipmi_password']:
+                    reimage_parameters['ipmi_password'] = self._args.ipmi_password
+                reimage_parameters['ipmi_address'] = server.get(
+                    'ipmi_address', '')
                 reimage_parameters['partition'] = server_parameters.get('partition', '')
                 self._do_reimage_server(
                     base_image, package_image_id, reimage_parameters)
@@ -2000,7 +2000,7 @@ class VncServerManager():
                     'domain' : domain,
                     'ip' : server.get("ip_address", ""),
                     'password' : password,
-                    'power_address' : server.get('power_address',"") }
+                    'ipmi_address' : server.get('ipmi_address',"") }
                 reboot_server_list.append(
                     reboot_server)
             # end for server in servers
@@ -2084,7 +2084,7 @@ class VncServerManager():
                     'domain' : domain,
                     'ip' : server.get("ip_address", ""),
                     'password' : password,
-                    'power_address' : server.get('power_address',"") }
+                    'ipmi_address' : server.get('ipmi_address',"") }
                 reboot_server_list.append(
                     reboot_server)
             # end for server in servers
@@ -2535,9 +2535,9 @@ class VncServerManager():
             'cobbler_port'               : _DEF_COBBLER_PORT,
             'cobbler_username'           : _DEF_COBBLER_USERNAME,
             'cobbler_password'           : _DEF_COBBLER_PASSWORD,
-            'power_username'             : _DEF_POWER_USERNAME,
-            'power_password'             : _DEF_POWER_PASSWORD,
-            'power_type'                 : _DEF_POWER_TYPE,
+            'ipmi_username'             : _DEF_IPMI_USERNAME,
+            'ipmi_password'             : _DEF_IPMI_PASSWORD,
+            'ipmi_type'                 : _DEF_IPMI_TYPE,
             'puppet_dir'                 : _DEF_PUPPET_DIR
         }
 
@@ -2703,7 +2703,7 @@ class VncServerManager():
                         self._smgr_log.DEBUG,
                         cmd + "; ret_code = %d" %(ret_code))
                 # end if
-                if server['power_address']:
+                if server['ipmi_address']:
                     power_reboot_list.append(
                         server['id'])
                 else:
@@ -2783,10 +2783,10 @@ class VncServerManager():
                 reimage_parameters['server_password'],
                 reimage_parameters.get('server_license', ''),
                 reimage_parameters.get('esx_nicname', 'vmnic0'),
-                reimage_parameters.get('power_type',self._args.power_type),
-                reimage_parameters.get('power_username',self._args.power_username),
-                reimage_parameters.get('power_password',self._args.power_password),
-                reimage_parameters.get('power_address',''),
+                reimage_parameters.get('ipmi_type',self._args.ipmi_type),
+                reimage_parameters.get('ipmi_username',self._args.ipmi_username),
+                reimage_parameters.get('ipmi_password',self._args.ipmi_password),
+                reimage_parameters.get('ipmi_address',''),
                 base_image, self._args.listen_ip_addr,
                 reimage_parameters.get('partition', ''))
 
