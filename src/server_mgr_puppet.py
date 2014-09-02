@@ -1400,10 +1400,12 @@ $__contrail_quantum_servers__
             'contrail_physical_interface', None) is None:
             self._params_dict['contrail_physical_interface'] = (
                 "\"%s\"" %(provision_params["phy_interface"]))
+        # Restrict the numbe of control nodes to two for agent
+        contrail_num_controls = 2
         if self._params_dict.get(
             'contrail_num_controls', None) is None:
             self._params_dict['contrail_num_controls'] = (
-                "\"%s\"" %(len(control_servers)))
+                "\"%s\"" %(contrail_num_controls))
         if self._params_dict.get(
             'contrail_non_mgmt_ip', None) is None:
             self._params_dict['contrail_non_mgmt_ip'] = (
