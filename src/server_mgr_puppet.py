@@ -480,6 +480,29 @@ class ServerMgrPuppet:
             'contrail_cfgm_number', None) is None:
             self._params_dict['contrail_cfgm_number'] = (
                 "\"%s\"" %(len(config_servers_names)))
+        if self._params_dict.get(
+            'ha', None) is None:
+            self._params_dict['ha'] = (
+                "\"%s\"" %(provision_params["ha"]))
+        if self._params_dict.get(
+            'internal_vip', None) is None:
+            self._params_dict['internal_vip'] = (
+                "\"%s\"" %(provision_params["internal_vip"]))
+        if self._params_dict.get(
+            'external_vip', None) is None:
+            self._params_dict['external_vip'] = (
+                "\"%s\"" %(provision_params["external_vip"]))
+        if self._params_dict.get(
+            'nfs_server', None) is None:
+            self._params_dict['nfs_server'] = (
+                "\"%s\"" %(provision_params["nfs_server"]))
+        if self._params_dict.get(                                                                                            
+            'nfs_glance_path', None) is None:
+            self._params_dict['nfs_glance_path'] = (                                                                                         "\"%s\"" %(provision_params["nfs_glance_path"]))
+        if self._params_dict.get(
+            'openstack_ip_list_control', None) is None:
+            self._params_dict['openstack_ip_list_control'] = (
+                "[%s]" %(','.join(openstack_ip_list_control)))
 
         # Build resource items
         data += '''    # contrail-openstack role.
@@ -491,10 +514,222 @@ class ServerMgrPuppet:
 
         if provision_params["haproxy"] == "enable":
             self.create_openstack_ha_proxy(provision_params)
-
+        if provision_params["ha"] == "True":
+            self.create_openstack_ha_proxy_new(provision_params)
         return data
     # end puppet_add_openstack_role
 
+    #Function to create haproxy cfg for openstack nodes
+    def create_openstack_ha_proxy_new(self, provision_params):
+
+        keystone_server_lines = ''
+        keystone_admin_server_lines = ''
+        glance_server_lines = ''
+        cinder_server_lines = ''
+        nova_api_server_lines = ''
+        nova_meta_server_lines = ''
+        memcached_server_lines = ''
+        rabbitmq_server_lines = ''
+        mysql_server_lines = ''
+        space = ' ' * 3
+
+        haproxy_config = ''
+        smgr_dir  = staging_dir = "/etc/puppet/modules/contrail_"+ provision_params['puppet_manifest_version'] + "/files/"
+        template = string.Template("""#contrail-openstack-marker-start
+        listen contrail-openstack-stats :5936
+           mode http
+           stats enable
+           stats uri /
+           stats auth $__contrail_hap_user__:$__contrail_hap_passwd__
+
+        frontend openstack-keystone *:5000
+            default_backend    keystone-backend
+
+        backend keystone-backend
+            option tcpka
+            option nolinger
+            srvtimeout 24h
+            balance    roundrobin
+        $__keystone_backend_servers__
+
+        frontend openstack-keystone-admin *:35357
+            default_backend    keystone-admin-backend
+
+        backend keystone-admin-backend
+            option tcpka
+            option nolinger
+            srvtimeout 24h
+            balance    roundrobin
+        $__keystone_admin_backend_servers__
+
+        frontend openstack-glance *:9292
+            default_backend    glance-backend
+
+        backend glance-backend
+            option tcpka
+            option nolinger
+            srvtimeout 24h
+            balance   roundrobin
+        $__glance_backend_servers__
+
+        frontend openstack-cinder *:8776
+            default_backend  cinder-backend
+
+        backend cinder-backend
+            option tcpka
+            option nolinger
+            srvtimeout 24h
+            balance   roundrobin
+        $__cinder_backend_servers__
+
+        frontend openstack-nova-api *:8774
+            default_backend  nova-api-backend
+
+        backend nova-api-backend
+            option tcpka
+            option nolinger
+            srvtimeout 24h
+            balance   roundrobin
+        $__nova_api_backend_servers__
+
+        frontend openstack-nova-meta *:8775
+            default_backend  nova-meta-backend
+
+        backend nova-meta-backend
+            option tcpka
+            option nolinger
+            srvtimeout 24h
+            balance   roundrobin
+        $__nova_meta_backend_servers__
+
+
+        listen memcached 0.0.0.0:11222
+           mode tcp
+           balance roundrobin
+           option tcplog
+           maxconn 10000                                                                                   
+           balance roundrobin                                                                              
+           option tcpka                                                                                    
+           option nolinger                                                                                 
+           timeout connect 5s                                                                              
+           timeout client 48h                                                                              
+           timeout server 48h 
+        $__memcached_servers__
+
+        listen  rabbitmq 0.0.0.0:5673
+            mode tcp
+            maxconn 10000
+            balance roundrobin
+            option tcpka
+            option redispatch
+            timeout client 48h
+            timeout server 48h
+        $__rabbitmq_servers__
+
+        listen  mysql 0.0.0.0:33306
+            mode tcp
+            balance roundrobin
+            option tcpka
+            option nolinger
+            option redispatch
+            maxconn 2000
+            contimeout 5s
+            clitimeout 24h
+            srvtimeout 24h
+            option mysql-check user root
+        $__mysql_servers__
+
+        #contrail-openstack-marker-end
+        """)
+
+        openstack_ip_list = provision_params['roles']['openstack']
+
+        for openstack_ip in openstack_ip_list:
+            server_index = openstack_ip_list.index(
+                                    provision_params["server_ip"]) + 1
+
+            host_ip = self.get_control_ip(provision_params, openstack_ip)
+
+            keystone_server_lines +=\
+                    '%s server %s %s:6000 check inter 2000 rise 2 fall 3\n'\
+                    % (space, host_ip, host_ip)
+            keystone_admin_server_lines +=\
+                    '%s server %s %s:35358 check inter 2000 rise 2 fall 3\n'\
+                    % (space, host_ip, host_ip)
+            glance_server_lines +=\
+                    '%s server %s %s:9393 check inter 2000 rise 2 fall 3\n'\
+                    % (space, host_ip, host_ip)
+            cinder_server_lines +=\
+                    '%s server %s %s:9776 check inter 2000 rise 2 fall 3\n'\
+                    % (space, host_ip, host_ip)
+            nova_api_server_lines +=\
+                    '%s server %s %s:9774 check inter 2000 rise 2 fall 3\n'\
+                    % (space, host_ip, host_ip)
+            nova_meta_server_lines +=\
+                    '%s server %s %s:9775 check inter 2000 rise 2 fall 3\n'\
+                    % (space, host_ip, host_ip)
+            if server_index <= 2:
+                memcached_server_lines +=\
+                        '%s server repcache%s %s:11211 check inter 2000 rise 2 fall 3\n'\
+                        % (space, server_index, host_ip)
+                rabbitmq_server_lines +=\
+                        '%s server rabbit%s %s:5672 check inter 2000 rise 2 fall 3 weight 1 maxconn 500\n'\
+                        % (space, server_index, host_ip)
+                mysql_server_lines +=\
+                        '%s server mysql%s %s:3306 weight 1\n'\
+                        % (space, server_index, host_ip)
+                
+        for openstack_node in openstack_ip_list:
+            haproxy_config = template.safe_substitute({
+                '__keystone_backend_servers__' : keystone_server_lines,
+                '__keystone_admin_backend_servers__' : keystone_admin_server_lines,
+                '__glance_backend_servers__' : glance_server_lines,
+                '__cinder_backend_servers__' : cinder_server_lines,
+                '__nova_api_backend_servers__' : nova_api_server_lines,
+                '__nova_meta_backend_servers__' : nova_meta_server_lines,
+                '__memcached_servers__' : memcached_server_lines,
+                '__rabbitmq_servers__' : rabbitmq_server_lines,
+                '__mysql_servers__' : mysql_server_lines,
+                '__contrail_hap_user__': 'haproxy',
+                '__contrail_hap_passwd__': 'contrail123',
+            })
+
+        """
+        for host_string in args:
+            with settings(host_string=host_string):
+                # chop old settings including pesky default from pkg...
+                tmp_fname = "/tmp/haproxy-%s-config" % (host_string)
+                get("/etc/haproxy/haproxy.cfg", tmp_fname)
+                with settings(warn_only=True):
+                    local("sed -i -e '/^#contrail-openstack-marker-start/,/^#contrail-openstack-marker-end/d' %s" % (tmp_fname))
+                    local("sed -i -e 's/*:5000/*:5001/' %s" % (tmp_fname))
+                    local("sed -i -e 's/ssl-relay 0.0.0.0:8443/ssl-relay 0.0.0.0:5002/' %s" % (tmp_fname))
+                    local("sed -i -e 's/option\shttplog/option tcplog/' %s" % (tmp_fname))
+                    # ...generate new ones
+                    cfg_file = open(tmp_fname, 'a')
+                    cfg_file.write(haproxy_config)
+                    cfg_file.close()
+                    put(tmp_fname, "/etc/haproxy/haproxy.cfg")
+                    local("rm %s" %(tmp_fname))
+                    # haproxy enable
+                    with settings(host_string=host_string, warn_only=True):
+                        run("chkconfig haproxy on")
+                        run("service supervisor-openstack stop")
+                        enable_haproxy()
+                        run("service haproxy restart")
+                        #Change the keystone admin/public port
+                        run("openstack-config --set /etc/keystone/keystone.conf DEFAULT public_port 6000")
+                        run("openstack-config --set /etc/keystone/keystone.conf DEFAULT admin_port 35358")
+
+        """
+        ha_proxy_cfg = staging_dir + provision_params['server_id'] + ".cfg"
+
+        if not os.path.isfile(ha_proxy_cfg):
+            shutil.copy2(smgr_dir + "haproxy.cfg", ha_proxy_cfg)
+
+        cfg_file = open(ha_proxy_cfg, 'a')
+        cfg_file.write(haproxy_config)
+        cfg_file.close()
 
 
     def create_config_ha_proxy(self, provision_params):
@@ -571,7 +806,9 @@ $__contrail_disc_backend_servers__
              })
 
         ha_proxy_cfg = staging_dir + provision_params['server_id'] + ".cfg"
-        shutil.copy2(smgr_dir + "haproxy.cfg", ha_proxy_cfg)
+        if not os.path.isfile(ha_proxy_cfg):
+            shutil.copy2(smgr_dir + "haproxy.cfg", ha_proxy_cfg)
+
         cfg_file = open(ha_proxy_cfg, 'a')
         cfg_file.write(haproxy_config)
         cfg_file.close()

@@ -2303,6 +2303,12 @@ class VncServerManager():
                 provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
                 provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
                 provision_params['phy_interface'] = server_params['interface_name']
+                #TODO write a function which gets from server/cluster json
+                provision_params['ha'] = vns_params['ha']
+                provision_params['internal_vip'] = vns_params['internal_vip']
+                provision_params['external_vip'] = vns_params['external_vip']
+                provision_params['nfs_server'] = vns_params['nfs_server']
+ 
                 if 'gateway' in server and server['gateway']:
                     provision_params['server_gway'] = server['gateway']
                 elif 'gateway' in cluster_params and cluster_params['gateway']:
