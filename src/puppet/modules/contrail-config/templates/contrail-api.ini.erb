@@ -3,7 +3,7 @@ command=/usr/bin/contrail-api --conf_file /etc/contrail/contrail-api.conf --list
 numprocs=<%= contrail_api_nworkers %>
 process_name=%(process_num)s
 redirect_stderr=true
-stdout_logfile= /var/log/contrail/contrail-api-stdout-%(process_num)s.log
+stdout_logfile= /var/log/contrail/contrail-api-%(process_num)s-stdout.log
 stderr_logfile=/dev/null
 priority=440
 autostart=true
