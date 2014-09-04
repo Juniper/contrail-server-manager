@@ -690,6 +690,7 @@ class VncServerManager():
                 raise ServerMgrException(msg)
             ret_data["status"] = 0
             ret_data["servers"] = servers
+            ret_data["package_image_id"] = package_image_id
         else:
             if (len(entity) == 0):
                 msg = "No servers specified"

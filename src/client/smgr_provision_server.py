@@ -154,7 +154,7 @@ def provision_server(args_str=None):
     if match_key:
         payload[match_key] = match_value
     if provision_params:
-        payload['provision_params'] = provision_params
+        payload['provision_parameters'] = provision_params
 
     if (not args.no_confirm):
         if match_key:
