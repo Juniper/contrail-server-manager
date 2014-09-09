@@ -15,4 +15,6 @@ limitations under the License.
 
 ### Overview
 
-Server Manager repo contains cobbler based software to provision servers with Juniper Openstack distribution. This includes Openstack and Contrail installation and provisioning and lifecycle management of each node. More details on this feature is described here. http://juni.pr/1nHLtCB.
+Contrail Server Manager repo contains code that facilitates management of servers in a contrail cluster. It provides functions to install base OS on servers (reimaging), and configuring the servers by installing necessary packages, configuring and starting different services needed to provide a contrail role functionality on these servers (provisioning). Contrail server manager uses other widely deployed tools such as cobbler and puppet to accomplish the task of reimaging and provisioning.
+
+Summary, server manager includes Openstack and Contrail installation and provisioning and lifecycle management of each node in a contrail cluster. More details on this feature is described here. http://juni.pr/1nHLtCB.
