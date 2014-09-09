@@ -15,4 +15,4 @@ limitations under the License.
 
 ### Overview
 
-Server Manager repo contains cobbler based software to provision servers with Juniper Openstack distribution. This includes Openstack and Contrail installation and provisioning and lifecycle management of each node. More details on this can be found at http://juni.pr/1nHLtCB.
+Server Manager repo contains cobbler based software to provision servers with Juniper Openstack distribution. This includes Openstack and Contrail installation and provisioning and lifecycle management of each node. More details on this feature is described here. http://juni.pr/1nHLtCB.
