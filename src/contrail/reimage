@@ -8,7 +8,7 @@ import sys
 
 _DEF_CENTOS_STOCK_IMAGE="centos-6.4"
 _DEF_UBUNTU_STOCK_IMAGE="ubuntu-12.04.3"
-_DEF_INI="./smgr_client_config.ini"
+_DEF_INI="./sm-client-config.ini"
 
 def execute_cmd_out(cmd, log=LOG):
     log.debug("Executing command: %s" % cmd)
@@ -89,7 +89,7 @@ def parse_args(args_str):
     )
 
     defaults = {
-        'conf_file': '/etc/contrail_smgr/smgr_client_config.ini',
+        'conf_file': '/opt/contrail/server-manager/client//sm-client-config.ini',
         'distro': 'centos',
         'package_image_id': '',
         'image_id':'',

@@ -2,9 +2,9 @@
 #
 # chkconfig: 2345 55 45
 # description:	The server mangement daemon maintains all the servers belonging to contrail ecosystem.
-# processname: contrail_smgrd
-# config: /etc/sysconfig/contrail_smgrd
-# pidfile: /var/run/contrail_smgrd/contrail_smgrd.pid
+# processname: contrail-server-manager
+# config: /etc/sysconfig/contrail-server-manager
+# pidfile: /var/run/contrail-server-manager/contrail-server-manager.pid
 
 #SYSTEMCTL_SKIP_REDIRECT=1
 
@@ -14,7 +14,7 @@
 
 USER=root
 RETVAL=0
-prog="contrail_smgrd"
+prog="contrail-server-manager"
 pidfile=${PIDFILE-/var/run/$prog/$prog.pid}
 
 if [ -f /etc/sysconfig/$prog ];then 
@@ -33,7 +33,7 @@ start () {
 	if [ "`stat -c %U $piddir`" != "$USER" ]; then
 		chown $USER $piddir
 	fi
-	daemon --pidfile ${pidfile} /usr/sbin/contrail_smgrd
+	daemon --pidfile ${pidfile} /usr/sbin/contrail-server-manager
 	RETVAL=$?
 }
 stop () {

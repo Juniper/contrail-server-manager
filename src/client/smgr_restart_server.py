@@ -38,26 +38,18 @@ def parse_arguments(args_str=None):
             prog="server-manager restart"
         )
     # end else
-    group1 = parser.add_mutually_exclusive_group()
-    group1.add_argument("--ip_port", "-i",
-                        help=("ip addr & port of server manager "
-                              "<ip-addr>[:<port>] format, default port "
-                              " 9001"))
-    group1.add_argument("--config_file", "-c",
+    parser.add_argument("--config_file", "-c",
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               smgr_client_def._DEF_SMGR_CFG_FILE)))
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--server_id",
-                        help=("server id for the server to be provisioned"))
-    group.add_argument("--vns_id",
-                        help=("vns id for the server(s) to be provisioned"))
+                        help=("server id for the server to be restarted"))
     group.add_argument("--cluster_id",
-                        help=("cluster id for the server(s) to be provisioned"))
-    group.add_argument("--rack_id",
-                        help=("rack id for the server(s) to be provisioned"))
-    group.add_argument("--pod_id",
-                        help=("pod id for the server(s) to be provisioned"))
+                        help=("cluster id for the server(s) to be restarted"))
+    group.add_argument("--tag",
+                        help=("tag values for the servers to be restarted"
+                              "in t1=v1,t2=v2,... format"))
     parser.add_argument("--net_boot", "-n", action="store_true",
                         help=("optional parameter to indicate"
                              " if server should be netbooted."))
@@ -85,46 +77,34 @@ def send_REST_request(ip, port, payload):
 
 def restart_server(args_str=None):
     args = parse_arguments(args_str)
-    if args.ip_port:
-        smgr_ip, smgr_port = args.ip_port.split(":")
-        if not smgr_port:
-            smgr_port = smgr_client_def._DEF_SMGR_PORT
+    if args.config_file:
+        config_file = args.config_file
     else:
-        if args.config_file:
-            config_file = args.config_file
-        else:
-            config_file = smgr_client_def._DEF_SMGR_CFG_FILE
-        # end args.config_file
-        try:
-            config = ConfigParser.SafeConfigParser()
-            config.read([config_file])
-            smgr_config = dict(config.items("SERVER-MANAGER"))
-            smgr_ip = smgr_config.get("listen_ip_addr", None)
-            if not smgr_ip:
-                sys.exit(("listen_ip_addr missing in config file"
-                          "%s" %config_file))
-            smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
-        except:
-            sys.exit("Error reading config file %s" %config_file)
-        # end except
-    # end else args.ip_port
+        config_file = smgr_client_def._DEF_SMGR_CFG_FILE
+    # end args.config_file
+    try:
+        config = ConfigParser.SafeConfigParser()
+        config.read([config_file])
+        smgr_config = dict(config.items("SERVER-MANAGER"))
+        smgr_ip = smgr_config.get("listen_ip_addr", None)
+        if not smgr_ip:
+            sys.exit(("listen_ip_addr missing in config file"
+                      "%s" %config_file))
+        smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
+    except:
+        sys.exit("Error reading config file %s" %config_file)
+    # end except
     match_key = None
     match_param = None
     if args.server_id:
-        match_key='server_id'
+        match_key='id'
         match_value = args.server_id
-    elif args.vns_id:
-        match_key='vns_id'
-        match_value = args.vns_id
     elif args.cluster_id:
         match_key='cluster_id'
         match_value = args.cluster_id
-    elif args.rack_id:
-        match_key='rack_id'
-        match_value = args.rack_id
-    elif args.pod_id:
-        match_key='pod_id'
-        match_value = args.pod_id
+    elif args.tag:
+        match_key='tag'
+        match_value = args.tag
     else:
         pass
 

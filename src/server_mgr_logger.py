@@ -72,28 +72,26 @@ class ServerMgrlogger:
 class ServerMgrTransactionlogger:
     GET_SMGR_CFG_ALL = "GET_SMGR_ALL"
     GET_SMGR_CFG_CLUSTER = "GET_SMGR_CLUSTER"
-    GET_SMGR_CFG_VNS = "GET_SMGR_VNS"
     GET_SMGR_CFG_SERVER = "GET_SMGR_SERVER"
     GET_SMGR_CFG_IMAGE = "GET_SMGR_IMAGE"
     GET_SMGR_CFG_STATUS = "GET_SMGR_STATUS"   
+    GET_SMGR_CFG_TAG = "GET_SMGR_TAG"   
 
     PUT_SMGR_CFG_ALL = "PUT_SMGR_ALL"
     PUT_SMGR_CFG_CLUSTER = "PUT_SMGR_CLUSTER"
-    PUT_SMGR_CFG_VNS = "PUT_SMGR_VNS"
     PUT_SMGR_CFG_SERVER = "PUT_SMGR_SERVER"
     PUT_SMGR_CFG_IMAGE = "PUT_SMGR_IMAGE"
     PUT_SMGR_CFG_STATUS = "PUT_SMGR_STATUS"  
+    PUT_SMGR_CFG_TAG = "PUT_SMGR_TAG"  
 
     DELETE_SMGR_CFG_ALL = "DELETE_SMGR_ALL"
     DELETE_SMGR_CFG_CLUSTER = "DELETE_SMGR_CLUSTER"
-    DELETE_SMGR_CFG_VNS = "DELETE_SMGR_VNS"
     DELETE_SMGR_CFG_SERVER = "DELETE_SMGR_SERVER"
     DELETE_SMGR_CFG_IMAGE = "DELETE_SMGR_IMAGE"
     DELETE_SMGR_CFG_STATUS = "DELETE_SMGR_STATUS"  
 
     MODIFY_SMGR_CFG_ALL = "MODIFY_SMGR_ALL"
     MODIFY_SMGR_CFG_CLUSTER = "MODIFY_SMGR_CLUSTER"
-    MODIFY_SMGR_CFG_VNS = "MODIFY_SMGR_VNS"
     MODIFY_SMGR_CFG_SERVER = "MODIFY_SMGR_SERVER"
     MODIFY_SMGR_CFG_IMAGE = "MODIFY_SMGR_IMAGE"
     MODIFY_SMGR_CFG_STATUS = "MODIFY_SMGR_STATUS"  
@@ -127,28 +125,28 @@ class ServerMgrTransactionlogger:
         elif transaction_type == self.GET_SMGR_CFG_CLUSTER:
             msg = "ACTION %s: %s %s" % \
                        (self.GET_SMGR_CFG_CLUSTER, data.query_string, success)
-        elif transaction_type == self.GET_SMGR_CFG_VNS:
-            msg = "ACTION %s: %s %s" % \
-                        (self.GET_SMGR_CFG_VNS, data.query_string, success)
         elif transaction_type == self.GET_SMGR_CFG_SERVER:
              msg = "ACTION %s: %s %s" % \
                         (self.GET_SMGR_CFG_SERVER, data.query_string, success)
         elif transaction_type == self.GET_SMGR_CFG_IMAGE:
              msg = "ACTION %s: %s %s" % \
                         (self.GET_SMGR_CFG_IMAGE, data.query_string, success)
+        elif transaction_type == self.GET_SMGR_CFG_TAG:
+             msg = "ACTION %s: %s %s" % \
+                        (self.GET_SMGR_CFG_TAG, data.query_string, success)
         elif transaction_type == self.PUT_SMGR_CFG_ALL:
             msg = "ACTION %s: %s %s" % \
                      (transaction_type, data.query_string, success)
         elif transaction_type == self.PUT_SMGR_CFG_CLUSTER:
             msg = "ACTION %s: %s %s" % \
                        (transaction_type, data.query_string, success)
-        elif transaction_type == self.PUT_SMGR_CFG_VNS:
-            msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
         elif transaction_type == self.PUT_SMGR_CFG_SERVER:
              msg = "ACTION %s: %s %s" % \
                         (transaction_type, data.query_string, success)
         elif transaction_type == self.PUT_SMGR_CFG_IMAGE:
+             msg = "ACTION %s: %s %s" % \
+                        (transaction_type, data.query_string, success)
+        elif transaction_type == self.PUT_SMGR_CFG_TAG:
              msg = "ACTION %s: %s %s" % \
                         (transaction_type, data.query_string, success)
         elif transaction_type == self.DELETE_SMGR_CFG_ALL:
@@ -157,9 +155,6 @@ class ServerMgrTransactionlogger:
         elif transaction_type == self.DELETE_SMGR_CFG_CLUSTER:
             msg = "ACTION %s: %s %s" % \
                        (transaction_type, data.query_string, success)
-        elif transaction_type == self.DELETE_SMGR_CFG_VNS:
-            msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
         elif transaction_type == self.DELETE_SMGR_CFG_SERVER:
              msg = "ACTION %s: %s %s" % \
                         (transaction_type, data.query_string, success)
@@ -172,9 +167,6 @@ class ServerMgrTransactionlogger:
         elif transaction_type == self.MODIFY_SMGR_CFG_CLUSTER:
             msg = "ACTION %s: %s %s" % \
                        (transaction_type, data.query_string, success)
-        elif transaction_type == self.MODIFY_SMGR_CFG_VNS:
-            msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
         elif transaction_type == self.MODIFY_SMGR_CFG_SERVER:
              msg = "ACTION %s: %s %s" % \
                         (transaction_type, data.query_string, success)

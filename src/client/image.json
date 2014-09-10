@@ -1,22 +1,22 @@
 {
     "image": [
         {
-            "image_id": "ubuntu-12.04.3", 
-            "image_type": "ubuntu", 
-            "image_version": "ubuntu-12.04.3",
-            "image_path": "/iso/ubuntu-12.04.3-server-amd64.iso"
+            "id": "ubuntu-12.04.3", 
+            "type": "ubuntu", 
+            "version": "ubuntu-12.04.3",
+            "path": "/iso/ubuntu-12.04.3-server-amd64.iso"
         }, 
         {
-            "image_id": "centos-6.4", 
-            "image_type": "centos", 
-            "image_version": "centos-6.4",
-            "image_path": "/iso/CentOS-6.4-x86_64-minimal.iso"
+            "id": "centos-6.4", 
+            "type": "centos", 
+            "version": "centos-6.4",
+            "path": "/iso/CentOS-6.4-x86_64-minimal.iso"
         }, 
         {
-            "image_id": "contrail-ubuntu-150", 
-            "image_type": "contrail-ubuntu-package", 
-            "image_version": "contrail-ubuntu-150",
-            "image_path": "/iso/contrail-install-packages_1.03-150_all.deb"
+            "id": "contrail-ubuntu-150", 
+            "type": "contrail-ubuntu-package", 
+            "version": "contrail-ubuntu-150",
+            "path": "/iso/contrail-install-packages_1.03-150_all.deb"
         }
     ] 
 }

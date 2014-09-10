@@ -92,17 +92,17 @@ class ContrailVM(object):
         self.uplink_vswitch = vm_params['uplink_vswitch']
         self.server = vm_params['server']
         self.username = vm_params['username']
-        self.passwd = vm_params['passwd']
+        self.password = vm_params['password']
         self.thindisk = vm_params['thindisk']
 	self.vm_domain = vm_params['domain']
         self.vm_id = 0
 	self.smgr_ip = vm_params['smgr_ip']
 	self.vm_server = vm_params['vm_server']
-	self.vm_passwd = vm_params['vm_passwd']
+	self.vm_password = vm_params['vm_password']
 	self.vm_deb = vm_params['vm_deb']
         self._create_networking()
         print self._create_vm()
-        print self._install_contrailvm_pkg(self.eth0_ip, "root", self.vm_passwd, self.vm_domain, self.vm_server,
+        print self._install_contrailvm_pkg(self.eth0_ip, "root", self.vm_password, self.vm_domain, self.vm_server,
                                      self.vm_deb, self.smgr_ip)
         
     #end __init__    
@@ -180,7 +180,7 @@ class ContrailVM(object):
         self._create_vmx_file(self.vm, self.vmdk, self.eth0_mac, self.eth0_pg, self.eth1_pg)
 
         # open ssh session
-        ssh_session = ssh(self.server, self.username, self.passwd)
+        ssh_session = ssh(self.server, self.username, self.password)
         vm_store = self.datastore+"/"+self.vm+"/"
         get_vmid = 0
         get_vmid_cmd = ("vim-cmd vmsvc/getallvms | grep %s | awk \'{print $1}\'") % (self.vm)
@@ -195,7 +195,7 @@ class ContrailVM(object):
         
         # open sftp and transfer .vmx and thin disk and close the channel
         transport = paramiko.Transport((self.server, 22))
-        transport.connect(username=self.username, password=self.passwd)
+        transport.connect(username=self.username, password=self.password)
         sftp = paramiko.SFTPClient.from_transport(transport)
         dst_vmx = self.vm+".vmx"
         thin_vmdk = self.vmdk+"-disk.vmdk"
@@ -245,7 +245,7 @@ class ContrailVM(object):
 
     def _unregister_vm(self):
         # open ssh session
-        ssh_session = ssh(self.server, self.username, self.passwd)
+        ssh_session = ssh(self.server, self.username, self.password)
         unregister_vm_cmd = ("vim-cmd vmsvc/unregister %s") % (self.vm_id)
         out, err = execute_cmd_out(ssh_session, unregister_vm_cmd)
         ssh_session.close()
@@ -253,7 +253,7 @@ class ContrailVM(object):
 
     def _power_off_vm(self):
         # open ssh session
-        ssh_session = ssh(self.server, self.username, self.passwd)
+        ssh_session = ssh(self.server, self.username, self.password)
         power_off_vm_cmd = ("vim-cmd vmsvc/power.off %s") % (self.vm_id)
         out, err = execute_cmd_out(ssh_session, power_off_vm_cmd)
         ssh_session.close()
@@ -261,7 +261,7 @@ class ContrailVM(object):
 
     def _power_on_vm(self):
         # open ssh session
-        ssh_session = ssh(self.server, self.username, self.passwd)
+        ssh_session = ssh(self.server, self.username, self.password)
         power_on_vm_cmd = ("vim-cmd vmsvc/power.on %s") % (self.vm_id)
         out, err = execute_cmd_out(ssh_session, power_on_vm_cmd)
         ssh_session.close()
@@ -269,7 +269,7 @@ class ContrailVM(object):
 
     def _power_reset_vm(self):
         # open ssh session
-        ssh_session = ssh(self.server, self.username, self.passwd)
+        ssh_session = ssh(self.server, self.username, self.password)
         power_reset_vm_cmd = ("vim-cmd vmsvc/power.reset %s") % (self.vm_id)
         out, err = execute_cmd_out(ssh_session, power_reset_vm_cmd)
         ssh_session.close()
@@ -277,7 +277,7 @@ class ContrailVM(object):
 
     def _create_networking(self):
         # open ssh session
-        ssh_session = ssh(self.server, self.username, self.passwd)
+        ssh_session = ssh(self.server, self.username, self.password)
         if ssh_session is None:
             return
 
@@ -407,12 +407,12 @@ contrail_vm_params =  {  'vm':"ContrailVM",
                          'uplink_vswitch':'vSwitch0',
                          'server':"127.0.0.1",
                          'username':"root",
-                         'passwd':"c0ntrail123",
+                         'password':"c0ntrail123",
                          'thindisk':"/tmp/ContrailVM-disk.vmdk",
 			 'domain':'englab.juniper.net',
 			 'smgr_ip':'10.204.217.59',
 			 'vm_server': 'contrail-vm',
-			 'vm_passwd': 'c0ntrail123',
+			 'vm_password': 'c0ntrail123',
 			 'vm_deb': '/root/contrail-install-packages_1.05-5440~havana_all.deb'
                       }
 

@@ -37,7 +37,7 @@ override_dh_auto_install:
 	cp -r $(src_path)/client/*.json $(WS)/$(build_root)/opt/contrail/server_manager/client/
 	cp -r $(src_path)/utils/create_smgr_db.py $(WS)/$(build_root)/opt/contrail/server_manager/client/
 	cp -r $(src_path)/client/server-manager $(WS)/$(build_root)/opt/contrail/server_manager/client/
-	cp -r $(src_path)/client/smgr_client_config.ini  $(WS)/$(build_root)/opt/contrail/server_manager/client/
+	cp -r $(src_path)/client/sm-client-config.ini  $(WS)/$(build_root)/opt/contrail/server_manager/client/
 
 	echo "auto_install"
 get-orig-source:

@@ -29,6 +29,7 @@ cp /etc/contrail_smgr/sendmail.cf /etc/mail/
 #cp /usr/bin/server_manager/dhcp.template /etc/cobbler/
 #cp -r /usr/bin/server_manager/kickstarts /var/www/html/
 mkdir -p /var/www/html/contrail
+mkdir -p /var/www/html/thirdparty_packages
 
 cp -u /etc/puppet/puppet_init_rd /var/www/cobbler/aux/puppet
 easy_install argparse
@@ -51,12 +52,11 @@ HOST_IP=`echo $HOST_IP_LIST | cut -d',' -f1`
 echo $HOST_IP
 
 sed -i "s/10.84.51.11/$HOST_IP/" /etc/cobbler/settings
-update-rc.d contrail_smgrd defaults
-#/sbin/chkconfig --add contrail_smgrd
-sed -i "s/authn_denyall/authn_testing/g" /etc/cobbler/modules.conf
-sed -i "s/authn_configfile/authn_testing/g" /etc/cobbler/modules.conf
+update-rc.d contrail-server-manager defaults
+#/sbin/chkconfig --add contrail-server-manager
+sed -i "s/module = authn_.*/module = authn_configfile/g" /etc/cobbler/modules.conf
 
-sed -i "s/127.0.0.1/$HOST_IP/g" /opt/contrail/server_manager/smgr_config.ini
+sed -i "s/127.0.0.1/$HOST_IP/g" /opt/contrail/server_manager/sm-config.ini
 
 service apache2 restart
 service xinetd restart
@@ -70,7 +70,12 @@ service sendmail restart
 #chkconfig puppetmaster on
 #chkconfig contrail_smgrd on
 
-update-rc.d apache2 defaults
-update-rc.d xinetd defaults
-update-rc.d cobbler defaults
-update-rc.d puppetmaster defaults
+
+#update-rc.d apache2 defaults
+#update-rc.d xinetd defaults
+#update-rc.d cobbler defaults
+#update-rc.d puppetmaster defaults
+
+#puppet master
+service contrail-server-manager restart
+

@@ -77,7 +77,7 @@ cp %{_contrail_smgr_src}utils/create_smgr_db.py %{buildroot}%{_contrailopt}%{_co
 cp %{_contrail_smgr_src}client/server-manager %{buildroot}%{_contrailopt}%{_contrail_smgr}/client
 
 
-cp -r %{_contrail_smgr_src}client/smgr_client_config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}/client
+cp -r %{_contrail_smgr_src}client/sm-client-config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}/client
 
 %clean
 rm -rf %{buildroot}
