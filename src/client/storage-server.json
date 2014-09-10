@@ -1,66 +1,21 @@
 {
     "server": [
         {
-            "server_id": "cmbu-gravity-03",
-            "server_params": {
-                "ifname": "eth0",
-                "disks": [
-                    "/dev/sdb",
-                    "/dev/sdc"
-                ],
-                "compute_non_mgmt_ip": "",
-                "storage_repo_id": "contrail-storage-package-1.10",
-                "compute_non_mgmt_gway": ""
+            "id": "nitish-test-server",
+            "mac_address": "52:54:00:30:FB:AB",
+            "ip_address": "192.168.121.101",
+            "parameters" : {
+                "interface_name": "eth1",
+                "storage_repo_id": "xyz_12",
+                "disks": ["/dev/sda","/dev/sdb"]
             },
-            "roles": [
-                "control",
-                "database",
-                "compute",
-                "webui",
-                "config",
-                "openstack",
-                "collector",
-                "storage-master"
-            ],
-            "gway": "10.87.159.254",
-            "ip": "10.87.140.209",
-            "mask": "255.255.224.0",
-            "domain": "englab.juniper.net",
-            "passwd": "juniper",
-            "mac": "00:25:90:7b:54:90",
-            "power_address": "10.87.140.210",
-            "cluster_id": "test-cluster",
-            "vns_id": "test-vns"
-        },
-        {
-            "server_id": "cmbu-gravity-04",
-            "server_params": {
-                "ifname": "eth0",
-                "disks": [
-                    "/dev/sdb"
-                ],
-                "compute_non_mgmt_ip": "",
-                "storage_repo_id": "contrail-storage-package-1.10",
-                "compute_non_mgmt_gway": ""
-            },
-            "roles": [
-                "control",
-                "database",
-                "compute",
-                "webui",
-                "config",
-                "storage-compute",
-                "collector"
-            ],
-            "gway": "10.87.159.254",
-            "ip": "10.87.140.211",
-            "mask": "255.255.224.0",
-            "domain": "englab.juniper.net",
-            "passwd": "juniper",
-            "mac": "00:25:90:ab:9c:7e",
-            "power_address": "10.87.140.212",
-            "cluster_id": "test-cluster",
-            "vns_id": "test-vns"
+            "roles" : ["config","compute","openstack","control","collector","webui","database","storage","storage-mgr"],
+            "cluster_id": "nitish-cluster",
+            "subnet_mask": "255.255.255.0",
+            "gateway": "10.204.221.46",
+            "password": "juniper",
+            "domain": "demo.juniper.net",
+            "power_address": "10.84.6.63"
         }
     ]
 }

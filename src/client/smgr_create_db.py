@@ -5,8 +5,8 @@
    Author : rishiv@juniper.net
    Description : This program is a simple cli interface to
    create server manager database with objects.
-   Objects can be vns, cluster, server, or image.
-   Takes  -t testbed.py or/and --vns_id <vns_id> as command line input
+   Objects can becluster, server, or image.
+   Takes  -t testbed.py or/and --cluster_id <cluster_id> as command line input
 """
 
 
@@ -31,7 +31,7 @@ import imp
 def svrmgr_add_all():
     verify_user_input()
     create_json()
-    add_vns()
+    add_cluster()
     add_image()
     add_pkg()
     add_server()
@@ -39,7 +39,7 @@ def svrmgr_add_all():
 
 def create_json():
     modify_server_json()
-    modify_vns_json()
+    modify_cluster_json()
 
 
 def modify_server_json():
@@ -89,7 +89,7 @@ def update_roles_from_testbed_py(server_dict):
         node['roles'] =  roles 
       
     for  node in server_dict['server']:
-       node['vns_id'] =  get_pref_vns_id()
+       node['cluster_id'] =  get_pref_cluster_id()
 
     return server_dict
 # end update_roles_from_testbed_py
@@ -134,64 +134,64 @@ def get_pkg_id() :
 # end get_pkg_id()
 
 
-def get_vns_id() :
+def get_cluster_id() :
     params=read_ini_file(sys.argv[1:])
-    vns_file = params['vns_file']
+    cluster_file = params['cluster_file']
 
-    vns_file = open( vns_file, 'r' )
-    vns_data = vns_file.read()
-    vns_json = json.loads(vns_data)
-    vns_id = vns_json['vns'][0]['vns_id']
-    vns_file.close()
-    return vns_id
+    cluster_file = open( cluster_file, 'r' )
+    cluster_data = cluster_file.read()
+    cluster_json = json.loads(cluster_data)
+    cluster_id = cluster_json['cluster'][0]['id']
+    cluster_file.close()
+    return cluster_id
 
-# end get_vns_id()
+# end get_cluster_id()
 
 
-def add_vns():
-    vns_file = None
+def add_cluster():
+    cluster_file = None
     params=read_ini_file(sys.argv[1:])
     if params:
         try:
-            vns_file = params['vns_file']
+            cluster_file = params['cluster_file']
         except KeyError:
             pass
 
-    vns_id = get_pref_vns_id()
-    if not vns_file:
-        vns_dict = get_vns_with_vns_id_from_db()
-        if not len(vns_dict['vns']):
-            vns_dict = new_vns()
+    cluster_id = get_pref_cluster_id()
+    if not cluster_file:
+        cluster_dict = get_cluster_with_cluster_id_from_db()
+        if not len(cluster_dict['cluster']):
+            cluster_dict = new_cluster()
         else:
-            vns_dict = {
-                          "vns" : [
+            cluster_dict = {
+                          "cluster" : [
                               {
-                                  "vns_id" : "",
-                                  "vns_params" : {
+                                  "id" : "",
+                                  "parameters" : {
     
                                       }
                               }
                           ]
                        }
 
-        vns_dict['vns'][0]['vns_id'] = vns_id
-        modify_vns_from_testbed_py(vns_dict)
+        cluster_dict['cluster'][0]['id'] = cluster_id
+        modify_cluster_from_testbed_py(cluster_dict)
         temp_dir= expanduser("~")
-        vns_file = '%s/vns.json' %temp_dir
-        subprocess.call('touch %s' %vns_file, shell = True)
-        out_file = open(vns_file, 'w')
-        out_data = json.dumps(vns_dict, indent=4)
+        cluster_file = '%s/cluster.json' %temp_dir
+        subprocess.call('touch %s' %cluster_file, shell = True)
+        out_file = open(cluster_file, 'w')
+        out_data = json.dumps(cluster_dict, indent=4)
         out_file.write(out_data)
         out_file.close()
     else :
         timestamp = dt.now().strftime("%Y_%m_%d_%H_%M_%S")
-        subprocess.call( 'cp %s %s.org.%s' %(vns_file, vns_file, timestamp), shell=True )
-        subprocess.call("sed -i 's/\"vns_id\".*,/\"vns_id\":\"%s\",/'  %s" %(vns_id,vns_file), shell=True )
-        subprocess.call("sed -i 's/\"vns_id\".*/\"vns_id\":\"%s\"/'  %s" %(vns_id,vns_file), shell=True )
+        subprocess.call( 'cp %s %s.org.%s' %(cluster_file, cluster_file, timestamp), shell=True )
+        subprocess.call("sed -i 's/\"cluster_id\".*,/\"cluster_id\":\"%s\",/'  %s" %(cluster_id,cluster_file), shell=True )
+        subprocess.call("sed -i 's/\"cluster_id\".*/\"cluster_id\":\"%s\"/'  %s" %(cluster_id,cluster_file), shell=True )
 
-    subprocess.call('server-manager add  vns -f %s' %(vns_file), shell=True )
+    subprocess.call('server-manager add  cluster -f %s' %(cluster_file), shell=True )
 
-# end add_vns()
+# end add_cluster()
 
 def add_server():
     add_server_using_json()
@@ -234,74 +234,74 @@ def add_server_using_json():
 
 
 
-def modify_vns_json():
+def modify_cluster_json():
     params=read_ini_file(sys.argv[1:])
     if not params:
         return None
-    if not params.has_key('vns_file'):
+    if not params.has_key('cluster_file'):
         return None
-    vns_file = params['vns_file']
+    cluster_file = params['cluster_file']
 
     timestamp = dt.now().strftime("%Y_%m_%d_%H_%M_%S")
-    subprocess.call( 'cp %s %s.org.%s' %(vns_file, vns_file, timestamp), shell=True )
+    subprocess.call( 'cp %s %s.org.%s' %(cluster_file, cluster_file, timestamp), shell=True )
 
-    in_file = open( vns_file, 'r' )
+    in_file = open( cluster_file, 'r' )
     in_data = in_file.read()
-    vns_dict = json.loads(in_data)
+    cluster_dict = json.loads(in_data)
 
-    modify_vns_from_testbed_py(vns_dict)
+    modify_cluster_from_testbed_py(cluster_dict)
 
-    out_file = open(vns_file, 'w')
-    out_data = json.dumps(vns_dict, indent=4)
+    out_file = open(cluster_file, 'w')
+    out_data = json.dumps(cluster_dict, indent=4)
     out_file.write(out_data)
     out_file.close()
 
 
-def modify_vns_from_testbed_py(vns_dict):
+def modify_cluster_from_testbed_py(cluster_dict):
     testbed = get_testbed()
     if testbed.env.has_key('mail_to'):
-        vns_dict['vns'][0]['email'] = testbed.env.mail_to
+        cluster_dict['cluster'][0]['email'] = testbed.env.mail_to
     if testbed.env.has_key('encap_priority'):
-        vns_dict['vns'][0]['vns_params']['encap_priority'] = testbed.env.encap_priority
+        cluster_dict['cluster'][0]['parameters']['encapsulation_priority'] = testbed.env.encap_priority
     if 'multi_tenancy' in dir(testbed):
-        vns_dict['vns'][0]['vns_params']['multi_tenancy'] = testbed.multi_tenancy
+        cluster_dict['cluster'][0]['parameters']['multi_tenancy'] = testbed.multi_tenancy
     if 'os_username' in dir(testbed):
-        vns_dict['vns'][0]['vns_params']['ks_user'] = testbed.os_username
+        cluster_dict['cluster'][0]['parameters']['keystone_username'] = testbed.os_username
     if 'os_password' in dir(testbed):
-        vns_dict['vns'][0]['vns_params']['ks_passwd'] = testbed.os_password
+        cluster_dict['cluster'][0]['parameters']['keystone_password'] = testbed.os_password
     if 'os_tenant_name' in dir(testbed):
-        vns_dict['vns'][0]['vns_params']['ks_tenant'] = testbed.os_tenant_name
+        cluster_dict['cluster'][0]['parameters']['keystone_tenant'] = testbed.os_tenant_name
     if 'router_asn' in dir(testbed):
-        vns_dict['vns'][0]['vns_params']['router_asn'] = testbed.router_asn
+        cluster_dict['cluster'][0]['parameters']['router_asn'] = testbed.router_asn
         
 
 
-def new_vns():
+def new_cluster():
     params=read_ini_file(sys.argv[1:])
-    vns_id = get_user_vns_id()
-    if not vns_id:
-        vns_id = params['vns_id']
-    vns_dict = {
-                  "vns" : [
+    cluster_id = get_user_cluster_id()
+    if not cluster_id:
+        cluster_id = params['cluster_id']
+    cluster_dict = {
+                  "cluster" : [
                       {
-                          "vns_id" : vns_id,
-                          "vns_params" : {
+                          "id" : cluster_id,
+                          "parameters" : {
                               "router_asn": "64512",
                               "database_dir": "/home/cassandra",
-                              "db_initial_token": "",
+                              "database_token": "",
                               "openstack_mgmt_ip": "",
-                              "use_certs": "False",
+                              "use_certificates": "False",
                               "multi_tenancy": "False",
-                              "encap_priority": "'MPLSoUDP','MPLSoGRE','VXLAN'",
+                              "encapsulation_priority": "'MPLSoUDP','MPLSoGRE','VXLAN'",
                               "service_token": "contrail123",
-                              "ks_user": "admin",
-                              "ks_passwd": "contrail123",
-                              "ks_tenant": "admin",
-                              "openstack_passwd": "contrail123",
+                              "keystone_user": "admin",
+                              "keystone_password": "contrail123",
+                              "keystone_tenant": "admin",
+                              "openstack_password": "contrail123",
                               "analytics_data_ttl": "168",
-                              "mask": "255.255.255.0",
-                              "gway": "1.1.1.254",
-                              "passwd": "c0ntrail123",
+                              "subnet_mask": "255.255.255.0",
+                              "gateway": "1.1.1.254",
+                              "password": "c0ntrail123",
                               "domain": "contrail.juniper.net",
                               "haproxy": "disable"
                               }
@@ -310,14 +310,14 @@ def new_vns():
                   }
     config = ConfigParser.SafeConfigParser()
     config.read([smgr_client_def._DEF_SMGR_CFG_FILE])
-    default_config_object = get_default_object("vns", config)
-    vns_params_dict = dict(vns_dict["vns"][0]["vns_params"].items() + default_config_object["vns_params"].items())
-    tmp_vns_dict = dict(vns_dict["vns"][0].items() + default_config_object.items())
-    tmp_vns_dict["vns_params"] = vns_params_dict
-    vns_dict["vns"][0] = tmp_vns_dict
-    return vns_dict
+    default_config_object = get_default_object("cluster", config)
+    cluster_params_dict = dict(cluster_dict["cluster"][0]["parameters"].items() + default_config_object["parameters"].items())
+    tmp_cluster_dict = dict(cluster_dict["cluster"][0].items() + default_config_object.items())
+    tmp_cluster_dict["parameters"] = cluster_params_dict
+    clusetr_dict["cluster"][0] = tmp_cluster_dict
+    return cluseter_dict
 
-# End new_vns()
+# End new_cluster()
 
 
 def parse_arguments(args_str=None):
@@ -326,10 +326,10 @@ def parse_arguments(args_str=None):
     )
     #group1 = parser.add_mutually_exclusive_group()
 
-    parser.add_argument("--config_file", "-c",
+    parser.add_argument("--config_file", "-f",
                         help="Server manager client config file ")
-    parser.add_argument("--vns_id", "-v",
-                        help="user specified preferred vns_id ")
+    parser.add_argument("--cluster_id", "-c",
+                        help="user specified preferred cluster_id ")
     parser.add_argument("--testbed_py", "-t",
                         help="your testbed.py file")
 
@@ -367,23 +367,23 @@ def get_testbed_py(args_str=None):
 # End read_ini_file
 
 
-def get_user_vns_id(args_str=None):
+def get_user_cluseter_id(args_str=None):
     args = parse_arguments(args_str)
-    vns_id = None
-    if args.vns_id:
-        vns_id = args.vns_id
-    return vns_id
+    cluster_id = None
+    if args.cluster_id:
+        cluster_id = args.cluster_id
+    return cluster_id
 
 
-def get_server_with_vns_id_from_db():
-    vns_id = get_pref_vns_id()
+def get_server_with_cluster_id_from_db():
+    cluster_id = get_pref_cluster_id()
 
     temp_dir= expanduser("~")
-    file_name = '%s/server_with_vns_id_from_db.json' %(temp_dir)
-    subprocess.call('server-manager show --detail server --vns_id %s \
+    file_name = '%s/server_with_cluster_id_from_db.json' %(temp_dir)
+    subprocess.call('server-manager show --detail server --cluster_id %s \
                  | tr -d "\n" \
                  | sed "s/[^{]*//" \
-                 > %s' %(vns_id, file_name), shell=True )
+                 > %s' %(cluster_id, file_name), shell=True )
 
 
     in_file = open( file_name, 'r' )
@@ -392,29 +392,29 @@ def get_server_with_vns_id_from_db():
 
     return server_dict
 
-def get_vns_with_vns_id_from_db():
-    vns_id = get_user_vns_id()
-    if not vns_id:
+def get_cluster_with_cluster_id_from_db():
+    cluster_id = get_user_cluster_id()
+    if not cluster_id:
         params=read_ini_file(sys.argv[1:])
-        vns_id = params['vns_id']
+        cluster_id = params['cluster_id']
 
-    vns_dict = {"vns": []}
+    cluster_dict = {"cluster": []}
  
     temp_dir= expanduser("~")
 
-    file_name = '%s/vns.json' %(temp_dir)
+    file_name = '%s/cluster.json' %(temp_dir)
 
-    subprocess.call('server-manager show --detail vns --vns_id %s \
+    subprocess.call('server-manager show --detail cluster --cluster_id %s \
                  | tr -d "\n" \
                  | sed "s/[^{]*//" \
-                 > %s' %(vns_id, file_name), shell=True )
+                 > %s' %(cluster_id, file_name), shell=True )
 
     in_file = open( file_name, 'r' )
     in_data = in_file.read()
 
-    vns_dict = json.loads(in_data)
+    cluster_dict = json.loads(in_data)
 
-    return vns_dict
+    return cluster_dict
 
 
 def get_server_with_ip_from_db(ip=None):
@@ -481,7 +481,7 @@ def get_storage_node_config_from_testbed_py():
 
 
 def update_server_in_db_with_testbed_py():
-    vns_id = get_pref_vns_id()  
+    cluster_id = get_pref_cluster_id()  
     node = get_host_roles_from_testbed_py()
     storage_config = get_storage_node_config_from_testbed_py()
     if not node:
@@ -494,10 +494,10 @@ def update_server_in_db_with_testbed_py():
         if not server_dict or not server_dict['server']:
             print ("ERROR: Server with ip %s not present in Server Manager" % key)
             continue
-        server_id = server_dict['server'][0]['server_id']
+        server_id = server_dict['server'][0]['id']
         u_server = {}
-        u_server['server_id'] = server_id
-        u_server['vns_id'] = vns_id
+        u_server['id'] = server_id
+        u_server['cluster_id'] = cluster_id
         u_server['roles'] = node[key]
         u_server['server_params'] = {}
         if key in storage_config:
@@ -516,23 +516,23 @@ def update_server_in_db_with_testbed_py():
     subprocess.call('server-manager add  server -f %s' %(server_file), shell=True )
     for u_server in u_server_dict['server']:
         subprocess.call('server-manager show --detail server --server_id %s' \
-                  % u_server['server_id'], shell=True )
-#End  update_server_in_db_with_vns_id
+                  % u_server['id'], shell=True )
+#End  update_server_in_db_with_cluster_id
 
 
-def get_pref_vns_id():
-    vns_id = get_user_vns_id()
-    if not vns_id:
+def get_pref_cluster_id():
+    cluster_id = get_user_cluster_id()
+    if not cluster_id:
         params=read_ini_file(sys.argv[1:])
-        vns_id = params['vns_id']
-    return vns_id
+        cluster_id = params['cluster_id']
+    return cluster_id
 
 def verify_user_input():
     params=read_ini_file(sys.argv[1:])
-    vns_id = get_user_vns_id()
+    cluster_id = get_user_cluster_id()
 
-    if not params and not vns_id:
-        sys.exit(" User should either provide --vns_id or config.ini ")
+    if not params and not cluster_id:
+        sys.exit(" User should either provide --cluster_id or config.ini ")
 
 def get_testbed():
     filepath = get_testbed_py(sys.argv[1:])

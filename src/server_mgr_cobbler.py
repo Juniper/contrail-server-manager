@@ -255,7 +255,7 @@ class ServerMgrCobbler:
                 system_id, "power_address", power_address, self._token)
             # For centos, create a sub-profile that has the repo for
             # package_image_id also made available for this system.
-            if ((base_image['image_type'] == "centos") and
+            if ((base_image['type'] == "centos") and
                 (package_image_id)):
                 sub_profile_name = profile_name + "-" + package_image_id
                 sub_profile = self._server.find_profile(
@@ -299,8 +299,8 @@ class ServerMgrCobbler:
             if package_image_id:
                 ks_metadata += ' contrail_repo_name=' + \
                     package_image_id
-            if ((base_image['image_type'] == 'esxi5.1') or
-                (base_image['image_type'] == 'esxi5.5')):
+            if ((base_image['type'] == 'esxi5.1') or
+                (base_image['type'] == 'esxi5.5')):
                 ks_metadata += ' server_license=' + server_license
                 ks_metadata += ' esx_nicname=' + esx_nicname
 
@@ -322,7 +322,7 @@ class ServerMgrCobbler:
             self._server.modify_system(system_id, 'ksmeta',
                                        ks_metadata, self._token)
 
-            if (base_image['image_type'] == "ubuntu"):
+            if (base_image['type'] == "ubuntu"):
                 kernel_options = 'system_name=' + system_name
                 kernel_options += ' system_domain=' + system_domain
                 kernel_options += ' ip_address=' + ip
