@@ -19,10 +19,10 @@ set vendorclass = option vendor-class-identifier;
 subnet 10.204.217.0 netmask 255.255.255.0 {
     option routers              10.204.217.254;
     option subnet-mask          255.255.255.0;
-    option domain-name-servers  10.204.208.221, 8.8.8.8;
+    option domain-name-servers  $next_server, 8.8.8.8;
     option domain-search        "englab.juniper.net", "juniper.net";
     option domain-name          "englab.juniper.net" ;
-     option ntp-servers         172.17.28.5 ;
+     option ntp-servers         $next_server ;
      default-lease-time         21600;
      max-lease-time             43200;
      next-server                $next_server;
@@ -31,69 +31,36 @@ subnet 10.204.217.0 netmask 255.255.255.0 {
      on commit {
          set clip = binary-to-ascii(10, 8, ".", leased-address);
          set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "commit", clip, clhw);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "commit", clip, clhw);
          set ClientHost = pick-first-value(host-decl-name,
                                            option fqdn.hostname,
                                           option host-name,
                                            "none");
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "commit", clip, clhw, ClientHost);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "commit", clip, clhw, ClientHost);
      }
 
      on release {
          set clip = binary-to-ascii(10, 8, ".", leased-address);
          set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "release", clip, clhw);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "release", clip, clhw);
          set ClientHost = pick-first-value(host-decl-name,
                                            option fqdn.hostname,
                                            option host-name,
                                            "none");
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "release", clip, clhw, ClientHost);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "release", clip, clhw, ClientHost);
      }
 
      on expiry {
          set clip = binary-to-ascii(10, 8, ".", leased-address);
          set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw);
          set ClientHost = pick-first-value(host-decl-name,
                                            option fqdn.hostname,
                                            option host-name,
                                            "none");
-         execute("/usr/bin/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw, ClientHost);
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw, ClientHost);
      }
 }
-
-host nodeg31.englab.juniper.net {
-        hardware ethernet 00:25:90:C5:5F:6A;
-        fixed-address 10.204.217.71;
-        option host-name "nodeg31";
-        filename "/pxelinux.0";
-        next-server $next_server;
-}
-
-
-
-host nodeg34.englab.juniper.net {
-        hardware ethernet 00:25:90:C5:59:34;
-        fixed-address 10.204.217.74;
-        option host-name "nodeg34";
-        filename "/pxelinux.0";
-        next-server $next_server;
-}
-host nodeg35.englab.juniper.net {
-        hardware ethernet 00:25:90:C5:62:54;
-        fixed-address 10.204.217.75;
-        option host-name "nodeg35";
-        filename "/pxelinux.0";
-        next-server $next_server;
-}
-host nodeg36.englab.juniper.net {
-        hardware ethernet 00:25:90:C5:5B:A0;
-        fixed-address 10.204.217.76;
-        option host-name "nodeg36";
-        filename "/pxelinux.0";
-        next-server $next_server;
-}
-
 
 #for dhcp_tag in $dhcp_tags.keys():
     ## group could be subnet if your dhcp tags line up with your subnets

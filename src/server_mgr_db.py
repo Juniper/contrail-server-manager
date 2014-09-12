@@ -82,9 +82,9 @@ class ServerMgrDb:
                          cluster_id TEXT,  base_image_id TEXT,
                          package_image_id TEXT, password TEXT,
                          last_update TEXT, discovered varchar default 'false',
-                         parameters TEXT, roles TEXT, power_username TEXT,
-                         power_password TEXT, power_address TEXT,
-                         power_type TEXT, intf_control TEXT,
+                         parameters TEXT, roles TEXT, ipmi_username TEXT,
+                         ipmi_password TEXT, ipmi_address TEXT,
+                         ipmi_type TEXT, intf_control TEXT,
                          intf_data TEXT, intf_bond TEXT,
                          email TEXT, status TEXT,
                          tag1 TEXT, tag2 TEXT, tag3 TEXT,
@@ -400,7 +400,7 @@ class ServerMgrDb:
     def delete_cluster(self, match_dict=None, unmatch_dict=None):
         try:
             self.check_obj("cluster", match_dict, unmatch_dict)
-            cluster_id = match_dict.get("cluster_id", None)
+            cluster_id = match_dict.get("id", None)
             servers = None
             if cluster_id:
                 servers = self.get_server({'cluster_id' : cluster_id}, detail=True)
@@ -472,7 +472,7 @@ class ServerMgrDb:
                 raise Exception("No cluster id specified")
             self.check_obj("cluster", {"id" : cluster_id})
             db_cluster = self.get_cluster(
-                {"cluster_id" : cluster_id}, detail=True)
+                {"id" : cluster_id}, detail=True)
             if not db_cluster:
                 msg = "%s is not valid" % cluster_id
                 raise ServerMgrException(msg)
@@ -521,8 +521,6 @@ class ServerMgrDb:
             image_parameters = image_data.pop("parameters", None)
             if image_parameters is not None:
                 image_data['parameters'] = str(image_parameters)
-            self._modify_row(image_table, image_data,
-                             'id', image_id)
             self._modify_row(
                 image_table, image_data,
                 {'id' : image_id}, {})
@@ -681,7 +679,7 @@ class ServerMgrDb:
 
 
     def get_server(self, match_dict=None, unmatch_dict=None,
-                   detail=False):
+                   detail=False, field_list=None):
         try:
             if match_dict and match_dict.get("mac_address", None):
                 if match_dict["mac_address"]:
@@ -689,9 +687,14 @@ class ServerMgrDb:
                         EUI(match_dict["mac_address"])).replace("-", ":")
             # For server table, when detail is false, return server_id, mac
             # and ip.
-            servers = self._get_items(
-                server_table, match_dict,
-                unmatch_dict, detail, ["id", "mac_address", "ip_address"])
+            if field_list:
+                servers = self._get_items(
+                   server_table, match_dict,
+                   unmatch_dict, detail, field_list)
+            else:
+                servers = self._get_items(
+                   server_table, match_dict,
+                   unmatch_dict, detail, ["id", "mac_address", "ip_address"])
         except Exception as e:
             raise e
         return servers
@@ -728,8 +731,9 @@ class ServerMgrDb:
             raise e
 
         cluster['parameters'] = str(db_cluster_params)
-        self._modify_row(cluster_table, cluster,
-                         'id', cluster['id'])
+        self._modify_row(
+            cluster_table, cluster,
+            {'id' : cluster['id']}, {})
     # End of update_cluster_uuids
 
 # End class ServerMgrDb

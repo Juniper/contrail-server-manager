@@ -2,7 +2,7 @@
 
 #validation DS
 server_fields = {
-    "match_keys": "['id', 'mac_address', 'cluster_id', 'ip_address']",
+    "match_keys": "['id', 'mac_address', 'cluster_id', 'ip_address', 'tag']",
     "obj_name": "server",
     "primary_keys": "['id', 'mac_address']",
     "id": "",
@@ -10,21 +10,22 @@ server_fields = {
     "mac_address": "",
     "ip_address": "",
     "parameters": """{
-                    'interface_name': ''
+                    'interface_name': '',
+                    'partition': '',
                     }""",
-    "roles": ["config","openstack","control","compute","collector","webui","database"],
+    "roles": [],
     "cluster_id": "",
     "subnet_mask": "",
     "gateway": "",
     "password": "",
     "domain": "",
     "email": "",
-    "power_username": "",
-    "power_type": "",
-    "power_password": "",
+    "ipmi_username": "",
+    "ipmi_type": "",
+    "ipmi_password": "",
     "control_data_network": "",
     "bond_interface": "",
-    "power_address": "",
+    "ipmi_address": "",
     "tag": ""
 }
 
@@ -67,3 +68,4 @@ image_fields = {
     "path": ""
 }
 
+email_events = ["reimage_started", "reimage_completed", "provision_started", "provision_completed"]

@@ -20,7 +20,7 @@
                     "gateway": ""
                 }
             },
-            "power_address": "10.207.25.151"
+            "ipmi_address": "10.207.25.151"
         },
         {  
             "id": "nodea4",
@@ -42,13 +42,13 @@
                     "gateway": ""
                 }
             },
-            "bond": {
+            "bond_interface": {
                 "bond0": {
                     "bond_options": "{'miimon': '100', 'mode': '802.3ad','xmit_hash_policy': 'layer3+4'}",
-                    "members": "['eth0', 'eth1', 'eth2', 'eth3']"
+                    "member_interfaces": "['eth0', 'eth1', 'eth2', 'eth3']"
                 }
             },
-            "power_address": "10.207.25.17"
+            "ipmi_address": "10.207.25.17"
 
         },
         {
@@ -71,7 +71,7 @@
                     "gateway": ""
                 }
             },
-            "power_address": "10.207.25.87"
+            "ipmi_address": "10.207.25.87"
 
         },
         {   
@@ -94,7 +94,7 @@
                     "gateway": ""
                 }
             },
-            "power_address": "10.207.25.89"
+            "ipmi_address": "10.207.25.89"
         },
         {   
             "id": "nodec60",
@@ -116,7 +116,7 @@
                     "gateway": ""
                 }
             },
-            "power_address": "10.207.25.154"
+            "ipmi_address": "10.207.25.154"
         }
 
     ]

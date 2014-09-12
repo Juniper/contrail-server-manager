@@ -58,6 +58,9 @@ def parse_arguments(args_str=None):
     group.add_argument("--interactive", "-I", action="store_true", 
                         help=("flag that user wants to enter the server "
                              " parameters for provisioning manually"))
+    parser.add_argument("--no_confirm", "-F", action="store_true",
+                        help=("flag to bypass confirmation message, "
+                              "default = do not bypass"))
     args = parser.parse_args(args_str)
     return args
 
@@ -151,7 +154,19 @@ def provision_server(args_str=None):
     if match_key:
         payload[match_key] = match_value
     if provision_params:
-        payload['provision_params'] = provision_params
+        payload['provision_parameters'] = provision_params
+
+    if (not args.no_confirm):
+        if match_key:
+            msg = "Provision servers (%s:%s) with %s? (y/N) :" %(
+                match_key, match_value, args.package_image_id)
+        else:
+            msg = "Provision servers with %s? (y/N) :" %(
+                args.package_image_id)
+        user_input = raw_input(msg).lower()
+        if user_input not in ["y", "yes"]:
+            sys.exit()
+    # end if
  
     resp = send_REST_request(smgr_ip, smgr_port,
                              payload)

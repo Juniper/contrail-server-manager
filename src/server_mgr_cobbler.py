@@ -16,35 +16,6 @@ _DEF_PASSWORD = 'cobbler'
 _DEF_BASE_DIR = '/etc/contrail/'
 _CONTRAIL_CENTOS_REPO = 'contrail-centos-repo'
 
-
-class cobTokenCheckThread(threading.Thread):
-
-    ''' Class to run function that keeps validating the cobbler token
-        periodically (every 30 minutes) on a new thread. '''
-
-    def __init__(self, timer, server, token):
-        threading.Thread.__init__(self)
-        self._timer = timer
-        self._server = server
-        self._token = token
-
-    def run(self):
-        _check_cobbler_token(self._timer, self._server,
-                             self._token)
-
-
-def _check_cobbler_token(timer, server, token):
-    ''' This function keeps checking and validating the cobbler token
-        periodically. It's called on a new thread and keep running
-        for ever. '''
-    try:
-        while True:
-            time.sleep(timer)
-            server.token_check(token)
-    except:
-        print "Error in check cobbler token thread"
-
-
 class ServerMgrCobbler:
 
     _cobbler_ip = _DEF_COBBLER_IP
@@ -107,21 +78,30 @@ class ServerMgrCobbler:
             self._server.save_repo(rid, self._token)
             # Issue cobbler reposync for this repo
             cmd = "cobbler reposync --only=" + _CONTRAIL_CENTOS_REPO
-            subprocess.call(cmd, shell=True)
-            # Start a thread to keep cobbler token active. Comment out when
-            # needed for testing...
-            thread1 = cobTokenCheckThread(
-                self._COB_TOKEN_CHECK_TIMER, self._server, self._token)
-            # Make the thread as daemon
-            thread1.daemon = True
-            thread1.start()
+            subprocess.check_call(cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            msg = ("Cobbler Init: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            raise ServerMgrException(msg)
         except Exception as e:
             raise e
     # End of __init__
 
+    # Function to check if cobbler token is valid or not, before calling any
+    # XMLRPC calls that need a valid token. If token is not valid, the function
+    # acquires a new token from cobbler.
+    def _validate_token(self, token, resource):
+        valid = self._server.check_access_no_fail(token, resource)
+        if not valid:
+            self._token = self._server.login(
+                self._cobbler_username, self._cobbler_password)
+    # end _validate_token
+
     def create_distro(self, distro_name, image_type, path,
                       kernel_file, initrd_file, cobbler_ip_address):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "distro")
             # If distro already exists in cobbler, nothing to do.
             distro = self._server.find_distro({"name":  distro_name})
             if distro:
@@ -184,6 +164,8 @@ class ServerMgrCobbler:
                        distro_name, image_type, ks_file, kernel_options,
                         ks_meta):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "profile")
             # If profile exists, nothing to do, jus return.
             profile = self._server.find_profile({"name":  profile_name})
             if profile:
@@ -210,6 +192,8 @@ class ServerMgrCobbler:
 
     def create_repo(self, repo_name, mirror):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "repo")
             repo = self._server.find_repo({"name": repo_name})
             if repo:
                 rid = self._server.get_repo_handle(
@@ -224,7 +208,11 @@ class ServerMgrCobbler:
             self._server.save_repo(rid, self._token)
             # Issue cobbler reposync for this repo
             cmd = "cobbler reposync --only=" + repo_name
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            msg = ("create_repo: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            raise ServerMgrException(msg)
         except Exception as e:
             raise e
     # End of create_repo
@@ -233,8 +221,10 @@ class ServerMgrCobbler:
                       mac, ip, subnet, gway, system_domain,
                       ifname, enc_passwd, server_license, esx_nicname,
                       power_type, power_user, power_pass, power_address,
-                      base_image, server_ip):
+                      base_image, server_ip, partition=None):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "system")
             system = self._server.find_system({"name":  system_name})
             if system:
                 system_id = self._server.get_system_handle(
@@ -296,6 +286,10 @@ class ServerMgrCobbler:
             ks_metadata += ' ip_address=' + ip
             ks_metadata += ' system_name=' + system_name
             ks_metadata += ' system_domain=' + system_domain
+            if partition:
+                ks_metadata += ' partition=' + partition
+            else:
+                ks_metadata += ' partition=' + '/dev/sd?'
             if package_image_id:
                 ks_metadata += ' contrail_repo_name=' + \
                     package_image_id
@@ -346,6 +340,8 @@ class ServerMgrCobbler:
 
     def enable_system_netboot(self, system_name):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "system")
             system = self._server.find_system({"name":  system_name})
             if not system:
                 raise Exception(
@@ -364,6 +360,8 @@ class ServerMgrCobbler:
 
     def reboot_system(self, reboot_system_list):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "system")
             power = {
                 "power" : "reboot",
                 "systems" : reboot_system_list }
@@ -387,6 +385,8 @@ class ServerMgrCobbler:
 
     def delete_distro(self, distro_name):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "distro")
             self._server.remove_distro(distro_name, self._token)
         except Exception as e:
             pass
@@ -394,6 +394,8 @@ class ServerMgrCobbler:
 
     def delete_repo(self, repo_name):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "repo")
             self._server.remove_repo(repo_name, self._token)
         except Exception as e:
             pass
@@ -401,6 +403,8 @@ class ServerMgrCobbler:
 
     def delete_profile(self, profile_name):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "profile")
             self._server.remove_profile(profile_name, self._token)
         except Exception as e:
             pass
@@ -408,6 +412,8 @@ class ServerMgrCobbler:
 
     def delete_system(self, system_name):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "system")
             system = self._server.find_system({"name":  system_name})
             if system:
                 self._server.remove_system(system_name, self._token)
@@ -417,6 +423,8 @@ class ServerMgrCobbler:
 
     def sync(self):
         try:
+            # Validate cobbler token
+            self._validate_token(self._token, "system")
             self._server.sync(self._token)
         except Exception as e:
             raise e

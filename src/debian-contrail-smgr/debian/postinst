@@ -71,11 +71,10 @@ service sendmail restart
 #chkconfig contrail_smgrd on
 
 
-#update-rc.d apache2 defaults
-#update-rc.d xinetd defaults
-#update-rc.d cobbler defaults
-#update-rc.d puppetmaster defaults
-
 #puppet master
-service contrail-server-manager restart
 
+update-rc.d apache2 defaults
+update-rc.d xinetd defaults
+update-rc.d cobbler defaults
+update-rc.d puppetmaster defaults
+service contrail-server-manager restart

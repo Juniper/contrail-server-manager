@@ -31,6 +31,7 @@ import server_mgr_db
 import ast
 import uuid
 import traceback
+import platform
 from server_mgr_defaults import *
 from server_mgr_status import *
 from server_mgr_db import ServerMgrDb as db
@@ -55,9 +56,9 @@ _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = None
 _DEF_COBBLER_USERNAME = 'cobbler'
 _DEF_COBBLER_PASSWORD = 'cobbler'
-_DEF_POWER_USERNAME = 'ADMIN'
-_DEF_POWER_PASSWORD = 'ADMIN'
-_DEF_POWER_TYPE = 'ipmilan'
+_DEF_IPMI_USERNAME = 'ADMIN'
+_DEF_IPMI_PASSWORD = 'ADMIN'
+_DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
 
 @bottle.error(403)
@@ -248,6 +249,7 @@ class VncServerManager():
         bottle.route('/server', 'GET', self.get_server)
         bottle.route('/image', 'GET', self.get_image)
         bottle.route('/status', 'GET', self.get_status)
+        bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
 
         # REST calls for PUT methods (Create New Records)
@@ -353,7 +355,7 @@ class VncServerManager():
 
     # REST API call to get list of server tags. The tags are read from
     # .ini file and stored in DB. There is also a copy maintained in a
-    # dictionary. Since all these are synced up, we return info from 
+    # dictionary. Since all these are synced up, we return info from
     # dictionaty variable itself.
     def get_server_tags(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "get_server_tags")
@@ -400,10 +402,9 @@ class VncServerManager():
             match_key, match_value = query_args.popitem()
             match_keys_str = validation_data['match_keys']
             match_keys = eval(match_keys_str)
-            # TBD - Append "discovered" and "tag" as one of the values, though
+            # Append "discovered" as one of the values, though
             # its not part of server table fields.
             match_keys.append("discovered")
-            match_keys.append("tag")
             if (match_key not in match_keys):
                 raise ServerMgrException("Match Key not present")
             if match_value == None or match_value[0] == '':
@@ -585,6 +586,11 @@ class VncServerManager():
 
         cluster_role_list = []
         for server in servers:
+            duplicate_roles = self.list_duplicates(eval(server['roles']))
+            if len(duplicate_roles):
+                msg = "Duplicate Roles '%s' present" % \
+                        ", ".join(str(e) for e in duplicate_roles)
+                raise ServerMgrException(msg)
             cluster_role_list.extend(eval(server['roles']))
 
         cluster_unique_roles = set(cluster_role_list)
@@ -606,6 +612,15 @@ class VncServerManager():
             raise ServerMgrException(msg)
 
         return 0
+
+    def list_duplicates(self, seq):
+        seen = set()
+        seen_add = seen.add
+        # adds all elements it doesn't know yet to seen and all other to
+        # seen_twice
+        seen_twice = set( x for x in seq if x in seen or seen_add(x) )
+        # turn the set into a list (as requested)
+        return list( seen_twice )
 
     def validate_smgr_provision(self, validation_data, request , data=None):
 
@@ -675,6 +690,7 @@ class VncServerManager():
                 raise ServerMgrException(msg)
             ret_data["status"] = 0
             ret_data["servers"] = servers
+            ret_data["package_image_id"] = package_image_id
         else:
             if (len(entity) == 0):
                 msg = "No servers specified"
@@ -730,7 +746,7 @@ class VncServerManager():
         elif len(entity) == 1:
             match_key, match_value = entity.popitem()
             # check that match key is a valid one
-            if (match_key not in ("server_id", "mac_address",
+            if (match_key not in ("id", "mac_address",
                                   "tag", "cluster_id")):
                 msg = "Invalid Query arguments"
                 raise ServerMgrException(msg)
@@ -798,7 +814,7 @@ class VncServerManager():
             validation_data = cluster_fields
         elif type == "IMAGE":
             validation_data = image_fields
-        else: 
+        else:
             validation_data = None
 
         if oper == "GET":
@@ -830,8 +846,53 @@ class VncServerManager():
             tag = x.strip().split('=')
             if tag[0] in self._rev_tags_dict:
                 match_dict[self._rev_tags_dict[tag[0]]] = tag[1]
+            else:
+                msg = ("Unknown tag %s specified" %(
+                    tag[0]))
+                self._smgr_log.log(
+                    self._smgr_log.INFO, msg)
+                raise ServerMgrException(msg)
+            # end else
         return match_dict
     # end _process_server_tags
+
+    # This call returns status information about a provided server. If no server
+    # if provided, information about all the servers in server manager
+    # configuration is returned.
+    def get_server_status(self):
+        ret_data = None
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_server_status")
+        try:
+            ret_data = self.validate_smgr_request("SERVER", "GET",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                match_dict = {}
+                if match_key == "tag":
+                    match_dict = self._process_server_tags(match_value)
+                elif match_key:
+                    match_dict[match_key] = match_value
+                detail = False
+                servers = self._serverDb.get_server(
+                    match_dict, detail=detail ,
+                    field_list = ["id", "mac_address", "ip_address", "status"])
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
+            abort(404, e.value)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
+            abort(404, repr(e))
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER)
+        # Convert some of the fields in server entry to match what is accepted for put
+        return {"server": servers}
+    # end get_server_status
+
+
 
     # This call returns information about a provided server. If no server
     # if provided, information about all the servers in server manager
@@ -867,10 +928,16 @@ class VncServerManager():
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
         # Convert some of the fields in server entry to match what is accepted for put
         for x in servers:
-            if x.get("server_params", None) is not None:
-                x['server_params'] = eval(x['server_params'])
+            if x.get("parameters", None) is not None:
+                x['parameters'] = eval(x['parameters'])
             if x.get("roles", None) is not None:
                 x['roles'] = eval(x['roles'])
+            if x.get("intf_control", None) is not None:
+                x['control_data_network'] = eval(x['intf_control'])
+                x.pop('intf_control', None)
+            if x.get("intf_bond", None) is not None:
+                x['bond_interface'] = eval(x['intf_bond'])
+                x.pop('intf_bond', None)
             if detail:
                 x['tag'] = {}
                 for i in range(1, len(self._tags_list)+1):
@@ -950,9 +1017,17 @@ class VncServerManager():
 
 
     def get_status(self):
-        server_id = bottle.request.query['server_id']
+        match_key = match_value = None
+        match_dict = None
+        if 'id' in bottle.request.query:
+            server_id = bottle.request.query['id']
+            match_key = 'id'
+            match_value = server_id
+            match_dict[match_key] = match_value
+
         servers = self._serverDb.get_status(
-            {'id' : server_id}, detail=True)
+                    match_dict, detail=True)
+
         if servers:
             return servers[0]
         else:
@@ -1001,11 +1076,11 @@ class VncServerManager():
                     extn = os.path.splitext(image_path)[1]
                     dest = self._args.server_manager_base_dir + 'images/' + \
                         image_id + extn
-                    subprocess.call(["cp", "-f", image_path, dest])
+                    subprocess.check_call(["cp", "-f", image_path, dest])
                     image_params = {}
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") ):
-                        subprocess.call(
+                        subprocess.check_call(
                             ["cp", "-f", dest,
                              self._args.html_root_dir + "contrail/images/"])
                         puppet_manifest_version = self._create_repo(
@@ -1013,7 +1088,7 @@ class VncServerManager():
                         image_params['puppet_manifest_version'] = \
                             puppet_manifest_version
                     elif image_type == "contrail-storage-ubuntu-package":
-                        subprocess.call(
+                        subprocess.check_call(
                             ["cp", "-f", dest,
                              self._args.html_root_dir + "contrail/images/"])
                         self._create_repo(
@@ -1028,6 +1103,14 @@ class VncServerManager():
                         'path': image_path,
                         'parameters' : image_params}
                     self._serverDb.add_image(image_data)
+        except subprocess.CalledProcessError as e:
+            msg = ("put_image: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            self._smgr_trans_log.log(
+                bottle.request,
+                self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
+            abort(404, msg)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
@@ -1225,10 +1308,10 @@ class VncServerManager():
             if file_obj.file:
                 with open(dest, 'w') as open_file:
                     open_file.write(file_obj.file.read())
-            image_parameters = {}
+            image_params = {}
             if ((image_type == "contrail-centos-package") or
                 (image_type == "contrail-ubuntu-package")):
-                subprocess.call(
+                subprocess.check_call(
                     ["cp", "-f", dest,
                      self._args.html_root_dir + "contrail/images/"])
                 puppet_manifest_version = self._create_repo(
@@ -1236,9 +1319,8 @@ class VncServerManager():
                 image_params['puppet_manifest_version'] = \
                     puppet_manifest_version
             elif image_type == "contrail-storage-ubuntu-package":
-                subprocess.call(
-                    ["cp", "-f", dest,
-                     self._args.html_root_dir + "contrail/images/"])
+                subprocess.check_call(["cp", "-f", dest,
+                                 self._args.html_root_dir + "contrail/images/"])
                 self._create_repo(
                     image_id, image_type, image_version, dest)
             else:
@@ -1249,17 +1331,41 @@ class VncServerManager():
                 'version': image_version,
                 'type': image_type,
                 'path': dest,
-                'parameters' : image_parameters}
+                'parameters' : image_params}
             self._serverDb.add_image(image_data)
+        except subprocess.CalledProcessError as e:
+            msg = ("upload_image: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            self._smgr_trans_log.log(
+                bottle.request,
+                self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
+            abort(404, msg)
         except Exception as e:
             self.log_trace()
             abort(404, repr(e))
+        #TODO use the below method to return a JSON for all operations commands
+        #with status, Move the codes and msg to a seprate file
+        entity = {}
+        new_entity = self._add_return_status(entity, 0, "Image Uploaded")
+        return new_entity
     # End of upload_image
+
+
+    #menthod to add status code and msg for json to be returned.
+    def _add_return_status(self, entity, code, msg):
+        status = {}
+        status['code'] = code
+        status['message'] = msg
+        entity['status'] = status
+        return entity
+
+    #End of _add_return_status
 
     # The below function takes the tgz path for puppet modules in the repo
     # being added, checks if that version of modules is already added to
     # puppet and adds it if not already added.
-    def _add_puppet_modules(self, puppet_modules_tgz):
+    def _add_puppet_modules(self, puppet_modules_tgz, image_id):
         tmpdirname = tempfile.mkdtemp()
         try:
             # change dir to the temp dir created
@@ -1267,13 +1373,20 @@ class VncServerManager():
             os.chdir(tmpdirname)
             # Copy the tgz to tempdir
             cmd = ("cp -f %s ." %(puppet_modules_tgz))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # untar the puppet modules tgz file
             cmd = ("tar xvzf contrail-puppet-manifest.tgz > /dev/null")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
+            # Changing the below logic. Instead of reading version from
+            # version file, use image id as the version. Image id is unique
+            # and hence it would be easy to correlate puppet modules to
+            # contrail package being added. With this change, every image would
+            # have it's own manifests, even though manifests between two contrail
+            # versions might be identical.
             # Extract contents of version file.
-            with open('version','r') as f:
-                version = f.read().splitlines()[0]
+            #with open('version','r') as f:
+            #    version = f.read().splitlines()[0]
+            version = image_id
             # Create modules directory if it does not exist.
             target_dir = "/etc/puppet/modules/contrail_" + version
             if not os.path.isdir(target_dir):
@@ -1286,20 +1399,20 @@ class VncServerManager():
                 os.makedirs("/etc/puppet/modules/stdlib")
             # This contrail puppet modules version does not exist. Add it.
             cmd = ("cp -rf ./contrail/* " + target_dir)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             if os.path.isdir("./inifile"):
                 cmd = ("cp -rf ./inifile/* " + "/etc/puppet/modules/inifile")
-                subprocess.call(cmd, shell=True)
+                subprocess.check_call(cmd, shell=True)
             else:
                 self._smgr_log.log(self._smgr_log.ERROR, "directory inifile not in source tar ball - not copied")
             if os.path.isdir("./ceph"):
                 cmd = ("cp -rf ./ceph/* " + "/etc/puppet/modules/ceph")
-                subprocess.call(cmd, shell=True)
+                subprocess.check_call(cmd, shell=True)
             else:
                 self._smgr_log.log(self._smgr_log.ERROR, "directory ceph not in source tar ball - not copied")
             if os.path.isdir("./stdlib"):
                 cmd = ("cp -rf ./stdlib/* " + "/etc/puppet/modules/stdlib")
-                subprocess.call(cmd, shell=True)
+                subprocess.check_call(cmd, shell=True)
             else:
                 self._smgr_log.log(self._smgr_log.ERROR, "directory stdlib not in source tar ball - not copied")
             # Replace the class names in .pp files to have the version number
@@ -1307,9 +1420,15 @@ class VncServerManager():
             filelist = target_dir + "/manifests/*.pp"
             cmd = ("sed -i \"s/__\$version__/contrail_%s/g\" %s" %(
                     version, filelist))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             os.chdir(cwd)
             return version
+        except subprocess.CalledProcessError as e:
+            shutil.rmtree(tmpdirname) # delete directory
+            msg = ("add_puppet_modules: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg)
         finally:
             try:
                 shutil.rmtree(tmpdirname) # delete directory
@@ -1327,48 +1446,53 @@ class VncServerManager():
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
             cmd = "mkdir -p %s" %(mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory to the new one created
             cwd = os.getcwd()
             os.chdir(mirror)
             # add wrapper package itself to the repo
             cmd = "cp -f %s %s" %(
                 dest, mirror)
-            subprocess.call(cmd, shell=True)
-            # Extract .tgz of contrail puppet manifest files 
+            subprocess.check_call(cmd, shell=True)
+            # Extract .tgz of contrail puppet manifest files
             cmd = (
                 "rpm2cpio %s | cpio -ivd ./opt/contrail/puppet/"
                 "contrail-puppet-manifest.tgz > /dev/null" %(dest))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # Handle the puppet manifests in this package.
             puppet_modules_tgz_path = mirror + \
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
             puppet_manifest_version = self._add_puppet_modules(
-                puppet_modules_tgz_path)
+                puppet_modules_tgz_path, image_id)
             # Extract .tgz of other packages from the repo
             cmd = (
                 "rpm2cpio %s | cpio -ivd ./opt/contrail/contrail_packages/"
                 "contrail_rpms.tgz > /dev/null" %(dest))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_rpms.tgz .")
             subprocess.call(cmd, shell=True)
             cmd = ("rm -rf opt")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # untar tgz to get all packages
             cmd = ("tar xvzf contrail_rpms.tgz > /dev/null")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # remove the tgz file itself, not needed any more
             cmd = ("rm -f contrail_rpms.tgz")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # build repo using createrepo
             cmd = ("createrepo . > /dev/null")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory back to original
             os.chdir(cwd)
             # cobbler add repo
             self._smgr_cobbler.create_repo(
                 image_id, mirror)
             return puppet_manifest_version
+        except subprocess.CalledProcessError as e:
+            msg = ("create_yum_repo: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg)
         except Exception as e:
             raise(e)
     # end _create_yum_repo
@@ -1383,37 +1507,37 @@ class VncServerManager():
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
             cmd = "mkdir -p %s" %(mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory to the new one created
             cwd = os.getcwd()
             os.chdir(mirror)
             # add wrapper package itself to the repo
             cmd = "cp -f %s %s" %(
                 dest, mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # Extract .tgz of other packages from the repo
             cmd = (
                 "dpkg -x %s . > /dev/null" %(dest))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # Handle the puppet manifests in this package.
             puppet_modules_tgz_path = mirror + \
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
             puppet_manifest_version = self._add_puppet_modules(
-                puppet_modules_tgz_path)
+                puppet_modules_tgz_path, image_id)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_debs.tgz .")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             cmd = ("rm -rf opt")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # untar tgz to get all packages
             cmd = ("tar xvzf contrail_debs.tgz > /dev/null")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # remove the tgz file itself, not needed any more
             cmd = ("rm -f contrail_debs.tgz")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # build repo using createrepo
             cmd = (
                 "dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory back to original
             os.chdir(cwd)
             # cobbler add repo
@@ -1422,6 +1546,11 @@ class VncServerManager():
             # self._smgr_cobbler.create_repo(
             #     image_id, mirror)
             return puppet_manifest_version
+        except subprocess.CalledProcessError as e:
+            msg = ("create_deb_repo: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg)
         except Exception as e:
             raise(e)
     # end _create_deb_repo
@@ -1435,32 +1564,32 @@ class VncServerManager():
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
             cmd = "mkdir -p %s" %(mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory to the new one created
             cwd = os.getcwd()
             os.chdir(mirror)
             # add wrapper package itself to the repo
             cmd = "cp -f %s %s" %(
                 dest, mirror)
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # Extract .tgz of other packages from the repo
             cmd = (
                 "dpkg -x %s . > /dev/null" %(dest))
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_storage_debs.tgz .")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             cmd = ("rm -rf opt")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # untar tgz to get all packages
             cmd = ("tar xvzf contrail_storage_debs.tgz > /dev/null")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # remove the tgz file itself, not needed any more
             cmd = ("rm -f contrail_storage_debs.tgz")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # build repo using createrepo
             cmd = (
                 "dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
-            subprocess.call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True)
             # change directory back to original
             os.chdir(cwd)
             # cobbler add repo
@@ -1468,6 +1597,11 @@ class VncServerManager():
             # will need to revisit and make it work for ubuntu - Abhay
             # self._smgr_cobbler.create_repo(
             #     image_id, mirror)
+        except subprocess.CalledProcessError as e:
+            msg = ("create_storage_deb_repo: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg)
         except Exception as e:
             raise(e)
     # end _create_storage_deb_repo
@@ -1546,7 +1680,7 @@ class VncServerManager():
                 self._smgr_log.log(self._smgr_log.ERROR, "Invalid image type")
                 abort(404, "invalid image type")
             self._mount_and_copy_iso(dest, copy_path, distro_name,
-                                     kernel_file, initrd_file)
+                                     kernel_file, initrd_file, image_type)
             # Setup distro information in cobbler
             self._smgr_cobbler.create_distro(
                 distro_name, image_type,
@@ -1842,21 +1976,22 @@ class VncServerManager():
                 if 'interface_name' not in server_parameters:
                     msg = "Missing interface name for " + server_id
                     raise ServerMgrException(msg)
-                if 'power_addresss' in server and server['power_addresss'] == None:
-                    msg = "Missing power address for " + server_id
+                if 'ipmi_addresss' in server and server['ipmi_addresss'] == None:
+                    msg = "Missing ipmi address for " + server_id
                     raise ServerMgrException(msg)
                 reimage_parameters['server_ifname'] = server_parameters['interface_name']
-                reimage_parameters['power_type'] = server.get('power_type')
-                if not reimage_parameters['power_type']:
-                    reimage_parameters['power_type'] = self._args.power_type
-                reimage_parameters['power_username'] = server.get('power_username')
-                if not reimage_parameters['power_username']:
-                    reimage_parameters['power_username'] = self._args.power_username
-                reimage_parameters['power_password'] = server.get('power_password')
-                if not reimage_parameters['power_password']:
-                    reimage_parameters['power_password'] = self._args.power_password
-                reimage_parameters['power_address'] = server.get(
-                    'power_address', '')
+                reimage_parameters['ipmi_type'] = server.get('ipmi_type')
+                if not reimage_parameters['ipmi_type']:
+                    reimage_parameters['ipmi_type'] = self._args.ipmi_type
+                reimage_parameters['ipmi_username'] = server.get('ipmi_username')
+                if not reimage_parameters['ipmi_username']:
+                    reimage_parameters['ipmi_username'] = self._args.ipmi_username
+                reimage_parameters['ipmi_password'] = server.get('ipmi_password')
+                if not reimage_parameters['ipmi_password']:
+                    reimage_parameters['ipmi_password'] = self._args.ipmi_password
+                reimage_parameters['ipmi_address'] = server.get(
+                    'ipmi_address', '')
+                reimage_parameters['partition'] = server_parameters.get('partition', '')
                 self._do_reimage_server(
                     base_image, package_image_id, reimage_parameters)
 
@@ -1866,7 +2001,7 @@ class VncServerManager():
                     'domain' : domain,
                     'ip' : server.get("ip_address", ""),
                     'password' : password,
-                    'power_address' : server.get('power_address',"") }
+                    'ipmi_address' : server.get('ipmi_address',"") }
                 reboot_server_list.append(
                     reboot_server)
             # end for server in servers
@@ -1950,7 +2085,7 @@ class VncServerManager():
                     'domain' : domain,
                     'ip' : server.get("ip_address", ""),
                     'password' : password,
-                    'power_address' : server.get('power_address',"") }
+                    'ipmi_address' : server.get('ipmi_address',"") }
                 reboot_server_list.append(
                     reboot_server)
             # end for server in servers
@@ -2157,8 +2292,8 @@ class VncServerManager():
                 provision_params['server_ip'] = server['ip_address']
                 provision_params['database_dir'] = cluster_params['database_dir']
                 provision_params['database_token'] = cluster_params['database_token']
-                provision_params['openstack_mgmt_ip'] = '' 
-                provision_params['openstack_passwd'] = '' 
+                provision_params['openstack_mgmt_ip'] = ''
+                provision_params['openstack_passwd'] = ''
                 provision_params['use_certificates'] = cluster_params['use_certificates']
                 provision_params['multi_tenancy'] = cluster_params['multi_tenancy']
                 provision_params['router_asn'] = cluster_params['router_asn']
@@ -2169,7 +2304,28 @@ class VncServerManager():
                 provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
                 provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
                 provision_params['phy_interface'] = server_params['interface_name']
-                provision_params['server_gway'] = server['gateway']
+                if 'gateway' in server and server['gateway']:
+                    provision_params['server_gway'] = server['gateway']
+                elif 'gateway' in cluster_params and cluster_params['gateway']:
+                    provision_params['server_gway'] = cluster_params['gateway']
+                else:
+                    provision_params['server_gway'] = ''
+
+                if 'kernel_upgrade' in server_params and server_params['kernel_upgrade']:
+                    provision_params['kernel_upgrade'] = server_params['kernel_upgrade']
+                elif 'kernel_upgrade' in cluster_params and cluster_params['kernel_upgrade']:
+                    provision_params['kernel_upgrade'] = cluster_params['kernel_upgrade']
+                else:
+                    provision_params['kernel_upgrade'] = 'no'
+
+                if 'kernel_version' in server_params and server_params['kernel_version']:
+                    provision_params['kernel_version'] = server_params['kernel_version']
+                elif 'kernel_version' in cluster_params and cluster_params['kernel_version']:
+                    provision_params['kernel_version'] = cluster_params['kernel_version']
+                else:
+                    provision_params['kernel_version'] = ''
+
+
                 provision_params['haproxy'] = cluster_params['haproxy']
 
                 if 'setup_interface' in server_params.keys():
@@ -2239,12 +2395,19 @@ class VncServerManager():
 
                 # Storage role params
 
+                if 'subnet_mask' in server and server['subnet_mask']:
+                    subnet_mask = server['subnet_mask']
+                elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
+                    subnet_mask = cluster_params['subnet_mask']
+
+		provision_params['subnet-mask'] = subnet_mask
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = cluster_params['storage_virsh_uuid']
-                if len(role_servers['storage']):
-                    if len(role_servers['storage-mgr']) == 0:
+                provision_params['num_storage_hosts'] = num_storage_hosts
+                if len(role_servers['storage-compute']):
+                    if len(role_servers['storage-master']) == 0:
                         msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
                         raise ServerMgrException(msg)
                     if 'storage_mon_secret' in cluster_params.keys():
@@ -2276,10 +2439,10 @@ class VncServerManager():
                         provision_params['storage_server_disks'].extend(server_params['disks'])
 
                 storage_mon_host_ip_set = set()
-                for x in role_servers['storage']:
-                    storage_mon_host_ip_set.add(x["ip_address"])
-                for x in role_servers['storage-mgr']:
-                    storage_mon_host_ip_set.add(x["ip_address"])
+                for x in role_servers['storage-compute']:
+                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip( provision_params, x["ip_address"]).strip('"'))
+                for x in role_servers['storage-master']:
+                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
 
                 provision_params['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
 
@@ -2288,8 +2451,14 @@ class VncServerManager():
                     images = self.get_image()
                     image_ids = dict()
                     for image in images['image']:
-                        cur_image = self._serverDb.get_image("image_id", image['image_id'], True)
-                        image_ids[image['image_id']] = cur_image[0]['image_type']
+                        match_dict = dict()
+                        match_dict["id"] = image['id']
+                        cur_image = self._serverDb.get_image(match_dict, None, detail=True)
+                        if cur_image is not None:
+                            image_ids[image['id']] = cur_image[0]['type']
+                        else:
+                            msg = "No images found"
+                            raise ServerMgrException(msg)
                     if server_params['storage_repo_id'] in image_ids:
                         if image_ids[server_params['storage_repo_id']] == 'contrail-storage-ubuntu-package':
                             provision_params['storage_repo_id'] = server_params['storage_repo_id']
@@ -2367,9 +2536,9 @@ class VncServerManager():
             'cobbler_port'               : _DEF_COBBLER_PORT,
             'cobbler_username'           : _DEF_COBBLER_USERNAME,
             'cobbler_password'           : _DEF_COBBLER_PASSWORD,
-            'power_username'             : _DEF_POWER_USERNAME,
-            'power_password'             : _DEF_POWER_PASSWORD,
-            'power_type'                 : _DEF_POWER_TYPE,
+            'ipmi_username'             : _DEF_IPMI_USERNAME,
+            'ipmi_password'             : _DEF_IPMI_PASSWORD,
+            'ipmi_type'                 : _DEF_IPMI_TYPE,
             'puppet_dir'                 : _DEF_PUPPET_DIR
         }
 
@@ -2434,7 +2603,7 @@ class VncServerManager():
 
     # Private method to mount a given iso before calling cobbler functions.
     def _mount_and_copy_iso(self, full_image_name, copy_path, distro_name,
-                            kernel_file, initrd_file):
+                            kernel_file, initrd_file, image_type):
         try:
             mount_path = self._args.server_manager_base_dir + "mnt/"
             self._unmount_iso(mount_path)
@@ -2454,6 +2623,26 @@ class VncServerManager():
             # Copy the files from mounted ISO.
             shutil.rmtree(copy_path, True)
             shutil.copytree(mount_path, copy_path, True)
+            # Temporary Bug Fix for Corrupt Packages.gz issue reported by boot loader
+            # during PXE booting if using Server Manager on Ubuntu
+            # Final permanent fix TBD
+
+            if platform.dist()[0].lower() == 'ubuntu' and image_type == 'ubuntu':
+                packages_dir_path = str(copy_path + "/dists/precise/restricted/binary-amd64")
+                if os.path.exists(packages_dir_path):
+                    cwd = os.getcwd()
+                    os.chdir(packages_dir_path)
+                    shutil.copyfile('Packages.gz', 'Packages_copy.gz')
+                    return_code = subprocess.call(["gunzip", "Packages_copy.gz"])
+                    if (return_code != 0):
+                        return return_code
+                    file_size = os.stat(packages_dir_path + "/Packages_copy").st_size
+                    if file_size == 0:
+                        shutil.move('Packages_copy', 'Packages')
+                    else:
+                        shutil.rmtree('Packages_copy')
+                    os.chdir(cwd)
+            # End Temporary Bug Fix
             # Need to change mode to kernel and initrd files to read for all.
             kernel_file_full_path = copy_path + kernel_file
             return_code = subprocess.call(
@@ -2496,24 +2685,26 @@ class VncServerManager():
                         server['id'])
                     cmd = "puppet cert clean %s.%s" % (
                         server['id'], server['domain'])
-                    self._smgr_log.log(self._smgr_log.DEBUG,
-                                        cmd)
-                    subprocess.call(cmd, shell=True)
+                    ret_code = subprocess.call(cmd, shell=True)
+                    self._smgr_log.log(
+                        self._smgr_log.DEBUG,
+                        cmd + "; ret_code = %d" %(ret_code))
                     # Remove manifest file for this server
                     cmd = "rm -f /etc/puppet/manifests/%s.%s.pp" %(
                         server['id'], server['domain'])
-                    self._smgr_log.log(self._smgr_log.DEBUG,
-                                        cmd)
-
-                    subprocess.call(cmd, shell=True)
+                    ret_code = subprocess.call(cmd, shell=True)
+                    self._smgr_log.log(
+                        self._smgr_log.DEBUG,
+                        cmd + "; ret_code = %d" %(ret_code))
                     # Remove entry for that server from site.pp
                     cmd = "sed -i \"/%s.%s.pp/d\" /etc/puppet/manifests/site.pp" %(
                         server['id'], server['domain'])
-                    self._smgr_log.log(self._smgr_log.DEBUG,
-                                        cmd)
-                    subprocess.call(cmd, shell=True)
+                    ret_code = subprocess.call(cmd, shell=True)
+                    self._smgr_log.log(
+                        self._smgr_log.DEBUG,
+                        cmd + "; ret_code = %d" %(ret_code))
                 # end if
-                if server['power_address']:
+                if server['ipmi_address']:
                     power_reboot_list.append(
                         server['id'])
                 else:
@@ -2530,10 +2721,17 @@ class VncServerManager():
                              "%Y-%m-%d %H:%M:%S", gmtime())}
                 self._serverDb.modify_server(update)
                 success_list.append(server['id'])
+            except subprocess.CalledProcessError as e:
+                msg = ("power_cycle_servers: error %d when executing"
+                       "\"%s\"" %(e.returncode, e.cmd))
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                "Failed re-booting for server %s" % \
+                                (server['id']))
+                failed_list.append(server['id'])
             except Exception as e:
                 self._smgr_log.log(self._smgr_log.ERROR,
                                             repr(e))
-
                 self._smgr_log.log(self._smgr_log.ERROR,
                                 "Failed re-booting for server %s" % \
                                 (server['id']))
@@ -2586,11 +2784,12 @@ class VncServerManager():
                 reimage_parameters['server_password'],
                 reimage_parameters.get('server_license', ''),
                 reimage_parameters.get('esx_nicname', 'vmnic0'),
-                reimage_parameters.get('power_type',self._args.power_type),
-                reimage_parameters.get('power_username',self._args.power_username),
-                reimage_parameters.get('power_password',self._args.power_password),
-                reimage_parameters.get('power_address',''),
-                base_image, self._args.listen_ip_addr)
+                reimage_parameters.get('ipmi_type',self._args.ipmi_type),
+                reimage_parameters.get('ipmi_username',self._args.ipmi_username),
+                reimage_parameters.get('ipmi_password',self._args.ipmi_password),
+                reimage_parameters.get('ipmi_address',''),
+                base_image, self._args.listen_ip_addr,
+                reimage_parameters.get('partition', ''))
 
             # Sync the above information
             #self._smgr_cobbler.sync()
@@ -2620,7 +2819,7 @@ class VncServerManager():
             # Now kickstart agent run on the target
             host_name = provision_parameters['server_id'] + "." + \
                 provision_parameters.get('domain', '')
-            rc = subprocess.call(
+            rc = subprocess.check_call(
                 ["puppet", "kick", "--host", host_name])
             # Log, return error if return code is non-null - TBD Abhay
 
@@ -2628,7 +2827,10 @@ class VncServerManager():
             # update = {'server_id':server_id,
             #          'image_id':image_id}
             # self._serverDb.modify_server(update)
-
+        except subprocess.CalledProcessError as e:
+            msg = ("do_provision_server: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
         except Exception as e:
             raise e
     # end _do_provision_server

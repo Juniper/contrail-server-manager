@@ -38,14 +38,12 @@ object_dict = {
              ("domain", "Default domain for servers in this cluster"),
              ("database_dir", "home directory for cassandra"),
              ("database_token", "initial database token"),
-             ("openstack_mgmt_ip", "openstack management ip"),
              ("use_certificates", "whether to use certificates for auth (True/False)"),
              ("multi_tenancy", "Openstack multitenancy (True/False)"),
              ("service_token", "Service token for openstack access"),
-             ("keystone_user", "Keystone user name"),
+             ("keystone_username", "Keystone user name"),
              ("keystone_password", "keystone password"),
              ("keystone_tenant", "keystone tenant name"),
-             ("openstack_passwd", "open stack password"),
              ("analytics_data_ttl", "analytics data TTL"),
              ("osd_bootstrap_key", "OSD Bootstrap Key"),
              ("admin_key", "Admin Authentication Key"),
@@ -59,6 +57,7 @@ object_dict = {
         ("roles", "comma-separated list of roles for this server"),
         ("parameters", OrderedDict([
             ("interface_name", "Ethernet Interface name"),
+            ("partition", "Use this partition and create lvm"),
             ("disks", "Storage OSDs (default none)")])),
         ("cluster_id", "cluster id the server belongs to"),
         ("tag1", "tag value for this tag"),
@@ -72,9 +71,9 @@ object_dict = {
         ("gateway", "gateway (default use value from cluster table)"),
         ("domain", "domain name (default use value from cluster table)"),
         ("password", "root password (default use value from cluster table)"),
-        ("power_password", "Power password"),
-        ("power_username", "Power user"),
-        ("power_address", "Power Address"),
+        ("ipmi_password", "IPMI password"),
+        ("ipmi_username", "IPMI username"),
+        ("ipmi_address", "IPMI address"),
         ("email", "email id for notifications (default use value from server's cluster)"),
     ]),
     "image" : OrderedDict ([
@@ -222,16 +221,29 @@ def get_object_config_ini_entries(object, config):
 # end get_object_config_ini_entries
 
 def get_default_object(object, config):
+    # get current tag settings
+    payload = {}
+    resp = send_REST_request(
+        smgr_ip, smgr_port,
+        "tag", payload, None,
+        None, True, "GET" )
+    json_str = resp.replace("null", "''")
+    tag_dict = eval(json_str)
+    rev_tag_dict = dict((v,k) for k,v in tag_dict.iteritems())
+
     default_object = {}
     config_object_defaults = get_object_config_ini_entries(object, config)
     if not config_object_defaults:
         return default_object
     default_object["parameters"] = {}
+    default_object["tag"] = {}
     for key, value in config_object_defaults:
         if key in object_dict[object]:
             default_object[key] = value
         elif key in object_dict[object]["parameters"]:
             default_object["parameters"][key] = value
+        elif key in rev_tag_dict:
+            default_object["tag"][key] = value
     return default_object
 # end get_default_object
 
@@ -251,9 +263,16 @@ def merge_with_defaults(object, payload, config):
             param_object = dict(default_object["parameters"].items() + obj["parameters"].items())
         elif "parameters" in default_object:
             param_object = default_object["parameters"] 
+        tag_object = {}
+        if "tag" in obj and "tag" in default_object:
+            tag_object = dict(default_object["tag"].items() + obj["tag"].items())
+        elif "tag" in default_object:
+            tag_object = default_object["tag"] 
         payload[object][i] = dict(default_object.items() + obj.items())
         if param_object:
             payload[object][i]["parameters"] = param_object
+        if tag_object:
+            payload[object][i]["tag"] = tag_object
 
 # end merge_with_defaults
 
@@ -315,6 +334,7 @@ def add_payload(object, default_object):
         None, True, "GET" )
     json_str = resp.replace("null", "''")
     tag_dict = eval(json_str)
+    rev_tag_dict = dict((v,k) for k,v in tag_dict.iteritems())
     
     while True:
         temp_dict = {}
@@ -350,32 +370,44 @@ def add_payload(object, default_object):
             data = ''
             i = 0
             index_dict = {}
+            server_tags = obj.get("tag", {})
             #form the fields to be displayed with index
             for key in fields_dict:
                 value = fields_dict[key]
-                if (key != ("parameters")):
+                if (key in ["tag1", "tag2", "tag3",
+                            "tag4", "tag5", "tag6",
+                            "tag7"]):
+                    tag = tag_dict.get(key, None)
+                    if not tag:
+                        continue
+                    data += str(i)+ ". %s : %s \n" %(
+                        tag, server_tags.get(tag, ''))
+                    index_dict[i] = tag
+                    i+=1
+                elif (key != ("parameters")):
                     index_dict[i] = key
                     if key in non_mutable_fields :
                         data += str(i)+ ". %s : %s *\n" % (key, obj[key])
                     elif key == "roles":
-                        data += str(i)+ ". %s : %s \n" % (key,
-                                                    ','.join(eval(obj[key])))
+                        data += str(i)+ ". %s : %s \n" % (
+                            key, ','.join(obj[key]))
                     else:
                         data += str(i)+ ". %s : %s \n" % (key, obj[key])
                     i+=1
                 else:
-                    if obj.has_key("parameters") and obj["parameters"]:
-                        smgr_params = eval(obj["parameters"])
+                    if ("parameters" in obj) and obj["parameters"]:
+                        smgr_params = obj["parameters"].copy()
                     else:
                         smgr_params = {}
                     for param in value:
-                        data += str(i)+ ". %s : %s \n" % (param,
-                                                smgr_params.get(param, ""))
+                        data += str(i)+ ". %s : %s \n" % (
+                            param, smgr_params.get(param, ""))
                         index_dict[i] = param
                         i+=1
             #display them
             print data
             params_dict = {}
+            tags = {}
             #Prompt if users wants to modify a field in
             # the existing object or continue
             # adding a new object
@@ -385,6 +417,7 @@ def add_payload(object, default_object):
                 if user_selection.strip() == 'C':
                     #print 'send output'
                     temp_dict["parameters"] = params_dict
+                    temp_dict["tag"] = tags
                     break
 
                 else:
@@ -399,11 +432,16 @@ def add_payload(object, default_object):
      
                     key_selected = index_dict[eval(user_selection)]
                     object_params = object_dict[object] ["parameters"]
-                    if key_selected in object_params.keys():
+                    if key_selected in rev_tag_dict:
+                        msg = key_selected + ":"
+                        user_input = rlinput(msg, server_tags.get(key_selected, ''))
+                        tags[key_selected] = user_input
+                    elif key_selected in object_params.keys():
                         msg = key_selected + ":"
                         value = smgr_params.get(key_selected,"")
                         if key_selected != 'disks':
-                            user_input = rlinput(msg, default_value)
+                            user_input = rlinput(
+                                msg, smgr_params.get(key_selected, ''))
                         elif key_selected == 'disks' and 'storage-compute' in object_dict["roles"]:
                             disks = raw_input(msg)
                             if disks:
@@ -413,9 +451,9 @@ def add_payload(object, default_object):
                                 user_input = None
                         params_dict[key_selected] = user_input
                     elif key_selected == "roles":
-                        msg = index_dict[eval(user_selection)] + ":"
+                        msg = key_selected + ":"
                         user_input = rlinput(msg,
-                                ','.join(eval(obj[index_dict[eval(user_selection)]])))
+                                ','.join(obj[key_selected]))
                         temp_dict[key_selected] = user_input.replace(' ','').split(",")
                     else:
                         msg = index_dict[eval(user_selection)] + ":"
@@ -438,7 +476,8 @@ def add_payload(object, default_object):
                     if value:
                         msg += " (%s) " %(value)
                     msg += ": "
-                    default_value = default_object.get(key, "")
+                    default_tag = default_object.get("tag", {})
+                    default_value = default_tag.get(tag_dict[key], "")
                     user_input = rlinput(msg, default_value) 
                     if user_input:
                         tag[tag_dict[key]] = user_input
@@ -475,7 +514,7 @@ def add_payload(object, default_object):
                             default_value = ""
                         user_input = ""
                         if ((param == 'disks') and ('roles' in temp_dict) and
-                            ('storage' in temp_dict["roles"])):
+                            ('storage-compute' in temp_dict["roles"])):
                             disks = raw_input(msg)
                             if disks:
                                 disk_list = disks.split(',')
@@ -483,7 +522,7 @@ def add_payload(object, default_object):
                             else:
                                 user_input = None
                         else:
-                            user_input = raw_input(msg)
+                            user_input = rlinput(msg, default_value)
                         if user_input:
                             param_dict[param] = user_input
                     temp_dict[key] = param_dict
