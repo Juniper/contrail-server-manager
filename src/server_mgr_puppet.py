@@ -163,6 +163,16 @@ class ServerMgrPuppet:
         return data
     # end _update_provision_complete
 
+    def _update_system_config(self, provision_params):
+        before_param = "Contrail_%s::Contrail_common::Contrail-setup-repo[\"contrail_repo\"]" % (
+            provision_params['puppet_manifest_version'])
+
+        data = '''    # Create system config on target.
+    contrail_%s::contrail_common::contrail_setup_users_groups{contrail_repo:
+        before => %s
+    }\n\n''' % (provision_params['puppet_manifest_version'], before_param)
+
+	return data
 
     def _repository_config(self, provision_params):
         # Get all the parameters needed to send to puppet manifest.
@@ -1613,6 +1623,9 @@ $__contrail_quantum_servers__
         # target
         resource_data += self._update_provision_start(provision_params)
 
+	# update_system_config() is responsible for adding system configuration
+	# e.g rsyslog.conf, configure UID/GID
+        resource_data += self._update_system_config(provision_params)
 
         resource_data += self._repository_config(provision_params)
 
