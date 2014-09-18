@@ -1464,6 +1464,10 @@ class VncServerManager():
             cmd = ("sed -i \"s/__\$version__/contrail_%s/g\" %s" %(
                     version, filelist))
             subprocess.check_call(cmd, shell=True)
+
+            cmd = ("sed -i \"s/__\$VERSION__/Contrail_%s/g\" %s" %(
+                    version, filelist))
+            subprocess.check_call(cmd, shell=True)
             os.chdir(cwd)
             return version
         except subprocess.CalledProcessError as e:
