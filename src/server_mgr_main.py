@@ -2158,7 +2158,16 @@ class VncServerManager():
     def get_env_details(self):
         print "Getting ENV details"
         power_val = self._monitoring_thread_obj.get_pwr_consumption()
-        fan_details_dict = self._monitoring_thread_obj.get_fan_details()
+        fan_details_dict = dict(self._monitoring_thread_obj.get_fan_details())
+        data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
+        if 'FAN' in fan_details_dict:
+            fan_data = dict(fan_details_dict['FAN'])
+            for key in fan_data:
+                data_list = list(fan_data[key])
+                data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
+        else:
+            data = 0
+        return data
 
     def interface_created(self):
         entity = bottle.request.json
