@@ -95,6 +95,11 @@ def parse_arguments():
     parser_tag = subparsers.add_parser(
         "tag", help='Show list of server tags')
     parser_tag.set_defaults(func=show_tag)
+
+    #Subparser for Env Details
+    parser_env_details = subparsers.add_parser(
+        "env details", help='Show the server IPMI details')
+    parser_env_details.set_defaults(func=show_env_details)
     return parser
 # end def parse_arguments
 
@@ -197,6 +202,24 @@ def show_tag(args):
     }
     return rest_api_params
 #end def show_all
+
+def show_env_details(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'IPMI'
+    if args.server_id:
+        rest_api_params['match_key'] = 'id'
+        rest_api_params['match_value'] = args.server_id
+    elif args.mac:
+        rest_api_params['match_key'] = 'mac_address'
+        rest_api_params['match_value'] = args.mac
+    elif args.ip:
+        rest_api_params['match_key'] = 'ip_address'
+        rest_api_params['match_value'] = args.ip
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
+    return rest_api_params
+#end def show_env_details
 
 def show_config(args_str=None):
     parser = parse_arguments()

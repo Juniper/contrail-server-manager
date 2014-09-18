@@ -40,6 +40,7 @@ from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
+from smgr_ipmi import Ipmi_EnvInfo
 from send_mail import send_mail
 import tempfile
 
@@ -105,6 +106,7 @@ class VncServerManager():
                   'tag5', 'tag6', 'tag7']
     _tags_dict = {}
     _rev_tags_dict = {}
+    _monitoring_thread_obj = None
 
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
@@ -238,6 +240,10 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
+        self._monitoring_thread_obj = Ipmi_EnvInfo(1,300)
+        self._monitoring_thread_obj.daemon = True
+        self._monitoring_thread_obj.start()
+
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
         self._pipe_start_app = bottle.app()
@@ -251,6 +257,7 @@ class VncServerManager():
         bottle.route('/status', 'GET', self.get_status)
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
+        bottle.route('/IPMI', 'GET', self.get_env_details)
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
@@ -2146,6 +2153,12 @@ class VncServerManager():
         # end for server_name
         return server_ips
     # end get_server_ip_list
+
+    #Function to get details
+    def get_env_details(self):
+        print "Getting ENV details"
+        power_val = self._monitoring_thread_obj.get_pwr_consumption()
+        fan_details_dict = self._monitoring_thread_obj.get_fan_details()
 
     def interface_created(self):
         entity = bottle.request.json
