@@ -96,10 +96,20 @@ def parse_arguments():
         "tag", help='Show list of server tags')
     parser_tag.set_defaults(func=show_tag)
 
-    #Subparser for Env Details
+    #Subparser for Fan Details
     parser_env_details = subparsers.add_parser(
-        "env_details", help='Show the server IPMI details')
-    parser_env_details.set_defaults(func=show_env_details)
+        "fan_details", help='Show the server Fan details')
+    parser_env_details.set_defaults(func=show_fan_details)
+
+    # Subparser for Temp Details
+    parser_env_details = subparsers.add_parser(
+        "temp_details", help='Show the server Temp details')
+    parser_env_details.set_defaults(func=show_temp_details)
+
+    # Subparser for Power Consumption
+    parser_env_details = subparsers.add_parser(
+        "power_consumption", help='Show the server Power Consumption')
+    parser_env_details.set_defaults(func=show_pwr_details)
     return parser
 # end def parse_arguments
 
@@ -203,9 +213,9 @@ def show_tag(args):
     return rest_api_params
 #end def show_all
 
-def show_env_details(args):
+def show_fan_details(args):
     rest_api_params = {}
-    rest_api_params['object'] = 'IPMI'
+    rest_api_params['object'] = 'Fan'
     """"if args.server_id:
         rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
@@ -220,6 +230,22 @@ def show_env_details(args):
     rest_api_params['match_value'] = None
     return rest_api_params
 #end def show_env_details
+
+def show_temp_details(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'Temp'
+    rest_api_params['match_key'] = None
+    rest_api_params['match_value'] = None
+    return rest_api_params
+# end def show_env_details
+
+def show_pwr_details(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'Pwr'
+    rest_api_params['match_key'] = None
+    rest_api_params['match_value'] = None
+    return rest_api_params
+# end def show_env_details
 
 def show_config(args_str=None):
     parser = parse_arguments()

@@ -257,7 +257,9 @@ class VncServerManager():
         bottle.route('/status', 'GET', self.get_status)
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
-        bottle.route('/IPMI', 'GET', self.get_env_details)
+        bottle.route('/Fan', 'GET', self.get_fan_details)
+        bottle.route('/Temp', 'GET', self.get_temp_details)
+        bottle.route('/Pwr', 'GET', self.get_pwr_details)
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
@@ -2155,13 +2157,37 @@ class VncServerManager():
     # end get_server_ip_list
 
     #Function to get details
-    def get_env_details(self):
-        print "Getting ENV details"
-        power_val = self._monitoring_thread_obj.get_pwr_consumption()
+    def get_fan_details(self):
         fan_details_dict = dict(self._monitoring_thread_obj.get_fan_details())
         data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
         if 'FAN' in fan_details_dict:
             fan_data = dict(fan_details_dict['FAN'])
+            for key in fan_data:
+                data_list = list(fan_data[key])
+                data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
+        else:
+            data = 0
+        return data
+
+    # Function to get details
+    def get_temp_details(self):
+        temp_details_dict = dict(self._monitoring_thread_obj.get_temp_details())
+        data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
+        if 'TEMP' in temp_details_dict:
+            fan_data = dict(temp_details_dict['TEMP'])
+            for key in fan_data:
+                data_list = list(fan_data[key])
+                data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
+        else:
+            data = 0
+        return data
+
+    # Function to get details
+    def get_pwr_details(self):
+        pwr_cons_dict = dict(self._monitoring_thread_obj.get_pwr_consumption())
+        data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
+        if 'PWR' in pwr_cons_dict:
+            fan_data = dict(pwr_cons_dict['PWR'])
             for key in fan_data:
                 data_list = list(fan_data[key])
                 data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
