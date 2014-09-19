@@ -420,6 +420,8 @@ class ServerMgrPuppet:
         compute_server_control=self.get_control_ip(provision_params,compute_server)
      
         openstack_ip_list = ['"'+ str(host) + '"' for host in provision_params['roles']['openstack'] ]
+        openstack_ip_list_wsrep = [str(host) +  ':4567' for host in provision_params['roles']['openstack'] ]
+
         config_ip_list = ['"' + str(host) + '"' for host in
                           provision_params['roles']['config'] ]
         openstack_ip_list_control = []
@@ -443,6 +445,9 @@ class ServerMgrPuppet:
         amqp_server = provision_params['roles']['config'][0]
         amqp_server_control=self.get_control_ip(provision_params,amqp_server)
         #End here
+        #TODO Check for contrail_internal_vip andtrun this into a method
+        if provision_params["internal_vip"] != "":
+            amqp_server_control = provision_params["internal_vip"]
 
  
         # Build Params items
@@ -484,7 +489,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_openstack_index', None) is None:
             self._params_dict['contrail_openstack_index'] = (
-                "\"%s\"" %(openstack_index.replace('"', '')))
+                "\"%s\"" %(openstack_index))
         if self._params_dict.get(
             'contrail_rabbit_user', None) is None:
             self._params_dict['contrail_rabbit_user'] = (
@@ -516,6 +521,10 @@ class ServerMgrPuppet:
             'openstack_ip_list_control', None) is None:
             self._params_dict['openstack_ip_list_control'] = (
                 "[%s]" %(','.join(openstack_ip_list_control)))
+        if self._params_dict.get(
+            'openstack_ip_list_wsrep', None) is None:
+            self._params_dict['openstack_ip_list_wsrep'] = (
+               "\"%s\"" % (','.join(openstack_ip_list_wsrep))) 
         if self._params_dict.get(
             'compute_ip_list', None) is None:
             self._params_dict['compute_ip_list'] = (
@@ -567,7 +576,7 @@ class ServerMgrPuppet:
 
         if provision_params["haproxy"] == "enable":
             self.create_openstack_ha_proxy(provision_params)
-        if provision_params["ha"] == "True":
+        if provision_params["internal_vip"] != "":
             self.create_openstack_ha_proxy_new(provision_params)
         return data
     # end puppet_add_openstack_role
@@ -1038,17 +1047,20 @@ $__contrail_disc_backend_servers__
         config_servers_names = provision_params['role_ids']['config']
         # Keeping openstack index hardcoded untill ha is implemented 
 #        openstack_index="1"
-        openstack_index = provision_params['roles'] \
-                        ['openstack'].index(provision_params["server_ip"]) + 1
+#        openstack_index = provision_params['roles'] \
+#                        ['openstack'].index(provision_params["server_ip"]) + 1
 
         rabbit_user_list=[]
         for cfgm_name in config_servers_names:
             rabbit_user_list.append('rabbit@'+str(cfgm_name))
         rabbit_user_list=str(rabbit_user_list)
         rabbit_user_list=rabbit_user_list.replace(" ","")
-        #Chhnadak
+        #Get the amqp ip based on ha policy
         amqp_server = provision_params['roles']['config'][0]
         amqp_server_control=self.get_control_ip(provision_params,amqp_server)
+        #TODO Check for contrail_internal_vip andtrun this into a method
+        if provision_params["internal_vip"] != "":
+            amqp_server_control = provision_params["internal_vip"]
         #End here
 
         # Build Params items
@@ -1180,10 +1192,10 @@ $__contrail_disc_backend_servers__
             'contrail_amqp_server_ip', None) is None:
             self._params_dict['contrail_amqp_server_ip'] = (
                 "\"%s\"" %(amqp_server_control.replace('"', '')))
-        if self._params_dict.get(
-            'contrail_openstack_index', None) is None:
-            self._params_dict['contrail_openstack_index'] = (
-                "\"%s\"" %(openstack_index))
+#        if self._params_dict.get(
+#            'contrail_openstack_index', None) is None:
+#            self._params_dict['contrail_openstack_index'] = (
+#                "\"%s\"" %(openstack_index))
         if self._params_dict.get(
             'contrail_rabbit_user', None) is None:
             self._params_dict['contrail_rabbit_user'] = (
@@ -1712,9 +1724,12 @@ $__contrail_quantum_servers__
         openstack_index = provision_params['roles'] \
                         ['openstack'].index(provision_params["server_ip"]) + 1
 
-        #Chhnadak
         amqp_server = provision_params['roles']['config'][0]
         amqp_server_control=self.get_control_ip(provision_params,amqp_server)
+        #TODO Check for contrail_internal_vip andtrun this into a method
+        if provision_params["internal_vip"] != "":
+            amqp_server_control = provision_params["internal_vip"]
+
         #End here
  
 #	if provision_params['haproxy'] == 'enable':
