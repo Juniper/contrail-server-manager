@@ -33,19 +33,19 @@ class Ipmi_EnvInfo(Thread, DeviceEnvBase):
         return p.stdout.read()
 
     def get_fan_details(self):
-        cmd = 'ipmitool -H 10.87.129.207 -U admin -P admin sdr list all'
-        result = self.call_subprocess(cmd)
-        if result is not None:
-            fileoutput = cStringIO.StringIO(result)
-            return_data = dict()
-            return_data['FAN'] = dict()
-            for line in fileoutput:
-                reading = line.split("|")
-                sensor = reading[0].strip()
-                if "FAN" in sensor:
-                    return_data['FAN'][reading[0].strip()] = list()
-                    return_data['FAN'][reading[0].strip()].append(reading[1].strip())
-                    return_data['FAN'][reading[0].strip()].append(reading[2].strip())
-        else:
-            return_data = 0
-        return return_data
+	supported_sensors = ['FAN', '^PWR', 'CPU[0-9] Temp', '.*_Temp']
+                target_nodes = ['10.87.129.207', '10.87.129.208']
+                while True:
+                        for ip in target_nodes:
+                                cmd = 'ipmitool -H %s -U admin -P admin sdr list all'% ip
+                                print cmd
+                                result = self.call_subprocess(cmd)
+                                if result is not None:
+                                        fileoutput = cStringIO.StringIO(result)
+                                        for line in fileoutput:
+                                                reading = line.split("|")
+                                                sensor = reading[0].strip()
+                                                for i in supported_sensors:
+                                                        if re.search(i, sensor) is not None:
+                                                                print "'%s' '%s' %s" % (reading[0].strip(), reading[1].strip(), reading[2].strip())
+                        time.sleep(self.freq)
