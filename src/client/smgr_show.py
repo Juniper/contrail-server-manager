@@ -96,20 +96,33 @@ def parse_arguments():
         "tag", help='Show list of server tags')
     parser_tag.set_defaults(func=show_tag)
 
-    #Subparser for Fan Details
+    #Subparser for all Env Details
     parser_env_details = subparsers.add_parser(
+        "env_details", help='Show the all the Server Env Details')
+    parser_env_details.add_argument("--server_id",
+                                     help=("server id for server"))
+    parser_env_details.set_defaults(func=show_env_details)
+
+    #Subparser for Fan Details
+    parser_fan_details = subparsers.add_parser(
         "fan_details", help='Show the server Fan details')
-    parser_env_details.set_defaults(func=show_fan_details)
+    parser_fan_details.add_argument("--server_id",
+                                    help=("server id for server"))
+    parser_fan_details.set_defaults(func=show_fan_details)
 
     # Subparser for Temp Details
-    parser_env_details = subparsers.add_parser(
+    parser_temp_details = subparsers.add_parser(
         "temp_details", help='Show the server Temp details')
-    parser_env_details.set_defaults(func=show_temp_details)
+    parser_temp_details.add_argument("--server_id",
+                                     help=("server id for server"))
+    parser_temp_details.set_defaults(func=show_temp_details)
 
     # Subparser for Power Consumption
-    parser_env_details = subparsers.add_parser(
+    parser_pwr_details = subparsers.add_parser(
         "power_consumption", help='Show the server Power Consumption')
-    parser_env_details.set_defaults(func=show_pwr_details)
+    parser_pwr_details.add_argument("--server_id",
+                                    help=("server id for server"))
+    parser_pwr_details.set_defaults(func=show_pwr_details)
     return parser
 # end def parse_arguments
 
@@ -126,6 +139,7 @@ def send_REST_request(ip, port, object, match_key,
             args_str += "&detail"
         if args_str != '':
             url += "?" + args_str
+        print url
         conn = pycurl.Curl()
         conn.setopt(pycurl.TIMEOUT, 1)
         conn.setopt(pycurl.URL, url)
@@ -216,34 +230,50 @@ def show_tag(args):
 def show_fan_details(args):
     rest_api_params = {}
     rest_api_params['object'] = 'Fan'
-    """"if args.server_id:
+    if args.server_id:
         rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
-    elif args.mac:
-        rest_api_params['match_key'] = 'mac_address'
-        rest_api_params['match_value'] = args.mac
-    elif args.ip:
-        rest_api_params['match_key'] = 'ip_address'
-        rest_api_params['match_value'] = args.ip
-    else:"""
-    rest_api_params['match_key'] = None
-    rest_api_params['match_value'] = None
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
     return rest_api_params
-#end def show_env_details
+#end def show_fan_details
 
 def show_temp_details(args):
     rest_api_params = {}
     rest_api_params['object'] = 'Temp'
-    rest_api_params['match_key'] = None
-    rest_api_params['match_value'] = None
+    if args.server_id:
+        rest_api_params['match_key'] = 'id'
+        rest_api_params['match_value'] = args.server_id
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
     return rest_api_params
-# end def show_env_details
+# end def show_temp_details
 
 def show_pwr_details(args):
     rest_api_params = {}
     rest_api_params['object'] = 'Pwr'
-    rest_api_params['match_key'] = None
-    rest_api_params['match_value'] = None
+    if args.server_id:
+        rest_api_params['match_key'] = 'id'
+        rest_api_params['match_value'] = args.server_id
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
+    return rest_api_params
+# end def show_pwr_details
+
+def show_env_details(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'Env'
+    if args.server_id:
+        rest_api_params['match_key'] = 'id'
+        rest_api_params['match_value'] = args.server_id
+        print rest_api_params['match_key']
+        print rest_api_params['match_value']
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
     return rest_api_params
 # end def show_env_details
 

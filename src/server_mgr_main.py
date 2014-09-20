@@ -260,6 +260,7 @@ class VncServerManager():
         bottle.route('/Fan', 'GET', self.get_fan_details)
         bottle.route('/Temp', 'GET', self.get_temp_details)
         bottle.route('/Pwr', 'GET', self.get_pwr_details)
+        bottle.route('/Env', 'GET', self.get_env_details)
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
@@ -422,6 +423,32 @@ class VncServerManager():
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_value[0]
             ret_data["detail"] = detail
+        return ret_data
+
+    def validate_smgr_env(self, request, data=None):
+        ret_data = {}
+        ret_data['status'] = 1
+        query_args = parse_qs(urlparse(request.url).query,
+                              keep_blank_values=True)
+
+        if len(query_args) == 0:
+            match_key = None
+            match_value = None
+            ret_data["status"] = 0
+            ret_data["match_key"] = match_key
+            ret_data["match_value"] = match_value
+        elif len(query_args) == 1:
+            match_key, match_value = query_args.popitem()
+            match_keys = list()
+            match_keys.append('id')
+            match_keys.append('discovered')
+            if (match_key not in match_keys):
+                raise ServerMgrException("Match Key not present")
+            if match_value == None or match_value[0] == '':
+                raise ServerMgrException("Match Value not Specified")
+            ret_data["status"] = 0
+            ret_data["match_key"] = str(match_key)
+            ret_data["match_value"] = str(match_value[0])
         return ret_data
 
     def validate_smgr_put(self, validation_data, request, data=None,
@@ -2156,9 +2183,54 @@ class VncServerManager():
         return server_ips
     # end get_server_ip_list
 
+
+    # Function to get details
+    def get_env_details(self):
+        ipmi_list = None
+        try:
+            ret_data = self.validate_smgr_env(bottle.request)
+            if ret_data['status'] == 0:
+                match_key = ret_data['match_key']
+                match_value = ret_data['match_value']
+                match_dict = {}
+                if match_key is not None:
+                    match_dict[match_key] = match_value
+                    detail = True
+                    servers = self._serverDb.get_server(
+                        match_dict, detail=detail)
+                    ipmi_list = list()
+                    for x in servers:
+                        x = dict(x)
+                        if 'ipmi_address' in x:
+                            ipmi_list.append(x['ipmi_address'])
+                else:
+                    ipmi_list = None
+
+                env_details_dict = dict(self._monitoring_thread_obj.get_env_details(ipmi_list))
+                data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
+                if 'ENV' in env_details_dict:
+                    env_data = dict(env_details_dict['ENV'])
+                    for key in env_data:
+                        data_list = list(env_data[key])
+                        data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
+                else:
+                    data = 0
+                return data
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     False)
+            abort(404, e.value)
+        except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     False)
+            self.log_trace()
+            abort(404, repr(e))
+
     #Function to get details
     def get_fan_details(self):
-        fan_details_dict = dict(self._monitoring_thread_obj.get_fan_details())
+        fan_details_dict = dict(self._monitoring_thread_obj.get_fan_details(None))
         data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
         if 'FAN' in fan_details_dict:
             fan_data = dict(fan_details_dict['FAN'])
@@ -2171,12 +2243,12 @@ class VncServerManager():
 
     # Function to get details
     def get_temp_details(self):
-        temp_details_dict = dict(self._monitoring_thread_obj.get_temp_details())
+        temp_details_dict = dict(self._monitoring_thread_obj.get_temp_details(None))
         data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
         if 'TEMP' in temp_details_dict:
-            fan_data = dict(temp_details_dict['TEMP'])
-            for key in fan_data:
-                data_list = list(fan_data[key])
+            temp_data = dict(temp_details_dict['TEMP'])
+            for key in temp_data:
+                data_list = list(temp_data[key])
                 data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
         else:
             data = 0
@@ -2184,12 +2256,12 @@ class VncServerManager():
 
     # Function to get details
     def get_pwr_details(self):
-        pwr_cons_dict = dict(self._monitoring_thread_obj.get_pwr_consumption())
+        pwr_cons_dict = dict(self._monitoring_thread_obj.get_pwr_consumption(None))
         data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
         if 'PWR' in pwr_cons_dict:
-            fan_data = dict(pwr_cons_dict['PWR'])
-            for key in fan_data:
-                data_list = list(fan_data[key])
+            pwr_data = dict(pwr_cons_dict['PWR'])
+            for key in pwr_data:
+                data_list = list(pwr_data[key])
                 data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
         else:
             data = 0
