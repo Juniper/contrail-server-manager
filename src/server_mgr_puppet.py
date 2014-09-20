@@ -499,10 +499,6 @@ class ServerMgrPuppet:
             self._params_dict['contrail_cfgm_number'] = (
                 "\"%s\"" %(len(config_servers_names)))
         if self._params_dict.get(
-            'ha', None) is None:
-            self._params_dict['ha'] = (
-                "\"%s\"" %(provision_params["ha"]))
-        if self._params_dict.get(
             'internal_vip', None) is None:
             self._params_dict['internal_vip'] = (
                 "\"%s\"" %(provision_params["internal_vip"]))
@@ -1707,10 +1703,6 @@ $__contrail_quantum_servers__
         provision_params["compute_non_mgmt_ip"] = provision_params["server_ip"]
         provision_params["compute_non_mgmt_gway"] = provision_params['server_gway']
      
-        if provision_params['server_ip'] == \
-                                       provision_params['roles']['compute'][0]:
-           first_compute = "yes"
-
         if provision_params['intf_control']:
             intf_control = eval(provision_params['intf_control'])
             for intf,values in intf_control.items():
@@ -1720,9 +1712,6 @@ $__contrail_quantum_servers__
             non_mgmt_ip = provision_params["compute_non_mgmt_ip"]
             non_mgmt_gw = provision_params["compute_non_mgmt_gway"] 
         # Keeping openstack index hardcoded untill ha is implemented 
-#        openstack_index="1"
-        openstack_index = provision_params['roles'] \
-                        ['openstack'].index(provision_params["server_ip"]) + 1
 
         amqp_server = provision_params['roles']['config'][0]
         amqp_server_control=self.get_control_ip(provision_params,amqp_server)
@@ -1820,14 +1809,6 @@ $__contrail_quantum_servers__
             'contrail_amqp_server_ip', None) is None:
             self._params_dict['contrail_amqp_server_ip'] = (
                 "\"%s\"" %(amqp_server_control.replace('"', '')))
-        if self._params_dict.get(
-            'contrail_openstack_index', None) is None:
-            self._params_dict['contrail_openstack_index'] = (
-                "\"%s\"" %(openstack_index))
-        if self._params_dict.get(
-            'first_compute', None) is None:
-            self._params_dict['first_compute'] = (
-                "\"%s\"" %(first_compute))
 
         # Build resource items
         data += '''    # contrail-compute role.
