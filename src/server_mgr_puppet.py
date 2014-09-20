@@ -422,14 +422,14 @@ class ServerMgrPuppet:
         openstack_ip_list = ['"'+ str(host) + '"' for host in provision_params['roles']['openstack'] ]
         openstack_ip_list_wsrep = [str(host) +  ':4567' for host in provision_params['roles']['openstack'] ]
 
-        config_ip_list = ['"' + str(host) + '"' for host in
-                          provision_params['roles']['config'] ]
+        config_host_list = ['"'+ str(host) + '"' for host in \
+                            provision_params['role_ids']['config'] ]
         openstack_ip_list_control = []
         for openstack_ip in openstack_ip_list:
             openstack_ip_list_control.append(self.get_control_ip(provision_params, str(openstack_ip)))
 
-        compute_ip_list = ['"'+ str(host) + '"' for host in
-                           provision_params['roles']['compute'] ]
+        compute_host_list = ['"'+ str(host) + '"' for host in \
+                            provision_params['role_ids']['compute'] ]
 
         config_servers_names = provision_params['role_ids']['config']
         # Keeping openstack index hardcoded untill ha is implemented
@@ -526,9 +526,9 @@ class ServerMgrPuppet:
             self._params_dict['openstack_ip_list_wsrep'] = (
                "\"%s\"" % (','.join(openstack_ip_list_wsrep))) 
         if self._params_dict.get(
-            'compute_ip_list', None) is None:
-            self._params_dict['compute_ip_list'] = (
-                "[%s]" %(','.join(compute_ip_list)))
+            'compute_host_list', None) is None:
+            self._params_dict['compute_host_list'] = (
+                "[%s]" %(','.join(compute_host_list)))
         if self._params_dict.get(
             'openstack_ip_list', None) is None:
             self._params_dict['openstack_ip_list'] = (
@@ -542,9 +542,9 @@ class ServerMgrPuppet:
             self._params_dict['openstack_password_list'] = (
                 "[%s]" %(','.join(provision_params['openstack_password_list'])))
         if self._params_dict.get(
-            'config_ip_list', None) is None:
-            self._params_dict['config_ip_list'] = (
-                "[%s]" %(','.join(config_ip_list)))
+            'config_host_list', None) is None:
+            self._params_dict['config_host_list'] = (
+                "[%s]" %(','.join(config_host_list)))
         if self._params_dict.get(
             'openstack_num_nodes', None) is None:
             self._params_dict['openstack_num_nodes'] = (

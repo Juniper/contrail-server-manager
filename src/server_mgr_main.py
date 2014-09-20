@@ -2306,7 +2306,6 @@ class VncServerManager():
                 provision_params['phy_interface'] = server_params['interface_name']
                 #TODO write a function which gets from server/cluster json
                 provision_params['password'] = server['password']
-                provision_params['ha'] = cluster_params['ha']
                 provision_params['internal_vip'] = cluster_params['internal_vip']
                 provision_params['external_vip'] = cluster_params['external_vip']
                 provision_params['nfs_server'] = cluster_params['nfs_server']
