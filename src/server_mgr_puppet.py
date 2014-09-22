@@ -1702,6 +1702,11 @@ $__contrail_quantum_servers__
         server_ip_control= self.get_control_ip(provision_params,provision_params["server_ip"])
         provision_params["compute_non_mgmt_ip"] = provision_params["server_ip"]
         provision_params["compute_non_mgmt_gway"] = provision_params['server_gway']
+
+        if provision_params['server_ip'] == \
+                    provision_params['roles']['compute'][0]:
+            first_compute = "yes"
+
      
         if provision_params['intf_control']:
             intf_control = eval(provision_params['intf_control'])
@@ -1809,6 +1814,10 @@ $__contrail_quantum_servers__
             'contrail_amqp_server_ip', None) is None:
             self._params_dict['contrail_amqp_server_ip'] = (
                 "\"%s\"" %(amqp_server_control.replace('"', '')))
+        if self._params_dict.get(
+            'first_compute', None) is None:
+            self._params_dict['first_compute'] = (
+                    "\"%s\"" %(first_compute))
 
         # Build resource items
         data += '''    # contrail-compute role.
