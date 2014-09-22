@@ -1703,6 +1703,8 @@ $__contrail_quantum_servers__
         provision_params["compute_non_mgmt_ip"] = provision_params["server_ip"]
         provision_params["compute_non_mgmt_gway"] = provision_params['server_gway']
 
+        first_compute = "no"
+
         if provision_params['server_ip'] == \
                     provision_params['roles']['compute'][0]:
             first_compute = "yes"
