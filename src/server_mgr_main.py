@@ -2477,6 +2477,15 @@ class VncServerManager():
                 elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
                     subnet_mask = cluster_params['subnet_mask']
 
+		if len(role_servers['storage-compute']):
+		    msg = "Storage is enabled"
+		    storage_status = '1'
+		else:
+		    msg = "Storage is disabled"
+		    storage_status = '0'
+                self._smgr_log.log(self._smgr_log.DEBUG, msg)
+
+		provision_params['contrail-storage-enabled'] = storage_status
 		provision_params['subnet-mask'] = subnet_mask
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
