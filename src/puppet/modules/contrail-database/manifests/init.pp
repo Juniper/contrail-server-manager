@@ -5,7 +5,7 @@ define database-template-scripts {
     # Ensure template param file is present with right content.
     file { "/etc/contrail/${title}" : 
         ensure  => present,
-	before => Service["supervisor-database"],
+	before => Service["supervisord-contrail-database"],
         content => template("contrail-database/${title}.erb"),
     }
 }
@@ -35,7 +35,7 @@ define contrail-database (
     }
 
     if ($operatingsystem == "Ubuntu"){
-        file {"/etc/init/supervisor-database.override": ensure => absent, require => Package['contrail-openstack-database']}
+        file {"/etc/init/supervisord-contrail-database.override": ensure => absent, require => Package['contrail-openstack-database']}
     }
 
     # database venv installation
@@ -76,14 +76,14 @@ define contrail-database (
     # Below is temporary to work-around in Ubuntu as Service resource fails
     # as upstart is not correctly linked to /etc/init.d/service-name
     if ($operatingsystem == "Ubuntu") {
-        file { '/etc/init.d/supervisor-database':
+        file { '/etc/init.d/supervisord-contrail-database':
             ensure => link,
             target => '/lib/init/upstart-job',
-            before => Service["supervisor-database"]
+            before => Service["supervisord-contrail-database"]
         }
     }
     # Ensure the services needed are running.
-    service { "supervisor-database" :
+    service { "supervisord-contrail-database" :
         enable => true,
         require => [ Package["contrail-openstack-database"],
                      Exec['database-venv'] ],
@@ -92,7 +92,7 @@ define contrail-database (
         ensure => running,
     }
 
-    database-template-scripts { ["contrail-database-nodemgr.conf", "database_nodemgr_param"]: }
+    database-template-scripts { ["contrail-nodemgr-database.conf", "database_nodemgr_param"]: }
 
  }
 	
