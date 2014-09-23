@@ -3,14 +3,14 @@
 ; For more example, check supervisord_analytics.conf
 
 [unix_http_server]
-file=/tmp/supervisord_database.sock   ; (the path to the socket file)
-chmod=0700                 ; socket file mode (default 0700)
+file=/tmp/supervisord_contrail_database.sock   ; (the path to the socket file)
+;chmod=0700                 ; socket file mode (default 0700)
 ;chown=nobody:nogroup       ; socket file uid:gid owner
 ;username=user              ; (default is no username (open server))
 ;password=123               ; (default is no password (open server))
 
-;[inet_http_server]         ; inet (TCP) server disabled by default
-;port=localhost:9007        ; (ip_address:port specifier, *:port for all i/f)
+[inet_http_server]         ; inet (TCP) server disabled by default
+port=localhost:9007        ; (ip_address:port specifier, *:port for all i/f)
 ;username=user              ; (default is no username (open server))
 ;password=123               ; (default is no password (open server))
 
@@ -39,7 +39,7 @@ nocleanup=true              ; (don't clean up tempfiles at start;default false)
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 
 [supervisorctl]
-serverurl=unix:///tmp/supervisord_database.sock ; use a unix:// URL  for a unix socket
+serverurl=unix:///tmp/supervisord_contrail_database.sock ; use a unix:// URL  for a unix socket
 ;serverurl=http://127.0.0.1:9001 ; use an http:// url to specify an inet socket
 ;username=chris              ; should be same as http_username if set
 ;password=123                ; should be same as http_password if set
@@ -87,7 +87,7 @@ killasgroup=false             ; SIGKILL the UNIX process group (def false)
 ; sent by supervisor.
 
 [eventlistener:contrail-database-nodemgr]
-command=/bin/bash -c "/usr/bin/contrail-nodemgr --rules=/etc/contrail/supervisord_database_files/supervisord_contrail_database.rules --nodetype=contrail-database  --discovery_server <%= contrail_config_ip %>"
+command=/bin/bash -c "/usr/bin/contrail-nodemgr --rules=/etc/contrail/supervisord_contrail_database_files/supervisord_contrail_database.rules --nodetype=contrail-database  --discovery_server <%= contrail_config_ip %>"
 events=PROCESS_COMMUNICATION,PROCESS_STATE
 environment_file= /etc/contrail/database_nodemgr_param
 
@@ -135,5 +135,5 @@ stderr_logfile=/var/log/contrail/contrail-database-nodemgr-stderr.log ; stderr l
 ; include files themselves.
 
 ;[include]
-;files = /etc/contrail/supervisord_database_files/*.ini
+;files = /etc/contrail/supervisord_contrail_database_files/*.ini
 

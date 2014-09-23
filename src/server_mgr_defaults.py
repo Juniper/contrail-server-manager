@@ -13,7 +13,7 @@ server_fields = {
                     'interface_name': '',
                     'partition': '',
                     }""",
-    "roles": [],
+    "roles": ["config","openstack","control","compute","collector","webui","database"],
     "cluster_id": "",
     "subnet_mask": "",
     "gateway": "",
@@ -54,6 +54,12 @@ cluster_fields = {
                 'gateway': '10.204.221.46',
                 'password': 'c0ntrail123',
                 'external_bgp': '',
+                'internal_vip': '',
+                'external_vip': '',
+                'contrail_internal_vip': '',
+                'contrail_external_vip': '',
+                'nfs_glance_path': '',
+                'nfs_server': '',
                 'domain': 'contrail.juniper.net'
                 }"""
 }

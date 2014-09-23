@@ -2304,6 +2304,43 @@ class VncServerManager():
                 provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
                 provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
                 provision_params['phy_interface'] = server_params['interface_name']
+                #TODO write a function which gets from server/cluster json
+                provision_params['password'] = server['password']
+                provision_params['internal_vip'] = cluster_params['internal_vip']
+                provision_params['external_vip'] = cluster_params['external_vip']
+                provision_params['nfs_server'] = cluster_params['nfs_server']
+                provision_params['contrail_internal_vip'] = \
+                                            cluster_params['contrail_internal_vip']
+                provision_params['contrail_external_vip'] = \
+                                            cluster_params['contrail_external_vip']
+                provision_params['nfs_glance_path'] = \
+                                                cluster_params['nfs_glance_path']
+
+                provision_params['os_master'] = role_ips['openstack'][0]
+                match_dict = dict()
+                match_dict["id"] = role_ids['openstack'][0]
+
+                servers = self._serverDb.get_server(
+                            match_dict, None, True,
+                            field_list = ["password"])
+                provision_params['os_username'] = "root"
+                provision_params['os_password'] = servers[0]['password']
+
+                openstack_ids = role_ids['openstack']
+                openstack_user_list = []
+                openstack_password_list = []
+                for openstack_id in openstack_ids:
+                    match_dict["id"] = openstack_id
+                    servers = self._serverDb.get_server(
+                            match_dict, None, True,
+                            field_list = ["password"])
+                    openstack_user_list.append("root")
+                    openstack_password_list.append(servers[0]['password'])
+                provision_params['openstack_ip_list'] = role_ips['openstack']
+                provision_params['openstack_user_list'] = openstack_user_list
+                provision_params['openstack_password_list'] = \
+                                                            openstack_password_list
+            
                 if 'gateway' in server and server['gateway']:
                     provision_params['server_gway'] = server['gateway']
                 elif 'gateway' in cluster_params and cluster_params['gateway']:
@@ -2814,6 +2851,10 @@ class VncServerManager():
     def _do_provision_server(self, provision_parameters):
         try:
             # Now call puppet to provision the server.
+            cfg_path = "/etc/puppet/modules/contrail_%s/files/%s.cfg" % \
+                            (provision_parameters['package_image_id'], provision_parameters['server_id'])
+            rc = subprocess.check_call(
+                ["rm", "-f" , cfg_path])
             self._smgr_puppet.provision_server(
                 provision_parameters)
             # Now kickstart agent run on the target
@@ -2821,6 +2862,7 @@ class VncServerManager():
                 provision_parameters.get('domain', '')
             rc = subprocess.check_call(
                 ["puppet", "kick", "--host", host_name])
+ 
             # Log, return error if return code is non-null - TBD Abhay
 
             # TBD Update Server table to stamp provisioned time.

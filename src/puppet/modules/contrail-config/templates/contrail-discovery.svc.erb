@@ -5,4 +5,4 @@
 
 <%= contrail_supervisorctl_lines %>
 
-#supervisorctl -s unix:///tmp/supervisord_config.sock ${1} `basename ${0}`
+#supervisorctl -s http://localhost:9004 ${1} `basename ${0}`
