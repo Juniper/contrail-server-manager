@@ -1,0 +1,37 @@
+{
+    "cluster": [
+        {
+            "email": "tsurendra@juniper.net",
+            "id": "cluster1",
+            "parameters": {
+                "analytics_data_ttl": "168",
+                "database_dir": "/home/cassandra",
+                "database_token": "",
+                "domain": "contrail.juniper.net",
+                "encapsulation_priority": "MPLSoUDP,MPLSoGRE,VXLAN",
+                "external_bgp": "",
+                "gateway": "10.84.17.254",
+                "ha": "True",
+                "haproxy": "disable",
+                "keystone_password": "contrail123",
+                "keystone_tenant": "admin",
+                "keystone_username": "admin",
+                "nfs_path": "/",
+                "multi_tenancy": "False",
+                "openstack_mgmt_ip": "",
+                "openstack_passwd": "contrail123",
+                "password": "c0ntrail123",
+                "router_asn": "64512",
+                "service_token": "contrail123",
+                "storage_fsid": "00da01de-a6c2-4293-9fc9-85e39d6ea92d",
+                "storage_virsh_uuid": "69cc6a31-805a-4cc5-9b6b-0cbfefe1ba6a",
+                "subnet_mask": "255.255.255.0",
+                "use_certificates": "False",
+                "nfs_server": "",
+                "internal_vip": "10.84.17.23",
+                "uuid": "f4def0e9-7068-41c0-aafd-e70be63f4262"
+            }
+        }
+    ]
+}
+
