@@ -441,6 +441,7 @@ class VncServerManager():
             match_key, match_value = query_args.popitem()
             match_keys = list()
             match_keys.append('id')
+            match_keys.append('cluster_id')
             match_keys.append('discovered')
             if (match_key not in match_keys):
                 raise ServerMgrException("Match Key not present")
@@ -2184,11 +2185,11 @@ class VncServerManager():
     # end get_server_ip_list
 
 
-    # Function to get details
-    def get_env_details(self):
-        ipmi_list = None
+    # Generic function to return details based on key
+    def get_server_env_details_by_type(self, ret_data, detail_type):
+
         try:
-            ret_data = self.validate_smgr_env(bottle.request)
+            data = None
             if ret_data['status'] == 0:
                 match_key = ret_data['match_key']
                 match_value = ret_data['match_value']
@@ -2199,23 +2200,57 @@ class VncServerManager():
                     servers = self._serverDb.get_server(
                         match_dict, detail=detail)
                     ipmi_list = list()
+                    hostname_list = list()
+                    server_ip_list = list()
+                    data = ""
                     for x in servers:
                         x = dict(x)
                         if 'ipmi_address' in x:
                             ipmi_list.append(x['ipmi_address'])
+                        if 'id' in x:
+                            hostname_list.append(x['id'])
+                        if 'ip_address' in x:
+                            server_ip_list.append(x['ip_address'])
+                    if detail_type == 'ENV':
+                        env_details_dict = dict(self._monitoring_thread_obj.get_env_details(ipmi_list))
+                    elif detail_type == 'TEMP':
+                        env_details_dict = dict(self._monitoring_thread_obj.get_temp_details(ipmi_list))
+                    elif detail_type == 'FAN':
+                        env_details_dict = dict(self._monitoring_thread_obj.get_fan_details(ipmi_list))
+                    elif detail_type == 'PWR':
+                        env_details_dict = dict(self._monitoring_thread_obj.get_pwr_consumption(ipmi_list))
+                    else:
+                        raise ServerMgrException("No Environment Detail of that Type")
+                    for address, host, ip in zip(ipmi_list, hostname_list, server_ip_list):
+                        data += "\nServer: " + str(host) + "\nServer IP Address: " + str(ip) + "\n"
+                        data += "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
+                        if address in env_details_dict:
+                            if detail_type in env_details_dict[str(address)]:
+                                env_data = dict(env_details_dict[str(address)][detail_type])
+                                for key in env_data:
+                                    data_list = list(env_data[key])
+                                    data += str(key) + "\t\t\t\t" + \
+                                            str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
                 else:
-                    ipmi_list = None
-
-                env_details_dict = dict(self._monitoring_thread_obj.get_env_details(ipmi_list))
-                data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
-                if 'ENV' in env_details_dict:
-                    env_data = dict(env_details_dict['ENV'])
-                    for key in env_data:
-                        data_list = list(env_data[key])
-                        data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
-                else:
-                    data = 0
-                return data
+                    if detail_type == 'ENV':
+                        env_details_dict = dict(self._monitoring_thread_obj.get_env_details(None))
+                    elif detail_type == 'TEMP':
+                        env_details_dict = dict(self._monitoring_thread_obj.get_temp_details(None))
+                    elif detail_type == 'FAN':
+                        env_details_dict = dict(self._monitoring_thread_obj.get_fan_details(None))
+                    elif detail_type == 'PWR':
+                        env_details_dict = dict(self._monitoring_thread_obj.get_pwr_consumption(None))
+                    else:
+                        raise ServerMgrException("No Environment Detail of that Type")
+                    data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
+                    if detail_type in env_details_dict:
+                        env_data = dict(env_details_dict[detail_type])
+                        for key in env_data:
+                            data_list = list(env_data[key])
+                            data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
+            else:
+                data = 0
+            return data
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REBOOT,
@@ -2227,45 +2262,49 @@ class VncServerManager():
                                      False)
             self.log_trace()
             abort(404, repr(e))
+    # Function to get details
+    def get_env_details(self):
+        try:
+            ret_data = self.validate_smgr_env(bottle.request)
+            return self.get_server_env_details_by_type(ret_data, 'ENV')
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     False)
+            abort(404, e.value)
 
     #Function to get details
     def get_fan_details(self):
-        fan_details_dict = dict(self._monitoring_thread_obj.get_fan_details(None))
-        data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
-        if 'FAN' in fan_details_dict:
-            fan_data = dict(fan_details_dict['FAN'])
-            for key in fan_data:
-                data_list = list(fan_data[key])
-                data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
-        else:
-            data = 0
-        return data
+        try:
+            ret_data = self.validate_smgr_env(bottle.request)
+            return self.get_server_env_details_by_type(ret_data, 'FAN')
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     False)
+            abort(404, e.value)
 
     # Function to get details
     def get_temp_details(self):
-        temp_details_dict = dict(self._monitoring_thread_obj.get_temp_details(None))
-        data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
-        if 'TEMP' in temp_details_dict:
-            temp_data = dict(temp_details_dict['TEMP'])
-            for key in temp_data:
-                data_list = list(temp_data[key])
-                data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
-        else:
-            data = 0
-        return data
+        try:
+            ret_data = self.validate_smgr_env(bottle.request)
+            return self.get_server_env_details_by_type(ret_data, 'TEMP')
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     False)
+            abort(404, e.value)
 
     # Function to get details
     def get_pwr_details(self):
-        pwr_cons_dict = dict(self._monitoring_thread_obj.get_pwr_consumption(None))
-        data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
-        if 'PWR' in pwr_cons_dict:
-            pwr_data = dict(pwr_cons_dict['PWR'])
-            for key in pwr_data:
-                data_list = list(pwr_data[key])
-                data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
-        else:
-            data = 0
-        return data
+        try:
+            ret_data = self.validate_smgr_env(bottle.request)
+            return self.get_server_env_details_by_type(ret_data, 'PWR')
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     False)
+            abort(404, e.value)
 
     def interface_created(self):
         entity = bottle.request.json

@@ -99,29 +99,41 @@ def parse_arguments():
     #Subparser for all Env Details
     parser_env_details = subparsers.add_parser(
         "env_details", help='Show the all the Server Env Details')
-    parser_env_details.add_argument("--server_id",
+    env_group = parser_env_details.add_mutually_exclusive_group()
+    env_group.add_argument("--server_id",
                                      help=("server id for server"))
+    env_group.add_argument("--cluster_id",
+                                    help=("cluster id for cluster"))
     parser_env_details.set_defaults(func=show_env_details)
 
     #Subparser for Fan Details
     parser_fan_details = subparsers.add_parser(
         "fan_details", help='Show the server Fan details')
-    parser_fan_details.add_argument("--server_id",
-                                    help=("server id for server"))
+    fan_group = parser_fan_details.add_mutually_exclusive_group()
+    fan_group.add_argument("--server_id",
+                           help=("server id for server"))
+    fan_group.add_argument("--cluster_id",
+                           help=("cluster id for cluster"))
     parser_fan_details.set_defaults(func=show_fan_details)
 
     # Subparser for Temp Details
     parser_temp_details = subparsers.add_parser(
         "temp_details", help='Show the server Temp details')
-    parser_temp_details.add_argument("--server_id",
-                                     help=("server id for server"))
+    temp_group = parser_temp_details.add_mutually_exclusive_group()
+    temp_group.add_argument("--server_id",
+                           help=("server id for server"))
+    temp_group.add_argument("--cluster_id",
+                           help=("cluster id for cluster"))
     parser_temp_details.set_defaults(func=show_temp_details)
 
     # Subparser for Power Consumption
     parser_pwr_details = subparsers.add_parser(
         "power_consumption", help='Show the server Power Consumption')
-    parser_pwr_details.add_argument("--server_id",
-                                    help=("server id for server"))
+    pwr_group = parser_pwr_details.add_mutually_exclusive_group()
+    pwr_group.add_argument("--server_id",
+                           help=("server id for server"))
+    pwr_group.add_argument("--cluster_id",
+                           help=("cluster id for cluster"))
     parser_pwr_details.set_defaults(func=show_pwr_details)
     return parser
 # end def parse_arguments
@@ -139,9 +151,8 @@ def send_REST_request(ip, port, object, match_key,
             args_str += "&detail"
         if args_str != '':
             url += "?" + args_str
-        print url
         conn = pycurl.Curl()
-        conn.setopt(pycurl.TIMEOUT, 1)
+        conn.setopt(pycurl.TIMEOUT, 2)
         conn.setopt(pycurl.URL, url)
         conn.setopt(pycurl.HTTPHEADER, headers)
         conn.setopt(pycurl.HTTPGET, 1)
@@ -233,6 +244,9 @@ def show_fan_details(args):
     if args.server_id:
         rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
+    elif args.cluster_id:
+        rest_api_params['match_key'] = 'cluster_id'
+        rest_api_params['match_value'] = args.cluster_id
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
@@ -245,6 +259,9 @@ def show_temp_details(args):
     if args.server_id:
         rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
+    elif args.cluster_id:
+        rest_api_params['match_key'] = 'cluster_id'
+        rest_api_params['match_value'] = args.cluster_id
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
@@ -257,6 +274,9 @@ def show_pwr_details(args):
     if args.server_id:
         rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
+    elif args.cluster_id:
+        rest_api_params['match_key'] = 'cluster_id'
+        rest_api_params['match_value'] = args.cluster_id
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
@@ -269,8 +289,9 @@ def show_env_details(args):
     if args.server_id:
         rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
-        print rest_api_params['match_key']
-        print rest_api_params['match_value']
+    elif args.cluster_id:
+        rest_api_params['match_key'] = 'cluster_id'
+        rest_api_params['match_value'] = args.cluster_id
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None

@@ -34,9 +34,7 @@ class Ipmi_EnvInfo(Thread, DeviceEnvBase):
             results_dict = {}
             for address in ipmi_list:
                 cmd = 'ipmitool -H ' + str(address) + ' -U admin -P admin sdr list all'
-                print cmd
                 result = self.call_subprocess(cmd)
-                print result
                 results_dict[str(address)] = result
             return results_dict
 
@@ -77,8 +75,7 @@ class Ipmi_EnvInfo(Thread, DeviceEnvBase):
         return return_data
 
     def get_env_details(self, ipmi_list=None):
-        print ipmi_list
-        match_patterns = ['^SYS_FAN', '^PWR', 'CPU[0-9] Temp', '.*_Temp']
+        match_patterns = ['FAN', '.*_FAN', '^PWR', 'CPU[0-9][" "|_]Temp', '.*_Temp', '.*_Power']
         key = "ENV"
         results_dict = dict(self.return_impi_call(ipmi_list))
         return_data = self.filter_impi_results(results_dict, key, match_patterns)
@@ -86,21 +83,21 @@ class Ipmi_EnvInfo(Thread, DeviceEnvBase):
 
 
     def get_fan_details(self, ipmi_list=None):
-        match_patterns = ['^SYS_FAN']
+        match_patterns = ['FAN', '.*_FAN']
         key = "FAN"
         results_dict = dict(self.return_impi_call(ipmi_list))
         return_data = self.filter_impi_results(results_dict, key, match_patterns)
         return return_data
 
     def get_temp_details(self, ipmi_list=None):
-        match_patterns = ['CPU[0-9] Temp', '.*_Temp']
+        match_patterns = ['CPU[0-9][" "|_]Temp', '.*_Temp']
         key = "TEMP"
         results_dict = dict(self.return_impi_call(ipmi_list))
         return_data = self.filter_impi_results(results_dict, key, match_patterns)
         return return_data
 
     def get_pwr_consumption(self, ipmi_list=None):
-        match_patterns = ['^PWR']
+        match_patterns = ['^PWR', '.*_Power']
         key = "PWR"
         results_dict = dict(self.return_impi_call(ipmi_list))
         return_data = self.filter_impi_results(results_dict, key, match_patterns)
