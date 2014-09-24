@@ -2204,19 +2204,6 @@ class VncServerManager():
                 msg = "Error validating request"
                 raise ServerMgrException(msg)
 
-            # Calculate the total number of disks in the cluster
-            total_osd = int(0)
-            num_storage_hosts = int(0)
-            for server in servers:
-                server_params = eval(server['parameters'])
-                server_roles = eval(server['roles'])
-                if 'storage-compute' in server_roles:
-                    if 'disks' in server_params and len(server_params['disks']) > 0:
-                        total_osd += len(server_params['disks'])
-                        num_storage_hosts += 1
-                else:
-                    pass
-
             packages = self._serverDb.get_image(
                 {"id" : package_image_id}, detail=True)
             if len(packages) == 0:
@@ -2404,6 +2391,21 @@ class VncServerManager():
                 elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
                     subnet_mask = cluster_params['subnet_mask']
 
+                storage_mon_host_ip_set = set()
+                num_storage_hosts = int(0)
+                total_osd = int(0)
+                for x in role_servers['storage-compute']:
+                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip( provision_params, x["ip_address"]).strip('"'))
+                    server_params = eval(x['parameters'])
+                    if 'disks' in server_params and len(server_params['disks']) > 0:
+                        # Calculate total number of OSDs
+                        total_osd += len(server_params['disks'])
+                        # Total number of storage hosts with disks
+                        num_storage_hosts += 1
+                    else:
+                        pass
+
+                self._smgr_log.log(self._smgr_log.DEBUG, "storage_calcul3 =>  " + str(num_storage_hosts ) + str(total_osd))
 		if len(role_servers['storage-compute']):
 		    msg = "Storage is enabled"
 		    storage_status = '1'
@@ -2451,9 +2453,6 @@ class VncServerManager():
                         provision_params['storage_server_disks'] = []
                         provision_params['storage_server_disks'].extend(server_params['disks'])
 
-                storage_mon_host_ip_set = set()
-                for x in role_servers['storage-compute']:
-                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip( provision_params, x["ip_address"]).strip('"'))
                 for x in role_servers['storage-master']:
                     storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
 
