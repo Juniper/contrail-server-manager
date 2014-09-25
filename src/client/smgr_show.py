@@ -152,7 +152,7 @@ def send_REST_request(ip, port, object, match_key,
         if args_str != '':
             url += "?" + args_str
         conn = pycurl.Curl()
-        conn.setopt(pycurl.TIMEOUT, 2)
+        conn.setopt(pycurl.TIMEOUT, 5)
         conn.setopt(pycurl.URL, url)
         conn.setopt(pycurl.HTTPHEADER, headers)
         conn.setopt(pycurl.HTTPGET, 1)

@@ -17,6 +17,8 @@ import datetime
 import subprocess
 import json
 import argparse
+from gevent import monkey
+monkey.patch_all(thread=not 'unittest' in sys.modules)
 import bottle
 from bottle import route, run, request, abort
 import ConfigParser
@@ -40,7 +42,8 @@ from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
-from smgr_ipmi import Ipmi_EnvInfo
+from server_mgr_dev_env_querying import ServerMgrDevEnvQuerying
+from server_mgr_dev_env_monitoring import ServerMgrDevEnvMonitoring
 from send_mail import send_mail
 import tempfile
 
@@ -106,7 +109,9 @@ class VncServerManager():
                   'tag5', 'tag6', 'tag7']
     _tags_dict = {}
     _rev_tags_dict = {}
-    _monitoring_thread_obj = None
+    _dev_env_monitoring_obj = None
+    _dev_env_querying_obj = None
+    _analytics_ip = None
 
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
@@ -240,9 +245,12 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
-        self._monitoring_thread_obj = Ipmi_EnvInfo(1,300)
-        self._monitoring_thread_obj.daemon = True
-        self._monitoring_thread_obj.start()
+        self._dev_env_querying_obj = ServerMgrDevEnvQuerying()
+
+        self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(1, 60, self._serverDb)
+        self._dev_env_monitoring_obj.daemon = True
+        self._analytics_ip = self._dev_env_monitoring_obj.sandesh_init()
+        self._dev_env_monitoring_obj.start()
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -2212,34 +2220,42 @@ class VncServerManager():
                         if 'ip_address' in x:
                             server_ip_list.append(x['ip_address'])
                     if detail_type == 'ENV':
-                        env_details_dict = dict(self._monitoring_thread_obj.get_env_details(ipmi_list))
+                        env_details_dict = self._dev_env_querying_obj.get_env_details(self._analytics_ip, ipmi_list,
+                                                                                      server_ip_list, hostname_list)
                     elif detail_type == 'TEMP':
-                        env_details_dict = dict(self._monitoring_thread_obj.get_temp_details(ipmi_list))
+                        env_details_dict = self._dev_env_querying_obj.get_temp_details(self._analytics_ip, ipmi_list,
+                                                                                       server_ip_list, hostname_list)
                     elif detail_type == 'FAN':
-                        env_details_dict = dict(self._monitoring_thread_obj.get_fan_details(ipmi_list))
+                        env_details_dict = self._dev_env_querying_obj.get_fan_details(self._analytics_ip, ipmi_list,
+                                                                                      server_ip_list, hostname_list)
                     elif detail_type == 'PWR':
-                        env_details_dict = dict(self._monitoring_thread_obj.get_pwr_consumption(ipmi_list))
+                        env_details_dict = self._dev_env_querying_obj.get_pwr_consumption(self._analytics_ip, ipmi_list,
+                                                                                          server_ip_list, hostname_list)
                     else:
                         raise ServerMgrException("No Environment Detail of that Type")
-                    for address, host, ip in zip(ipmi_list, hostname_list, server_ip_list):
-                        data += "\nServer: " + str(host) + "\nServer IP Address: " + str(ip) + "\n"
-                        data += "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
-                        if address in env_details_dict:
-                            if detail_type in env_details_dict[str(address)]:
-                                env_data = dict(env_details_dict[str(address)][detail_type])
-                                for key in env_data:
-                                    data_list = list(env_data[key])
-                                    data += str(key) + "\t\t\t\t" + \
+                    if env_details_dict is None:
+                        return 0
+                    else:
+                        env_details_dict = dict(env_details_dict)
+                        for address, host, ip in zip(ipmi_list, hostname_list, server_ip_list):
+                            data += "\nServer: " + str(host) + "\nServer IP Address: " + str(ip) + "\n"
+                            data += "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
+                            if ip in env_details_dict:
+                                if detail_type in env_details_dict[str(ip)]:
+                                    env_data = dict(env_details_dict[str(ip)][detail_type])
+                                    for key in env_data:
+                                        data_list = list(env_data[key])
+                                        data += str(key) + "\t\t\t\t" + \
                                             str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
                 else:
                     if detail_type == 'ENV':
-                        env_details_dict = dict(self._monitoring_thread_obj.get_env_details(None))
+                        env_details_dict = dict(self._dev_env_querying_obj.get_env_details(None))
                     elif detail_type == 'TEMP':
-                        env_details_dict = dict(self._monitoring_thread_obj.get_temp_details(None))
+                        env_details_dict = dict(self._dev_env_querying_obj.get_temp_details(None))
                     elif detail_type == 'FAN':
-                        env_details_dict = dict(self._monitoring_thread_obj.get_fan_details(None))
+                        env_details_dict = dict(self._dev_env_querying_obj.get_fan_details(None))
                     elif detail_type == 'PWR':
-                        env_details_dict = dict(self._monitoring_thread_obj.get_pwr_consumption(None))
+                        env_details_dict = dict(self._dev_env_querying_obj.get_pwr_consumption(None))
                     else:
                         raise ServerMgrException("No Environment Detail of that Type")
                     data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
