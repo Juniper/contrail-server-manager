@@ -38,13 +38,12 @@ class ServerMgrDevEnvQuerying():
                 results_dict[str(address)] = result
             return results_dict
 
-    def return_curl_call(self, ip_add_list, hostname_list, analytics_ip):
-        if ip_add_list is None or hostname_list is None:
-            return 0
+    def return_curl_call(self, ip_add, hostname, analytics_ip):
+        if ip_add is None or hostname is None:
+            return None
         else:
             results_dict = dict()
-            for ip, hostname in zip(ip_add_list, hostname_list):
-                results_dict[str(ip)] = self.send_REST_request(analytics_ip, 8081, hostname)
+            results_dict[str(ip_add)] = self.send_REST_request(analytics_ip, 8081, hostname)
             return results_dict
 
     def call_subprocess(self, cmd):
@@ -56,7 +55,6 @@ class ServerMgrDevEnvQuerying():
         try:
             response = StringIO()
             url = "http://%s:%s/analytics/uves/ipmi-stats/%s?flat" % (str(analytics_ip), port, hostname)
-            print(url)
             headers = ["Content-Type:application/json"]
             conn = pycurl.Curl()
             conn.setopt(pycurl.TIMEOUT, 5)
@@ -71,7 +69,7 @@ class ServerMgrDevEnvQuerying():
             return sensor_data_list
         except Exception as e:
             raise ServerMgrException("Error Sending Py Curl REST request" + e.message)
-            # end def send_REST_request
+    # end def send_REST_request
 
 
     def filter_impi_results(self, results_dict, key, match_patterns):
@@ -126,61 +124,31 @@ class ServerMgrDevEnvQuerying():
             return_data = None
         return return_data
 
-    def get_env_details(self, analytics_ip, ipmi_list=None, ip_add_list=None, hostname_list=None):
+    def get_env_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN', '^PWR', 'CPU[0-9][" "|_]Temp', '.*_Temp', '.*_Power']
         key = "ENV"
-        #results_dict = dict(self.return_impi_call(ipmi_list))
-        #return_data = self.filter_impi_results(results_dict, key, match_patterns)
-        results_dict = self.return_curl_call(ip_add_list, hostname_list, analytics_ip)
+        results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 
-
-    def get_fan_details(self, analytics_ip, ipmi_list=None, ip_add_list=None, hostname_list=None):
+    def get_fan_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN']
         key = "FAN"
-        #results_dict = dict(self.return_impi_call(ipmi_list))
-        #return_data = self.filter_impi_results(results_dict, key, match_patterns)
-        results_dict = self.return_curl_call(ip_add_list, hostname_list, analytics_ip)
+        results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 
-
-
-    def get_temp_details(self, analytics_ip, ipmi_list=None, ip_add_list=None, hostname_list=None):
+    def get_temp_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['CPU[0-9][" "|_]Temp', '.*_Temp']
         key = "TEMP"
-        #results_dict = dict(self.return_impi_call(ipmi_list))
-        #return_data = self.filter_impi_results(results_dict, key, match_patterns)
-        results_dict = self.return_curl_call(ip_add_list, hostname_list, analytics_ip)
+        results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 
-    def get_pwr_consumption(self, analytics_ip, ipmi_list=None, ip_add_list=None, hostname_list=None):
+    def get_pwr_consumption(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['^PWR', '.*_Power']
         key = "PWR"
-        #results_dict = dict(self.return_impi_call(ipmi_list))
-        #return_data = self.filter_impi_results(results_dict, key, match_patterns)
-        results_dict = self.return_curl_call(ip_add_list, hostname_list, analytics_ip)
+        results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 
-"""
-import StringIO
-import json
-import pycurl
-response = StringIO.StringIO()
-url = "http://172.16.70.30:8081/analytics/uves/ipmi-stats/host05?flat"
-headers = ["Content-Type:application/json"]
-conn = pycurl.Curl()
-conn.setopt(pycurl.TIMEOUT, 5)
-conn.setopt(pycurl.URL, url)
-conn.setopt(pycurl.HTTPHEADER, headers)
-conn.setopt(pycurl.WRITEFUNCTION, response.write)
-conn.setopt(pycurl.HTTPGET, 1)
-conn.perform()
-conn.close()
-json_data = response.getvalue()
-sensor_data_list = list(data["SMIpmiInfo"]["sensor_status"])
-print sensor_data_list
-"""

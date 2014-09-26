@@ -36,35 +36,33 @@ class IpmiData:
 
 
 class ServerMgrDevEnvMonitoring(Thread):
-    def __init__(self, val, frequency, serverDb):
+    def __init__(self, val, frequency, serverdb):
         ''' Constructor '''
         Thread.__init__(self)
         self.val = val
         self.freq = frequency
-        self._serverDb = serverDb
+        self._serverDb = serverdb
 
     def sandesh_init(self):
         servers = self._serverDb.get_server(None, detail=True)
-        collector_addr_list = list()
+        analytics_ip_list = list()
         hostname_list = list()
-        for x in servers:
-            x = dict(x)
-            if 'roles' in x:
-                roles_list = eval(x['roles'])
-                if 'collector' in roles_list:
-                    collector_addr_list.append(x['ip_address'])
-                    hostname_list.append(x['id'])
+        for server in servers:
+            server = dict(server)
+            if 'id' in server and self.get_server_analytics_ip_list(server['id']) is not None:
+                analytics_ip_list += self.get_server_analytics_ip_list(server['id'])
+                hostname_list.append(server['id'])
         #storage node module initialization part
         module = Module.IPMI_STATS_MGR
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
         instance_id = INSTANCE_ID_DEFAULT
-        print "Initializing SANDESH"
-        print collector_addr_list
-        print hostname_list
-        for ip, hostname in zip(collector_addr_list, hostname_list):
-            _disc = client.DiscoveryClient(str(ip), '5998', module_name)
+        analytics_ip_set = set()
+        for ip in analytics_ip_list:
+            analytics_ip_set.add(ip)
+        for analytics_ip, hostname in zip(analytics_ip_set, hostname_list):
+            _disc = client.DiscoveryClient(str(analytics_ip), '5998', module_name)
             sandesh_global.init_generator(
                 module_name,
                 str(hostname),
@@ -75,7 +73,7 @@ class ServerMgrDevEnvMonitoring(Thread):
                 HttpPortIpmiStatsmgr,
                 ['ipmistats.sandesh.ipmi'],
                 _disc)
-        return str(collector_addr_list[0])
+        return analytics_ip_list
 
     def call_subprocess(self, cmd):
         times = datetime.datetime.now()
@@ -110,12 +108,28 @@ class ServerMgrDevEnvMonitoring(Thread):
         ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
+    def get_server_analytics_ip_list(self, server_id):
+        match_dict = {'id': server_id}
+        server = self._serverDb.get_server(
+            match_dict, detail=True)[0]
+        server = dict(server)
+        analytics_ip = []
+        cluster = self._serverDb.get_cluster({"id": server['cluster_id']}, detail=True)[0]
+        cluster_params = eval(cluster['parameters'])
+        server_params = eval(server['parameters'])
+        if 'analytics_ip' in server_params and server_params['analytics_ip']:
+            analytics_ip.append(server_params['analytics_ip'])
+        elif 'analytics_ip' in cluster_params and cluster_params['analytics_ip']:
+            analytics_ip.append(cluster_params['analytics_ip'])
+        else:
+            return None
+        return analytics_ip
+
     def run(self):
         print "Run thread started"
         ipmi_data = []
-        i = True
         supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
-        while i:
+        while True:
             servers = self._serverDb.get_server(
                 None, detail=True)
             ipmi_list = list()
@@ -130,12 +144,9 @@ class ServerMgrDevEnvMonitoring(Thread):
                     hostname_list.append(x['id'])
                 if 'ip_address' in x:
                     server_ip_list.append(x['ip_address'])
-            print ipmi_list
-            print hostname_list
             for ip, hostname in zip(ipmi_list, hostname_list):
                 ipmi_data = []
                 cmd = 'ipmitool -H %s -U admin -P admin sdr list all' % ip
-                print cmd
                 result = self.call_subprocess(cmd)
                 if result is not None:
                     fileoutput = cStringIO.StringIO(result)

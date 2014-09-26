@@ -64,6 +64,7 @@ _DEF_IPMI_USERNAME = 'ADMIN'
 _DEF_IPMI_PASSWORD = 'ADMIN'
 _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
+_DEF_ANALYTICS_IP = '127.0.0.1'
 
 @bottle.error(403)
 def error_403(err):
@@ -111,7 +112,6 @@ class VncServerManager():
     _rev_tags_dict = {}
     _dev_env_monitoring_obj = None
     _dev_env_querying_obj = None
-    _analytics_ip = None
 
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
@@ -249,7 +249,9 @@ class VncServerManager():
 
         self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(1, 60, self._serverDb)
         self._dev_env_monitoring_obj.daemon = True
-        self._analytics_ip = self._dev_env_monitoring_obj.sandesh_init()
+        analytics_ip_list = self._dev_env_monitoring_obj.sandesh_init()
+        if analytics_ip_list is not None:
+            self._args.analytics_ip = list(analytics_ip_list)
         self._dev_env_monitoring_obj.start()
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
@@ -2207,65 +2209,61 @@ class VncServerManager():
                     detail = True
                     servers = self._serverDb.get_server(
                         match_dict, detail=detail)
-                    ipmi_list = list()
-                    hostname_list = list()
-                    server_ip_list = list()
+                    ipmi_add = ""
+                    hostname = ""
+                    server_ip = ""
                     data = ""
-                    for x in servers:
-                        x = dict(x)
-                        if 'ipmi_address' in x:
-                            ipmi_list.append(x['ipmi_address'])
-                        if 'id' in x:
-                            hostname_list.append(x['id'])
-                        if 'ip_address' in x:
-                            server_ip_list.append(x['ip_address'])
-                    if detail_type == 'ENV':
-                        env_details_dict = self._dev_env_querying_obj.get_env_details(self._analytics_ip, ipmi_list,
-                                                                                      server_ip_list, hostname_list)
-                    elif detail_type == 'TEMP':
-                        env_details_dict = self._dev_env_querying_obj.get_temp_details(self._analytics_ip, ipmi_list,
-                                                                                       server_ip_list, hostname_list)
-                    elif detail_type == 'FAN':
-                        env_details_dict = self._dev_env_querying_obj.get_fan_details(self._analytics_ip, ipmi_list,
-                                                                                      server_ip_list, hostname_list)
-                    elif detail_type == 'PWR':
-                        env_details_dict = self._dev_env_querying_obj.get_pwr_consumption(self._analytics_ip, ipmi_list,
-                                                                                          server_ip_list, hostname_list)
-                    else:
-                        raise ServerMgrException("No Environment Detail of that Type")
-                    if env_details_dict is None:
-                        return 0
-                    else:
-                        env_details_dict = dict(env_details_dict)
-                        for address, host, ip in zip(ipmi_list, hostname_list, server_ip_list):
-                            data += "\nServer: " + str(host) + "\nServer IP Address: " + str(ip) + "\n"
+                    analytics_ip = list()
+                    for server in servers:
+                        server = dict(server)
+                        if 'ipmi_address' in server:
+                            ipmi_add = server['ipmi_address']
+                        if 'id' in server:
+                            hostname = server['id']
+                        if 'ip_address' in server:
+                            server_ip = server['ip_address']
+                        if 'id' in server and self._dev_env_monitoring_obj.get_server_analytics_ip_list(hostname):
+                            analytics_ip = list(self._dev_env_monitoring_obj.get_server_analytics_ip_list(hostname))
+                        elif self._args.analytics_ip:
+                            analytics_ip = list(self._args.analytics_ip)
+                        else:
+                            msg = "Missing analytics node IP address for " + server['id']
+                            raise ServerMgrException(msg)
+                        if detail_type == 'ENV':
+                            env_details_dict = self._dev_env_querying_obj.get_env_details(analytics_ip[0], ipmi_add,
+                                                                                      server_ip, hostname)
+                        elif detail_type == 'TEMP':
+                            env_details_dict = self._dev_env_querying_obj.get_temp_details(analytics_ip[0], ipmi_add,
+                                                                                           server_ip, hostname)
+                        elif detail_type == 'FAN':
+                            env_details_dict = self._dev_env_querying_obj.get_fan_details(analytics_ip[0], ipmi_add,
+                                                                                          server_ip, hostname)
+                        elif detail_type == 'PWR':
+                            env_details_dict = self._dev_env_querying_obj.get_pwr_consumption(analytics_ip[0], ipmi_add,
+                                                                                              server_ip, hostname)
+                        else:
+                            raise ServerMgrException("No Environment Detail of that Type")
+
+                        if env_details_dict is None:
+                            data += "\nFailed to get details for server: " + str(hostname) + \
+                                    " with IP " + str(server_ip) + "\n"
+                        else:
+                            env_details_dict = dict(env_details_dict)
+                            data += "\nServer: " + str(hostname) + "\nServer IP Address: " + str(server_ip) + "\n"
                             data += "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
-                            if ip in env_details_dict:
-                                if detail_type in env_details_dict[str(ip)]:
-                                    env_data = dict(env_details_dict[str(ip)][detail_type])
+                            if server_ip in env_details_dict:
+                                if detail_type in env_details_dict[str(server_ip)]:
+                                    env_data = dict(env_details_dict[str(server_ip)][detail_type])
                                     for key in env_data:
                                         data_list = list(env_data[key])
                                         data += str(key) + "\t\t\t\t" + \
                                             str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
                 else:
-                    if detail_type == 'ENV':
-                        env_details_dict = dict(self._dev_env_querying_obj.get_env_details(None))
-                    elif detail_type == 'TEMP':
-                        env_details_dict = dict(self._dev_env_querying_obj.get_temp_details(None))
-                    elif detail_type == 'FAN':
-                        env_details_dict = dict(self._dev_env_querying_obj.get_fan_details(None))
-                    elif detail_type == 'PWR':
-                        env_details_dict = dict(self._dev_env_querying_obj.get_pwr_consumption(None))
-                    else:
-                        raise ServerMgrException("No Environment Detail of that Type")
-                    data = "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
-                    if detail_type in env_details_dict:
-                        env_data = dict(env_details_dict[detail_type])
-                        for key in env_data:
-                            data_list = list(env_data[key])
-                            data += str(key) + "\t\t\t\t" + str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
+                    raise ServerMgrException("Missing argument value in command line arguements")
             else:
-                data = 0
+                raise ServerMgrException("Please specify one of the following options with this command:"
+                        + "\n--server_id <server_id>: To get the environment details of just one server"
+                        + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster")
             return data
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2714,7 +2712,8 @@ class VncServerManager():
             'ipmi_username'             : _DEF_IPMI_USERNAME,
             'ipmi_password'             : _DEF_IPMI_PASSWORD,
             'ipmi_type'                 : _DEF_IPMI_TYPE,
-            'puppet_dir'                 : _DEF_PUPPET_DIR
+            'puppet_dir'                 : _DEF_PUPPET_DIR,
+            'analytics_ip'              : _DEF_ANALYTICS_IP
         }
 
         if args.config_file:
