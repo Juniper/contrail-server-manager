@@ -13,6 +13,8 @@ import pycurl
 import json
 from smgr_env_base import DeviceEnvBase
 from server_mgr_exception import ServerMgrException as ServerMgrException
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 
 # Signal handler function. Exit on CTRL-C
 def exit_gracefully(signal, frame):
@@ -21,35 +23,53 @@ def exit_gracefully(signal, frame):
     sys.exit(0)
 
 
+'''
+Class ServerMgrDevEnvQuerying describes the API layer exposed to ServerManager to allow it to query
+the device environment information of the servers stored in its DB. The information is gathered through
+REST API calls to the Server Mgr Analytics Node that hosts the relevant DB.
+'''
 class ServerMgrDevEnvQuerying():
-    def __init__(self):
+    def __init__(self, log, translog):
         ''' Constructor '''
+        self._smgr_log = log
+        self._smgr_trans_log = translog
 
     def return_impi_call(self, ipmi_list=None):
-        if ipmi_list is None:
-            cmd = 'ipmitool -H 10.87.129.207 -U admin -P admin sdr list all'
-            result = self.call_subprocess(cmd)
-            return {"result": result}
-        else:
+        if ipmi_list is not None:
             results_dict = {}
             for address in ipmi_list:
                 cmd = 'ipmitool -H ' + str(address) + ' -U admin -P admin sdr list all'
                 result = self.call_subprocess(cmd)
-                results_dict[str(address)] = result
+                if result[0:5] == "Error":
+                    results_dict[str(address)] = None
+                    self._smgr_log.log(self._smgr_log.ERROR,
+                                       "Error Polling server " + str(address) + ": " + result)
+                else:
+                    results_dict[str(address)] = result
             return results_dict
+        else:
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               "Error Querying Server Env: No Servers Found")
+            raise ServerMgrException("Error Querying Server Env: Need to add servers before querying them")
+
 
     def return_curl_call(self, ip_add, hostname, analytics_ip):
-        if ip_add is None or hostname is None:
-            return None
-        else:
+        if ip_add is not None and hostname is not None:
             results_dict = dict()
             results_dict[str(ip_add)] = self.send_REST_request(analytics_ip, 8081, hostname)
             return results_dict
+        else:
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               "Error Querying Server Env: Server details missing")
+            raise ServerMgrException("Error Querying Server Env: Server details not available")
 
     def call_subprocess(self, cmd):
-        times = datetime.datetime.now()
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-        return p.stdout.read()
+        try:
+            times = datetime.datetime.now()
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+            return p.stdout.read()
+        except Exception as e:
+            raise ServerMgrException("Error Querying Server Env: IPMI Polling command failed")
 
     def send_REST_request(self, analytics_ip, port, hostname):
         try:
@@ -68,7 +88,10 @@ class ServerMgrDevEnvQuerying():
             sensor_data_list = list(data["SMIpmiInfo"]["sensor_status"])
             return sensor_data_list
         except Exception as e:
-            raise ServerMgrException("Error Sending Py Curl REST request" + e.message)
+            self._smgr_log.log(self._smgr_log.ERROR, "Error Querying Server Env: REST request to Collector IP "
+                               + str(analytics_ip) + " failed")
+            raise ServerMgrException("Error Querying Server Env: REST request to Collector IP "
+                                     + str(analytics_ip) + " failed")
     # end def send_REST_request
 
 
@@ -127,6 +150,7 @@ class ServerMgrDevEnvQuerying():
     def get_env_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN', '^PWR', 'CPU[0-9][" "|_]Temp', '.*_Temp', '.*_Power']
         key = "ENV"
+        self._smgr_log.log(self._smgr_log.INFO, "Fetching ENV details for " + str(ip_add) )
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
@@ -134,6 +158,7 @@ class ServerMgrDevEnvQuerying():
     def get_fan_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN']
         key = "FAN"
+        self._smgr_log.log(self._smgr_log.INFO, "Fetching FAN details for " + str(ip_add))
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
@@ -141,6 +166,7 @@ class ServerMgrDevEnvQuerying():
     def get_temp_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['CPU[0-9][" "|_]Temp', '.*_Temp']
         key = "TEMP"
+        self._smgr_log.log(self._smgr_log.INFO, "Fetching TEMP details for " + str(ip_add))
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
@@ -148,6 +174,7 @@ class ServerMgrDevEnvQuerying():
     def get_pwr_consumption(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['^PWR', '.*_Power']
         key = "PWR"
+        self._smgr_log.log(self._smgr_log.INFO, "Fetching PWR details for " + str(ip_add))
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data

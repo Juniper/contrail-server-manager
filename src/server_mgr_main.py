@@ -245,9 +245,10 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
-        self._dev_env_querying_obj = ServerMgrDevEnvQuerying()
+        self._dev_env_querying_obj = ServerMgrDevEnvQuerying(self._smgr_log, self._smgr_trans_log)
 
-        self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(1, 60, self._serverDb)
+        self._dev_env_monitoring_obj = \
+            ServerMgrDevEnvMonitoring(1, 60, self._serverDb, self._smgr_log, self._smgr_trans_log)
         self._dev_env_monitoring_obj.daemon = True
         analytics_ip_list = self._dev_env_monitoring_obj.sandesh_init()
         if analytics_ip_list is not None:
@@ -2227,11 +2228,13 @@ class VncServerManager():
                         elif self._args.analytics_ip:
                             analytics_ip = list(self._args.analytics_ip)
                         else:
-                            msg = "Missing analytics node IP address for " + server['id']
+                            self._smgr_log.log(self._smgr_log.ERROR,
+                                               "Missing analytics node IP address for " + str(server['id']))
+                            msg = "Missing analytics node IP address for " + str(server['id'])
                             raise ServerMgrException(msg)
                         if detail_type == 'ENV':
                             env_details_dict = self._dev_env_querying_obj.get_env_details(analytics_ip[0], ipmi_add,
-                                                                                      server_ip, hostname)
+                                                                                          server_ip, hostname)
                         elif detail_type == 'TEMP':
                             env_details_dict = self._dev_env_querying_obj.get_temp_details(analytics_ip[0], ipmi_add,
                                                                                            server_ip, hostname)
@@ -2242,9 +2245,13 @@ class VncServerManager():
                             env_details_dict = self._dev_env_querying_obj.get_pwr_consumption(analytics_ip[0], ipmi_add,
                                                                                               server_ip, hostname)
                         else:
+                            self._smgr_log.log(self._smgr_log.ERROR, "No Environment Detail of the type specified")
                             raise ServerMgrException("No Environment Detail of that Type")
 
                         if env_details_dict is None:
+                            self._smgr_log.log(self._smgr_log.ERROR,
+                                               "Failed to get details for server: "
+                                               + str(hostname) + " with IP " + str(server_ip))
                             data += "\nFailed to get details for server: " + str(hostname) + \
                                     " with IP " + str(server_ip) + "\n"
                         else:
@@ -2266,14 +2273,10 @@ class VncServerManager():
                         + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster")
             return data
         except ServerMgrException as e:
-            self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.SMGR_REBOOT,
-                                     False)
+            self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_DEV_ENV, False)
             abort(404, e.value)
         except Exception as e:
-            self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.SMGR_REBOOT,
-                                     False)
+            self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_DEV_ENV, False)
             self.log_trace()
             abort(404, repr(e))
     # Function to get details
@@ -2283,7 +2286,7 @@ class VncServerManager():
             return self.get_server_env_details_by_type(ret_data, 'ENV')
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     self._smgr_trans_log.GET_DEV_ENV,
                                      False)
             abort(404, e.value)
 
@@ -2294,7 +2297,7 @@ class VncServerManager():
             return self.get_server_env_details_by_type(ret_data, 'FAN')
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     self._smgr_trans_log.GET_DEV_ENV,
                                      False)
             abort(404, e.value)
 
@@ -2305,7 +2308,7 @@ class VncServerManager():
             return self.get_server_env_details_by_type(ret_data, 'TEMP')
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     self._smgr_trans_log.GET_DEV_ENV,
                                      False)
             abort(404, e.value)
 
@@ -2316,7 +2319,7 @@ class VncServerManager():
             return self.get_server_env_details_by_type(ret_data, 'PWR')
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.SMGR_REBOOT,
+                                     self._smgr_trans_log.GET_DEV_ENV,
                                      False)
             abort(404, e.value)
 

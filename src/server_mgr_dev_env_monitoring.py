@@ -13,6 +13,8 @@ import socket
 import pdb
 import server_mgr_db
 from server_mgr_db import ServerMgrDb as db
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from threading import Thread
 import discoveryclient.client as client
 from ipmistats.sandesh.ipmi.ttypes import *
@@ -34,17 +36,31 @@ class IpmiData:
     reading = ''
     status = ''
 
-
+'''
+Class ServerMgrDevEnvMonitoring provides a monitoring object that runs as a thread
+when Server Manager starts/restarts. This thread continually polls all the servers
+that are stored in the Server Manager DB at any point. Before this polling can occur,
+Server Manager opens a Sandesh Connection to the Analytics node that hosts the
+Database to which the monitor pushes device environment information.
+'''
 class ServerMgrDevEnvMonitoring(Thread):
-    def __init__(self, val, frequency, serverdb):
+    def __init__(self, val, frequency, serverdb, log, translog):
         ''' Constructor '''
         Thread.__init__(self)
         self.val = val
         self.freq = frequency
         self._serverDb = serverdb
+        self._smgr_log = log
+        self._smgr_trans_log = translog
 
+    '''
+    sandesh_init function opens a sandesh connection to the analytics node's ip
+    (this is recevied from Server Mgr's config or cluster config). The function is called only once.
+    For this node, a discovery client is set up and passed to the sandesh init_generator.
+    '''
     def sandesh_init(self):
         servers = self._serverDb.get_server(None, detail=True)
+        self._smgr_log.log(self._smgr_log.INFO, "Initializing sandesh")
         analytics_ip_list = list()
         hostname_list = list()
         for server in servers:
@@ -75,6 +91,9 @@ class ServerMgrDevEnvMonitoring(Thread):
                 _disc)
         return analytics_ip_list
 
+    '''
+    call_subprocess function runs the IPMI command passed to it and returns the result
+    '''
     def call_subprocess(self, cmd):
         times = datetime.datetime.now()
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
@@ -89,10 +108,17 @@ class ServerMgrDevEnvMonitoring(Thread):
                 return None
         return p.stdout.read()
 
+    '''
+    call_send function is the sending function of the sandesh object (send_inst)
+    '''
     def call_send(self, send_inst):
-        #sys.stderr.write('sending UVE:' + str(send_inst))
+        self._smgr_log.log(self._smgr_log.INFO, "Sending UVE Info over Sandesh")
         send_inst.send()
 
+    '''
+    send_ipmi_stats function packages and sends the IPMI info gathered from server polling
+    to the analytics node
+    '''
     def send_ipmi_stats(self, ipmi_data, hostname):
         sm_ipmi_info = SMIpmiInfo()
         sm_ipmi_info.name = str(hostname)
@@ -108,6 +134,9 @@ class ServerMgrDevEnvMonitoring(Thread):
         ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
+    '''
+    get_server_analytics_ip_list function returns the analytics ip of a particular cluster/server
+    '''
     def get_server_analytics_ip_list(self, server_id):
         match_dict = {'id': server_id}
         server = self._serverDb.get_server(
@@ -125,8 +154,13 @@ class ServerMgrDevEnvMonitoring(Thread):
             return None
         return analytics_ip
 
+    '''
+    The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
+    It then calls other functions to send the information to the correct analytics server.
+    '''
     def run(self):
-        print "Run thread started"
+        print "Starting monitoring thread"
+        self._smgr_log.log(self._smgr_log.INFO, "Starting monitoring thread")
         ipmi_data = []
         supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
         while True:
@@ -149,6 +183,7 @@ class ServerMgrDevEnvMonitoring(Thread):
                 cmd = 'ipmitool -H %s -U admin -P admin sdr list all' % ip
                 result = self.call_subprocess(cmd)
                 if result is not None:
+                    self._smgr_trans_log.log("IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, True)
                     fileoutput = cStringIO.StringIO(result)
                     for line in fileoutput:
                         reading = line.split("|")
@@ -162,5 +197,14 @@ class ServerMgrDevEnvMonitoring(Thread):
                                 ipmidata.reading = reading_value
                                 ipmidata.status = status
                                 ipmi_data.append(ipmidata)
+                            else:
+                                self._smgr_trans_log.log(
+                                    "IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, False)
+                                self._smgr_log.log(self._smgr_log.ERROR,
+                                                   "IPMI Polling: Missing Sensor Info for " + str(ip))
+                else:
+                    self._smgr_trans_log.log("IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, False)
                 self.send_ipmi_stats(ipmi_data, hostname=hostname)
+            self._smgr_log.log(self._smgr_log.INFO, "Monitoring thread is sleeping for " + self.freq + " seconds")
             time.sleep(self.freq)
+            self._smgr_log.log(self._smgr_log.INFO, "Monitoring thread woke up")
