@@ -2267,16 +2267,22 @@ class VncServerManager():
                         else:
                             env_details_dict = dict(env_details_dict)
                             data += "\nServer: " + str(hostname) + "\nServer IP Address: " + str(server_ip) + "\n"
-                            data += "Sensor\t\t\t\t\tStatus\t\t\t\t\tReading\n"
+                            data += "{0}{1}{2}{3}{4}\n".format("Sensor", " "*(25-len("Sensor")), "Status",
+                                                               " "*(35 - len("Status")), "Reading")
                             if server_ip in env_details_dict:
                                 if detail_type in env_details_dict[str(server_ip)]:
                                     env_data = dict(env_details_dict[str(server_ip)][detail_type])
                                     for key in env_data:
                                         data_list = list(env_data[key])
-                                        data += str(key) + "\t\t\t\t" + \
-                                            str(data_list[0]) + "\t\t\t\t" + str(data_list[1]) + "\n"
+                                        data += "{0}{1}{2}{3}{4}\n".format(str(key), " " * (25 - len(str(key))),
+                                                                    str(data_list[0]),
+                                                                    " " * (35 - len(str(data_list[0]))),
+                                                                    str(data_list[1]))
                 else:
-                    raise ServerMgrException("Missing argument value in command line arguements")
+                    raise ServerMgrException("Missing argument value in command line arguements"
+                        + "\nPlease specify one of the following options with this command:"
+                        + "\n--server_id <server_id>: To get the environment details of just one server"
+                        + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster")
             else:
                 raise ServerMgrException("Please specify one of the following options with this command:"
                         + "\n--server_id <server_id>: To get the environment details of just one server"
