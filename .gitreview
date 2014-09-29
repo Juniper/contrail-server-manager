@@ -13,4 +13,8 @@
 host=review.opencontrail.org
 port=29418
 project=Juniper/contrail-server-manager.git
+<<<<<<< HEAD
 defaultbranch=master
+=======
+defaultbranch=R1.10
+>>>>>>> upstream/R1.10

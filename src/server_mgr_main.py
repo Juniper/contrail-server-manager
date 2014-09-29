@@ -277,7 +277,6 @@ class VncServerManager():
         bottle.route('/Temp', 'GET', self.get_temp_details)
         bottle.route('/Pwr', 'GET', self.get_pwr_details)
         bottle.route('/Env', 'GET', self.get_env_details)
-
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
         bottle.route('/image/upload', 'PUT', self.upload_image)
@@ -1474,6 +1473,9 @@ class VncServerManager():
             cmd = ("sed -i \"s/__\$version__/contrail_%s/g\" %s" %(
                     version, filelist))
             subprocess.check_call(cmd, shell=True)
+            cmd = ("sed -i \"s/__\$VERSION__/Contrail_%s/g\" %s" %(
+                    version, filelist))
+            subprocess.check_call(cmd, shell=True)
             os.chdir(cwd)
             return version
         except subprocess.CalledProcessError as e:
@@ -2584,7 +2586,15 @@ class VncServerManager():
                 elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
                     subnet_mask = cluster_params['subnet_mask']
 
-		provision_params['subnet-mask'] = subnet_mask
+                if len(role_servers['storage-compute']):
+                    msg = "Storage is enabled"
+                    storage_status = '1'
+                else:
+                    msg = "Storage is disabled"
+                    storage_status = '0'
+                    self._smgr_log.log(self._smgr_log.DEBUG, msg)
+                    provision_params['contrail-storage-enabled'] = storage_status
+                provision_params['subnet-mask'] = subnet_mask
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
