@@ -64,7 +64,8 @@ _DEF_IPMI_USERNAME = 'ADMIN'
 _DEF_IPMI_PASSWORD = 'ADMIN'
 _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
-_DEF_ANALYTICS_IP = '127.0.0.1'
+_DEF_ANALYTICS_IP = None
+_DEF_MON_FREQ = 300
 
 @bottle.error(403)
 def error_403(err):
@@ -247,14 +248,14 @@ class VncServerManager():
 
         self._dev_env_querying_obj = ServerMgrDevEnvQuerying(self._smgr_log, self._smgr_trans_log)
 
-        if self._args.monitoring_frequency:
+        if self._args.monitoring_freq and self._args.analytics_ip:
             self._dev_env_monitoring_obj = \
-                ServerMgrDevEnvMonitoring(1, self._args.monitoring_frequency, self._serverDb,
+                ServerMgrDevEnvMonitoring(1, self._args.monitoring_freq, self._serverDb,
                                           self._smgr_log, self._smgr_trans_log, self._args.analytics_ip)
         else:
             self._dev_env_monitoring_obj = \
                 ServerMgrDevEnvMonitoring(1, 300, self._serverDb,
-                                          self._smgr_log, self._smgr_trans_log, self._args.analytics_ip)
+                                          self._smgr_log, self._smgr_trans_log, None)
         self._dev_env_monitoring_obj.daemon = True
         self._dev_env_monitoring_obj.sandesh_init()
         self._dev_env_monitoring_obj.start()
@@ -2227,15 +2228,18 @@ class VncServerManager():
                             hostname = server['id']
                         if 'ip_address' in server:
                             server_ip = server['ip_address']
-                        if 'id' in server and self._dev_env_monitoring_obj.get_server_analytics_ip_list(hostname):
-                            analytics_ip = list(self._dev_env_monitoring_obj.get_server_analytics_ip_list(hostname))
-                        elif self._args.analytics_ip:
-                            analytics_ip = list(self._args.analytics_ip)
+                        if self._args.analytics_ip:
+                            analytics_ip = eval(self._args.analytics_ip)
+                        elif 'cluster_id' in server and \
+                                self._dev_env_monitoring_obj.get_server_analytics_ip_list(server['cluster_id']):
+                            analytics_ip = \
+                                self._dev_env_monitoring_obj.get_server_analytics_ip_list(server['cluster_id'])
                         else:
                             self._smgr_log.log(self._smgr_log.ERROR,
                                                "Missing analytics node IP address for " + str(server['id']))
                             msg = "Missing analytics node IP address for " + str(server['id'])
                             raise ServerMgrException(msg)
+                        self._smgr_log.log(self._smgr_log.INFO, "Sending the query to: " + str(analytics_ip[0]))
                         if detail_type == 'ENV':
                             env_details_dict = self._dev_env_querying_obj.get_env_details(analytics_ip[0], ipmi_add,
                                                                                           server_ip, hostname)
@@ -2720,7 +2724,8 @@ class VncServerManager():
             'ipmi_password'             : _DEF_IPMI_PASSWORD,
             'ipmi_type'                 : _DEF_IPMI_TYPE,
             'puppet_dir'                 : _DEF_PUPPET_DIR,
-            'analytics_ip'              : _DEF_ANALYTICS_IP
+            'analytics_ip'              : _DEF_ANALYTICS_IP,
+            'monitoring_freq'           : _DEF_MON_FREQ
         }
 
         if args.config_file:

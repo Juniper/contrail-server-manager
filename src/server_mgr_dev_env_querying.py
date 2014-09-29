@@ -150,7 +150,7 @@ class ServerMgrDevEnvQuerying():
     def get_env_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN', '^PWR', 'CPU[0-9][" "|_]Temp', '.*_Temp', '.*_Power']
         key = "ENV"
-        self._smgr_log.log(self._smgr_log.INFO, "Fetching ENV details for " + str(ip_add) )
+        self._smgr_log.log(self._smgr_log.INFO, "Fetching ENV details for " + str(ip_add))
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
@@ -159,6 +159,7 @@ class ServerMgrDevEnvQuerying():
         match_patterns = ['FAN', '.*_FAN']
         key = "FAN"
         self._smgr_log.log(self._smgr_log.INFO, "Fetching FAN details for " + str(ip_add))
+        self._smgr_log.log(self._smgr_log.INFO, "Fetching FAN details from " + str(analytics_ip))
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data

@@ -49,7 +49,7 @@ class ServerMgrDevEnvMonitoring(Thread):
         ''' Constructor '''
         Thread.__init__(self)
         self.val = val
-        self.freq = frequency
+        self.freq = float(frequency)
         self._serverDb = serverdb
         self._smgr_log = log
         self._smgr_trans_log = translog
@@ -65,13 +65,14 @@ class ServerMgrDevEnvMonitoring(Thread):
             self._smgr_log.log(self._smgr_log.INFO, "Initializing sandesh")
             analytics_ip_list = list()
             if self._analytics_ip is not None:
+                self._smgr_log.log(self._smgr_log.INFO, "Sandesh is connecting to " + str(self._analytics_ip))
                 analytics_ip_list = eval(self._analytics_ip)
             else:
                 servers = self._serverDb.get_server(None, detail=True)
                 for server in servers:
                     server = dict(server)
-                    if 'id' in server and self.get_server_analytics_ip_list(server['id']) is not None:
-                        analytics_ip_list += self.get_server_analytics_ip_list(server['id'])
+                    if 'cluster_id' in server and self.get_server_analytics_ip_list(server['cluster_id']) is not None:
+                        analytics_ip_list += self.get_server_analytics_ip_list(server['cluster_id'])
                 if len(analytics_ip_list) == 0:
                     return 0
                 else:
@@ -151,7 +152,7 @@ class ServerMgrDevEnvMonitoring(Thread):
         cluster = self._serverDb.get_cluster({"id": cluster_id}, detail=True)[0]
         cluster_params = eval(cluster['parameters'])
         if 'analytics_ip' in cluster_params and cluster_params['analytics_ip']:
-            analytics_ip.append(cluster_params['analytics_ip'])
+            analytics_ip += eval(cluster_params['analytics_ip'])
         else:
             return None
         return analytics_ip
@@ -200,11 +201,6 @@ class ServerMgrDevEnvMonitoring(Thread):
                                     ipmidata.reading = reading_value
                                     ipmidata.status = status
                                     ipmi_data.append(ipmidata)
-                                else:
-                                    self._smgr_trans_log.log(
-                                        "IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, False)
-                                    self._smgr_log.log(self._smgr_log.ERROR,
-                                                       "IPMI Polling: Missing Sensor Info for " + str(ip))
                     else:
                         self._smgr_trans_log.log("IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, False)
                     self.send_ipmi_stats(ipmi_data, hostname=hostname)
@@ -219,6 +215,6 @@ class ServerMgrDevEnvMonitoring(Thread):
                 else:
                     self._smgr_log.log(self._smgr_log.ERROR, "IPMI Polling: No Analytics IP info found")
 
-            self._smgr_log.log(self._smgr_log.INFO, "Monitoring thread is sleeping for " + self.freq + " seconds")
+            self._smgr_log.log(self._smgr_log.INFO, "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
             self._smgr_log.log(self._smgr_log.INFO, "Monitoring thread woke up")
