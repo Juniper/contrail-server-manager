@@ -13,6 +13,7 @@ import socket
 import pdb
 import server_mgr_db
 from server_mgr_db import ServerMgrDb as db
+from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from threading import Thread
@@ -44,7 +45,7 @@ Server Manager opens a Sandesh Connection to the Analytics node that hosts the
 Database to which the monitor pushes device environment information.
 '''
 class ServerMgrDevEnvMonitoring(Thread):
-    def __init__(self, val, frequency, serverdb, log, translog):
+    def __init__(self, val, frequency, serverdb, log, translog, analytics_ip=None):
         ''' Constructor '''
         Thread.__init__(self)
         self.val = val
@@ -52,6 +53,7 @@ class ServerMgrDevEnvMonitoring(Thread):
         self._serverDb = serverdb
         self._smgr_log = log
         self._smgr_trans_log = translog
+        self._analytics_ip = analytics_ip
 
     '''
     sandesh_init function opens a sandesh connection to the analytics node's ip
@@ -59,37 +61,44 @@ class ServerMgrDevEnvMonitoring(Thread):
     For this node, a discovery client is set up and passed to the sandesh init_generator.
     '''
     def sandesh_init(self):
-        servers = self._serverDb.get_server(None, detail=True)
-        self._smgr_log.log(self._smgr_log.INFO, "Initializing sandesh")
-        analytics_ip_list = list()
-        hostname_list = list()
-        for server in servers:
-            server = dict(server)
-            if 'id' in server and self.get_server_analytics_ip_list(server['id']) is not None:
-                analytics_ip_list += self.get_server_analytics_ip_list(server['id'])
-                hostname_list.append(server['id'])
-        #storage node module initialization part
-        module = Module.IPMI_STATS_MGR
-        module_name = ModuleNames[module]
-        node_type = Module2NodeType[module]
-        node_type_name = NodeTypeNames[node_type]
-        instance_id = INSTANCE_ID_DEFAULT
-        analytics_ip_set = set()
-        for ip in analytics_ip_list:
-            analytics_ip_set.add(ip)
-        for analytics_ip, hostname in zip(analytics_ip_set, hostname_list):
-            _disc = client.DiscoveryClient(str(analytics_ip), '5998', module_name)
-            sandesh_global.init_generator(
-                module_name,
-                str(hostname),
-                node_type_name,
-                instance_id,
-                [],
-                module_name,
-                HttpPortIpmiStatsmgr,
-                ['ipmistats.sandesh.ipmi'],
-                _disc)
-        return analytics_ip_list
+        try:
+            self._smgr_log.log(self._smgr_log.INFO, "Initializing sandesh")
+            analytics_ip_list = list()
+            if self._analytics_ip is not None:
+                analytics_ip_list = eval(self._analytics_ip)
+            else:
+                servers = self._serverDb.get_server(None, detail=True)
+                for server in servers:
+                    server = dict(server)
+                    if 'id' in server and self.get_server_analytics_ip_list(server['id']) is not None:
+                        analytics_ip_list += self.get_server_analytics_ip_list(server['id'])
+                if len(analytics_ip_list) == 0:
+                    return 0
+                else:
+                    self._analytics_ip = analytics_ip_list
+            # storage node module initialization part
+            module = Module.IPMI_STATS_MGR
+            module_name = ModuleNames[module]
+            node_type = Module2NodeType[module]
+            node_type_name = NodeTypeNames[node_type]
+            instance_id = INSTANCE_ID_DEFAULT
+            analytics_ip_set = set()
+            for ip in analytics_ip_list:
+                analytics_ip_set.add(ip)
+            for analytics_ip in analytics_ip_set:
+                _disc = client.DiscoveryClient(str(analytics_ip), '5998', module_name)
+                sandesh_global.init_generator(
+                    module_name,
+                    socket.gethostname(),
+                    node_type_name,
+                    instance_id,
+                    [],
+                    module_name,
+                    HttpPortIpmiStatsmgr,
+                    ['ipmistats.sandesh.ipmi'],
+                    _disc)
+        except Exception as e:
+            raise ServerMgrException("Error during Sandesh Init: " + str(e))
 
     '''
     call_subprocess function runs the IPMI command passed to it and returns the result
@@ -137,18 +146,11 @@ class ServerMgrDevEnvMonitoring(Thread):
     '''
     get_server_analytics_ip_list function returns the analytics ip of a particular cluster/server
     '''
-    def get_server_analytics_ip_list(self, server_id):
-        match_dict = {'id': server_id}
-        server = self._serverDb.get_server(
-            match_dict, detail=True)[0]
-        server = dict(server)
+    def get_server_analytics_ip_list(self, cluster_id):
         analytics_ip = []
-        cluster = self._serverDb.get_cluster({"id": server['cluster_id']}, detail=True)[0]
+        cluster = self._serverDb.get_cluster({"id": cluster_id}, detail=True)[0]
         cluster_params = eval(cluster['parameters'])
-        server_params = eval(server['parameters'])
-        if 'analytics_ip' in server_params and server_params['analytics_ip']:
-            analytics_ip.append(server_params['analytics_ip'])
-        elif 'analytics_ip' in cluster_params and cluster_params['analytics_ip']:
+        if 'analytics_ip' in cluster_params and cluster_params['analytics_ip']:
             analytics_ip.append(cluster_params['analytics_ip'])
         else:
             return None
@@ -170,41 +172,53 @@ class ServerMgrDevEnvMonitoring(Thread):
             hostname_list = list()
             server_ip_list = list()
             data = ""
-            for x in servers:
-                x = dict(x)
-                if 'ipmi_address' in x:
-                    ipmi_list.append(x['ipmi_address'])
-                if 'id' in x:
-                    hostname_list.append(x['id'])
-                if 'ip_address' in x:
-                    server_ip_list.append(x['ip_address'])
-            for ip, hostname in zip(ipmi_list, hostname_list):
-                ipmi_data = []
-                cmd = 'ipmitool -H %s -U admin -P admin sdr list all' % ip
-                result = self.call_subprocess(cmd)
-                if result is not None:
-                    self._smgr_trans_log.log("IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, True)
-                    fileoutput = cStringIO.StringIO(result)
-                    for line in fileoutput:
-                        reading = line.split("|")
-                        sensor = reading[0].strip()
-                        reading_value = reading[1].strip()
-                        status = reading[2].strip()
-                        for i in supported_sensors:
-                            if re.search(i, sensor) is not None:
-                                ipmidata = IpmiData()
-                                ipmidata.sensor = sensor
-                                ipmidata.reading = reading_value
-                                ipmidata.status = status
-                                ipmi_data.append(ipmidata)
-                            else:
-                                self._smgr_trans_log.log(
-                                    "IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, False)
-                                self._smgr_log.log(self._smgr_log.ERROR,
-                                                   "IPMI Polling: Missing Sensor Info for " + str(ip))
+            if self._analytics_ip is not None:
+                for server in servers:
+                    server = dict(server)
+                    if 'ipmi_address' in server:
+                        ipmi_list.append(server['ipmi_address'])
+                    if 'id' in server:
+                        hostname_list.append(server['id'])
+                    if 'ip_address' in server:
+                        server_ip_list.append(server['ip_address'])
+                for ip, hostname in zip(ipmi_list, hostname_list):
+                    ipmi_data = []
+                    cmd = 'ipmitool -H %s -U admin -P admin sdr list all' % ip
+                    result = self.call_subprocess(cmd)
+                    if result is not None:
+                        self._smgr_trans_log.log("IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, True)
+                        fileoutput = cStringIO.StringIO(result)
+                        for line in fileoutput:
+                            reading = line.split("|")
+                            sensor = reading[0].strip()
+                            reading_value = reading[1].strip()
+                            status = reading[2].strip()
+                            for i in supported_sensors:
+                                if re.search(i, sensor) is not None:
+                                    ipmidata = IpmiData()
+                                    ipmidata.sensor = sensor
+                                    ipmidata.reading = reading_value
+                                    ipmidata.status = status
+                                    ipmi_data.append(ipmidata)
+                                else:
+                                    self._smgr_trans_log.log(
+                                        "IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, False)
+                                    self._smgr_log.log(self._smgr_log.ERROR,
+                                                       "IPMI Polling: Missing Sensor Info for " + str(ip))
+                    else:
+                        self._smgr_trans_log.log("IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, False)
+                    self.send_ipmi_stats(ipmi_data, hostname=hostname)
+            else:
+                analytics_ip_list = list()
+                for server in servers:
+                    server = dict(server)
+                    if 'cluster_id' in server and self.get_server_analytics_ip_list(server['cluster_id']) is not None:
+                        analytics_ip_list += self.get_server_analytics_ip_list(server['cluster_id'])
+                if len(analytics_ip_list) > 0:
+                    self.sandesh_init()
                 else:
-                    self._smgr_trans_log.log("IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, False)
-                self.send_ipmi_stats(ipmi_data, hostname=hostname)
+                    self._smgr_log.log(self._smgr_log.ERROR, "IPMI Polling: No Analytics IP info found")
+
             self._smgr_log.log(self._smgr_log.INFO, "Monitoring thread is sleeping for " + self.freq + " seconds")
             time.sleep(self.freq)
             self._smgr_log.log(self._smgr_log.INFO, "Monitoring thread woke up")

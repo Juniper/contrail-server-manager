@@ -247,12 +247,16 @@ class VncServerManager():
 
         self._dev_env_querying_obj = ServerMgrDevEnvQuerying(self._smgr_log, self._smgr_trans_log)
 
-        self._dev_env_monitoring_obj = \
-            ServerMgrDevEnvMonitoring(1, 60, self._serverDb, self._smgr_log, self._smgr_trans_log)
+        if self._args.monitoring_frequency:
+            self._dev_env_monitoring_obj = \
+                ServerMgrDevEnvMonitoring(1, self._args.monitoring_frequency, self._serverDb,
+                                          self._smgr_log, self._smgr_trans_log, self._args.analytics_ip)
+        else:
+            self._dev_env_monitoring_obj = \
+                ServerMgrDevEnvMonitoring(1, 300, self._serverDb,
+                                          self._smgr_log, self._smgr_trans_log, self._args.analytics_ip)
         self._dev_env_monitoring_obj.daemon = True
-        analytics_ip_list = self._dev_env_monitoring_obj.sandesh_init()
-        if analytics_ip_list is not None:
-            self._args.analytics_ip = list(analytics_ip_list)
+        self._dev_env_monitoring_obj.sandesh_init()
         self._dev_env_monitoring_obj.start()
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
