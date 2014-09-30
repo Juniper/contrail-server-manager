@@ -69,7 +69,7 @@ class ServerMgrDevEnvQuerying():
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
             return p.stdout.read()
         except Exception as e:
-            raise ServerMgrException("Error Querying Server Env: IPMI Polling command failed")
+            raise ServerMgrException("Error Querying Server Env: IPMI Polling command failed -> " + str(e))
 
     def send_REST_request(self, analytics_ip, port, hostname):
         try:
@@ -89,9 +89,9 @@ class ServerMgrDevEnvQuerying():
             return sensor_data_list
         except Exception as e:
             self._smgr_log.log(self._smgr_log.ERROR, "Error Querying Server Env: REST request to Collector IP "
-                               + str(analytics_ip) + " failed")
+                               + str(analytics_ip) + " failed - > " + str(e))
             raise ServerMgrException("Error Querying Server Env: REST request to Collector IP "
-                                     + str(analytics_ip) + " failed")
+                                     + str(analytics_ip) + " failed -> " + str(e))
     # end def send_REST_request
 
 

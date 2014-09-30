@@ -74,9 +74,11 @@ class ServerMgrDevEnvMonitoring(Thread):
                     if 'cluster_id' in server and self.get_server_analytics_ip_list(server['cluster_id']) is not None:
                         analytics_ip_list += self.get_server_analytics_ip_list(server['cluster_id'])
                 if len(analytics_ip_list) == 0:
+                    self._smgr_log.log(self._smgr_log.INFO, "No analytics IP found, Sandesh init aborted")
                     return 0
                 else:
                     self._analytics_ip = analytics_ip_list
+                    self._smgr_log.log(self._smgr_log.INFO, "Sandesh is connecting to " + str(self._analytics_ip))
             # storage node module initialization part
             module = Module.IPMI_STATS_MGR
             module_name = ModuleNames[module]

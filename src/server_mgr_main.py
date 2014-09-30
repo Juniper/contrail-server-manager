@@ -2203,11 +2203,10 @@ class VncServerManager():
     # end get_server_ip_list
 
 
-    # Generic function to return details based on key
+    # Generic function to return env details based on key
     def get_server_env_details_by_type(self, ret_data, detail_type):
 
         try:
-            data = None
             if ret_data['status'] == 0:
                 match_key = ret_data['match_key']
                 match_value = ret_data['match_value']
@@ -2239,8 +2238,11 @@ class VncServerManager():
                         else:
                             self._smgr_log.log(self._smgr_log.ERROR,
                                                "Missing analytics node IP address for " + str(server['id']))
-                            msg = "Missing analytics node IP address for " + str(server['id'])
+                            msg = "Missing analytics node IP address for " + str(server['id'] + "\n"
+                                + "This needs to be configured in the Server Manager config or cluster JSON\n")
                             raise ServerMgrException(msg)
+                        # Query is sent only to first Analytics IP in the list of Analytics IPs
+                        # We are assuming that all these Analytics nodes hold the same information
                         self._smgr_log.log(self._smgr_log.INFO, "Sending the query to: " + str(analytics_ip[0]))
                         if detail_type == 'ENV':
                             env_details_dict = self._dev_env_querying_obj.get_env_details(analytics_ip[0], ipmi_add,
