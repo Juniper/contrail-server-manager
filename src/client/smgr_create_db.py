@@ -117,6 +117,7 @@ def update_bond_from_testbed_py(server_dict):
               option['mode'] = mode
               option['xmit_hash_policy'] = 'layer3+4'
 
+
               node['bond_interface']={}
               node['bond_interface'][name]={}
               #node['bond_interface'][name]['bond_options'] = "%s"%option
@@ -336,7 +337,7 @@ def modify_cluster_from_testbed_py(cluster_dict):
         cluster_dict['cluster'][0]['parameters']['keystone_tenant'] = testbed.os_tenant_name
     if 'router_asn' in dir(testbed):
         cluster_dict['cluster'][0]['parameters']['router_asn'] = testbed.router_asn
-        
+
 def get_object_config_ini_entries(object, config):
     config_object_defaults = None
     try:

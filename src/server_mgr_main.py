@@ -17,6 +17,8 @@ import datetime
 import subprocess
 import json
 import argparse
+from gevent import monkey
+monkey.patch_all(thread=not 'unittest' in sys.modules)
 import bottle
 from bottle import route, run, request, abort
 import ConfigParser
@@ -40,6 +42,8 @@ from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
+from server_mgr_dev_env_querying import ServerMgrDevEnvQuerying
+from server_mgr_dev_env_monitoring import ServerMgrDevEnvMonitoring
 from send_mail import send_mail
 import tempfile
 
@@ -60,6 +64,10 @@ _DEF_IPMI_USERNAME = 'ADMIN'
 _DEF_IPMI_PASSWORD = 'ADMIN'
 _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
+_DEF_ANALYTICS_IP = None
+_DEF_MON_FREQ = 300
+_DEF_PLUGIN_MODULE = 'server_mgr_ipmi_monitoring'
+_DEF_PLUGIN_CLASS = 'ServerMgrIPMIMonitoring'
 
 @bottle.error(403)
 def error_403(err):
@@ -105,6 +113,8 @@ class VncServerManager():
                   'tag5', 'tag6', 'tag7']
     _tags_dict = {}
     _rev_tags_dict = {}
+    _dev_env_monitoring_obj = None
+    _dev_env_querying_obj = None
 
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
@@ -238,6 +248,24 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
+        self._dev_env_querying_obj = ServerMgrDevEnvQuerying(self._smgr_log, self._smgr_trans_log)
+        if self._args.plugin_module and self._args.plugin_class:
+            monitoring_module = __import__(str(self._args.plugin_module), fromlist=[str(self._args.plugin_class)])
+            monitoring_class = getattr(monitoring_module, str(self._args.plugin_class))
+        else:
+            raise ServerMgrException("Monitoring API class hasn't been specified in the configuration")
+        if self._args.monitoring_freq and self._args.analytics_ip:
+            self._dev_env_monitoring_obj = \
+                monitoring_class(1, self._args.monitoring_freq, self._serverDb,
+                                 self._smgr_log, self._smgr_trans_log, self._args.analytics_ip)
+        else:
+            self._dev_env_monitoring_obj = \
+                monitoring_class(1, 300, self._serverDb,
+                                 self._smgr_log, self._smgr_trans_log, None)
+        self._dev_env_monitoring_obj.daemon = True
+        self._dev_env_monitoring_obj.sandesh_init()
+        self._dev_env_monitoring_obj.start()
+
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
         self._pipe_start_app = bottle.app()
@@ -251,7 +279,10 @@ class VncServerManager():
         bottle.route('/status', 'GET', self.get_status)
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
-
+        bottle.route('/Fan', 'GET', self.get_fan_details)
+        bottle.route('/Temp', 'GET', self.get_temp_details)
+        bottle.route('/Pwr', 'GET', self.get_pwr_details)
+        bottle.route('/Env', 'GET', self.get_env_details)
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
         bottle.route('/image/upload', 'PUT', self.upload_image)
@@ -413,6 +444,33 @@ class VncServerManager():
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_value[0]
             ret_data["detail"] = detail
+        return ret_data
+
+    def validate_smgr_env(self, request, data=None):
+        ret_data = {}
+        ret_data['status'] = 1
+        query_args = parse_qs(urlparse(request.url).query,
+                              keep_blank_values=True)
+
+        if len(query_args) == 0:
+            match_key = None
+            match_value = None
+            ret_data["status"] = 0
+            ret_data["match_key"] = match_key
+            ret_data["match_value"] = match_value
+        elif len(query_args) == 1:
+            match_key, match_value = query_args.popitem()
+            match_keys = list()
+            match_keys.append('id')
+            match_keys.append('cluster_id')
+            match_keys.append('discovered')
+            if (match_key not in match_keys):
+                raise ServerMgrException("Match Key not present")
+            if match_value == None or match_value[0] == '':
+                raise ServerMgrException("Match Value not Specified")
+            ret_data["status"] = 0
+            ret_data["match_key"] = str(match_key)
+            ret_data["match_value"] = str(match_value[0])
         return ret_data
 
     def validate_smgr_put(self, validation_data, request, data=None,
@@ -1421,7 +1479,6 @@ class VncServerManager():
             cmd = ("sed -i \"s/__\$version__/contrail_%s/g\" %s" %(
                     version, filelist))
             subprocess.check_call(cmd, shell=True)
-
             cmd = ("sed -i \"s/__\$VERSION__/Contrail_%s/g\" %s" %(
                     version, filelist))
             subprocess.check_call(cmd, shell=True)
@@ -2151,6 +2208,145 @@ class VncServerManager():
         return server_ips
     # end get_server_ip_list
 
+
+    # Generic function to return env details based on key
+    def get_server_env_details_by_type(self, ret_data, detail_type):
+
+        try:
+            if ret_data['status'] == 0:
+                match_key = ret_data['match_key']
+                match_value = ret_data['match_value']
+                match_dict = {}
+                if match_key is not None:
+                    match_dict[match_key] = match_value
+                    detail = True
+                    servers = self._serverDb.get_server(
+                        match_dict, detail=detail)
+                    ipmi_add = ""
+                    hostname = ""
+                    server_ip = ""
+                    data = ""
+                    analytics_ip = list()
+                    for server in servers:
+                        server = dict(server)
+                        if 'ipmi_address' in server:
+                            ipmi_add = server['ipmi_address']
+                        if 'id' in server:
+                            hostname = server['id']
+                        if 'ip_address' in server:
+                            server_ip = server['ip_address']
+                        if self._args.analytics_ip:
+                            analytics_ip = eval(self._args.analytics_ip)
+                        elif 'cluster_id' in server and \
+                                self._dev_env_monitoring_obj.get_server_analytics_ip_list(server['cluster_id']):
+                            analytics_ip = \
+                                self._dev_env_monitoring_obj.get_server_analytics_ip_list(server['cluster_id'])
+                        else:
+                            self._smgr_log.log(self._smgr_log.ERROR,
+                                               "Missing analytics node IP address for " + str(server['id']))
+                            msg = "Missing analytics node IP address for " + str(server['id'] + "\n"
+                                + "This needs to be configured in the Server Manager config or cluster JSON\n")
+                            raise ServerMgrException(msg)
+                        # Query is sent only to first Analytics IP in the list of Analytics IPs
+                        # We are assuming that all these Analytics nodes hold the same information
+                        self._smgr_log.log(self._smgr_log.INFO, "Sending the query to: " + str(analytics_ip[0]))
+                        if detail_type == 'ENV':
+                            env_details_dict = self._dev_env_querying_obj.get_env_details(analytics_ip[0], ipmi_add,
+                                                                                          server_ip, hostname)
+                        elif detail_type == 'TEMP':
+                            env_details_dict = self._dev_env_querying_obj.get_temp_details(analytics_ip[0], ipmi_add,
+                                                                                           server_ip, hostname)
+                        elif detail_type == 'FAN':
+                            env_details_dict = self._dev_env_querying_obj.get_fan_details(analytics_ip[0], ipmi_add,
+                                                                                          server_ip, hostname)
+                        elif detail_type == 'PWR':
+                            env_details_dict = self._dev_env_querying_obj.get_pwr_consumption(analytics_ip[0], ipmi_add,
+                                                                                              server_ip, hostname)
+                        else:
+                            self._smgr_log.log(self._smgr_log.ERROR, "No Environment Detail of the type specified")
+                            raise ServerMgrException("No Environment Detail of that Type")
+
+                        if env_details_dict is None:
+                            self._smgr_log.log(self._smgr_log.ERROR,
+                                               "Failed to get details for server: "
+                                               + str(hostname) + " with IP " + str(server_ip))
+                            data += "\nFailed to get details for server: " + str(hostname) + \
+                                    " with IP " + str(server_ip) + "\n"
+                        else:
+                            env_details_dict = dict(env_details_dict)
+                            data += "\nServer: " + str(hostname) + "\nServer IP Address: " + str(server_ip) + "\n"
+                            data += "{0}{1}{2}{3}{4}\n".format("Sensor", " "*(25-len("Sensor")), "Reading",
+                                                               " "*(35 - len("Reading")), "Status")
+                            if server_ip in env_details_dict:
+                                if detail_type in env_details_dict[str(server_ip)]:
+                                    env_data = dict(env_details_dict[str(server_ip)][detail_type])
+                                    for key in env_data:
+                                        data_list = list(env_data[key])
+                                        data += "{0}{1}{2}{3}{4}\n".format(str(key), " " * (25 - len(str(key))),
+                                                                    str(data_list[0]),
+                                                                    " " * (35 - len(str(data_list[0]))),
+                                                                    str(data_list[1]))
+                else:
+                    raise ServerMgrException("Missing argument value in command line arguements"
+                        + "\nPlease specify one of the following options with this command:"
+                        + "\n--server_id <server_id>: To get the environment details of just one server"
+                        + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster")
+            else:
+                raise ServerMgrException("Please specify one of the following options with this command:"
+                        + "\n--server_id <server_id>: To get the environment details of just one server"
+                        + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster")
+            return data
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_DEV_ENV, False)
+            abort(404, e.value)
+        except Exception as e:
+            self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_DEV_ENV, False)
+            self.log_trace()
+            abort(404, repr(e))
+    # Function to get details
+    def get_env_details(self):
+        try:
+            ret_data = self.validate_smgr_env(bottle.request)
+            return self.get_server_env_details_by_type(ret_data, 'ENV')
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_DEV_ENV,
+                                     False)
+            abort(404, e.value)
+
+    #Function to get details
+    def get_fan_details(self):
+        try:
+            ret_data = self.validate_smgr_env(bottle.request)
+            return self.get_server_env_details_by_type(ret_data, 'FAN')
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_DEV_ENV,
+                                     False)
+            abort(404, e.value)
+
+    # Function to get details
+    def get_temp_details(self):
+        try:
+            ret_data = self.validate_smgr_env(bottle.request)
+            return self.get_server_env_details_by_type(ret_data, 'TEMP')
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_DEV_ENV,
+                                     False)
+            abort(404, e.value)
+
+    # Function to get details
+    def get_pwr_details(self):
+        try:
+            ret_data = self.validate_smgr_env(bottle.request)
+            return self.get_server_env_details_by_type(ret_data, 'PWR')
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_DEV_ENV,
+                                     False)
+            abort(404, e.value)
+
     def interface_created(self):
         entity = bottle.request.json
         entity["interface_created"] = "Yes"
@@ -2404,16 +2600,15 @@ class VncServerManager():
                 elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
                     subnet_mask = cluster_params['subnet_mask']
 
-		if len(role_servers['storage-compute']):
-		    msg = "Storage is enabled"
-		    storage_status = '1'
-		else:
-		    msg = "Storage is disabled"
-		    storage_status = '0'
-                self._smgr_log.log(self._smgr_log.DEBUG, msg)
-
-		provision_params['contrail-storage-enabled'] = storage_status
-		provision_params['subnet-mask'] = subnet_mask
+                if len(role_servers['storage-compute']):
+                    msg = "Storage is enabled"
+                    storage_status = '1'
+                else:
+                    msg = "Storage is disabled"
+                    storage_status = '0'
+                    self._smgr_log.log(self._smgr_log.DEBUG, msg)
+                    provision_params['contrail-storage-enabled'] = storage_status
+                provision_params['subnet-mask'] = subnet_mask
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
@@ -2552,7 +2747,11 @@ class VncServerManager():
             'ipmi_username'             : _DEF_IPMI_USERNAME,
             'ipmi_password'             : _DEF_IPMI_PASSWORD,
             'ipmi_type'                 : _DEF_IPMI_TYPE,
-            'puppet_dir'                 : _DEF_PUPPET_DIR
+            'puppet_dir'                 : _DEF_PUPPET_DIR,
+            'analytics_ip'              : _DEF_ANALYTICS_IP,
+            'monitoring_freq'           : _DEF_MON_FREQ,
+            'plugin_class'              : _DEF_PLUGIN_MODULE,
+            'plugin_module'             : _DEF_PLUGIN_CLASS
         }
 
         if args.config_file:

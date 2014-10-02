@@ -74,8 +74,9 @@ class ServerMgrTransactionlogger:
     GET_SMGR_CFG_CLUSTER = "GET_SMGR_CLUSTER"
     GET_SMGR_CFG_SERVER = "GET_SMGR_SERVER"
     GET_SMGR_CFG_IMAGE = "GET_SMGR_IMAGE"
-    GET_SMGR_CFG_STATUS = "GET_SMGR_STATUS"   
-    GET_SMGR_CFG_TAG = "GET_SMGR_TAG"   
+    GET_SMGR_CFG_STATUS = "GET_SMGR_STATUS"
+    GET_SMGR_CFG_TAG = "GET_SMGR_TAG"
+    GET_DEV_ENV = "GET_DEV_ENV"
 
     PUT_SMGR_CFG_ALL = "PUT_SMGR_ALL"
     PUT_SMGR_CFG_CLUSTER = "PUT_SMGR_CLUSTER"
@@ -99,6 +100,7 @@ class ServerMgrTransactionlogger:
     SMGR_PROVISION = "SMGR_PROVISION"
     SMGR_REIMAGE = "SMGR_REIMAGE"
     SMGR_REBOOT = "SMGR_REBOOT"
+    SMGR_POLL_DEV = "SMGR_POLL_DEV"
 
     _smgr_trans_log = None
     def __init__(self):
@@ -182,6 +184,12 @@ class ServerMgrTransactionlogger:
         elif transaction_type == self.SMGR_PROVISION:
              msg = "ACTION %s: %s %s" % \
                         (transaction_type, data.query_string, success)
+        elif transaction_type == self.GET_DEV_ENV:
+            msg = "ACTION %s: %s %s" % \
+                  (transaction_type, data.query_string, success)
+        elif transaction_type == self.SMGR_POLL_DEV:
+            msg = "ACTION %s: %s %s" % \
+                  (transaction_type, str(data), success)
 
         self._smgr_trans_log.error(msg)
 

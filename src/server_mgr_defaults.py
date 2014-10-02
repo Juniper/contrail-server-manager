@@ -12,8 +12,9 @@ server_fields = {
     "parameters": """{
                     'interface_name': '',
                     'partition': '',
+                    'analytics_ip': '',
                     }""",
-    "roles": ["config","openstack","control","compute","collector","webui","database"],
+    "roles": [],
     "cluster_id": "",
     "subnet_mask": "",
     "gateway": "",
@@ -54,7 +55,8 @@ cluster_fields = {
                 'gateway': '10.204.221.46',
                 'password': 'c0ntrail123',
                 'external_bgp': '',
-                'domain': 'contrail.juniper.net'
+                'domain': 'contrail.juniper.net',
+                "analytics_ip": "",
                 }"""
 }
 
