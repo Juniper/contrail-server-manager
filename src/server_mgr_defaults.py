@@ -55,7 +55,7 @@ cluster_fields = {
                 'gateway': '10.204.221.46',
                 'password': 'c0ntrail123',
                 'external_bgp': '',
-                'domain': 'contrail.juniper.net'
+                'domain': 'contrail.juniper.net',
                 "analytics_ip": "",
                 }"""
 }

@@ -66,6 +66,8 @@ _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
 _DEF_ANALYTICS_IP = None
 _DEF_MON_FREQ = 300
+_DEF_PLUGIN_MODULE = 'server_mgr_ipmi_monitoring'
+_DEF_PLUGIN_CLASS = 'ServerMgrIPMIMonitoring'
 
 @bottle.error(403)
 def error_403(err):
@@ -248,7 +250,8 @@ class VncServerManager():
 
         self._dev_env_querying_obj = ServerMgrDevEnvQuerying(self._smgr_log, self._smgr_trans_log)
         if self._args.plugin_module and self._args.plugin_class:
-            monitoring_class = __import__(str(self._args.plugin_module), str(self._args.plugin_class))
+            monitoring_module = __import__(str(self._args.plugin_module), fromlist=[str(self._args.plugin_class)])
+            monitoring_class = getattr(monitoring_module, str(self._args.plugin_class))
         else:
             raise ServerMgrException("Monitoring API class hasn't been specified in the configuration")
         if self._args.monitoring_freq and self._args.analytics_ip:
@@ -2273,7 +2276,7 @@ class VncServerManager():
                             env_details_dict = dict(env_details_dict)
                             data += "\nServer: " + str(hostname) + "\nServer IP Address: " + str(server_ip) + "\n"
                             data += "{0}{1}{2}{3}{4}\n".format("Sensor", " "*(25-len("Sensor")), "Reading",
-                                                               " "*(35 - len("Status")), "Status")
+                                                               " "*(35 - len("Reading")), "Status")
                             if server_ip in env_details_dict:
                                 if detail_type in env_details_dict[str(server_ip)]:
                                     env_data = dict(env_details_dict[str(server_ip)][detail_type])
@@ -2746,7 +2749,9 @@ class VncServerManager():
             'ipmi_type'                 : _DEF_IPMI_TYPE,
             'puppet_dir'                 : _DEF_PUPPET_DIR,
             'analytics_ip'              : _DEF_ANALYTICS_IP,
-            'monitoring_freq'           : _DEF_MON_FREQ
+            'monitoring_freq'           : _DEF_MON_FREQ,
+            'plugin_class'              : _DEF_PLUGIN_MODULE,
+            'plugin_module'             : _DEF_PLUGIN_CLASS
         }
 
         if args.config_file:

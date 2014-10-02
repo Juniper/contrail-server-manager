@@ -11,7 +11,6 @@ import subprocess
 import cStringIO
 import pycurl
 import json
-from smgr_env_base import DeviceEnvBase
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
