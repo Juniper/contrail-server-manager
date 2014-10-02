@@ -247,15 +247,18 @@ class VncServerManager():
                 print repr(e)
 
         self._dev_env_querying_obj = ServerMgrDevEnvQuerying(self._smgr_log, self._smgr_trans_log)
-
+        if self._args.plugin_module and self._args.plugin_class:
+            monitoring_class = __import__(str(self._args.plugin_module), str(self._args.plugin_class))
+        else:
+            raise ServerMgrException("Monitoring API class hasn't been specified in the configuration")
         if self._args.monitoring_freq and self._args.analytics_ip:
             self._dev_env_monitoring_obj = \
-                ServerMgrDevEnvMonitoring(1, self._args.monitoring_freq, self._serverDb,
-                                          self._smgr_log, self._smgr_trans_log, self._args.analytics_ip)
+                monitoring_class(1, self._args.monitoring_freq, self._serverDb,
+                                 self._smgr_log, self._smgr_trans_log, self._args.analytics_ip)
         else:
             self._dev_env_monitoring_obj = \
-                ServerMgrDevEnvMonitoring(1, 300, self._serverDb,
-                                          self._smgr_log, self._smgr_trans_log, None)
+                monitoring_class(1, 300, self._serverDb,
+                                 self._smgr_log, self._smgr_trans_log, None)
         self._dev_env_monitoring_obj.daemon = True
         self._dev_env_monitoring_obj.sandesh_init()
         self._dev_env_monitoring_obj.start()
@@ -2269,8 +2272,8 @@ class VncServerManager():
                         else:
                             env_details_dict = dict(env_details_dict)
                             data += "\nServer: " + str(hostname) + "\nServer IP Address: " + str(server_ip) + "\n"
-                            data += "{0}{1}{2}{3}{4}\n".format("Sensor", " "*(25-len("Sensor")), "Status",
-                                                               " "*(35 - len("Status")), "Reading")
+                            data += "{0}{1}{2}{3}{4}\n".format("Sensor", " "*(25-len("Sensor")), "Reading",
+                                                               " "*(35 - len("Status")), "Status")
                             if server_ip in env_details_dict:
                                 if detail_type in env_details_dict[str(server_ip)]:
                                     env_data = dict(env_details_dict[str(server_ip)][detail_type])

@@ -25,17 +25,6 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
     Module2NodeType, INSTANCE_ID_DEFAULT
 from sandesh_common.vns.constants import *
 
-# Signal handler function. Exit on CTRL-C
-def exit_gracefully(signal, frame):
-    #Perform any cleanup actions in the logging system
-    print "Exit"
-    sys.exit(0)
-
-
-class IpmiData:
-    sensor = ''
-    reading = ''
-    status = ''
 
 '''
 Class ServerMgrDevEnvMonitoring provides a monitoring object that runs as a thread
@@ -128,25 +117,6 @@ class ServerMgrDevEnvMonitoring(Thread):
         send_inst.send()
 
     '''
-    send_ipmi_stats function packages and sends the IPMI info gathered from server polling
-    to the analytics node
-    '''
-    def send_ipmi_stats(self, ipmi_data, hostname):
-        sm_ipmi_info = SMIpmiInfo()
-        sm_ipmi_info.name = str(hostname)
-        sm_ipmi_info.sensor_stats = []
-        sm_ipmi_info.sensor_status = []
-        for ipmidata in ipmi_data:
-            ipmi_stats = IpmiSensor()
-            ipmi_stats.sensor = ipmidata.sensor
-            ipmi_stats.reading = ipmidata.reading
-            ipmi_stats.status = ipmidata.status
-            sm_ipmi_info.sensor_stats.append(ipmi_stats)
-            sm_ipmi_info.sensor_status.append(ipmi_stats)
-        ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
-        self.call_send(ipmi_stats_trace)
-
-    '''
     get_server_analytics_ip_list function returns the analytics ip of a particular cluster/server
     '''
     def get_server_analytics_ip_list(self, cluster_id):
@@ -159,64 +129,7 @@ class ServerMgrDevEnvMonitoring(Thread):
             return None
         return analytics_ip
 
-    '''
-    The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
-    It then calls other functions to send the information to the correct analytics server.
-    '''
     def run(self):
-        print "Starting monitoring thread"
-        self._smgr_log.log(self._smgr_log.INFO, "Starting monitoring thread")
-        ipmi_data = []
-        supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
-        while True:
-            servers = self._serverDb.get_server(
-                None, detail=True)
-            ipmi_list = list()
-            hostname_list = list()
-            server_ip_list = list()
-            data = ""
-            if self._analytics_ip is not None:
-                for server in servers:
-                    server = dict(server)
-                    if 'ipmi_address' in server:
-                        ipmi_list.append(server['ipmi_address'])
-                    if 'id' in server:
-                        hostname_list.append(server['id'])
-                    if 'ip_address' in server:
-                        server_ip_list.append(server['ip_address'])
-                for ip, hostname in zip(ipmi_list, hostname_list):
-                    ipmi_data = []
-                    cmd = 'ipmitool -H %s -U admin -P admin sdr list all' % ip
-                    result = self.call_subprocess(cmd)
-                    if result is not None:
-                        self._smgr_trans_log.log("IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, True)
-                        fileoutput = cStringIO.StringIO(result)
-                        for line in fileoutput:
-                            reading = line.split("|")
-                            sensor = reading[0].strip()
-                            reading_value = reading[1].strip()
-                            status = reading[2].strip()
-                            for i in supported_sensors:
-                                if re.search(i, sensor) is not None:
-                                    ipmidata = IpmiData()
-                                    ipmidata.sensor = sensor
-                                    ipmidata.reading = reading_value
-                                    ipmidata.status = status
-                                    ipmi_data.append(ipmidata)
-                    else:
-                        self._smgr_trans_log.log("IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, False)
-                    self.send_ipmi_stats(ipmi_data, hostname=hostname)
-            else:
-                analytics_ip_list = list()
-                for server in servers:
-                    server = dict(server)
-                    if 'cluster_id' in server and self.get_server_analytics_ip_list(server['cluster_id']) is not None:
-                        analytics_ip_list += self.get_server_analytics_ip_list(server['cluster_id'])
-                if len(analytics_ip_list) > 0:
-                    self.sandesh_init()
-                else:
-                    self._smgr_log.log(self._smgr_log.ERROR, "IPMI Polling: No Analytics IP info found")
-
-            self._smgr_log.log(self._smgr_log.INFO, "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
-            time.sleep(self.freq)
-            self._smgr_log.log(self._smgr_log.INFO, "Monitoring thread woke up")
+        #Run function needs to be overridden by dervied class/ API Plugin
+        raise ServerMgrException(
+            "The monitoring run method has to be over-ridden by API specified in Server Manager config")
