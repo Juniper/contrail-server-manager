@@ -31,17 +31,16 @@ class IpmiData:
     reading = ''
     status = ''
 
-'''
-Class ServerMgrDevEnvMonitoring provides a monitoring object that runs as a thread
-when Server Manager starts/restarts. This thread continually polls all the servers
-that are stored in the Server Manager DB at any point. Before this polling can occur,
-Server Manager opens a Sandesh Connection to the Analytics node that hosts the
-Database to which the monitor pushes device environment information.
-'''
-class ServerMgrIPMIMonitoring(ServerMgrDevEnvMonitoring):
+# Class ServerMgrIPMIMonitoring provides a monitoring object that runs as a thread
+# when Server Manager starts/restarts. This thread continually polls all the servers
+# that are stored in the Server Manager DB at any point. Before this polling can occur,
+# Server Manager opens a Sandesh Connection to the Analytics node that hosts the
+# Database to which the monitor pushes device environment information.
+class ServerMgrIPMIMonitoring(Thread, ServerMgrDevEnvMonitoring):
     def __init__(self, val, frequency, serverdb, log, translog, analytics_ip=None):
         ''' Constructor '''
         ServerMgrDevEnvMonitoring.__init__(self, val, frequency, serverdb, log, translog, analytics_ip)
+        Thread.__init__(self)
         self.val = val
         self.freq = float(frequency)
         self._serverDb = serverdb
@@ -49,11 +48,8 @@ class ServerMgrIPMIMonitoring(ServerMgrDevEnvMonitoring):
         self._smgr_trans_log = translog
         self._analytics_ip = analytics_ip
 
-    '''
-        send_ipmi_stats function packages and sends the IPMI info gathered from server polling
-        to the analytics node
-        '''
-
+    # send_ipmi_stats function packages and sends the IPMI info gathered from server polling
+    # to the analytics node
     def send_ipmi_stats(self, ipmi_data, hostname):
         sm_ipmi_info = SMIpmiInfo()
         sm_ipmi_info.name = str(hostname)
@@ -69,10 +65,8 @@ class ServerMgrIPMIMonitoring(ServerMgrDevEnvMonitoring):
         ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
         super(ServerMgrIPMIMonitoring, self).call_send(ipmi_stats_trace)
 
-    '''
-    The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
-    It then calls other functions to send the information to the correct analytics server.
-    '''
+    # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
+    # It then calls other functions to send the information to the correct analytics server.
     def run(self):
         print "Starting monitoring thread"
         self._smgr_log.log(self._smgr_log.INFO, "Starting monitoring thread")
