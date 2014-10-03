@@ -46,6 +46,7 @@ $SNIPPET('kickstart_start')
 ## $SNIPPET('pre_install_network_config')
 # Enable installation monitoring
 ## $SNIPPET('pre_anamon')
+%end
 
 %packages --nobase
 @core
@@ -54,13 +55,14 @@ openssh-clients
 ntpdate
 ntp
 puppet
+
 #if $getVar("contrail_repo_name","") != ""
 contrail-install-packages
 #end if
 
-
 $SNIPPET('func_install_if_enabled')
 ## $SNIPPET('puppet_install_if_enabled')
+%end
 
 %post
 $SNIPPET('log_ks_post')
@@ -138,3 +140,4 @@ $SNIPPET('cobbler_register')
 # Start final steps
 $SNIPPET('kickstart_done')
 # End final steps
+%end
