@@ -41,7 +41,7 @@ cluster_fields = {
                 'database_token': '',
                 'openstack_mgmt_ip': '',
                 'use_certificates': 'False',
-                'multi_tenancy': 'False',
+                'multi_tenancy': 'True',
                 'encapsulation_priority': 'MPLSoUDP,MPLSoGRE,VXLAN',
                 'service_token': 'contrail123',
                 'keystone_username': 'admin',
