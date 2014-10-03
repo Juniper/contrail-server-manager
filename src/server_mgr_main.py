@@ -1061,7 +1061,7 @@ class VncServerManager():
                                      "image id or location not specified")
                         raise ServerMgrException("image id or location not specified")
                     if (image_type not in [
-                            "centos", "fedora", "ubuntu",
+                            "centos", "fedora", "ubuntu", "redhat",
                             "contrail-ubuntu-package", "contrail-centos-package",
                             "contrail-storage-ubuntu-package",
                             "esxi5.5", "esxi5.1"]):
@@ -1651,7 +1651,8 @@ class VncServerManager():
             'contrail/images/' + distro_name
 
         try:
-            if ((image_type == "fedora") or (image_type == "centos")):
+            if ((image_type == "fedora") or (image_type == "centos")
+                or (image_type == "redhat")):
                 kernel_file = "/isolinux/vmlinuz"
                 initrd_file = "/isolinux/initrd.img"
                 ks_file = self._args.html_root_dir + \
