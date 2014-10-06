@@ -111,6 +111,10 @@ class VncServerManager():
     _smgr_trans_log = None
     _tags_list = ['tag1', 'tag2', 'tag3', 'tag4',
                   'tag5', 'tag6', 'tag7']
+    _image_list = ["centos", "fedora", "ubuntu", "redhat",
+                   "contrail-ubuntu-package", "contrail-centos-package",
+                   "contrail-storage-ubuntu-package",
+                   "esxi5.5", "esxi5.1"]
     _tags_dict = {}
     _rev_tags_dict = {}
     _dev_env_monitoring_obj = None
@@ -1118,11 +1122,7 @@ class VncServerManager():
                         self._smgr_log.log(self._smgr_log.ERROR,
                                      "image id or location not specified")
                         raise ServerMgrException("image id or location not specified")
-                    if (image_type not in [
-                            "centos", "fedora", "ubuntu",
-                            "contrail-ubuntu-package", "contrail-centos-package",
-                            "contrail-storage-ubuntu-package",
-                            "esxi5.5", "esxi5.1"]):
+                    if (image_type not in self._image_list):
                         self._smgr_log.log(self._smgr_log.ERROR,
                                     "image type not specified or invalid for image %s" %(
                                     image_id))
@@ -1708,7 +1708,8 @@ class VncServerManager():
             'contrail/images/' + distro_name
 
         try:
-            if ((image_type == "fedora") or (image_type == "centos")):
+            if ((image_type == "fedora") or (image_type == "centos")
+                or (image_type == "redhat")):
                 kernel_file = "/isolinux/vmlinuz"
                 initrd_file = "/isolinux/initrd.img"
                 ks_file = self._args.html_root_dir + \

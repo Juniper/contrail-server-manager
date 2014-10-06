@@ -15,6 +15,7 @@ _DEF_USERNAME = 'cobbler'
 _DEF_PASSWORD = 'cobbler'
 _DEF_BASE_DIR = '/etc/contrail/'
 _CONTRAIL_CENTOS_REPO = 'contrail-centos-repo'
+_CONTRAIL_REDHAT_REPO = 'contrail-redhat-repo'
 
 class ServerMgrCobbler:
 
@@ -54,31 +55,12 @@ class ServerMgrCobbler:
                     self._cobbler_ip + "/cobbler_api")
             self._token = self._server.login(self._cobbler_username,
                                              self._cobbler_password)
-
-            # Copy contrail centos repo to cobber repos, so that target
+            # Copy contrail centos/redhat repo to cobber repos, so that target
             # systems can install and run puppet agent from kickstart.
-            repo = self._server.find_repo({"name": _CONTRAIL_CENTOS_REPO})
-            if repo:
-                rid = self._server.get_repo_handle(
-                    _CONTRAIL_CENTOS_REPO, self._token)
-            else:
-                rid = self._server.new_repo(self._token)
-            self._server.modify_repo(rid, "arch", "x86_64", self._token)
-            repo_dir = base_dir + "contrail-centos-repo"
-            self._server.modify_repo(
-                rid, "name", _CONTRAIL_CENTOS_REPO, self._token)
-            self._server.modify_repo(rid, "mirror", repo_dir, self._token)
-            self._server.modify_repo(rid, "keep_updated", True, self._token)
-            self._server.modify_repo(rid, "priority", "99", self._token)
-            self._server.modify_repo(rid, "rpm_list", [], self._token)
-            self._server.modify_repo(rid, "yumopts", {}, self._token)
-            self._server.modify_repo(rid, "mirror_locally", True, self._token)
-            self._server.modify_repo(rid, "environment", {}, self._token)
-            self._server.modify_repo(rid, "comment", "...", self._token)
-            self._server.save_repo(rid, self._token)
-            # Issue cobbler reposync for this repo
-            cmd = "cobbler reposync --only=" + _CONTRAIL_CENTOS_REPO
-            subprocess.check_call(cmd, shell=True)
+            self._init_create_repo(_CONTRAIL_CENTOS_REPO, self._server, 
+                                   self._token, base_dir)
+            self._init_create_repo(_CONTRAIL_REDHAT_REPO, self._server, 
+                                   self._token, base_dir)
         except subprocess.CalledProcessError as e:
             msg = ("Cobbler Init: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
@@ -86,6 +68,38 @@ class ServerMgrCobbler:
         except Exception as e:
             raise e
     # End of __init__
+
+    def _init_create_repo(self, repo_name, cobbler_server, token, base_dir):
+        try:
+            repo = cobbler_server.find_repo({"name": repo_name})
+            if repo:
+                rid = cobbler_server.get_repo_handle(
+                    repo_name, token)
+            else:
+                rid = cobbler_server.new_repo(token)
+            cobbler_server.modify_repo(rid, "arch", "x86_64", token)
+            repo_dir = base_dir + repo_name
+            cobbler_server.modify_repo(
+                rid, "name", repo_name, self._token)
+            cobbler_server.modify_repo(rid, "mirror", repo_dir, token)
+            cobbler_server.modify_repo(rid, "keep_updated", True, token)
+            cobbler_server.modify_repo(rid, "priority", "99", token)
+            cobbler_server.modify_repo(rid, "rpm_list", [], token)
+            cobbler_server.modify_repo(rid, "yumopts", {}, token)
+            cobbler_server.modify_repo(rid, "mirror_locally", True, token)
+            cobbler_server.modify_repo(rid, "environment", {}, token)
+            cobbler_server.modify_repo(rid, "comment", "...", token)
+            cobbler_server.save_repo(rid, token)
+            # Issue cobbler reposync for this repo
+            cmd = "cobbler reposync --only=" + repo_name
+            subprocess.check_call(cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            msg = ("Cobbler Init: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            raise ServerMgrException(msg)
+        except Exception as e:
+            raise e
+    # End of _init_create_repo
 
     # Function to check if cobbler token is valid or not, before calling any
     # XMLRPC calls that need a valid token. If token is not valid, the function
@@ -113,7 +127,8 @@ class ServerMgrCobbler:
                                        path + kernel_file, self._token)
             self._server.modify_distro(distro_id, 'initrd',
                                        path + initrd_file, self._token)
-            if ((image_type == 'centos') or (image_type == 'fedora')):
+            if ((image_type == 'centos') or (image_type == 'fedora')
+                or (image_type == 'redhat')):
                 self._server.modify_distro(
                     distro_id, 'ksmeta',
                     'tree=http://' + cobbler_ip_address +
@@ -183,6 +198,10 @@ class ServerMgrCobbler:
                                         ks_meta, self._token)
             if ((image_type == "centos") or (image_type == "fedora")):
                 repo_list = [_CONTRAIL_CENTOS_REPO]
+                self._server.modify_profile(profile_id, "repos",
+                                            repo_list, self._token)
+            elif (image_type == "redhat"):
+                repo_list = [_CONTRAIL_REDHAT_REPO]
                 self._server.modify_profile(profile_id, "repos",
                                             repo_list, self._token)
             self._server.save_profile(profile_id, self._token)
