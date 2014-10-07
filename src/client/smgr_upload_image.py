@@ -28,7 +28,7 @@ def parse_arguments(args_str=None):
     else:
         parser = argparse.ArgumentParser(
             description='''upload image to server manager DB''',
-            prog="server-manager uplaod_image"
+            prog="server-manager upload_image"
         )
     # end else
     parser.add_argument("--config_file", "-c",
@@ -45,11 +45,17 @@ def parse_arguments(args_str=None):
               "contrail-ubuntu-package/contrail-centos-package/contrail-storage-ubuntu-package)"))
     parser.add_argument("file_name",
                         help="complete path for the file")
+    parser.add_argument("--kickstart", "-ks",
+                        help="kickstart filename for base image")
+    parser.add_argument("--kickseed", "-kseed",
+                        help="kickseed filename for base image, applies"
+                        " only to ubuntu based base images and ignored for other image types")
     args = parser.parse_args(args_str)
     return args
 
 
-def send_REST_request(ip, port, payload, file_name):
+def send_REST_request(ip, port, payload, file_name,
+                      kickstart='', kickseed=''):
     try:
         response = StringIO()
         headers = ["Content-Type:application/json"]
@@ -59,6 +65,10 @@ def send_REST_request(ip, port, payload, file_name):
         conn.setopt(pycurl.URL, url)
         conn.setopt(pycurl.POST, 1)
         payload["file"] = (pycurl.FORM_FILE, file_name)
+        if kickstart:
+            payload["kickstart"] = (pycurl.FORM_FILE, kickstart)
+        if kickseed:
+            payload["kickseed"] = (pycurl.FORM_FILE, kickseed)
         conn.setopt(pycurl.HTTPPOST, payload.items())
         conn.setopt(pycurl.CUSTOMREQUEST, "PUT")
         conn.setopt(pycurl.WRITEFUNCTION, response.write)
@@ -89,6 +99,14 @@ def upload_image(args_str=None):
     image_id = args.image_id
     image_version = args.image_version
     image_type = args.image_type
+    kickstart = kickseed = ''
+    if args.kickstart:
+        kickstart = args.kickstart
+    # end args.kickstart
+    if args.kickseed:
+        kickseed = args.kickseed
+    # end args.kickseed
+
     payload = {
         'id' : image_id,
         'version' : image_version,
@@ -97,7 +115,8 @@ def upload_image(args_str=None):
     file_name = args.file_name
     
     resp = send_REST_request(smgr_ip, smgr_port,
-                      payload, file_name)
+                      payload, file_name, 
+                      kickstart, kickseed)
     print resp
 # End of upload_image
 
