@@ -18,7 +18,7 @@ from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from threading import Thread
 import discoveryclient.client as client
-from ipmistats.sandesh.ipmi.ttypes import *
+from ipmi.ipmi.ttypes import *
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
@@ -80,7 +80,7 @@ class ServerMgrDevEnvMonitoring():
                     [],
                     module_name,
                     HttpPortIpmiStatsmgr,
-                    ['ipmistats.sandesh.ipmi'],
+                    ['ipmi.ipmi'],
                     _disc)
         except Exception as e:
             raise ServerMgrException("Error during Sandesh Init: " + str(e))
