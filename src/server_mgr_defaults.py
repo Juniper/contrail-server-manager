@@ -12,7 +12,7 @@ server_fields = {
     "parameters": """{
                     'interface_name': '',
                     'partition': '',
-                    'analytics_ip': '',
+                    'analytics_ip': ''
                     }""",
     "roles": [],
     "cluster_id": "",
@@ -56,7 +56,7 @@ cluster_fields = {
                 'password': 'c0ntrail123',
                 'external_bgp': '',
                 'domain': 'contrail.juniper.net',
-                "analytics_ip": "",
+                "analytics_ip": ""
                 }"""
 }
 

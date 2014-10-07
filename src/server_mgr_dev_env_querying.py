@@ -15,24 +15,18 @@ from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 
-# Signal handler function. Exit on CTRL-C
-def exit_gracefully(signal, frame):
-    #Perform any cleanup actions in the logging system
-    print "Exit"
-    sys.exit(0)
 
-
-'''
-Class ServerMgrDevEnvQuerying describes the API layer exposed to ServerManager to allow it to query
-the device environment information of the servers stored in its DB. The information is gathered through
-REST API calls to the Server Mgr Analytics Node that hosts the relevant DB.
-'''
+# Class ServerMgrDevEnvQuerying describes the API layer exposed to ServerManager to allow it to query
+# the device environment information of the servers stored in its DB. The information is gathered through
+# REST API calls to the Server Mgr Analytics Node that hosts the relevant DB.
 class ServerMgrDevEnvQuerying():
     def __init__(self, log, translog):
         ''' Constructor '''
         self._smgr_log = log
         self._smgr_trans_log = translog
 
+    # Function handles the polling of info from an list of IPMI addresses using ipmitool command
+    # and returns the data as a dictionary (JSON)
     def return_impi_call(self, ipmi_list=None):
         if ipmi_list is not None:
             results_dict = {}
@@ -51,7 +45,8 @@ class ServerMgrDevEnvQuerying():
                                "Error Querying Server Env: No Servers Found")
             raise ServerMgrException("Error Querying Server Env: Need to add servers before querying them")
 
-
+    # Function handles the polling of info from an list of IPMI addresses using REST API calls to analytics DB
+    # and returns the data as a dictionary (JSON)
     def return_curl_call(self, ip_add, hostname, analytics_ip):
         if ip_add is not None and hostname is not None:
             results_dict = dict()
@@ -62,6 +57,7 @@ class ServerMgrDevEnvQuerying():
                                "Error Querying Server Env: Server details missing")
             raise ServerMgrException("Error Querying Server Env: Server details not available")
 
+    # Calls the IPMI tool command as a subprocess
     def call_subprocess(self, cmd):
         try:
             times = datetime.datetime.now()
@@ -70,6 +66,7 @@ class ServerMgrDevEnvQuerying():
         except Exception as e:
             raise ServerMgrException("Error Querying Server Env: IPMI Polling command failed -> " + str(e))
 
+    # Packages and sends a REST API call to the Analytics node
     def send_REST_request(self, analytics_ip, port, hostname):
         try:
             response = StringIO()
@@ -93,7 +90,7 @@ class ServerMgrDevEnvQuerying():
                                      + str(analytics_ip) + " failed -> " + str(e))
     # end def send_REST_request
 
-
+    # Filters the data returned from IPMI call for requested information
     def filter_impi_results(self, results_dict, key, match_patterns):
         return_data = dict()
         if len(results_dict.keys()) == 1 and "result" in results_dict:
@@ -125,6 +122,7 @@ class ServerMgrDevEnvQuerying():
             return_data = None
         return return_data
 
+    # Filters the data returned from REST API call for requested information
     def filter_sensor_results(self, results_dict, key, match_patterns):
         return_data = dict()
         if len(results_dict.keys()) >= 1:
@@ -146,6 +144,7 @@ class ServerMgrDevEnvQuerying():
             return_data = None
         return return_data
 
+    # Function to get environment info of all types (TEMP, FAN, PWR) from a set of server addressses
     def get_env_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN', '^PWR', 'CPU[0-9][" "|_]Temp', '.*_Temp', '.*_Power']
         key = "ENV"
@@ -154,6 +153,7 @@ class ServerMgrDevEnvQuerying():
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 
+    # Function to get FAN info from a set of server addressses
     def get_fan_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN']
         key = "FAN"
@@ -163,6 +163,7 @@ class ServerMgrDevEnvQuerying():
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 
+    # Function to get TEMP info from a set of server addressses
     def get_temp_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['CPU[0-9][" "|_]Temp', '.*_Temp']
         key = "TEMP"
@@ -171,6 +172,7 @@ class ServerMgrDevEnvQuerying():
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 
+    # Function to get PWR info from a set of server addressses
     def get_pwr_consumption(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['^PWR', '.*_Power']
         key = "PWR"

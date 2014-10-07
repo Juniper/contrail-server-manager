@@ -66,8 +66,8 @@ _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
 _DEF_ANALYTICS_IP = None
 _DEF_MON_FREQ = 300
-_DEF_PLUGIN_MODULE = 'server_mgr_ipmi_monitoring'
-_DEF_PLUGIN_CLASS = 'ServerMgrIPMIMonitoring'
+_DEF_PLUGIN_MODULE = None
+_DEF_PLUGIN_CLASS = None
 
 @bottle.error(403)
 def error_403(err):
