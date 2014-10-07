@@ -42,6 +42,8 @@ EOF
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
 deb http://$server/thirdparty_packages/ ./
+deb http://us.archive.ubuntu.com/ubuntu/ precise main restricted
+deb http://us.archive.ubuntu.com/ubuntu/ precise universe
 EOF
 
 # Get puppet repo

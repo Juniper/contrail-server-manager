@@ -2404,6 +2404,8 @@ class VncServerManager():
             # Calculate the total number of disks in the cluster
             total_osd = int(0)
             num_storage_hosts = int(0)
+            live_migration = "disable"
+            live_migration_host = ""
             for server in servers:
                 server_params = eval(server['parameters'])
                 server_roles = eval(server['roles'])
@@ -2411,6 +2413,19 @@ class VncServerManager():
                     if 'disks' in server_params and len(server_params['disks']) > 0:
                         total_osd += len(server_params['disks'])
                         num_storage_hosts += 1
+                else:
+                    pass
+
+                if 'storage-master' in server_roles:
+                    if 'live_migration' in server_params and server_params['live_migration'] == "enable":
+                        if 'live_migration_nfs_vm_host' in server_params and len(server_params['live_migration_nfs_vm_host']) > 0 :
+                            live_migration = "enable"
+                            live_migration_host = server_params['live_migration_nfs_vm_host']
+                        else:
+                            live_migration = "disable"
+                            live_migration_host = ""
+                    else:
+                        pass
                 else:
                     pass
 
@@ -2615,6 +2630,7 @@ class VncServerManager():
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = cluster_params['storage_virsh_uuid']
                 provision_params['num_storage_hosts'] = num_storage_hosts
+                provision_params['live_migration_host'] = live_migration_host
                 if len(role_servers['storage-compute']):
                     if len(role_servers['storage-master']) == 0:
                         msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"

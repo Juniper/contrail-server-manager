@@ -1620,6 +1620,7 @@ $__contrail_quantum_servers__
         resource_data += '''$contrail_storage_num_osd= %s\n''' % (provision_params['storage_num_osd'])
         resource_data += '''$contrail_storage_cluster_network= %s\n''' % (str(contrail_storage_cluster_network))
         resource_data += '''$contrail_storage_enabled= '%s'\n''' % (provision_params['contrail-storage-enabled'])
+        resource_data += '''$contrail_live_migration_host = '%s'\n''' % (provision_params['live_migration_host'])
         # Create resource to have repository configuration setup on the
         # target
         resource_data += self._update_provision_start(provision_params)
