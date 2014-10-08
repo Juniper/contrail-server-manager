@@ -80,7 +80,7 @@ object_dict = {
         ("id", "Specify unique image id for this image"),
         ("version", "Specify version for this image"),
         ("type",
-         "ubuntu/centos/contrail-ubuntu-package/contrail-centos-package/contrail-storage-ubuntu-package"),
+         "ubuntu/centos/redhat/esxi5.1/esxi5.5/contrail-ubuntu-package/contrail-centos-package/contrail-storage-ubuntu-package"),
         ("path", "complete path where image file is located on server"),
         ("parameters", OrderedDict([
             ("kickstart", "kickstart file for base image"),
