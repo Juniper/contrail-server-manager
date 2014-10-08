@@ -17,7 +17,7 @@ class ServerMgrlogger:
         _smgr_log = None   
         def __init__(self):
             print "Logger init" 
-            logging.config.fileConfig('logger.conf')
+            logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
 
             #create logger
             self._smgr_log = logging.getLogger('SMGR')
@@ -94,7 +94,7 @@ class ServerMgrTransactionlogger:
         print "Transaction Logger init"
 
         #Create transactio logger
-        logging.config.fileConfig('logger.conf')
+        logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
 
         self._smgr_trans_log = logging.getLogger('TRANSACTION')
 
