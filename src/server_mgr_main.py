@@ -467,6 +467,7 @@ class VncServerManager():
             match_keys = list()
             match_keys.append('id')
             match_keys.append('cluster_id')
+            match_keys.append('tag')
             match_keys.append('discovered')
             if (match_key not in match_keys):
                 raise ServerMgrException("Match Key not present")
@@ -2291,11 +2292,13 @@ class VncServerManager():
                     raise ServerMgrException("Missing argument value in command line arguements"
                         + "\nPlease specify one of the following options with this command:"
                         + "\n--server_id <server_id>: To get the environment details of just one server"
-                        + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster")
+                        + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster"
+                        + "\n--tag <tag>: To get the environement details of all servers with a tag")
             else:
                 raise ServerMgrException("Please specify one of the following options with this command:"
                         + "\n--server_id <server_id>: To get the environment details of just one server"
-                        + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster")
+                        + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster"
+                        + "\n--tag <tag>: To get the environement details of all servers with a tag")
             return data
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_DEV_ENV, False)

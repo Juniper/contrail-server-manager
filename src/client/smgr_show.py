@@ -104,6 +104,8 @@ def parse_arguments():
                                      help=("server id for server"))
     env_group.add_argument("--cluster_id",
                                     help=("cluster id for cluster"))
+    env_group.add_argument("--tag", help=("tag values for the server"
+                       "in t1=v1,t2=v2,... format"))
     parser_env_details.set_defaults(func=show_env_details)
 
     #Subparser for Fan Details
@@ -114,6 +116,8 @@ def parse_arguments():
                            help=("server id for server"))
     fan_group.add_argument("--cluster_id",
                            help=("cluster id for cluster"))
+    fan_group.add_argument("--tag", help=("tag values for the server"
+                                 "in t1=v1,t2=v2,... format"))
     parser_fan_details.set_defaults(func=show_fan_details)
 
     # Subparser for Temp Details
@@ -124,6 +128,9 @@ def parse_arguments():
                            help=("server id for server"))
     temp_group.add_argument("--cluster_id",
                            help=("cluster id for cluster"))
+    temp_group.add_argument("--tag",
+                            help=("tag values for the server"
+                                  "in t1=v1,t2=v2,... format"))
     parser_temp_details.set_defaults(func=show_temp_details)
 
     # Subparser for Power Consumption
@@ -134,6 +141,9 @@ def parse_arguments():
                            help=("server id for server"))
     pwr_group.add_argument("--cluster_id",
                            help=("cluster id for cluster"))
+    pwr_group.add_argument("--tag",
+                           help=("tag values for the server"
+                                 "in t1=v1,t2=v2,... format"))
     parser_pwr_details.set_defaults(func=show_pwr_details)
     return parser
 # end def parse_arguments
@@ -247,6 +257,9 @@ def show_fan_details(args):
     elif args.cluster_id:
         rest_api_params['match_key'] = 'cluster_id'
         rest_api_params['match_value'] = args.cluster_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
@@ -262,6 +275,9 @@ def show_temp_details(args):
     elif args.cluster_id:
         rest_api_params['match_key'] = 'cluster_id'
         rest_api_params['match_value'] = args.cluster_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
@@ -277,6 +293,9 @@ def show_pwr_details(args):
     elif args.cluster_id:
         rest_api_params['match_key'] = 'cluster_id'
         rest_api_params['match_value'] = args.cluster_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
@@ -292,6 +311,9 @@ def show_env_details(args):
     elif args.cluster_id:
         rest_api_params['match_key'] = 'cluster_id'
         rest_api_params['match_value'] = args.cluster_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
