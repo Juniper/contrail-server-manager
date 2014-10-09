@@ -29,9 +29,10 @@ from sandesh_common.vns.constants import *
 # Class ServerMgrDevEnvMonitoring provides a base class that can be inherited by
 # any implementation of a plugabble monitoring API that interacts with the
 # analytics node
-class ServerMgrDevEnvMonitoring():
+class ServerMgrDevEnvMonitoring(Thread):
     def __init__(self, val, frequency, serverdb, log, translog, analytics_ip=None):
         ''' Constructor '''
+        Thread.__init__(self)
         self.val = val
         self.freq = float(frequency)
         self._serverDb = serverdb
@@ -115,3 +116,9 @@ class ServerMgrDevEnvMonitoring():
         else:
             return None
         return analytics_ip
+
+    # A place-holder run function that the Server Monitor defaults to in the absence of a configured
+    # monitoring API layer to use.
+    def run(self):
+        msg = "No monitoring API has been configured. Server Environement Info will not be monitored."
+        print msg

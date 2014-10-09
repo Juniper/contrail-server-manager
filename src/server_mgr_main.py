@@ -2313,8 +2313,12 @@ class VncServerManager():
     # Function to get details
     def get_env_details(self):
         try:
-            ret_data = self.validate_smgr_env(bottle.request)
-            return self.get_server_env_details_by_type(ret_data, 'ENV')
+            if self._args.plugin_class and self._args.plugin_module:
+                ret_data = self.validate_smgr_env(bottle.request)
+                return self.get_server_env_details_by_type(ret_data, 'ENV')
+            else:
+                msg = "No monitoring API has been configured. Server Environement Info is unavailable."
+                return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_DEV_ENV,
@@ -2324,8 +2328,12 @@ class VncServerManager():
     #Function to get details
     def get_fan_details(self):
         try:
-            ret_data = self.validate_smgr_env(bottle.request)
-            return self.get_server_env_details_by_type(ret_data, 'FAN')
+            if self._args.plugin_class and self._args.plugin_module:
+                ret_data = self.validate_smgr_env(bottle.request)
+                return self.get_server_env_details_by_type(ret_data, 'FAN')
+            else:
+                msg = "No monitoring API has been configured. Server Environement Info is unavailable."
+                return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_DEV_ENV,
@@ -2335,8 +2343,12 @@ class VncServerManager():
     # Function to get details
     def get_temp_details(self):
         try:
-            ret_data = self.validate_smgr_env(bottle.request)
-            return self.get_server_env_details_by_type(ret_data, 'TEMP')
+            if self._args.plugin_class and self._args.plugin_module:
+                ret_data = self.validate_smgr_env(bottle.request)
+                return self.get_server_env_details_by_type(ret_data, 'TEMP')
+            else:
+                msg = "No monitoring API has been configured. Server Environement Info is unavailable."
+                return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_DEV_ENV,
@@ -2346,8 +2358,12 @@ class VncServerManager():
     # Function to get details
     def get_pwr_details(self):
         try:
-            ret_data = self.validate_smgr_env(bottle.request)
-            return self.get_server_env_details_by_type(ret_data, 'PWR')
+            if self._args.plugin_class and self._args.plugin_module:
+                ret_data = self.validate_smgr_env(bottle.request)
+                return self.get_server_env_details_by_type(ret_data, 'PWR')
+            else:
+                msg = "No monitoring API has been configured. Server Environement Info is unavailable."
+                return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_DEV_ENV,
