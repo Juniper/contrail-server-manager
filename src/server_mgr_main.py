@@ -2277,33 +2277,6 @@ class VncServerManager():
                 msg = "Error validating request"
                 raise ServerMgrException(msg)
 
-            # Calculate the total number of disks in the cluster
-            total_osd = int(0)
-            num_storage_hosts = int(0)
-            live_migration = "disable"
-            live_migration_host = ""
-            for server in servers:
-                server_params = eval(server['parameters'])
-                server_roles = eval(server['roles'])
-                if 'storage-compute' in server_roles:
-                    if 'disks' in server_params and len(server_params['disks']) > 0:
-                        total_osd += len(server_params['disks'])
-                        num_storage_hosts += 1
-                else:
-                    pass
-
-                if 'storage-master' in server_roles:
-                    if 'live_migration' in server_params and server_params['live_migration'] == "enable":
-                        if 'live_migration_nfs_vm_host' in server_params and len(server_params['live_migration_nfs_vm_host']) > 0 :
-                            live_migration = "enable"
-                            live_migration_host = server_params['live_migration_nfs_vm_host']
-                        else:
-                            live_migration = "disable"
-                            live_migration_host = ""
-                    else:
-                        pass
-                else:
-                    pass
 
             packages = self._serverDb.get_image(
                 {"id" : package_image_id}, detail=True)
@@ -2500,6 +2473,48 @@ class VncServerManager():
 		    storage_status = '0'
                 self._smgr_log.log(self._smgr_log.DEBUG, msg)
 
+                # Calculate the total number of disks in the cluster
+                total_osd = int(0)
+                num_storage_hosts = int(0)
+                live_migration = "disable"
+                live_migration_host = ""
+                live_migration_storage_scope = "local"
+                storage_mon_host_ip_set = set()
+                for server in role_servers['storage-compute']:
+		    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip( provision_params, x["ip_address"]).strip('"'))
+                    server_params = eval(server['parameters'])
+                    if 'disks' in server_params and len(server_params['disks']) > 0:
+                        total_osd += len(server_params['disks'])
+                        num_storage_hosts += 1
+                    else:
+                        pass
+    
+                for server in role_servers['storage-master']:
+                    server_params_master = eval(server['parameters'])
+                    if 'live_migration' in server_params_master and server_params_master['live_migration'] == "enable":
+                      if 'live_migration_nfs_vm_host' in server_params_master and len(server_params_master['live_migration_nfs_vm_host']) > 0 :
+                          live_migration = "enable"
+                          live_migration_host = server_params_master['live_migration_nfs_vm_host']
+                      else:
+                          live_migration = "disable"
+                          live_migration_host = ""
+
+                      if 'live_migration_storage_scope' in server_params_master :
+                          live_migration_storage_scope = server_params_master['live_migration_storage_scope']
+		      else:
+			  pass
+
+                    else:
+                        pass
+
+		if live_migration_storage_scope == "local" or live_migration_storage_scope == "global":
+		    pass
+		else:
+                    msg = "Invalid Live Migration Storage Scope (local/global are valid)"
+                    raise ServerMgrException(msg)
+
+		    
+		provision_params['live_migration_storage_scope'] = live_migration_storage_scope
 		provision_params['contrail-storage-enabled'] = storage_status
 		provision_params['subnet-mask'] = subnet_mask
                 provision_params['host_roles'] = eval(server['roles'])
@@ -2540,9 +2555,6 @@ class VncServerManager():
                         provision_params['storage_server_disks'] = []
                         provision_params['storage_server_disks'].extend(server_params['disks'])
 
-                storage_mon_host_ip_set = set()
-                for x in role_servers['storage-compute']:
-                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip( provision_params, x["ip_address"]).strip('"'))
                 for x in role_servers['storage-master']:
                     storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
 
