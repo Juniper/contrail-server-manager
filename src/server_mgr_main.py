@@ -2220,7 +2220,10 @@ class VncServerManager():
                 match_value = ret_data['match_value']
                 match_dict = {}
                 if match_key is not None:
-                    match_dict[match_key] = match_value
+                    if match_key == 'tag':
+                        match_dict = self._process_server_tags(match_value)
+                    else:
+                        match_dict[match_key] = match_value
                     detail = True
                     servers = self._serverDb.get_server(
                         match_dict, detail=detail)
