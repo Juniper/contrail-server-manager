@@ -39,6 +39,7 @@ class IpmiData:
 # Server Manager opens a Sandesh Connection to the Analytics node that hosts the
 # Database to which the monitor pushes device environment information.
 class ServerMgrIPMIMonitoring(ServerMgrDevEnvMonitoring):
+
     def __init__(self, val, frequency, serverdb, log, translog, analytics_ip=None):
         ''' Constructor '''
         ServerMgrDevEnvMonitoring.__init__(self, val, frequency, serverdb, log, translog, analytics_ip)

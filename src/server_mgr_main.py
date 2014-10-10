@@ -64,10 +64,6 @@ _DEF_IPMI_USERNAME = 'ADMIN'
 _DEF_IPMI_PASSWORD = 'ADMIN'
 _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
-_DEF_ANALYTICS_IP = None
-_DEF_MON_FREQ = 300
-_DEF_PLUGIN_MODULE = None
-_DEF_PLUGIN_CLASS = None
 
 @bottle.error(403)
 def error_403(err):
@@ -119,6 +115,7 @@ class VncServerManager():
     _rev_tags_dict = {}
     _dev_env_monitoring_obj = None
     _dev_env_querying_obj = None
+    _dev_env_monitoring_handler = None
 
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
@@ -143,6 +140,8 @@ class VncServerManager():
         except:
             print "Error Creating Transaction logger object"
 
+        self._monitoring_config_handler = ServerMgrDevEnvMonitoring(1, None, _DEF_CFG_DB, self._smgr_log,
+                                                                     self._smgr_trans_log, None)
         if not args_str:
             args_str = sys.argv[1:]
         self._parse_args(args_str)
@@ -252,46 +251,56 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
-        self._dev_env_querying_obj = ServerMgrDevEnvQuerying(self._smgr_log, self._smgr_trans_log)
-
-        config_set = 1
-
-        if self._args.plugin_module and self._args.plugin_class:
-            monitoring_module = __import__(str(self._args.plugin_module), fromlist=[str(self._args.plugin_class)])
-            monitoring_class = getattr(monitoring_module, str(self._args.plugin_class))
+        if self._monitoring_args:
+            self._dev_env_querying_obj = ServerMgrDevEnvQuerying(self._smgr_log, self._smgr_trans_log)
+            config_set = 1
         else:
-            monitoring_class = None
+            self._dev_env_querying_obj = None
             config_set = 0
 
-        if self._args.analytics_ip:
+        if self._monitoring_args.plugin_module and self._monitoring_args.plugin_class:
+            monitoring_module = __import__(str(self._monitoring_args.plugin_module),
+                                           fromlist=[str(self._monitoring_args.plugin_class)])
+            monitoring_class = getattr(monitoring_module, str(self._monitoring_args.plugin_class))
+        else:
+            monitoring_module = None
+            monitoring_class = None
+
+        if self._monitoring_args.analytics_ip:
             if config_set:
-                self._dev_env_monitoring_obj = monitoring_class(1, self._args.monitoring_freq, self._serverDb,
-                                 self._smgr_log, self._smgr_trans_log, self._args.analytics_ip)
+                self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_freq,
+                                                                self._serverDb,
+                                                                self._smgr_log, self._smgr_trans_log,
+                                                                self._monitoring_args.analytics_ip)
             else:
-                self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(1, self._args.monitoring_freq, self._serverDb,
+                self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(1, self._monitoring_args.monitoring_freq,
+                                                                         self._serverDb,
                                                                          self._smgr_log, self._smgr_trans_log,
-                                                                         self._args.analytics_ip)
+                                                                         self._monitoring_args.analytics_ip)
                 print "This option SET"
         else:
             if config_set:
-                self._dev_env_monitoring_obj = monitoring_class(1, self._args.monitoring_freq, self._serverDb,
-                                 self._smgr_log, self._smgr_trans_log, None)
+                self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_freq,
+                                                                self._serverDb,
+                                                                self._smgr_log, self._smgr_trans_log, None)
             else:
-                self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(1, self._args.monitoring_freq, self._serverDb,
+                self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(1, self._monitoring_args.monitoring_freq,
+                                                                         self._serverDb,
                                                                          self._smgr_log, self._smgr_trans_log, None)
         self._dev_env_monitoring_obj.daemon = True
-        if self._args.analytics_ip is None:
+        if self._monitoring_args.analytics_ip is None:
             analytics_ip_list = list()
             servers = self._serverDb.get_server(None, detail=True)
             for server in servers:
                 server = dict(server)
-                if 'cluster_id' in server and self._dev_env_monitoring_obj.get_server_analytics_ip_list(server['cluster_id']) is not None:
+                if 'cluster_id' in server and \
+                        self._dev_env_monitoring_obj.get_server_analytics_ip_list(server['cluster_id']) is not None:
                     analytics_ip_list += self._dev_env_monitoring_obj.get_server_analytics_ip_list(server['cluster_id'])
             if len(analytics_ip_list) == 0:
                 self._smgr_log.log(self._smgr_log.INFO, "No analytics IP found, monitoring aborted")
-                self._args.analytics_ip = None
+                self._monitoring_args.analytics_ip = None
             else:
-                self._args.analytics_ip = analytics_ip_list
+                self._monitoring_args.analytics_ip = analytics_ip_list
                 self._dev_env_monitoring_obj.sandesh_init()
                 self._dev_env_monitoring_obj.start()
         else:
@@ -2268,8 +2277,8 @@ class VncServerManager():
                             hostname = server['id']
                         if 'ip_address' in server:
                             server_ip = server['ip_address']
-                        if self._args.analytics_ip:
-                            analytics_ip = eval(self._args.analytics_ip)
+                        if self._monitoring_args.analytics_ip:
+                            analytics_ip = eval(self._monitoring_args.analytics_ip)
                         elif 'cluster_id' in server and \
                                 self._dev_env_monitoring_obj.get_server_analytics_ip_list(server['cluster_id']):
                             analytics_ip = \
@@ -2341,7 +2350,8 @@ class VncServerManager():
     # Function to get details
     def get_env_details(self):
         try:
-            if self._args.plugin_class and self._args.plugin_module and self._args.analytics_ip:
+            if self._monitoring_args.plugin_class and \
+                    self._monitoring_args.plugin_module and self._monitoring_args.analytics_ip:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'ENV')
             else:
@@ -2357,7 +2367,8 @@ class VncServerManager():
     #Function to get details
     def get_fan_details(self):
         try:
-            if self._args.plugin_class and self._args.plugin_module and self._args.analytics_ip:
+            if self._monitoring_args.plugin_class and \
+                    self._monitoring_args.plugin_module and self._monitoring_args.analytics_ip:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'FAN')
             else:
@@ -2373,7 +2384,8 @@ class VncServerManager():
     # Function to get details
     def get_temp_details(self):
         try:
-            if self._args.plugin_class and self._args.plugin_module and self._args.analytics_ip:
+            if self._monitoring_args.plugin_class and \
+                    self._monitoring_args.plugin_module and self._monitoring_args.analytics_ip:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'TEMP')
             else:
@@ -2389,7 +2401,8 @@ class VncServerManager():
     # Function to get details
     def get_pwr_details(self):
         try:
-            if self._args.plugin_class and self._args.plugin_module and self._args.analytics_ip:
+            if self._monitoring_args.plugin_class and \
+                    self._monitoring_args.plugin_module and self._monitoring_args.analytics_ip:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'PWR')
             else:
@@ -2818,11 +2831,7 @@ class VncServerManager():
             'ipmi_username'             : _DEF_IPMI_USERNAME,
             'ipmi_password'             : _DEF_IPMI_PASSWORD,
             'ipmi_type'                 : _DEF_IPMI_TYPE,
-            'puppet_dir'                 : _DEF_PUPPET_DIR,
-            'analytics_ip'              : _DEF_ANALYTICS_IP,
-            'monitoring_freq'           : _DEF_MON_FREQ,
-            'plugin_class'              : _DEF_PLUGIN_MODULE,
-            'plugin_module'             : _DEF_PLUGIN_CLASS
+            'puppet_dir'                 : _DEF_PUPPET_DIR
         }
 
         if args.config_file:
@@ -2834,6 +2843,19 @@ class VncServerManager():
         for key in dict(config.items("SERVER-MANAGER")).keys():
             if key in serverMgrCfg.keys():
                 serverMgrCfg[key] = dict(config.items("SERVER-MANAGER"))[key]
+
+        if dict(config.items("MONITORING")).keys():
+            # Handle parsing for monitoring
+            monitoring_args = self._monitoring_config_handler.parse_args(args_str)
+            if monitoring_args:
+                self._smgr_log.log(self._smgr_log.DEBUG, "Monitoring arguments read from config.")
+                self._monitoring_args = monitoring_args
+            else:
+                self._smgr_log.log(self._smgr_log.DEBUG, "No monitoring configuration set.")
+                self._monitoring_args = None
+        else:
+            self._smgr_log.log(self._smgr_log.DEBUG, "No monitoring configuration set.")
+            self._monitoring_args = None
 
         self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg )
         # Override with CLI options

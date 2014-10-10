@@ -5,6 +5,8 @@ import sys
 import datetime
 import syslog
 import subprocess
+import argparse
+import ConfigParser
 from gevent import monkey
 monkey.patch_all(thread=not 'unittest' in sys.modules)
 import cStringIO
@@ -25,20 +27,75 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
     Module2NodeType, INSTANCE_ID_DEFAULT
 from sandesh_common.vns.constants import *
 
+_DEF_ANALYTICS_IP = None
+_DEF_MON_FREQ = 300
+_DEF_PLUGIN_MODULE = None
+_DEF_PLUGIN_CLASS = None
+_DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
+_DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
 
 # Class ServerMgrDevEnvMonitoring provides a base class that can be inherited by
 # any implementation of a plugabble monitoring API that interacts with the
 # analytics node
 class ServerMgrDevEnvMonitoring(Thread):
+
+    val = 1
+    freq = 300
+
     def __init__(self, val, frequency, serverdb, log, translog, analytics_ip=None):
         ''' Constructor '''
         Thread.__init__(self)
-        self.val = val
-        self.freq = float(frequency)
+        if val:
+            self.val = val
+        if frequency:
+            self.freq = float(frequency)
         self._serverDb = serverdb
         self._smgr_log = log
         self._smgr_trans_log = translog
         self._analytics_ip = analytics_ip
+
+    def parse_args(self, args_str):
+        # Source any specified config/ini file
+        # Turn off help, so we print all options in response to -h
+        conf_parser = argparse.ArgumentParser(add_help=False)
+
+        conf_parser.add_argument(
+            "-c", "--config_file",
+            help="Specify config file with the parameter values.",
+            metavar="FILE")
+        args, remaining_argv = conf_parser.parse_known_args(args_str)
+
+        MonitoringCfg = {
+            'analytics_ip': _DEF_ANALYTICS_IP,
+            'monitoring_freq': _DEF_MON_FREQ,
+            'plugin_class': _DEF_PLUGIN_MODULE,
+            'plugin_module': _DEF_PLUGIN_CLASS
+        }
+
+        if args.config_file:
+            config_file = args.config_file
+        else:
+            config_file = _DEF_SMGR_CFG_FILE
+        config = ConfigParser.SafeConfigParser()
+        config.read([args.config_file])
+        for key in dict(config.items("MONITORING")).keys():
+            if key in MonitoringCfg.keys():
+                MonitoringCfg[key] = dict(config.items("MONITORING"))[key]
+            else:
+                self._smgr_log.log(self._smgr_log.DEBUG,
+                                   "No configuration found for %s" % key)
+
+        self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form monitoring config file %s" % MonitoringCfg)
+        parser = argparse.ArgumentParser(
+            # Inherit options from config_parser
+            # parents=[conf_parser],
+            # print script description with -h/--help
+            description=__doc__,
+            # Don't mess with format of description
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        parser.set_defaults(**MonitoringCfg)
+        return parser.parse_args(remaining_argv)
 
     # sandesh_init function opens a sandesh connection to the analytics node's ip
     # (this is recevied from Server Mgr's config or cluster config). The function is called only once.
