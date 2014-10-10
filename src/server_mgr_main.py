@@ -2661,14 +2661,11 @@ class VncServerManager():
             config_file = args.config_file
         else:
             config_file = _DEF_SMGR_CFG_FILE
-        try:
-            config = ConfigParser.SafeConfigParser()
-            config.read([args.config_file])
-            for key in serverMgrCfg.keys():
+        config = ConfigParser.SafeConfigParser()
+        config.read([args.config_file])
+        for key in dict(config.items("SERVER-MANAGER")).keys():
+            if key in serverMgrCfg.keys():
                 serverMgrCfg[key] = dict(config.items("SERVER-MANAGER"))[key]
-        except:
-            # if config file could not be read, use default values
-            pass
 
         self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg )
 
