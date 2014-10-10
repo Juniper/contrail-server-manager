@@ -253,22 +253,50 @@ class VncServerManager():
                 print repr(e)
 
         self._dev_env_querying_obj = ServerMgrDevEnvQuerying(self._smgr_log, self._smgr_trans_log)
+
+        config_set = 1
+
         if self._args.plugin_module and self._args.plugin_class:
             monitoring_module = __import__(str(self._args.plugin_module), fromlist=[str(self._args.plugin_class)])
             monitoring_class = getattr(monitoring_module, str(self._args.plugin_class))
         else:
-            raise ServerMgrException("Monitoring API class hasn't been specified in the configuration")
-        if self._args.monitoring_freq and self._args.analytics_ip:
-            self._dev_env_monitoring_obj = \
-                monitoring_class(1, self._args.monitoring_freq, self._serverDb,
+            monitoring_class = None
+            config_set = 0
+
+        if self._args.analytics_ip:
+            if config_set:
+                self._dev_env_monitoring_obj = monitoring_class(1, self._args.monitoring_freq, self._serverDb,
                                  self._smgr_log, self._smgr_trans_log, self._args.analytics_ip)
+            else:
+                self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(1, self._args.monitoring_freq, self._serverDb,
+                                                                         self._smgr_log, self._smgr_trans_log,
+                                                                         self._args.analytics_ip)
+                print "This option SET"
         else:
-            self._dev_env_monitoring_obj = \
-                monitoring_class(1, 300, self._serverDb,
+            if config_set:
+                self._dev_env_monitoring_obj = monitoring_class(1, self._args.monitoring_freq, self._serverDb,
                                  self._smgr_log, self._smgr_trans_log, None)
+            else:
+                self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(1, self._args.monitoring_freq, self._serverDb,
+                                                                         self._smgr_log, self._smgr_trans_log, None)
         self._dev_env_monitoring_obj.daemon = True
-        self._dev_env_monitoring_obj.sandesh_init()
-        self._dev_env_monitoring_obj.start()
+        if self._args.analytics_ip is None:
+            analytics_ip_list = list()
+            servers = self._serverDb.get_server(None, detail=True)
+            for server in servers:
+                server = dict(server)
+                if 'cluster_id' in server and self._dev_env_monitoring_obj.get_server_analytics_ip_list(server['cluster_id']) is not None:
+                    analytics_ip_list += self._dev_env_monitoring_obj.get_server_analytics_ip_list(server['cluster_id'])
+            if len(analytics_ip_list) == 0:
+                self._smgr_log.log(self._smgr_log.INFO, "No analytics IP found, monitoring aborted")
+                self._args.analytics_ip = None
+            else:
+                self._args.analytics_ip = analytics_ip_list
+                self._dev_env_monitoring_obj.sandesh_init()
+                self._dev_env_monitoring_obj.start()
+        else:
+            self._dev_env_monitoring_obj.sandesh_init()
+            self._dev_env_monitoring_obj.start()
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -2313,11 +2341,12 @@ class VncServerManager():
     # Function to get details
     def get_env_details(self):
         try:
-            if self._args.plugin_class and self._args.plugin_module:
+            if self._args.plugin_class and self._args.plugin_module and self._args.analytics_ip:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'ENV')
             else:
-                msg = "No monitoring API has been configured. Server Environement Info is unavailable."
+                msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
+                      "Server Environement Info is unavailable."
                 return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2328,11 +2357,12 @@ class VncServerManager():
     #Function to get details
     def get_fan_details(self):
         try:
-            if self._args.plugin_class and self._args.plugin_module:
+            if self._args.plugin_class and self._args.plugin_module and self._args.analytics_ip:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'FAN')
             else:
-                msg = "No monitoring API has been configured. Server Environement Info is unavailable."
+                msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
+                      "Server Environement Info is unavailable."
                 return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2343,11 +2373,12 @@ class VncServerManager():
     # Function to get details
     def get_temp_details(self):
         try:
-            if self._args.plugin_class and self._args.plugin_module:
+            if self._args.plugin_class and self._args.plugin_module and self._args.analytics_ip:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'TEMP')
             else:
-                msg = "No monitoring API has been configured. Server Environement Info is unavailable."
+                msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
+                      "Server Environement Info is unavailable."
                 return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2358,11 +2389,12 @@ class VncServerManager():
     # Function to get details
     def get_pwr_details(self):
         try:
-            if self._args.plugin_class and self._args.plugin_module:
+            if self._args.plugin_class and self._args.plugin_module and self._args.analytics_ip:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'PWR')
             else:
-                msg = "No monitoring API has been configured. Server Environement Info is unavailable."
+                msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
+                      "Server Environement Info is unavailable."
                 return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2797,17 +2829,13 @@ class VncServerManager():
             config_file = args.config_file
         else:
             config_file = _DEF_SMGR_CFG_FILE
-        try:
-            config = ConfigParser.SafeConfigParser()
-            config.read([args.config_file])
-            for key in serverMgrCfg.keys():
+        config = ConfigParser.SafeConfigParser()
+        config.read([args.config_file])
+        for key in dict(config.items("SERVER-MANAGER")).keys():
+            if key in serverMgrCfg.keys():
                 serverMgrCfg[key] = dict(config.items("SERVER-MANAGER"))[key]
-        except:
-            # if config file could not be read, use default values
-            pass
 
         self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg )
-
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
