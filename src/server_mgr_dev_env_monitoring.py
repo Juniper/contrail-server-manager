@@ -100,25 +100,9 @@ class ServerMgrDevEnvMonitoring(Thread):
     # sandesh_init function opens a sandesh connection to the analytics node's ip
     # (this is recevied from Server Mgr's config or cluster config). The function is called only once.
     # For this node, a discovery client is set up and passed to the sandesh init_generator.
-    def sandesh_init(self):
+    def sandesh_init(self, analytics_ip_list):
         try:
             self._smgr_log.log(self._smgr_log.INFO, "Initializing sandesh")
-            analytics_ip_list = list()
-            if self._analytics_ip is not None:
-                self._smgr_log.log(self._smgr_log.INFO, "Sandesh is connecting to " + str(self._analytics_ip))
-                analytics_ip_list = eval(self._analytics_ip)
-            else:
-                servers = self._serverDb.get_server(None, detail=True)
-                for server in servers:
-                    server = dict(server)
-                    if 'cluster_id' in server and self.get_server_analytics_ip_list(server['cluster_id']) is not None:
-                        analytics_ip_list += self.get_server_analytics_ip_list(server['cluster_id'])
-                if len(analytics_ip_list) == 0:
-                    self._smgr_log.log(self._smgr_log.INFO, "No analytics IP found, Sandesh init aborted")
-                    return 0
-                else:
-                    self._analytics_ip = analytics_ip_list
-                    self._smgr_log.log(self._smgr_log.INFO, "Sandesh is connecting to " + str(self._analytics_ip))
             # storage node module initialization part
             module = Module.IPMI_STATS_MGR
             module_name = ModuleNames[module]
@@ -170,12 +154,15 @@ class ServerMgrDevEnvMonitoring(Thread):
         cluster_params = eval(cluster['parameters'])
         if 'analytics_ip' in cluster_params and cluster_params['analytics_ip']:
             analytics_ip += eval(cluster_params['analytics_ip'])
+            analytics_ip_list = set()
+            for ip in analytics_ip:
+                analytics_ip_list.add(ip)
         else:
             return None
-        return analytics_ip
+        return analytics_ip_list
 
     # A place-holder run function that the Server Monitor defaults to in the absence of a configured
     # monitoring API layer to use.
     def run(self):
-        msg = "No monitoring API has been configured. Server Environement Info will not be monitored."
-        print msg
+        self._smgr_log.log(self._smgr_log.INFO,
+                           "No monitoring API has been configured. Server Environement Info will not be monitored.")
