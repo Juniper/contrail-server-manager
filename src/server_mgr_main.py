@@ -2479,18 +2479,16 @@ class VncServerManager():
                 live_migration = "disable"
                 live_migration_host = ""
                 live_migration_storage_scope = "local"
-                storage_mon_host_ip_set = set()
-                for server in role_servers['storage-compute']:
-		    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip( provision_params, x["ip_address"]).strip('"'))
-                    server_params = eval(server['parameters'])
-                    if 'disks' in server_params and len(server_params['disks']) > 0:
-                        total_osd += len(server_params['disks'])
+                for role_server in role_servers['storage-compute']:
+                    server_params_compute = eval(role_server['parameters'])
+                    if 'disks' in server_params_compute and len(server_params_compute['disks']) > 0:
+                        total_osd += len(server_params_compute['disks'])
                         num_storage_hosts += 1
                     else:
                         pass
     
-                for server in role_servers['storage-master']:
-                    server_params_master = eval(server['parameters'])
+                for role_server in role_servers['storage-master']:
+                    server_params_master = eval(role_server['parameters'])
                     if 'live_migration' in server_params_master and server_params_master['live_migration'] == "enable":
                       if 'live_migration_nfs_vm_host' in server_params_master and len(server_params_master['live_migration_nfs_vm_host']) > 0 :
                           live_migration = "enable"
@@ -2555,6 +2553,9 @@ class VncServerManager():
                         provision_params['storage_server_disks'] = []
                         provision_params['storage_server_disks'].extend(server_params['disks'])
 
+                storage_mon_host_ip_set = set()
+                for x in role_servers['storage-compute']:
+                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
                 for x in role_servers['storage-master']:
                     storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
 
