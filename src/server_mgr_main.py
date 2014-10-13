@@ -2624,6 +2624,9 @@ class VncServerManager():
         for key in dict(config.items("SERVER-MANAGER")).keys():
             if key in serverMgrCfg.keys():
                 serverMgrCfg[key] = dict(config.items("SERVER-MANAGER"))[key]
+            else:
+                self._smgr_log.log(self._smgr_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
+
         self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg )
 
         # Override with CLI options
