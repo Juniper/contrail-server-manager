@@ -107,6 +107,7 @@ class VncServerManager():
                    "contrail-ubuntu-package", "contrail-centos-package",
                    "contrail-storage-ubuntu-package",
                    "esxi5.5", "esxi5.1"]
+    _iso_types = ["centos", "redhat", "ubuntu", "fedora", "esxi5.1", "esxi5.5"]
     _tags_dict = {}
     _rev_tags_dict = {}
 
@@ -1949,7 +1950,6 @@ class VncServerManager():
     # If no server if provided, information about all the servers
     # in server manager configuration is returned.
     def reimage_server(self):
-        iso_types = ["centos", "ubuntu", "fedora", "esxi5.1", "esxi5.5"]
         self._smgr_log.log(self._smgr_log.DEBUG, "reimage_server")
         try:
             ret_data = self.validate_smgr_request("SERVER", "REIMAGE", bottle.request)
@@ -1970,7 +1970,7 @@ class VncServerManager():
             if len(images) == 0:
                 msg = "No Image %s found" % (base_image_id)
                 raise ServerMgrException(msg)
-            if ( images[0] ['type'] not in iso_types ):
+            if ( images[0] ['type'] not in self._iso_types ):
                 msg = "Image %s is not an iso" % (base_image_id)
                 raise ServerMgrException(msg)
             base_image = images[0]
