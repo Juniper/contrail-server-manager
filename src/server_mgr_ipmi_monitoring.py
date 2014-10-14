@@ -24,7 +24,7 @@ from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
     Module2NodeType, INSTANCE_ID_DEFAULT
 from sandesh_common.vns.constants import *
-from server_mgr_dev_env_monitoring import ServerMgrDevEnvMonitoring
+from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 
 
 class IpmiData:
@@ -38,11 +38,11 @@ class IpmiData:
 # that are stored in the Server Manager DB at any point. Before this polling can occur,
 # Server Manager opens a Sandesh Connection to the Analytics node that hosts the
 # Database to which the monitor pushes device environment information.
-class ServerMgrIPMIMonitoring(ServerMgrDevEnvMonitoring):
+class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
     def __init__(self, val, frequency, serverdb, log, translog, analytics_ip=None):
         ''' Constructor '''
-        ServerMgrDevEnvMonitoring.__init__(self, log, translog)
+        ServerMgrMonBasePlugin.__init__(self, log, translog)
         self.val = val
         self.freq = float(frequency)
         self._serverDb = serverdb
@@ -84,10 +84,12 @@ class ServerMgrIPMIMonitoring(ServerMgrDevEnvMonitoring):
             node_type = Module2NodeType[module]
             node_type_name = NodeTypeNames[node_type]
             instance_id = INSTANCE_ID_DEFAULT
+            analytics_ip_list = eval(analytics_ip_list)
             analytics_ip_set = set()
             for ip in analytics_ip_list:
                 analytics_ip_set.add(ip)
             for analytics_ip in analytics_ip_set:
+                print "Init generator for: " + str(analytics_ip)
                 _disc = client.DiscoveryClient(str(analytics_ip), '5998', module_name)
                 sandesh_global.init_generator(
                     module_name,
@@ -97,7 +99,7 @@ class ServerMgrIPMIMonitoring(ServerMgrDevEnvMonitoring):
                     [],
                     module_name,
                     HttpPortIpmiStatsmgr,
-                    ['ipmi.ipmi'],
+                    ['ipmistats.sandesh.ipmi'],
                     _disc)
         except Exception as e:
             raise ServerMgrException("Error during Sandesh Init: " + str(e))

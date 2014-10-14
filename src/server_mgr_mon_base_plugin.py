@@ -7,8 +7,6 @@ import syslog
 import subprocess
 import argparse
 import ConfigParser
-from gevent import monkey
-monkey.patch_all(thread=not 'unittest' in sys.modules)
 import cStringIO
 import re
 import socket
@@ -19,13 +17,15 @@ _DEF_ANALYTICS_IP = None
 _DEF_MON_FREQ = 300
 _DEF_PLUGIN_MODULE = None
 _DEF_PLUGIN_CLASS = None
-_DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
+_DEF_QUERY_MODULE = None
+_DEF_QUERY_CLASS = None
+_DEF_SMGR_BASE_DIR = '/opt/contrail/server_manager/'
 _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
 
 # Class ServerMgrDevEnvMonitoring provides a base class that can be inherited by
 # any implementation of a plugabble monitoring API that interacts with the
 # analytics node
-class ServerMgrDevEnvMonitoring(Thread):
+class ServerMgrMonBasePlugin(Thread):
 
     val = 1
     freq = 300
@@ -51,7 +51,9 @@ class ServerMgrDevEnvMonitoring(Thread):
             'analytics_ip': _DEF_ANALYTICS_IP,
             'monitoring_freq': _DEF_MON_FREQ,
             'plugin_class': _DEF_PLUGIN_MODULE,
-            'plugin_module': _DEF_PLUGIN_CLASS
+            'plugin_module': _DEF_PLUGIN_CLASS,
+            'query_module': _DEF_QUERY_MODULE,
+            'query_class': _DEF_QUERY_CLASS
         }
 
         if args.config_file:
@@ -59,7 +61,7 @@ class ServerMgrDevEnvMonitoring(Thread):
         else:
             config_file = _DEF_SMGR_CFG_FILE
         config = ConfigParser.SafeConfigParser()
-        config.read([args.config_file])
+        config.read([config_file])
         for key in dict(config.items("MONITORING")).keys():
             if key in MonitoringCfg.keys():
                 MonitoringCfg[key] = dict(config.items("MONITORING"))[key]

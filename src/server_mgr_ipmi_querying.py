@@ -16,34 +16,14 @@ from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 
 
-# Class ServerMgrDevEnvQuerying describes the API layer exposed to ServerManager to allow it to query
+# Class ServerMgrIPMIQuerying describes the API layer exposed to ServerManager to allow it to query
 # the device environment information of the servers stored in its DB. The information is gathered through
 # REST API calls to the Server Mgr Analytics Node that hosts the relevant DB.
-class ServerMgrDevEnvQuerying():
+class ServerMgrIPMIQuerying():
     def __init__(self, log, translog):
         ''' Constructor '''
         self._smgr_log = log
         self._smgr_trans_log = translog
-
-    # Function handles the polling of info from an list of IPMI addresses using ipmitool command
-    # and returns the data as a dictionary (JSON)
-    def return_impi_call(self, ipmi_list=None):
-        if ipmi_list is not None:
-            results_dict = {}
-            for address in ipmi_list:
-                cmd = 'ipmitool -H ' + str(address) + ' -U admin -P admin sdr list all'
-                result = self.call_subprocess(cmd)
-                if result[0:5] == "Error":
-                    results_dict[str(address)] = None
-                    self._smgr_log.log(self._smgr_log.ERROR,
-                                       "Error Polling server " + str(address) + ": " + result)
-                else:
-                    results_dict[str(address)] = result
-            return results_dict
-        else:
-            self._smgr_log.log(self._smgr_log.ERROR,
-                               "Error Querying Server Env: No Servers Found")
-            raise ServerMgrException("Error Querying Server Env: Need to add servers before querying them")
 
     # Function handles the polling of info from an list of IPMI addresses using REST API calls to analytics DB
     # and returns the data as a dictionary (JSON)
@@ -90,38 +70,6 @@ class ServerMgrDevEnvQuerying():
                                      + str(analytics_ip) + " failed -> " + str(e))
     # end def send_REST_request
 
-    # Filters the data returned from IPMI call for requested information
-    def filter_impi_results(self, results_dict, key, match_patterns):
-        return_data = dict()
-        if len(results_dict.keys()) == 1 and "result" in results_dict:
-            return_data = dict()
-            fileoutput = cStringIO.StringIO(results_dict["result"])
-            return_data[key] = dict()
-            for line in fileoutput:
-                reading = line.split("|")
-                sensor = reading[0].strip()
-                for pattern in match_patterns:
-                    if re.match(pattern, sensor):
-                        return_data[key][reading[0].strip()] = list()
-                        return_data[key][reading[0].strip()].append(reading[1].strip())
-                        return_data[key][reading[0].strip()].append(reading[2].strip())
-        elif len(results_dict.keys()) >= 1 and "result" not in results_dict:
-            for server in results_dict:
-                return_data[server] = dict()
-                fileoutput = cStringIO.StringIO(results_dict[server])
-                return_data[server][key] = dict()
-                for line in fileoutput:
-                    reading = line.split("|")
-                    sensor = reading[0].strip()
-                    for pattern in match_patterns:
-                        if re.match(pattern, sensor):
-                            return_data[server][key][reading[0].strip()] = list()
-                            return_data[server][key][reading[0].strip()].append(reading[1].strip())
-                            return_data[server][key][reading[0].strip()].append(reading[2].strip())
-        else:
-            return_data = None
-        return return_data
-
     # Filters the data returned from REST API call for requested information
     def filter_sensor_results(self, results_dict, key, match_patterns):
         return_data = dict()
@@ -158,7 +106,6 @@ class ServerMgrDevEnvQuerying():
         match_patterns = ['FAN', '.*_FAN']
         key = "FAN"
         self._smgr_log.log(self._smgr_log.INFO, "Fetching FAN details for " + str(ip_add))
-        self._smgr_log.log(self._smgr_log.INFO, "Fetching FAN details from " + str(analytics_ip))
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data

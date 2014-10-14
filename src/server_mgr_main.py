@@ -42,8 +42,7 @@ from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
-from server_mgr_dev_env_querying import ServerMgrDevEnvQuerying
-from server_mgr_dev_env_monitoring import ServerMgrDevEnvMonitoring
+from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 from send_mail import send_mail
 import tempfile
 
@@ -140,7 +139,6 @@ class VncServerManager():
         except:
             print "Error Creating Transaction logger object"
 
-        self._monitoring_config_handler = ServerMgrDevEnvMonitoring(self._smgr_log, self._smgr_trans_log)
         if not args_str:
             args_str = sys.argv[1:]
         self._parse_args(args_str)
@@ -250,16 +248,18 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
-        self._monitoring_config_handler = ServerMgrDevEnvMonitoring(self._smgr_log, self._smgr_trans_log)
         if self._monitoring_args:
-            self._dev_env_querying_obj = ServerMgrDevEnvQuerying(self._smgr_log, self._smgr_trans_log)
-            config_set = 1
-        else:
-            self._dev_env_querying_obj = None
-            config_set = 0
+            if self._monitoring_args.query_module and self._monitoring_args.query_class:
+                querying_module = __import__(str(self._monitoring_args.query_module),
+                                               fromlist=[str(self._monitoring_args.query_class)])
+                querying_class = getattr(querying_module, str(self._monitoring_args.query_class))
+                config_set = 1
+                self._dev_env_querying_obj = querying_class(self._smgr_log, self._smgr_trans_log)
+            else:
+                self._dev_env_querying_obj = None
+                config_set = 0
 
-        if config_set:
-            if self._monitoring_args.plugin_module and self._monitoring_args.plugin_class:
+            if self._monitoring_args.plugin_module and self._monitoring_args.plugin_class and config_set:
                 monitoring_module = __import__(str(self._monitoring_args.plugin_module),
                                            fromlist=[str(self._monitoring_args.plugin_class)])
                 monitoring_class = getattr(monitoring_module, str(self._monitoring_args.plugin_class))
@@ -277,10 +277,10 @@ class VncServerManager():
             else:
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    "Analytics IP and Monitoring API misconfigured, monitoring aborted")
-                self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(self._smgr_log, self._smgr_trans_log)
+                self._dev_env_monitoring_obj = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
                 self._monitoring_args = None
         else:
-            self._dev_env_monitoring_obj = ServerMgrDevEnvMonitoring(self._smgr_log, self._smgr_trans_log)
+            self._dev_env_monitoring_obj = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
         self._dev_env_monitoring_obj.daemon = True
         self._dev_env_monitoring_obj.start()
 
@@ -2327,7 +2327,7 @@ class VncServerManager():
                 return self.get_server_env_details_by_type(ret_data, 'ENV')
             else:
                 msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
-                      "Server Environement Info is unavailable."
+                      "\nServer Environement Information is unavailable."
                 return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2343,7 +2343,7 @@ class VncServerManager():
                 return self.get_server_env_details_by_type(ret_data, 'FAN')
             else:
                 msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
-                      "Server Environement Info is unavailable."
+                      "\nServer Environement Information is unavailable."
                 return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2359,7 +2359,7 @@ class VncServerManager():
                 return self.get_server_env_details_by_type(ret_data, 'TEMP')
             else:
                 msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
-                      "Server Environement Info is unavailable."
+                      "\nServer Environement Information is unavailable."
                 return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2375,7 +2375,7 @@ class VncServerManager():
                 return self.get_server_env_details_by_type(ret_data, 'PWR')
             else:
                 msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
-                      "Server Environement Info is unavailable."
+                      "\nServer Environement Information is unavailable."
                 return msg
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2816,7 +2816,8 @@ class VncServerManager():
 
         if dict(config.items("MONITORING")).keys():
             # Handle parsing for monitoring
-            monitoring_args = self._monitoring_config_handler.parse_args(args_str)
+            monitoring_config_parser = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
+            monitoring_args = monitoring_config_parser.parse_args(args_str)
             if monitoring_args:
                 self._smgr_log.log(self._smgr_log.DEBUG, "Monitoring arguments read from config.")
                 self._monitoring_args = monitoring_args
