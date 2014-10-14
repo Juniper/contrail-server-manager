@@ -42,13 +42,18 @@ class ServerMgrIPMIMonitoring(ServerMgrDevEnvMonitoring):
 
     def __init__(self, val, frequency, serverdb, log, translog, analytics_ip=None):
         ''' Constructor '''
-        ServerMgrDevEnvMonitoring.__init__(self, val, frequency, serverdb, log, translog, analytics_ip)
+        ServerMgrDevEnvMonitoring.__init__(self, log, translog)
         self.val = val
         self.freq = float(frequency)
         self._serverDb = serverdb
         self._smgr_log = log
         self._smgr_trans_log = translog
         self._analytics_ip = analytics_ip
+
+    # call_send function is the sending function of the sandesh object (send_inst)
+    def call_send(self, send_inst):
+        self._smgr_log.log(self._smgr_log.INFO, "Sending UVE Info over Sandesh")
+        send_inst.send()
 
     # send_ipmi_stats function packages and sends the IPMI info gathered from server polling
     # to the analytics node
@@ -65,7 +70,37 @@ class ServerMgrIPMIMonitoring(ServerMgrDevEnvMonitoring):
             sm_ipmi_info.sensor_stats.append(ipmi_stats)
             sm_ipmi_info.sensor_status.append(ipmi_stats)
         ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
-        super(ServerMgrIPMIMonitoring, self).call_send(ipmi_stats_trace)
+        self.call_send(ipmi_stats_trace)
+
+    # sandesh_init function opens a sandesh connection to the analytics node's ip
+    # (this is recevied from Server Mgr's config or cluster config). The function is called only once.
+    # For this node, a discovery client is set up and passed to the sandesh init_generator.
+    def sandesh_init(self, analytics_ip_list):
+        try:
+            self._smgr_log.log(self._smgr_log.INFO, "Initializing sandesh")
+            # storage node module initialization part
+            module = Module.IPMI_STATS_MGR
+            module_name = ModuleNames[module]
+            node_type = Module2NodeType[module]
+            node_type_name = NodeTypeNames[node_type]
+            instance_id = INSTANCE_ID_DEFAULT
+            analytics_ip_set = set()
+            for ip in analytics_ip_list:
+                analytics_ip_set.add(ip)
+            for analytics_ip in analytics_ip_set:
+                _disc = client.DiscoveryClient(str(analytics_ip), '5998', module_name)
+                sandesh_global.init_generator(
+                    module_name,
+                    socket.gethostname(),
+                    node_type_name,
+                    instance_id,
+                    [],
+                    module_name,
+                    HttpPortIpmiStatsmgr,
+                    ['ipmi.ipmi'],
+                    _disc)
+        except Exception as e:
+            raise ServerMgrException("Error during Sandesh Init: " + str(e))
 
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
     # It then calls other functions to send the information to the correct analytics server.
@@ -113,18 +148,7 @@ class ServerMgrIPMIMonitoring(ServerMgrDevEnvMonitoring):
                         self._smgr_trans_log.log("IPMI Polling: " + str(ip), self._smgr_trans_log.SMGR_POLL_DEV, False)
                     self.send_ipmi_stats(ipmi_data, hostname=hostname)
             else:
-                analytics_ip_list = list()
-                for server in servers:
-                    server = dict(server)
-                    if 'cluster_id' in server and \
-                            super(ServerMgrIPMIMonitoring, self).get_server_analytics_ip_list(server['cluster_id'])\
-                            is not None:
-                        analytics_ip_list += \
-                            super(ServerMgrIPMIMonitoring, self).get_server_analytics_ip_list(server['cluster_id'])
-                if len(analytics_ip_list) > 0:
-                    super(ServerMgrIPMIMonitoring, self).sandesh_init()
-                else:
-                    self._smgr_log.log(self._smgr_log.ERROR, "IPMI Polling: No Analytics IP info found")
+                self._smgr_log.log(self._smgr_log.ERROR, "IPMI Polling: No Analytics IP info found")
 
             self._smgr_log.log(self._smgr_log.INFO, "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
