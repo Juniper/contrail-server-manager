@@ -249,24 +249,29 @@ class VncServerManager():
                 print repr(e)
 
         if self._monitoring_args:
-            if self._monitoring_args.query_module and self._monitoring_args.query_class:
-                querying_module = __import__(str(self._monitoring_args.query_module),
-                                               fromlist=[str(self._monitoring_args.query_class)])
-                querying_class = getattr(querying_module, str(self._monitoring_args.query_class))
-                config_set = 1
-                self._dev_env_querying_obj = querying_class(self._smgr_log, self._smgr_trans_log)
-            else:
-                self._dev_env_querying_obj = None
-                config_set = 0
+            try:
+                if self._monitoring_args.query_module and self._monitoring_args.query_class:
+                    querying_module = __import__(str(self._monitoring_args.query_module),
+                                                 fromlist=[str(self._monitoring_args.query_class)])
+                    querying_class = getattr(querying_module, str(self._monitoring_args.query_class))
+                    config_set = 1
+                    self._dev_env_querying_obj = querying_class(self._smgr_log, self._smgr_trans_log)
+                else:
+                    self._dev_env_querying_obj = None
+                    config_set = 0
 
-            if self._monitoring_args.plugin_module and self._monitoring_args.plugin_class and config_set:
-                monitoring_module = __import__(str(self._monitoring_args.plugin_module),
-                                           fromlist=[str(self._monitoring_args.plugin_class)])
-                monitoring_class = getattr(monitoring_module, str(self._monitoring_args.plugin_class))
-                class_set = 1
-            else:
-                monitoring_class = None
-                class_set = 0
+                if self._monitoring_args.plugin_module and self._monitoring_args.plugin_class and config_set:
+                    monitoring_module = __import__(str(self._monitoring_args.plugin_module),
+                                                   fromlist=[str(self._monitoring_args.plugin_class)])
+                    monitoring_class = getattr(monitoring_module, str(self._monitoring_args.plugin_class))
+                    class_set = 1
+                else:
+                    monitoring_class = None
+                    class_set = 0
+            except ImportError:
+                msg = "User has configured monitoring but the configured files cannot be imported as they are missing."\
+                      + "\nPlease ensure you have configured Server Manager correctly and restart."
+                print msg
 
             if self._monitoring_args.analytics_ip and class_set:
                 self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_freq,
@@ -2814,17 +2819,21 @@ class VncServerManager():
             else:
                 self._smgr_log.log(self._smgr_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
 
-        if dict(config.items("MONITORING")).keys():
-            # Handle parsing for monitoring
-            monitoring_config_parser = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
-            monitoring_args = monitoring_config_parser.parse_args(args_str)
-            if monitoring_args:
-                self._smgr_log.log(self._smgr_log.DEBUG, "Monitoring arguments read from config.")
-                self._monitoring_args = monitoring_args
+        try:
+            if dict(config.items("MONITORING")).keys():
+                # Handle parsing for monitoring
+                monitoring_config_parser = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
+                monitoring_args = monitoring_config_parser.parse_args(args_str)
+                if monitoring_args:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "Monitoring arguments read from config.")
+                    self._monitoring_args = monitoring_args
+                else:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "No monitoring configuration set.")
+                    self._monitoring_args = None
             else:
                 self._smgr_log.log(self._smgr_log.DEBUG, "No monitoring configuration set.")
                 self._monitoring_args = None
-        else:
+        except ConfigParser.NoSectionError:
             self._smgr_log.log(self._smgr_log.DEBUG, "No monitoring configuration set.")
             self._monitoring_args = None
 
