@@ -326,11 +326,14 @@ def show_env_details(args):
     return rest_api_params
 # end def show_env_details
 
+
 def show_mon_status(args):
     rest_api_params = {}
     rest_api_params['object'] = 'MonStatus'
     rest_api_params['match_key'] = None
     rest_api_params['match_value'] = None
+    return rest_api_params
+
 
 def show_config(args_str=None):
     parser = parse_arguments()
