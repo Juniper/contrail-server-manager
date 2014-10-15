@@ -145,6 +145,12 @@ def parse_arguments():
                            help=("tag values for the server"
                                  "in t1=v1,t2=v2,... format"))
     parser_pwr_details.set_defaults(func=show_pwr_details)
+
+    # Subparser for monitoring-status
+    parser_mon_status = subparsers.add_parser(
+        "monitoring-status", help='Show the status of server monitoring')
+    parser_mon_status.set_defaults(func=show_mon_status)
+
     return parser
 # end def parse_arguments
 
@@ -319,6 +325,12 @@ def show_env_details(args):
         rest_api_params['match_value'] = None
     return rest_api_params
 # end def show_env_details
+
+def show_mon_status(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'MonStatus'
+    rest_api_params['match_key'] = None
+    rest_api_params['match_value'] = None
 
 def show_config(args_str=None):
     parser = parse_arguments()

@@ -268,22 +268,25 @@ class VncServerManager():
                 else:
                     monitoring_class = None
                     class_set = 0
-            except ImportError:
-                msg = "User has configured monitoring but the configured files cannot be imported as they are missing."\
-                      + "\nPlease ensure you have configured Server Manager correctly and restart."
-                print msg
 
-            if self._monitoring_args.analytics_ip and class_set:
-                self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_freq,
-                                                                self._serverDb,
-                                                                self._smgr_log, self._smgr_trans_log,
-                                                                self._monitoring_args.analytics_ip)
-                self._dev_env_monitoring_obj.sandesh_init(self._monitoring_args.analytics_ip)
-            else:
+                if self._monitoring_args.analytics_ip and class_set:
+                    self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_freq,
+                                                                    self._serverDb,
+                                                                    self._smgr_log, self._smgr_trans_log,
+                                                                    self._monitoring_args.analytics_ip)
+                    self._dev_env_monitoring_obj.sandesh_init(self._monitoring_args.analytics_ip)
+                    self._config_set = True
+                else:
+                    self._smgr_log.log(self._smgr_log.ERROR,
+                                       "Analytics IP and Monitoring API misconfigured, monitoring aborted")
+                    self._dev_env_monitoring_obj = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
+                    self._config_set = False
+
+            except ImportError:
                 self._smgr_log.log(self._smgr_log.ERROR,
-                                   "Analytics IP and Monitoring API misconfigured, monitoring aborted")
-                self._dev_env_monitoring_obj = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
-                self._monitoring_args = None
+                                   "Configured modules are missing. Server Manager will quit now.")
+                raise ImportError
+
         else:
             self._dev_env_monitoring_obj = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
         self._dev_env_monitoring_obj.daemon = True
@@ -306,6 +309,7 @@ class VncServerManager():
         bottle.route('/Temp', 'GET', self.get_temp_details)
         bottle.route('/Pwr', 'GET', self.get_pwr_details)
         bottle.route('/Env', 'GET', self.get_env_details)
+        bottle.route('/MonStatus', 'GET', self.get_mon_status)
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
         bottle.route('/image/upload', 'PUT', self.upload_image)
@@ -2327,7 +2331,7 @@ class VncServerManager():
     # Function to get details
     def get_env_details(self):
         try:
-            if self._monitoring_args:
+            if self._config_set is True:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'ENV')
             else:
@@ -2343,7 +2347,7 @@ class VncServerManager():
     #Function to get details
     def get_fan_details(self):
         try:
-            if self._monitoring_args:
+            if self._config_set is True:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'FAN')
             else:
@@ -2359,7 +2363,7 @@ class VncServerManager():
     # Function to get details
     def get_temp_details(self):
         try:
-            if self._monitoring_args:
+            if self._config_set is True:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'TEMP')
             else:
@@ -2375,13 +2379,44 @@ class VncServerManager():
     # Function to get details
     def get_pwr_details(self):
         try:
-            if self._monitoring_args:
+            if self._config_set is True:
                 ret_data = self.validate_smgr_env(bottle.request)
                 return self.get_server_env_details_by_type(ret_data, 'PWR')
             else:
                 msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
                       "\nServer Environement Information is unavailable."
                 return msg
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_DEV_ENV,
+                                     False)
+            abort(404, e.value)
+
+    # Function to get details
+
+    def get_mon_status(self):
+        try:
+            if self._config_set is True:
+                return "Configuration for Monitoring set correctly."
+            elif self._monitoring_args:
+                return_data = ""
+                if self._monitoring_args.analytics_ip is None:
+                    return_data += "The analytics IP parameter hasn't been correctly configured."
+                elif self._monitoring_args.query_class is None:
+                    return_data += "The Query API Class parameter hasn't been correctly configured."
+                elif self._monitoring_args.query_module is None:
+                    return_data += "The Query API Module parameter hasn't been correctly configured."
+                elif self._monitoring_args.plugin_class is None:
+                    return_data += "The Plugin API Class parameter hasn't been correctly configured."
+                elif self._monitoring_args.plugin_module is None:
+                    return_data += "The Plugin API Module parameter hasn't been correctly configured."
+
+                return_data += "\nReset the configuration in the sm-config.ini and restart Server Manager.\n"
+                return return_data
+            else:
+                return "Monitoring Parameters haven't been configured.\n" \
+                       "Reset the configuration in the sm-config.ini and restart Server Manager.\n"
+
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_DEV_ENV,
