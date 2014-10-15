@@ -33,6 +33,11 @@ APT
 EOF
 
 #--------------------------------------------------------------------------
+# Enable ssh for root
+sed -i '/PermitRootLogin/c\PermitRootLogin yes' /etc/ssh/sshd_config
+service ssh restart
+
+#--------------------------------------------------------------------------
 # Install puppet
 
 # Update sources.list so that ubuntu repo is available to download all
@@ -43,70 +48,67 @@ cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
 deb http://$server/thirdparty_packages/ ./
 
-# deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ dists/precise/main/binary-i386/
-# deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ dists/precise/restricted/binary-i386/
-# deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ precise main restricted
- 
-#deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ dists/precise/main/binary-i386/
-#deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ dists/precise/restricted/binary-i386/
-#deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ precise main restricted
- 
+#deb cdrom:[Ubuntu 14.04 _Trusty Tahr_ - Release i386]/ Trusty main restricted
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
-deb http://de.archive.ubuntu.com/ubuntu/ precise main restricted
-deb-src http://de.archive.ubuntu.com/ubuntu/ precise main restricted
- 
+
+deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted
+deb-src http://us.archive.ubuntu.com/ubuntu/ trusty main restricted
+
 ## Major bug fix updates produced after the final release of the
 ## distribution.
-deb http://de.archive.ubuntu.com/ubuntu/ precise-updates main restricted
-deb-src http://de.archive.ubuntu.com/ubuntu/ precise-updates main restricted
- 
+deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted
+deb-src http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted
+
 ## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
 ## team. Also, please note that software in universe WILL NOT receive any
 ## review or updates from the Ubuntu security team.
-deb http://de.archive.ubuntu.com/ubuntu/ precise universe
-deb-src http://de.archive.ubuntu.com/ubuntu/ precise universe
-deb http://de.archive.ubuntu.com/ubuntu/ precise-updates universe
-deb-src http://de.archive.ubuntu.com/ubuntu/ precise-updates universe
- 
-## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
-## team, and may not be under a free licence. Please satisfy yourself as to
-## your rights to use the software. Also, please note that software in
+deb http://us.archive.ubuntu.com/ubuntu/ trusty universe
+deb-src http://us.archive.ubuntu.com/ubuntu/ trusty universe
+deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates universe
+deb-src http://us.archive.ubuntu.com/ubuntu/ trusty-updates universe
+
+## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu 
+## team, and may not be under a free licence. Please satisfy yourself as to 
+## your rights to use the software. Also, please note that software in 
 ## multiverse WILL NOT receive any review or updates from the Ubuntu
 ## security team.
-deb http://de.archive.ubuntu.com/ubuntu/ precise multiverse
-deb-src http://de.archive.ubuntu.com/ubuntu/ precise multiverse
-deb http://de.archive.ubuntu.com/ubuntu/ precise-updates multiverse
-deb-src http://de.archive.ubuntu.com/ubuntu/ precise-updates multiverse
- 
+deb http://us.archive.ubuntu.com/ubuntu/ trusty multiverse
+deb-src http://us.archive.ubuntu.com/ubuntu/ trusty multiverse
+deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates multiverse
+deb-src http://us.archive.ubuntu.com/ubuntu/ trusty-updates multiverse
+
+## Uncomment the following two lines to add software from the 'backports'
+## repository.
 ## N.B. software from this repository may not have been tested as
 ## extensively as that contained in the main release, although it includes
 ## newer versions of some applications which may provide useful features.
 ## Also, please note that software in backports WILL NOT receive any review
 ## or updates from the Ubuntu security team.
-deb http://de.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
-deb-src http://de.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
- 
-deb http://security.ubuntu.com/ubuntu precise-security main restricted
-deb-src http://security.ubuntu.com/ubuntu precise-security main restricted
-deb http://security.ubuntu.com/ubuntu precise-security universe
-deb-src http://security.ubuntu.com/ubuntu precise-security universe
-deb http://security.ubuntu.com/ubuntu precise-security multiverse
-deb-src http://security.ubuntu.com/ubuntu precise-security multiverse
- 
+deb http://us.archive.ubuntu.com/ubuntu/ trusty-backports main restricted universe multiverse
+deb-src http://us.archive.ubuntu.com/ubuntu/ trusty-backports main restricted universe multiverse
+
 ## Uncomment the following two lines to add software from Canonical's
-## 'partner' repository.
-## This software is not part of Ubuntu, but is offered by Canonical and the
-## respective vendors as a service to Ubuntu users.
-# deb http://archive.canonical.com/ubuntu precise partner
-# deb-src http://archive.canonical.com/ubuntu precise partner
- 
-## Uncomment the following two lines to add software from Ubuntu's
-## 'extras' repository.
-## This software is not part of Ubuntu, but is offered by third-party
-## developers who want to ship their latest software.
-# deb http://extras.ubuntu.com/ubuntu precise main
-# deb-src http://extras.ubuntu.com/ubuntu precise main
+## 'partner' repository. This software is not part of Ubuntu, but is
+## offered by Canonical and the respective vendors as a service to Ubuntu
+## users.
+deb http://archive.canonical.com/ubuntu trusty partner
+deb-src http://archive.canonical.com/ubuntu trusty partner
+
+deb http://security.ubuntu.com/ubuntu trusty-security main restricted
+deb-src http://security.ubuntu.com/ubuntu trusty-security main restricted
+deb http://security.ubuntu.com/ubuntu trusty-security universe
+deb-src http://security.ubuntu.com/ubuntu trusty-security universe
+deb http://security.ubuntu.com/ubuntu trusty-security multiverse
+deb-src http://security.ubuntu.com/ubuntu trusty-security multiverse
+
+## Medibuntu - Ubuntu 14.04 "Trusty Tahr"
+## Please report any bug on https://bugs.launchpad.net/medibuntu/
+deb http://packages.medibuntu.org/ trusty free non-free
+deb-src http://packages.medibuntu.org/ trusty free non-free
+
+# Google software repository
+deb http://dl.google.com/linux/deb/ stable non-free
 
 EOF
 

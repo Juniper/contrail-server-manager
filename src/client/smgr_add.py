@@ -81,7 +81,10 @@ object_dict = {
         ("version", "Specify version for this image"),
         ("type",
          "ubuntu/centos/redhat/esxi5.1/esxi5.5/contrail-ubuntu-package/contrail-centos-package/contrail-storage-ubuntu-package"),
-        ("path", "complete path where image file is located on server")
+        ("path", "complete path where image file is located on server"),
+        ("parameters", OrderedDict([
+            ("kickstart", "kickstart file for base image"),
+            ("kickseed", "kickseed file for base image")])),
     ]),
     "tag" : OrderedDict ([
         ("tag1", "Specify tag name for tag1"),

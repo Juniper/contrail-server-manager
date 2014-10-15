@@ -65,7 +65,11 @@ image_fields = {
     "id": "",
     "type": "",
     "version": "",
-    "path": ""
+    "path": "",
+    "parameters": """{
+                "kickstart": "",
+                "kickseed":""
+                }"""
 }
 
 email_events = ["reimage_started", "reimage_completed", "provision_started", "provision_completed"]

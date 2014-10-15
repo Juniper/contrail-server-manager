@@ -17,21 +17,10 @@ class ServerMgrlogger:
         _smgr_log = None   
         def __init__(self):
             print "Logger init" 
-    #        logging.config.fileConfig('logger.conf')
+            logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
 
             #create logger
             self._smgr_log = logging.getLogger('SMGR')
-            self._smgr_log.setLevel(logging.DEBUG)
-
-            fh = logging.handlers.RotatingFileHandler('/opt/contrail/debug.log')
-            fh.setLevel(logging.DEBUG)
-
-            formatter = logging.Formatter('format=%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-            fh.setFormatter(formatter)
-
-            self._smgr_log.addHandler(fh)
-
 
 
         def log(self, level, msg):
@@ -107,17 +96,9 @@ class ServerMgrTransactionlogger:
         print "Transaction Logger init"
 
         #Create transactio logger
-        self._smgr_trans_log = logging.getLogger('TRANS')
-        self._smgr_trans_log.setLevel(logging.DEBUG)
+        logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
 
-        fh = logging.handlers.RotatingFileHandler('/opt/contrail/transaction.log')
-        fh.setLevel(logging.DEBUG)
-
-        formatter = logging.Formatter('format=%(asctime)s - %(name)s - %(message)s')
-
-        fh.setFormatter(formatter)
-
-        self._smgr_trans_log.addHandler(fh)
+        self._smgr_trans_log = logging.getLogger('TRANSACTION')
 
     def log(self, data, transaction_type, success=True):
         msg = None

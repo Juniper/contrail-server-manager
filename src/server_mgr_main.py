@@ -581,7 +581,10 @@ class VncServerManager():
                                 (k, v)
                 self._smgr_log.log(self._smgr_log.INFO,
                                    msg)
-                data[k] = v
+                if k == 'parameters':
+                    data[k] = eval(v)
+                else:
+                    data[k] = v
 
             """
             if k not in data:
@@ -1061,6 +1064,9 @@ class VncServerManager():
             abort(404, repr(e))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE)
+        for image in images:
+            if image.get("parameters", None) is not None:
+                image['parameters'] = eval(image['parameters'])
         return {"image": images}
     # end get_image
 
@@ -1130,10 +1136,7 @@ class VncServerManager():
                 if self._serverDb.check_obj(
                     "image", {"id" : image['id']},
                     raise_exception=False):
-                    self.validate_smgr_request("IMAGE", "PUT", bottle.request,
-                                                image, True)
-
-                    self._serverDb.modify_image(image)
+                    raise ServerMgrException("image modification is not allowed, delete and add it.")
                 else:
                     self.validate_smgr_request("IMAGE", "PUT", bottle.request,
                                                 image)
@@ -1142,6 +1145,7 @@ class VncServerManager():
                     # Get Image type
                     image_type = image.get("type", None)
                     image_path = image.get("path", None)
+                    image_params = image.get("parameters", {})
                     if (not image_id) or (not image_path):
                         self._smgr_log.log(self._smgr_log.ERROR,
                                      "image id or location not specified")
@@ -1159,7 +1163,6 @@ class VncServerManager():
                     dest = self._args.server_manager_base_dir + 'images/' + \
                         image_id + extn
                     subprocess.check_call(["cp", "-f", image_path, dest])
-                    image_params = {}
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") ):
                         subprocess.check_call(
@@ -1176,8 +1179,29 @@ class VncServerManager():
                         self._create_repo(
                             image_id, image_type, image_version, dest)
                     else:
-                        self._add_image_to_cobbler(image_id, image_type,
-                                                   image_version, dest)
+                        image_kickstart = image_params.get('kickstart', '')
+                        image_kickseed = image_params.get('kickseed', '')
+                        kickstart_dest = kickseed_dest = ''
+                        if image_kickstart:
+                            if not os.path.exists(image_kickstart):
+                                raise ServerMgrException("kickstart not found at %s" % \
+                                                             (image_kickstart))
+                            kickstart_dest = self._args.html_root_dir + \
+                                "contrail/images/" + image_id + ".ks"
+                            subprocess.check_call(["cp", "-f", image_kickstart,
+                                                  kickstart_dest])
+                        if image_kickseed:
+                            if not os.path.exists(image_kickseed):
+                                raise ServerMgrException("kickseed not found at %s" % \
+                                                         (image_kickseed))
+                            kickseed_dest = self._args.html_root_dir + \
+                                "contrail/images/" + image_id + ".seed"
+                            subprocess.check_call(["cp", "-f", image_kickseed,
+                                                  kickseed_dest])
+                        image_params['kickstart'], image_params['kickseed'] = \
+                                    self._add_image_to_cobbler(image_id, image_type,
+                                    image_version, dest,
+                                    kickstart_dest, kickseed_dest)
                     image_data = {
                         'id': image_id,
                         'version': image_version,
@@ -1374,8 +1398,6 @@ class VncServerManager():
                 "centos", "fedora", "ubuntu",
                 "contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]):
             abort(404, "image type not specified or invalid")
-        file_obj = bottle.request.files.file
-        file_name = file_obj.filename
         db_images = self._serverDb.get_image(
             {'id' : image_id}, detail=False)
         if db_images:
@@ -1383,6 +1405,10 @@ class VncServerManager():
                 404,
                 "image %s already exists" %(
                     image_id))
+        file_obj = bottle.request.files.get('file', None)
+        if file_obj is None:
+            abort(404, "image file is not specified")
+        file_name = file_obj.filename
         extn = os.path.splitext(file_name)[1]
         dest = self._args.server_manager_base_dir + 'images/' + \
             image_id + extn
@@ -1406,8 +1432,25 @@ class VncServerManager():
                 self._create_repo(
                     image_id, image_type, image_version, dest)
             else:
+                kickstart_obj = bottle.request.files.get('kickstart', None)
+                kickstart_dest = kickseed_dest = ''
+                if kickstart_obj:
+                    kickstart_dest = self._args.html_root_dir + \
+                        "contrail/images/" + image_id + ".ks"
+                    if kickstart_obj.file:
+                        with open(kickstart_dest, 'w') as open_file:
+                            open_file.write(kickstart_obj.file.read())
+                kickseed_obj = bottle.request.files.get('kickseed', None)
+                if kickseed_obj:
+                    kickseed_dest = self._args.html_root_dir + \
+                        "contrail/images/" + image_id + ".seed"
+                    if kickseed_obj.file:
+                        with open(kickseed_dest, 'w') as open_file:
+                            open_file.write(kickseed_obj.file.read())
+                image_params['kickstart'], image_params['kickseed'] = \
                 self._add_image_to_cobbler(image_id, image_type,
-                                           image_version, dest)
+                                           image_version, dest,
+                                           kickstart_dest, kickseed_dest)
             image_data = {
                 'id': image_id,
                 'version': image_version,
@@ -1725,42 +1768,62 @@ class VncServerManager():
     # /var/www/html/contrail/images. The distro name is XYZ, the profile
     # name is XYZ-P.
     def _add_image_to_cobbler(self, image_id, image_type,
-                              image_version, dest):
+                              image_version, dest,
+                              kickstart='', kickseed=''):
         # Mount the ISO
         distro_name = image_id
         copy_path = self._args.html_root_dir + \
             'contrail/images/' + distro_name
 
         try:
+            ks_file = kseed_file = ''
+            if kickstart:
+                ks_file = kickstart
+            if kickseed:
+                kseed_file = kickseed
             if ((image_type == "fedora") or (image_type == "centos")
                 or (image_type == "redhat")):
                 kernel_file = "/isolinux/vmlinuz"
                 initrd_file = "/isolinux/initrd.img"
-                ks_file = self._args.html_root_dir + \
-                    "kickstarts/contrail-centos.ks"
+                if not ks_file:
+                    ks_file = self._args.html_root_dir + \
+                        "kickstarts/contrail-centos.ks"
+                    kickstart = ks_file
                 kernel_options = ''
                 ks_meta = ''
             elif ((image_type == "esxi5.1") or
                   (image_type == "esxi5.5")):
                 kernel_file = "/mboot.c32"
                 initrd_file = "/imgpayld.tgz"
-                ks_file = self._args.html_root_dir + \
-                    "kickstarts/contrail-esxi.ks"
+                if not ks_file:
+                    ks_file = self._args.html_root_dir + \
+                        "kickstarts/contrail-esxi.ks"
+                    kickstart = ks_file
                 kernel_options = ''
                 ks_meta = 'ks_file=%s' %(ks_file)
             elif (image_type == "ubuntu"):
                 kernel_file = "/install/netboot/ubuntu-installer/amd64/linux"
                 initrd_file = (
                     "/install/netboot/ubuntu-installer/amd64/initrd.gz")
-                ks_file = self._args.html_root_dir + \
-                    "kickstarts/contrail-ubuntu.seed"
+                if not ks_file:
+                    ubuntu_ks_file = 'kickstarts/contrail-ubuntu.ks'
+                    kickstart = self._args.html_root_dir + \
+                                "kickstarts/" + ubuntu_ks_file
+                else:
+                    ubuntu_ks_file = 'contrail/images/' + ks_file.split('/').pop()
+                if not kseed_file:
+                    ks_file = self._args.html_root_dir + \
+                        "kickstarts/contrail-ubuntu.seed"
+                    kickseed = ks_file
+                else:
+                    ks_file = kseed_file
                 kernel_options = (
                     "lang=english console-setup/layoutcode=us locale=en_US "
                     "auto=true console-setup/ask_detect=false "
                     "priority=critical interface=auto "
                     "console-keymaps-at/keymap=us "
-                    "ks=http://%s/kickstarts/contrail-ubuntu.ks ") % (
-                    self._args.listen_ip_addr)
+                    "ks=http://%s/%s ") % (
+                    self._args.listen_ip_addr, ubuntu_ks_file)
                 ks_meta = ''
             else:
                 self._smgr_log.log(self._smgr_log.ERROR, "Invalid image type")
@@ -1781,6 +1844,7 @@ class VncServerManager():
 
             # Sync the above information
             self._smgr_cobbler.sync()
+            return kickstart, kickseed
         except Exception as e:
             self._smgr_log.log(self._smgr_log.ERROR, "Error adding image to cobbler %s" % e.value)
             abort(404, repr(e))
@@ -1908,6 +1972,14 @@ class VncServerManager():
                 dir_path = self._args.html_root_dir + \
                     'contrail/images/' + image_id
                 shutil.rmtree(dir_path, True)
+                ks_path = self._args.html_root_dir + \
+                    'contrail/images/' + image_id + '.ks'
+                if os.path.exists(ks_path):
+                    os.remove(ks_path)
+                kseed_path = self._args.html_root_dir + \
+                    'contrail/images/' + image_id + '.seed'
+                if os.path.exists(kseed_path):
+                    os.remove(kseed_path)
             # remove the entry from DB
             self._serverDb.delete_image(image_dict)
         except ServerMgrException as e:
@@ -2476,33 +2548,6 @@ class VncServerManager():
                 msg = "Error validating request"
                 raise ServerMgrException(msg)
 
-            # Calculate the total number of disks in the cluster
-            total_osd = int(0)
-            num_storage_hosts = int(0)
-            live_migration = "disable"
-            live_migration_host = ""
-            for server in servers:
-                server_params = eval(server['parameters'])
-                server_roles = eval(server['roles'])
-                if 'storage-compute' in server_roles:
-                    if 'disks' in server_params and len(server_params['disks']) > 0:
-                        total_osd += len(server_params['disks'])
-                        num_storage_hosts += 1
-                else:
-                    pass
-
-                if 'storage-master' in server_roles:
-                    if 'live_migration' in server_params and server_params['live_migration'] == "enable":
-                        if 'live_migration_nfs_vm_host' in server_params and len(server_params['live_migration_nfs_vm_host']) > 0 :
-                            live_migration = "enable"
-                            live_migration_host = server_params['live_migration_nfs_vm_host']
-                        else:
-                            live_migration = "disable"
-                            live_migration_host = ""
-                    else:
-                        pass
-                else:
-                    pass
 
             packages = self._serverDb.get_image(
                 {"id" : package_image_id}, detail=True)
@@ -2697,8 +2742,49 @@ class VncServerManager():
                 else:
                     msg = "Storage is disabled"
                     storage_status = '0'
-                    self._smgr_log.log(self._smgr_log.DEBUG, msg)
-                    provision_params['contrail-storage-enabled'] = storage_status
+                self._smgr_log.log(self._smgr_log.DEBUG, msg)
+
+                # Calculate the total number of disks in the cluster
+                total_osd = int(0)
+                num_storage_hosts = int(0)
+                live_migration = "disable"
+                live_migration_host = ""
+                live_migration_storage_scope = "local"
+                for role_server in role_servers['storage-compute']:
+                    server_params_compute = eval(role_server['parameters'])
+                    if 'disks' in server_params_compute and len(server_params_compute['disks']) > 0:
+                        total_osd += len(server_params_compute['disks'])
+                        num_storage_hosts += 1
+                    else:
+                        pass
+
+                for role_server in role_servers['storage-master']:
+                    server_params_master = eval(role_server['parameters'])
+                    if 'live_migration' in server_params_master and server_params_master['live_migration'] == "enable":
+                        if 'live_migration_nfs_vm_host' in server_params_master and len(
+                                server_params_master['live_migration_nfs_vm_host']) > 0:
+                            live_migration = "enable"
+                            live_migration_host = server_params_master['live_migration_nfs_vm_host']
+                        else:
+                            live_migration = "disable"
+                            live_migration_host = ""
+
+                        if 'live_migration_storage_scope' in server_params_master:
+                            live_migration_storage_scope = server_params_master['live_migration_storage_scope']
+                        else:
+                            pass
+
+                    else:
+                        pass
+
+                if live_migration_storage_scope == "local" or live_migration_storage_scope == "global":
+                    pass
+                else:
+                    msg = "Invalid Live Migration Storage Scope (local/global are valid)"
+                    raise ServerMgrException(msg)
+
+                provision_params['live_migration_storage_scope'] = live_migration_storage_scope
+                provision_params['contrail-storage-enabled'] = storage_status
                 provision_params['subnet-mask'] = subnet_mask
                 provision_params['host_roles'] = eval(server['roles'])
                 provision_params['storage_num_osd'] = total_osd
@@ -2740,7 +2826,7 @@ class VncServerManager():
 
                 storage_mon_host_ip_set = set()
                 for x in role_servers['storage-compute']:
-                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip( provision_params, x["ip_address"]).strip('"'))
+                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
                 for x in role_servers['storage-master']:
                     storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
 
