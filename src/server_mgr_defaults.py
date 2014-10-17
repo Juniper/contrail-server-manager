@@ -26,7 +26,9 @@ server_fields = {
     "control_data_network": "",
     "bond_interface": "",
     "ipmi_address": "",
-    "tag": ""
+    "tag": "",
+    "base_image_id": "",
+    "package_image_id": ""
 }
 
 cluster_fields = {
@@ -35,6 +37,8 @@ cluster_fields = {
     "id": "",
     "email": "",
     "primary_keys": "['id']",
+    "base_image_id": "",
+    "package_image_id": "",
     "parameters": """{
                 'router_asn': '64512',
                 'database_dir': '/home/cassandra',
@@ -63,6 +67,7 @@ image_fields = {
     "obj_name": "image",
     "primary_keys": "['id']",
     "id": "",
+    "category": "",
     "type": "",
     "version": "",
     "path": "",

@@ -30,6 +30,8 @@ object_dict = {
     "cluster" : OrderedDict ([
         ("id", "Specify unique id for this cluster"),
         ("email", "Email id for notifications"),
+        ("base_image_id", "Base image id"),
+        ("package_image_id", "Package id"),
         ("parameters", OrderedDict ([
              ("router_asn", "Router asn value"),
              ("subnet_mask", "Subnet mask"),
@@ -75,10 +77,13 @@ object_dict = {
         ("ipmi_username", "IPMI username"),
         ("ipmi_address", "IPMI address"),
         ("email", "email id for notifications (default use value from server's cluster)"),
+        ("base_image_id", "Base image id"),
+        ("package_image_id", "Package id")
     ]),
     "image" : OrderedDict ([
         ("id", "Specify unique image id for this image"),
         ("version", "Specify version for this image"),
+        ("category", "image/package"),
         ("type",
          "ubuntu/centos/redhat/esxi5.1/esxi5.5/contrail-ubuntu-package/contrail-centos-package/contrail-storage-ubuntu-package"),
         ("path", "complete path where image file is located on server"),

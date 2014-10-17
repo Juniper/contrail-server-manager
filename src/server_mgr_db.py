@@ -53,6 +53,14 @@ class ServerMgrDb:
             raise e
     # end _get_table_columns
 
+    def _add_table_column(self, cursor, table, column, column_type):
+        try:
+            cmd = "ALTER TABLE " + table + " ADD COLUMN " + column + " " + column_type
+            cursor.execute(cmd)
+        except lite.OperationalError:
+            pass
+    # end _add_table_column
+
     def __init__(self, db_file_name=def_server_db_file):
         try:
             self._smgr_log = ServerMgrlogger()
@@ -97,6 +105,16 @@ class ServerMgrDb:
                          value TEXT,
                          UNIQUE (tag_id),
                          UNIQUE (value))""")
+                # Add columns for image_table
+                self._add_table_column(cursor, image_table, "category", "TEXT")
+                # Add columns for cluster_table
+                self._add_table_column(cursor, cluster_table, "base_image_id", "TEXT")
+                self._add_table_column(cursor, cluster_table, "package_image_id", "TEXT")
+                self._add_table_column(cursor, cluster_table, "provisioned_id", "TEXT")
+                # Add columns for server_table
+                self._add_table_column(cursor, server_table, "reimaged_id", "TEXT")
+                self._add_table_column(cursor, server_table, "provisioned_id", "TEXT")
+
             self._get_table_columns()
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
 

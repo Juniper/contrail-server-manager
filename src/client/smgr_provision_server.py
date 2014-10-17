@@ -43,7 +43,7 @@ def parse_arguments(args_str=None):
                               " (default - %s)" %(
                               smgr_client_def._DEF_SMGR_CFG_FILE)))
     parser.add_argument(
-        "package_image_id",
+        "package_image_id", nargs='?',
         help="contrail package image id to be used for provisioning")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--server_id",
@@ -157,6 +157,10 @@ def provision_server(args_str=None):
         payload['provision_parameters'] = provision_params
 
     if (not args.no_confirm):
+        if args.package_image_id:
+            pkg_id_str = args.package_image_id
+        else:
+            pkg_id_str = "configured package"
         if match_key:
             msg = "Provision servers (%s:%s) with %s? (y/N) :" %(
                 match_key, match_value, args.package_image_id)
