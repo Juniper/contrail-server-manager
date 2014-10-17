@@ -108,6 +108,8 @@ class VncServerManager():
                    "contrail-storage-ubuntu-package",
                    "esxi5.5", "esxi5.1"]
     _iso_types = ["centos", "redhat", "ubuntu", "fedora", "esxi5.1", "esxi5.5"]
+    _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
+                      "contrail-storage-ubuntu-package"]
     _tags_dict = {}
     _rev_tags_dict = {}
 
@@ -636,10 +638,12 @@ class VncServerManager():
         ret_data['status'] = 1
 
         entity = request.json
-        package_image_id = entity.pop("package_image_id", None)
-        if package_image_id is None:
-            msg = "No contrail package specified for provisioning"
-            raise ServerMgrException(msg)
+        package_image_id = entity.pop("package_image_id", '')
+        if package_image_id:
+            self.get_package_image(package_image_id)
+        #if package_image_id is None:
+        #    msg = "No contrail package specified for provisioning"
+        #    raise ServerMgrException(msg)
         req_provision_params = entity.pop("provision_parameters", None)
         # if req_provision_params are specified, check contents for
         # validity, store the info in DB and proceed with the
@@ -733,6 +737,8 @@ class VncServerManager():
             ret_data["status"] = 0
             ret_data["servers"] = servers
             ret_data["package_image_id"] = package_image_id
+        ret_data['server_packages'] = \
+            self.get_server_packages(servers, package_image_id)
         return ret_data
 
     def validate_smgr_reboot(self, validation_data, request , data=None):
@@ -782,10 +788,7 @@ class VncServerManager():
             do_reboot = False
 
         # Get image version parameter
-        base_image_id = entity.pop("base_image_id", None)
-        if base_image_id is None:
-            msg = "No base image id specified"
-            raise ServerMgrException(msg)
+        base_image_id = entity.pop("base_image_id", '')
         package_image_id = entity.pop("package_image_id", '')
         # Now process other parameters there should be only one more
         if (len(entity) == 0):
@@ -1950,6 +1953,42 @@ class VncServerManager():
         return entity
     # end process_dhcp_event
 
+    def get_package_image(self, package_image_id):
+        package_image = {}
+        if not package_image_id:
+            return package_image_id, package_image
+        packages = self._serverDb.get_image(
+            {"id": package_image_id}, detail=True)
+        if not packages:
+            msg = "No package %s found" % (package_image_id)
+            raise ServerMgrException(msg)
+        if packages[0]['category'] and packages[0]['category'] != 'package':
+            msg = "Category is not package, it is %s" (packages[0]['category'])
+            raise ServerMgrException(msg)
+        if packages[0]['type'] not in self._package_types:
+            msg = "%s is not a package" % (package_image_id)
+            raise ServerMgrException(msg)
+        return package_image_id, packages[0]
+    # end get_package_image
+
+    def get_base_image(self, base_image_id):
+        base_image = {}
+        if not base_image_id:
+            return base_image_id, base_image
+        images = self._serverDb.get_image(
+            {"id": base_image_id}, detail=True)
+        if not images:
+            msg = "No Image %s found" % (base_image_id)
+            raise ServerMgrException(msg)
+        if images[0]['category'] and images[0]['category'] != 'image':
+            msg = "Category is not image, it is %s" (images[0]['category'])
+            raise ServerMgrException(msg)
+        if images[0]['type'] not in self._iso_types:
+            msg = "Image %s is not an iso" % (base_image_id)
+            raise ServerMgrException(msg)
+        return base_image_id, images[0]
+    # end get_base_image
+            
     # This call returns information about a provided server.
     # If no server if provided, information about all the servers
     # in server manager configuration is returned.
@@ -1968,21 +2007,18 @@ class VncServerManager():
                 elif match_key:
                     match_dict[match_key] = match_value
                 do_reboot = ret_data['do_reboot']
+
             reboot_server_list = []
-            images = self._serverDb.get_image(
-                {"id" : base_image_id}, detail=True)
-            if len(images) == 0:
-                msg = "No Image %s found" % (base_image_id)
-                raise ServerMgrException(msg)
-            if ( images[0] ['type'] not in self._iso_types ):
-                msg = "Image %s is not an iso" % (base_image_id)
-                raise ServerMgrException(msg)
-            base_image = images[0]
+            base_image = {}
+            if base_image_id:
+                base_image_id, base_image = self.get_base_image(base_image_id)
             servers = self._serverDb.get_server(
                 match_dict, detail=True)
             if len(servers) == 0:
                 msg = "No Servers found for %s" % (match_value)
                 raise ServerMgrException(msg)
+            reimage_status = {}
+            reimage_status['server'] = []
             for server in servers:
                 cluster = None
                 server_parameters = eval(server['parameters'])
@@ -1995,6 +2031,15 @@ class VncServerManager():
                 if cluster and cluster[0]['parameters']:
                     cluster_parameters = eval(cluster[0]['parameters'])
 
+                image = base_image
+                if not image:
+                    base_image_id = server.get('base_image_id', '')
+                    if not base_image_id and cluster:
+                        base_image_id = cluster[0].get('base_image_id', '')
+                    image_id, image = self.get_base_image(base_image_id)
+                if not image:
+                    msg = "No valid image id found for server %s" % (server['id'])
+                    raise ServerMgrException(msg)
                 password = mask = gateway = domain = None
                 server_id = server['id']
                 if 'password' in server and server['password']:
@@ -2036,8 +2081,8 @@ class VncServerManager():
                     raise ServerMgrException(msg)
 
                 reimage_parameters = {}
-                if ((base_image['type'] == 'esxi5.1') or
-                    (base_image['type'] == 'esxi5.5')):
+                if ((image['type'] == 'esxi5.1') or
+                    (image['type'] == 'esxi5.5')):
                     reimage_parameters['server_license'] = server_parameters.get(
                         'server_license', '')
                     reimage_parameters['esx_nicname'] = server_parameters.get(
@@ -2070,7 +2115,7 @@ class VncServerManager():
                     'ipmi_address', '')
                 reimage_parameters['partition'] = server_parameters.get('partition', '')
                 self._do_reimage_server(
-                    base_image, package_image_id, reimage_parameters)
+                    image, package_image_id, reimage_parameters)
 
                 # Build list of servers to be rebooted.
                 reboot_server = {
@@ -2081,6 +2126,10 @@ class VncServerManager():
                     'ipmi_address' : server.get('ipmi_address',"") }
                 reboot_server_list.append(
                     reboot_server)
+                server_status = {}
+                server_status['id'] = server['id']
+                server_status['base_image'] =  image['id']
+                reimage_status['server'].append(server_status)
             # end for server in servers
 
             # now reboot the servers, if no_reboot is not specified by user.
@@ -2102,7 +2151,9 @@ class VncServerManager():
                                      False)
             print 'Exception error is: %s' % e
             abort(404, "Error in reimaging the Server")
-        return "server(s) reimage issued"
+        reimage_status['return_code'] = "0"
+        reimage_status['return_message'] = "server(s) reimage issued"
+        return reimage_status
     # end reimage_server
 
     # API call to power-cycle the server (IMPI Interface)
@@ -2253,6 +2304,49 @@ class VncServerManager():
         print "*** tb_lineno:", exc_traceback.tb_lineno
         '''
 
+    def get_server_packages(self, servers, package_image_id):
+        server_packages = []
+        if package_image_id:
+            package_image_id, package = self.get_package_image(package_image_id)
+            puppet_manifest_version = \
+                eval(package['parameters'])['puppet_manifest_version']
+            package_type = package['type']
+        for server in servers:
+            server_pkg = {}
+            server_pkg['server'] = server
+            pkg_id = ''
+            package = {}
+            if not package_image_id:
+                pkg_id = server['package_image_id']
+                if pkg_id:
+                    pkg_id, package = self.get_package_image(pkg_id)
+                if not package:
+                    cluster_id = server.get('cluster_id', '')
+                    if not cluster_id:
+                        msg = "Package not found in server %s" % (server['id'])
+                        raise ServerMgrException(msg)
+                    else:
+                        cluster = self._serverDb.get_cluster(
+                            {"id": cluster_id}, detail=True)[0]
+                        pkg_id = cluster['package_image_id']
+                        pkg_id, package = self.get_package_image(pkg_id)
+                        if not package:
+                            msg = "Package not found in server/cluster %s/%s" % \
+                                (server['id'], cluster['id'])
+                            raise ServerMgrException(msg)
+                server_pkg['package_image_id'] = pkg_id
+                server_pkg['puppet_manifest_version'] = \
+                    eval(package['parameters'])['puppet_manifest_version']
+                server_pkg['package_type'] = package['type']
+            else:
+                server_pkg['package_image_id'] = package_image_id
+                server_pkg['puppet_manifest_version'] = puppet_manifest_version
+                server_pkg['package_type'] = package_type
+            server_packages.append(server_pkg)
+        return server_packages
+    # end get_server_packages
+
+                        
     # API call to provision server(s) as per roles/roles
     # defined for those server(s). This function creates the
     # puppet manifest file for the server and adds it to site
@@ -2269,23 +2363,18 @@ class VncServerManager():
             role_ids = {}
 
             ret_data = self.validate_smgr_request("PROVISION", "PROVISION", bottle.request)
-
             if ret_data['status'] == 0:
-                servers = ret_data['servers']
-                package_image_id = ret_data['package_image_id']
+                server_packages = ret_data['server_packages']
             else:
                 msg = "Error validating request"
                 raise ServerMgrException(msg)
 
-
-            packages = self._serverDb.get_image(
-                {"id" : package_image_id}, detail=True)
-            if len(packages) == 0:
-                msg = "No Package %s found" % (package_image_id)
-                raise ServerMgrException(msg)
-            package_type = packages[0] ['type']
-
-            for server in servers:
+            provision_status = {}
+            provision_status['server'] = []
+            for server_pkg in server_packages:
+                server = server_pkg['server']
+                package_image_id = server_pkg['package_image_id']
+                package_type = server_pkg['package_type']
                 server_params = eval(server['parameters'])
                 cluster = self._serverDb.get_cluster(
                     {"id" : server['cluster_id']},
@@ -2310,23 +2399,9 @@ class VncServerManager():
                         role_ids[role] = [x["id"] for x in role_servers[role]]
 
                 provision_params = {}
-                #TODO there is no need for image related stuff within the for
-                #loop, move them out
                 provision_params['package_image_id'] = package_image_id
                 provision_params['package_type'] = package_type
-                # Get puppet manifest version corresponding to this package_image_id
-                images = self._serverDb.get_image(
-                        {"id" : package_image_id}, detail=True)
-                if not len(images):
-                    msg = "Package %s not present" % (package_image_id)
-                    self._smgr_log.log(self._smgr_log.DEBUG, msg)
-                    raise ServerMgrException(msg)
-                image = images [0]
-                if image['type'] not in package_type_list:
-                    msg = "Package %s is not a valid package." % (package_image_id)
-                    self._smgr_log.log(self._smgr_log.DEBUG, msg)
-                    raise ServerMgrException(msg)
-                puppet_manifest_version = eval(image['parameters'])['puppet_manifest_version']
+                puppet_manifest_version = server_pkg['puppet_manifest_version']
                 provision_params['puppet_manifest_version'] = puppet_manifest_version
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
                 provision_params['roles'] = role_ips
@@ -2423,12 +2498,10 @@ class VncServerManager():
                     provision_params['esx_server'] = esx_server
                     provision_params['server_mac'] = server['mac_address']
                     provision_params['password'] = server['password']
-
                     if 'datastore' in server_params.keys():
                         provision_params['datastore'] = server_params['datastore']
                     else:
                         provision_params['datastore'] = "/vmfs/volumes/datastore1"
-
                 else:
                    provision_params['esx_uplink_nic'] = ""
                    provision_params['esx_fab_vswitch'] = ""
@@ -2439,8 +2512,6 @@ class VncServerManager():
                    provision_params['esx_ip'] = ""
                    provision_params['esx_username'] = ""
                    provision_params['esx_password'] = ""
-
-
 
                 if interface_created:
                     provision_params['setup_interface'] = "No"
@@ -2598,6 +2669,10 @@ class VncServerManager():
                         pass
 
                 self._do_provision_server(provision_params)
+                server_status = {}
+                server_status['id'] = server['id']
+                server_status['package_id'] = package_image_id
+                provision_status['server'].append(server_status)
                 #end of for
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2612,7 +2687,9 @@ class VncServerManager():
             abort(404, repr(e))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION)
-        return "server(s) provisioned"
+        provision_status['return_code'] = "0"
+        provision_status['return_message'] = "server(s) provision issued"
+        return provision_status
     # end provision_server
 
     # TBD
@@ -2912,8 +2989,8 @@ class VncServerManager():
             # Update Server table to add image name
             update = {
                 'mac_address': reimage_parameters['server_mac'],
-                'base_image_id': base_image['id'],
-                'package_image_id': package_image_id}
+                'reimaged_id': base_image['id'],
+                'provisioned_id': package_image_id}
             self._serverDb.modify_server(update)
 
             # TBD Need to add a way to confirm that server came up with
@@ -2938,10 +3015,10 @@ class VncServerManager():
                 ["puppet", "kick", "--host", host_name])
             # Log, return error if return code is non-null - TBD Abhay
 
-            # TBD Update Server table to stamp provisioned time.
-            # update = {'server_id':server_id,
-            #          'image_id':image_id}
-            # self._serverDb.modify_server(update)
+            # Update Server table with provisioned id
+            update = {'id': provision_parameters['server_id'],
+                      'provisioned_id': provision_parameters['package_image_id']}
+            self._serverDb.modify_server(update)
         except subprocess.CalledProcessError as e:
             msg = ("do_provision_server: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))

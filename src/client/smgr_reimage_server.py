@@ -42,7 +42,7 @@ def parse_arguments(args_str=None):
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               smgr_client_def._DEF_SMGR_CFG_FILE)))
-    parser.add_argument("base_image_id",
+    parser.add_argument("base_image_id", nargs='?',
                         help="image id for base image to be used")
     parser.add_argument("--package_image_id", "-p",
                         help=("Optional contrail package to be used"
@@ -126,8 +126,12 @@ def reimage_server(args_str=None):
         payload[match_key] = match_value
 
     if (not args.no_confirm):
+        if args.base_image_id:
+            image_str = args.base_image_id
+        else:
+            image_str = "configured"
         msg = "Reimage servers (%s:%s) with %s? (y/N) :" %(
-            match_key, match_value, args.base_image_id)
+            match_key, match_value, image_str)
         user_input = raw_input(msg).lower()
         if user_input not in ["y", "yes"]:
             sys.exit()

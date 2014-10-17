@@ -21,7 +21,9 @@
                  "hall" : "demo-hall",
                  "rack" : "demo-rack",
                  "user_tag"  : "demo-user"
-             }
+             },
+            "base_image_id": "",
+            "package_image_id": ""
         }
     ]
 }
