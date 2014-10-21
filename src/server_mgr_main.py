@@ -1087,17 +1087,11 @@ class VncServerManager():
                     subprocess.check_call(["cp", "-f", image_path, dest])
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") ):
-                        subprocess.check_call(
-                            ["cp", "-f", dest,
-                             self._args.html_root_dir + "contrail/images/"])
                         puppet_manifest_version = self._create_repo(
                             image_id, image_type, image_version, dest)
                         image_params['puppet_manifest_version'] = \
                             puppet_manifest_version
                     elif image_type == "contrail-storage-ubuntu-package":
-                        subprocess.check_call(
-                            ["cp", "-f", dest,
-                             self._args.html_root_dir + "contrail/images/"])
                         self._create_repo(
                             image_id, image_type, image_version, dest)
                     else:
@@ -1872,9 +1866,6 @@ class VncServerManager():
                     "contrail-centos-package": ".rpm",
                     "contrail-storage-ubuntu-package": ".deb"}
                 os.remove(self._args.server_manager_base_dir + 'images/' +
-                          image_id + ext_dir[image['type']])
-                os.remove(self._args.html_root_dir +
-                          'contrail/images/' +
                           image_id + ext_dir[image['type']])
 
                 # remove repo dir
