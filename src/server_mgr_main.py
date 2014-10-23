@@ -148,7 +148,7 @@ class VncServerManager():
             for key, value in tags_config_dict.iteritems():
                 if key not in self._tags_list:
                     self._smgr_log.log(
-                        self._smgr_log.DEBUG,
+                        self._smgr_log.ERROR,
                         "Invalid tag %s in tags ini file"
                         %(key))
                     exit()
@@ -162,7 +162,7 @@ class VncServerManager():
             self._serverDb = db(
                 self._args.server_manager_base_dir+self._args.database_name)
         except:
-            self._smgr_log.log(self._smgr_log.DEBUG,
+            self._smgr_log.log(self._smgr_log.ERROR,
                      "Error Connecting to Server Database %s"
                     % (self._args.server_manager_base_dir+self._args.database_name))
             exit()
@@ -199,9 +199,8 @@ class VncServerManager():
             status_thread.daemon = True
             status_thread.start()
         except:
-            self._smgr_log.log(self._smgr_log.DEBUG,
-                     "Error Connecting to Server Database %s"
-                    % (self._args.server_manager_base_dir+self._args.database_name))
+            self._smgr_log.log(self._smgr_log.ERROR,
+                     "Error starting the status thread")
             exit()
 
         # Create an instance of puppet interface class.
@@ -210,7 +209,7 @@ class VncServerManager():
             self._smgr_puppet = ServerMgrPuppet(self._args.server_manager_base_dir,
                                                 self._args.puppet_dir)
         except:
-            self._smgr_log.log(self._smgr_log.DEBUG, "Error creating instance of puppet class")
+            self._smgr_log.log(self._smgr_log.ERROR, "Error creating instance of puppet object")
             exit()
 
         # Read the JSON file, validate for correctness and add the entries to
@@ -316,6 +315,7 @@ class VncServerManager():
             abort(404, repr(e))
 
         self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_CFG_ALL)
+        self._smgr_log.log(self._smgr_log.DEBUG, "Config returned: %s" % (config))
         return config
     # end get_server_mgr_config
 
@@ -357,6 +357,7 @@ class VncServerManager():
         for x in entity:
             if x.get("parameters", None) is not None:
                 x['parameters'] = eval(x['parameters'])
+        self._smgr_log.log(self._smgr_log.DEBUG, "Entity returned: %s" % (print_rest_response(entity)))
         return {"cluster": entity}
     # end get_cluster
 
@@ -378,6 +379,8 @@ class VncServerManager():
             abort(404, repr(e))
         self._smgr_trans_log.log(bottle.request,
                                  self._smgr_trans_log.GET_SMGR_CFG_TAG)
+        self._smgr_log.log(self._smgr_log.DEBUG, "Entity returned: %s" % (tag_dict))
+
         return tag_dict
     # end get_server_tags
 
@@ -386,9 +389,7 @@ class VncServerManager():
         if obj_list is None:
            msg = "%s data not available in JSON" % \
                         type
-           self._smgr_log.log(self._smgr_log.ERROR,
-                        msg )
-           raise ServerMgrException(msg)
+           self.log_and_raise_exception(msg)
 
     def validate_smgr_get(self, validation_data, request, data=None):
         ret_data = {}
@@ -396,29 +397,34 @@ class VncServerManager():
         query_args = parse_qs(urlparse(request.url).query,
                                     keep_blank_values=True)
         detail = ("detail" in query_args)
-        query_args.pop("detail", None)
+        query_args.get("detail", None)
 
-        if len(query_args) == 0:
-            match_key = None
-            match_value = None
+        match_key = None
+        match_value = None
+        if ((detail == True and len(query_args) == 1) or\
+                 (detail == False and len(query_args) == 0 )):
             ret_data["status"] = 0
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_value
             ret_data["detail"] = detail
-        elif len(query_args) == 1:
-            match_key, match_value = query_args.popitem()
+        elif len(query_args) >= 1:
             match_keys_str = validation_data['match_keys']
             match_keys = eval(match_keys_str)
+            match_values = []	
+            matches = self.validate_smgr_keys(query_args, match_keys)
+            self._smgr_log.log(self._smgr_log.DEBUG, "match key returned: %s" % (matches))
+            match_key, match_values = matches.popitem()
+            #TODO, Do we need this ?
             # Append "discovered" as one of the values, though
             # its not part of server table fields.
             match_keys.append("discovered")
             if (match_key not in match_keys):
                 raise ServerMgrException("Match Key not present")
-            if match_value == None or match_value[0] == '':
+            if match_values == None or match_values[0] == '':
                 raise ServerMgrException("Match Value not Specified")
             ret_data["status"] = 0
             ret_data["match_key"] = match_key
-            ret_data["match_value"] = match_value[0]
+            ret_data["match_value"] = match_values[0]
             ret_data["detail"] = detail
         return ret_data
 
@@ -430,34 +436,26 @@ class VncServerManager():
             json_data = json.load(request.body)
         except ValueError as e :
             msg = "Invalid JSON data : %s " % e
-            self._smgr_log.log(self._smgr_log.ERROR,
-                               msg )
-            raise ServerMgrException(msg)
+            self.log_and_raise_exception(msg)
         entity = request.json
         #check if json data is present
         if (not entity):
             msg = "No JSON data specified"
-            self._smgr_log.log(self._smgr_log.ERROR,
-                               msg )
-            raise ServerMgrException(msg)
+            self.log_and_raise_exception(msg)
         #Check if object is present
         obj_name = validation_data['obj_name']
         objs = entity.get(obj_name)
         if len(objs) == 0:
             msg = ("No %s data specified") % \
                     (obj_name)
-            self._smgr_log.log(self._smgr_log.ERROR,
-            msg)
-            raise ServerMgrException(msg)
+            self.log_and_raise_exception(msg)
         #check if primary_keys are present
         primary_keys_str = validation_data['primary_keys']
         primary_keys = eval(primary_keys_str)
         for primary_key in primary_keys:
             if primary_key not in data:
                 msg =  ("Primary Key %s not present") % (primary_key)
-                self._smgr_log.log(self._smgr_log.ERROR,
-                msg)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
         #Parse for the JSON to find allowable fields
         remove_list = []
         for data_item_key, data_item_value in data.iteritems():
@@ -510,14 +508,10 @@ class VncServerManager():
             """
             if k not in data:
                 msg =  ("Field %s not present") % (k)
-                self._smgr_log.log(self._smgr_log.ERROR,
-                                   msg)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             if v != '' and data[k] not in v:
                 msg =  ("Value %s is not an option") % (data[k])
-                self._smgr_log.log(self._smgr_log.ERROR,
-                                   msg)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             """
         if 'roles' in data:
             if 'storage-compute' in data['roles'] and 'compute' not in data['roles']:
@@ -540,23 +534,13 @@ class VncServerManager():
          # Get the query argument.
         force = ("force" in query_args)
         query_args.pop("force", None)
-        if len(query_args) == 0:
-            msg = "No selection criteria specified"
-            self._smgr_log.log(self._smgr_log.ERROR,
-                     msg)
-            raise ServerMgrException(msg)
-        elif len(query_args) == 1:
-            match_key, match_value = query_args.popitem()
-            # check that match key is a valid one
-            if (match_key not in match_keys):
-                msg = "Invalid match key %s" % (match_key)
-                raise ServerMgrException(msg)
-            elif match_value[0] == '':
-                raise ServerMgrException("Match Value not Specified")
-            ret_data["status"] = 0
-            ret_data["match_key"] = match_key
-            ret_data["match_value"] = match_value[0]
-            ret_data["force"] = force
+        matches = self.validate_smgr_keys(query_args, match_keys)
+        match_key, match_values = matches.popitem()
+
+        ret_data["status"] = 0
+        ret_data["match_key"] = match_key
+        ret_data["match_value"] = match_values[0]
+        ret_data["force"] = force
         return ret_data
 
     #TODO Need to reomve
@@ -576,9 +560,7 @@ class VncServerManager():
         for match_key in match_keys:
             if match_key not in data:
                 msg =  ("Match Key %s not present") % (match_key)
-                self._smgr_log.log(self._smgr_log.ERROR,
-                     msg)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
         #TODO Handle replace
         return ret_data
 
@@ -600,7 +582,7 @@ class VncServerManager():
             if len(duplicate_roles):
                 msg = "Duplicate Roles '%s' present" % \
                         ", ".join(str(e) for e in duplicate_roles)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             cluster_role_list.extend(eval(server['roles']))
 
         cluster_unique_roles = set(cluster_role_list)
@@ -609,8 +591,7 @@ class VncServerManager():
         if len(missing_roles):
             msg = "Mandatory roles \"%s\" are not present" % \
             ", ".join(str(e) for e in missing_roles)
-            self._smgr_log.log(self._smgr_log.DEBUG, msg)
-            raise ServerMgrException(msg)
+            self.log_and_raise_exception(msg)
 
         unknown_roles = cluster_unique_roles.difference(roles_set)
         unknown_roles.difference_update(optional_role_set)
@@ -618,8 +599,7 @@ class VncServerManager():
         if len(unknown_roles):
             msg = "Unknown Roles: %s" % \
             ", ".join(str(e) for e in unknown_roles)
-            self._smgr_log.log(self._smgr_log.DEBUG, msg)
-            raise ServerMgrException(msg)
+            self.log_and_raise_exception(msg)
 
         return 0
 
@@ -638,13 +618,13 @@ class VncServerManager():
         ret_data['status'] = 1
 
         entity = request.json
-        package_image_id = entity.pop("package_image_id", '')
+        package_image_id = entity.get("package_image_id", '')
         if package_image_id:
             self.get_package_image(package_image_id)
         #if package_image_id is None:
         #    msg = "No contrail package specified for provisioning"
         #    raise ServerMgrException(msg)
-        req_provision_params = entity.pop("provision_parameters", None)
+        req_provision_params = entity.get("provision_parameters", None)
         # if req_provision_params are specified, check contents for
         # validity, store the info in DB and proceed with the
         # provisioning step.
@@ -655,20 +635,20 @@ class VncServerManager():
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             if (type(roles) != type({})):
                 msg = "Invalid roles definition"
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             prov_servers = {}
             for key, value in roles.iteritems():
                 if key not in role_list:
                     msg = "invalid role %s in provision file" %(
                             key)
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
                 if type(value) != type ([]):
                     msg = "role %s needs to have server list" %(
                         key)
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
                 for server in value:
                     if server not in prov_servers:
                         prov_servers[server] = [key]
@@ -687,7 +667,7 @@ class VncServerManager():
                 if ((cluster_id != None) and
                     (server['cluster_id'] != cluster_id)):
                     msg = "all servers must belong to same cluster"
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
                 cluster_id = server['cluster_id']
             # end for
             #Modify the roles
@@ -699,24 +679,14 @@ class VncServerManager():
             # end for
             if len(servers) == 0:
                 msg = "No servers found"
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             ret_data["status"] = 0
             ret_data["servers"] = servers
             ret_data["package_image_id"] = package_image_id
         else:
-            if (len(entity) == 0):
-                msg = "No servers specified"
-                raise ServerMgrException(msg)
-            elif len(entity) == 1:
-                match_key, match_value = entity.popitem()
-                # check that match key is a valid one
-                if (match_key not in (
-                    "id", "mac_address", "cluster_id", "tag")):
-                    msg = "Invalid Query arguments"
-                    raise ServerMgrException(msg)
-            else:
-                msg = "No servers specified"
-                raise ServerMgrException(msg)
+            matches = self.validate_smgr_keys(entity)
+            match_key, match_value = matches.popitem()
+#            match_value = match_values[0]
             # end else
             match_dict = {}
             if match_key == "tag":
@@ -728,11 +698,11 @@ class VncServerManager():
             if len(servers) == 0:
                 msg = "No servers found for %s" % \
                             (match_value)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             cluster_id = servers[0]['cluster_id']
             if not cluster_id:
-                msg =  ("No Clusterassociated with server %s") % (match_value)
-                raise ServerMgrException(msg)
+                msg =  ("No Cluster associated with server %s") % (match_value)
+                self.log_and_raise_exception(msg)
             self._validate_roles(cluster_id)
             ret_data["status"] = 0
             ret_data["servers"] = servers
@@ -748,25 +718,15 @@ class VncServerManager():
 
         entity = request.json
         # Get parameter to check if netboot should be enabled.
-        net_boot = entity.pop("net_boot", None)
+        net_boot = entity.get("net_boot", None)
         if ((not net_boot) or
             (net_boot not in ["y","Y","1"])):
             net_boot = False
         else:
             net_boot = True
-        if len(entity) == 0:
-            msg = "No servers specified"
-            raise ServerMgrException(msg)
-        elif len(entity) == 1:
-            match_key, match_value = entity.popitem()
-            # check that match key is a valid one
-            if (match_key not in ("id", "mac_address",
-                                  "tag", "cluster_id")):
-                msg = "Invalid Query arguments"
-                raise ServerMgrException(msg)
-        else:
-            msg = "Invalid Query arguments"
-            raise ServerMgrException(msg)
+        matches = self.validate_smgr_keys(entity)
+        match_key, match_value = matches.popitem()
+
         ret_data['status'] = 0
         ret_data['match_key'] = match_key
         ret_data['match_value'] = match_value
@@ -782,28 +742,22 @@ class VncServerManager():
         # Get parameter to check server(s) are to be rebooted
         # following reimage configuration in cobbler. Default is yes.
         do_reboot = True
-        no_reboot = entity.pop("no_reboot", None)
+        no_reboot = entity.get("no_reboot", None)
         if ((no_reboot) and
             (no_reboot in ["y","Y","1"])):
             do_reboot = False
 
         # Get image version parameter
-        base_image_id = entity.pop("base_image_id", '')
-        package_image_id = entity.pop("package_image_id", '')
-        # Now process other parameters there should be only one more
-        if (len(entity) == 0):
-            msg = "No servers specified"
-            raise ServerMgrException(msg)
-        elif len(entity) == 1:
-            match_key, match_value = entity.popitem()
-            # check that match key is a valid one
-            if (match_key not in ("id", "mac_address",
-                                  "tag","cluster_id")):
-                msg = "Invalid Query arguments"
-                raise ServerMgrException(msg)
-        else:
-            msg = "No servers specified"
-            raise ServerMgrException(msg)
+        base_image_id = entity.get("base_image_id", None)
+        package_image_id = entity.get("package_image_id", '')
+
+        if base_image_id is None:
+            msg = "No base image id specified"
+            self.log_and_raise_exception(msg)
+
+        matches = self.validate_smgr_keys(entity)
+        match_key, match_value = matches.popitem()
+
         ret_data['status'] = 0
         ret_data['match_key'] = match_key
         ret_data['match_value'] = match_value
@@ -813,10 +767,22 @@ class VncServerManager():
         return ret_data
         # end else
 
+    def validate_smgr_keys(self, entity, keys = ["id", "mac_address","tag","cluster_id"]):
+        found = False
+        for key in keys:
+	    if key in entity:
+	        found = True
+	        match_key = key
+	        match_value = entity[key]		
+        if found == False:
+	    msg = "Match key not present"
+	    self.log_and_raise_exception(msg)
+        return {match_key: match_value}
 
 
     def validate_smgr_request(self, type, oper, request, data = None, modify =
                               False):
+        self._smgr_log.log(self._smgr_log.DEBUG, "validate_smgr_request")
         ret_data = {}
         ret_data['status'] = 1
         if type == "SERVER":
@@ -829,20 +795,23 @@ class VncServerManager():
             validation_data = None
 
         if oper == "GET":
-            return self.validate_smgr_get(validation_data, request, data)
+            ret_val_data = self.validate_smgr_get(validation_data, request, data)
         elif oper == "PUT":
-            return self.validate_smgr_put(validation_data, request, data, modify)
+            ret_val_data = self.validate_smgr_put(validation_data, request, data, modify)
         elif oper == "DELETE":
-            return self.validate_smgr_delete(validation_data, request, data)
+            ret_val_data = self.validate_smgr_delete(validation_data, request, data)
         elif oper == "MODIFY":
-            return self.validate_smgr_modify(validation_data, request, data)
+            ret_val_data = self.validate_smgr_modify(validation_data, request, data)
         elif oper == "PROVISION":
-            return self.validate_smgr_provision(validation_data, request, data)
+            ret_val_data = self.validate_smgr_provision(validation_data, request, data)
         elif oper == "REBOOT":
-            return self.validate_smgr_reboot(validation_data, request, data)
+            ret_val_data = self.validate_smgr_reboot(validation_data, request, data)
         elif oper == "REIMAGE":
-            return self.validate_smgr_reimage(validation_data, request, data)
+            ret_val_data = self.validate_smgr_reimage(validation_data, request, data)
 
+        self._smgr_log.log(self._smgr_log.DEBUG, "ret_val_data returned: %s" % (ret_val_data))
+
+	return ret_val_data
     # This function converts the string of tags received in REST call and make
     # a dictionary of tag keys that can be passed to match servers from DB.
     # The match_value (tags received are in form tag1=value,tag2=value etc.
@@ -860,9 +829,7 @@ class VncServerManager():
             else:
                 msg = ("Unknown tag %s specified" %(
                     tag[0]))
-                self._smgr_log.log(
-                    self._smgr_log.INFO, msg)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             # end else
         return match_dict
     # end _process_server_tags
@@ -900,6 +867,7 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
         # Convert some of the fields in server entry to match what is accepted for put
+        self._smgr_log.log(self._smgr_log.DEBUG, "JSON response:%s" % (print_rest_response(servers)))
         return {"server": servers}
     # end get_server_status
 
@@ -911,6 +879,7 @@ class VncServerManager():
     def get_server(self):
         ret_data = None
         self._smgr_log.log(self._smgr_log.DEBUG, "get_server")
+        servers = []
         try:
             ret_data = self.validate_smgr_request("SERVER", "GET",
                                                          bottle.request)
@@ -934,7 +903,7 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
             abort(404, repr(e))
-        self._smgr_log.log(self._smgr_log.DEBUG, servers)
+        self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(servers)))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
         # Convert some of the fields in server entry to match what is accepted for put
@@ -989,6 +958,7 @@ class VncServerManager():
         for image in images:
             if image.get("parameters", None) is not None:
                 image['parameters'] = eval(image['parameters'])
+        self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(images)))
         return {"image": images}
     # end get_image
 
@@ -1199,7 +1169,7 @@ class VncServerManager():
             if key not in self._rev_tags_dict:
                 msg = "Invalid tag %s in server entry" %(
                     key)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
     # end validate_server_mgr_tags
 
     def put_server(self):
@@ -1251,9 +1221,7 @@ class VncServerManager():
                 if key not in self._tags_list:
                     msg = ("Invalid tag %s "
                            "specified" %(key))
-                    self._smgr_log.log(
-                        self._smgr_log.ERROR, msg)
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
 
             for key, value in entity.iteritems():
                 current_value = self._tags_dict.get(key, None)
@@ -1267,9 +1235,7 @@ class VncServerManager():
                             msg = (
                                 "Cannot modify tag name "
                                 "for %s, used in server table" %(key))
-                            self._smgr_log.log(
-                                self._smgr_log.ERROR, msg)
-                            raise ServerMgrException(msg)
+                            self.log_and_raise_exception(msg)
 
             for key, value in entity.iteritems():
                 if value:
@@ -1849,12 +1815,12 @@ class VncServerManager():
             image_id = bottle.request.query.id
             if not image_id:
                 msg = "Image Id not specified"
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             image_dict = {"id" : image_id}
             images = self._serverDb.get_image(image_dict, detail=True)
             if not images:
                 msg = "Image %s doesn't exist" % (image_id)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
                 self._smgr_log.log(self._smgr_log.ERROR,
                         msg)
             image = images[0]
@@ -1944,6 +1910,11 @@ class VncServerManager():
         return entity
     # end process_dhcp_event
 
+    def log_and_raise_exception(self, msg):
+         self._smgr_log.log(self._smgr_log.ERROR, msg)
+         raise ServerMgrException(msg)         
+ 
+
     def get_package_image(self, package_image_id):
         package_image = {}
         if not package_image_id:
@@ -2007,7 +1978,7 @@ class VncServerManager():
                 match_dict, detail=True)
             if len(servers) == 0:
                 msg = "No Servers found for %s" % (match_value)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             reimage_status = {}
             reimage_status['server'] = []
             for server in servers:
@@ -2039,7 +2010,7 @@ class VncServerManager():
                     password = cluster_parameters['password']
                 else:
                     msg = "Missing Password for " + server_id
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
 
                 if 'subnet_mask' in server and server['subnet_mask']:
                     subnet_mask = server['subnet_mask']
@@ -2047,7 +2018,7 @@ class VncServerManager():
                     subnet_mask = cluster_parameters['subnet_mask']
                 else:
                     msg = "Missing prefix/mask for " + server_id
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
 
                 if 'gateway' in server and server['gateway']:
                     gateway = server['gateway']
@@ -2055,7 +2026,7 @@ class VncServerManager():
                     gateway = cluster_parameters['gateway']
                 else:
                     msg = "Missing gateway for " + server_id
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
 
                 if 'domain' in server and server['domain']:
                     domain = server['domain']
@@ -2063,13 +2034,13 @@ class VncServerManager():
                     domain = cluster_parameters['domain']
                 else:
                     msg = "Missing domain for " + server_id
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
 
                 if 'ip_address' in server and server['ip_address']:
                     ip = server['ip_address']
                 else:
                     msg = "Missing ip for " + server_id
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
 
                 reimage_parameters = {}
                 if ((image['type'] == 'esxi5.1') or
@@ -2088,10 +2059,10 @@ class VncServerManager():
                 reimage_parameters['server_domain'] = domain
                 if 'interface_name' not in server_parameters:
                     msg = "Missing interface name for " + server_id
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
                 if 'ipmi_addresss' in server and server['ipmi_addresss'] == None:
                     msg = "Missing ipmi address for " + server_id
-                    raise ServerMgrException(msg)
+                    self.log_and_raise_exception(msg)
                 reimage_parameters['server_ifname'] = server_parameters['interface_name']
                 reimage_parameters['ipmi_type'] = server.get('ipmi_type')
                 if not reimage_parameters['ipmi_type']:
@@ -2171,7 +2142,7 @@ class VncServerManager():
             if len(servers) == 0:
                 msg = "No Servers found for match %s" % \
                     (match_value)
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
             for server in servers:
                 cluster = None
                 #if its None,It gets the CLUSTER list
@@ -2276,12 +2247,12 @@ class VncServerManager():
         exc_type, exc_value, exc_traceback = sys.exc_info()
         if not exc_type or not exc_value or not exc_traceback:
             return
-        self._smgr_log.log(self._smgr_log.DEBUG, "*****TRACEBACK-START*****")
+        self._smgr_log.log(self._smgr_log.ERROR, "*****TRACEBACK-START*****")
         tb_lines = traceback.format_exception(exc_type, exc_value,
                           exc_traceback)
         for tb_line in tb_lines:
-            self._smgr_log.log(self._smgr_log.DEBUG, tb_line)
-        self._smgr_log.log(self._smgr_log.DEBUG, "*****TRACEBACK-END******")
+            self._smgr_log.log(self._smgr_log.ERROR, tb_line)
+        self._smgr_log.log(self._smgr_log.ERROR, "*****TRACEBACK-END******")
 
         #use below formating if needed
         '''
@@ -2358,7 +2329,7 @@ class VncServerManager():
                 server_packages = ret_data['server_packages']
             else:
                 msg = "Error validating request"
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg)
 
             provision_status = {}
             provision_status['server'] = []
@@ -2635,7 +2606,7 @@ class VncServerManager():
                             image_ids[image['id']] = cur_image[0]['type']
                         else:
                             msg = "No images found"
-                            raise ServerMgrException(msg)
+                            self.log_and_raise_exception(msg)
                     if server_params['storage_repo_id'] in image_ids:
                         if image_ids[server_params['storage_repo_id']] == 'contrail-storage-ubuntu-package':
                             provision_params['storage_repo_id'] = server_params['storage_repo_id']
@@ -3033,6 +3004,19 @@ class VncServerManager():
     # end _create_server_manager_config
 
 # End class VncServerManager()
+
+def print_rest_response(resp):
+        if resp:
+            try:
+                if type(resp) is str:
+                    resp_obj = json.loads(resp)
+                else:
+                    resp_obj = resp
+                resp = json.dumps(resp_obj, sort_keys=True, indent=4)
+            except ValueError:
+                pass
+            return resp
+
 
 
 def main(args_str=None):

@@ -5,6 +5,8 @@ import pdb
 import logging
 import logging.config
 import logging.handlers
+import inspect
+import os
 
 class ServerMgrlogger:
     class _ServerMgrlogger:
@@ -24,17 +26,30 @@ class ServerMgrlogger:
 
 
         def log(self, level, msg):
+            frame,filename,line_number,function_name,lines,index = inspect.stack()[1]
+            log_dict = {}
+            log_dict['log_frame'] = frame
+            log_dict['log_filename'] = os.path.basename(filename)
+            log_dict['log_line_number'] = line_number
+            log_dict['log_function_name'] = function_name
+            log_dict['log_line'] = lines
+            log_dict['log_index'] = index
             print "Log command"
-            if level == self.DEBUG:
-                self._smgr_log.debug(msg)
-            elif level == self.INFO:
-                self._smgr_log.info(msg)
-            elif level == self.WARN:
-                self._smgr_log.warn(msg)
-            elif level == self.ERROR:
-                self._smgr_log.error(msg)
-            elif level == self.CRITICAL:
-                self._smgr_log.critical(msg)
+            try:
+                if level == self.DEBUG:
+                    self._smgr_log.debug(msg, extra=log_dict)
+                elif level == self.INFO:
+                    self._smgr_log.info(msg, None, log_dict)
+                elif level == self.WARN:
+                    self._smgr_log.warn(msg, None, log_dict)
+                elif level == self.ERROR:
+                    self._smgr_log.error(msg, None, log_dict)
+                elif level == self.CRITICAL:
+                    self._smgr_log.critical(msg, None, log_dict)
+            except formatException as e:
+                print "format exception"
+            except Exception as e:
+                print "Error logging msg"
 
         def set_level(self, log, level):
             print "set log level"
@@ -100,69 +115,71 @@ class ServerMgrTransactionlogger:
 
     def log(self, data, transaction_type, success=True):
         msg = None
+        if data.query_string == '':
+            query_string = "ALL"
+        else:
+            query_string = data.query_string
+        if success:
+            success_str = "Success"
+        else:
+            success_str = "Failed"
+        
+        #Get the frame detail and so on
+
         if transaction_type == self.GET_SMGR_CFG_ALL:
-            msg = "ACTION %s: %s %s" % \
-                     (self.GET_SMGR_CFG_ALL, data.query_string, success)
+            msg = "ACTION %s: %s %s %s" % \
+                     (self.GET_SMGR_CFG_ALL, data.url, query_string, success_str)
         elif transaction_type == self.GET_SMGR_CFG_CLUSTER:
-            msg = "ACTION %s: %s %s" % \
-                       (self.GET_SMGR_CFG_CLUSTER, data.query_string, success)
+            msg = "ACTION %s: %s %s %s" % \
+                       (self.GET_SMGR_CFG_CLUSTER, data.url, query_string, success_str)
         elif transaction_type == self.GET_SMGR_CFG_SERVER:
-             msg = "ACTION %s: %s %s" % \
-                        (self.GET_SMGR_CFG_SERVER, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (self.GET_SMGR_CFG_SERVER, data.url, query_string, success_str)
         elif transaction_type == self.GET_SMGR_CFG_IMAGE:
-             msg = "ACTION %s: %s %s" % \
-                        (self.GET_SMGR_CFG_IMAGE, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (self.GET_SMGR_CFG_IMAGE, data.url, query_string, success_str)
         elif transaction_type == self.GET_SMGR_CFG_TAG:
-             msg = "ACTION %s: %s %s" % \
-                        (self.GET_SMGR_CFG_TAG, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (self.GET_SMGR_CFG_TAG, data.url, query_string, success_str)
         elif transaction_type == self.PUT_SMGR_CFG_ALL:
-            msg = "ACTION %s: %s %s" % \
-                     (transaction_type, data.query_string, success)
+            msg = "ACTION %s: %s %s %s" % \
+                     (transaction_type, data.url, data.json, success_str)
         elif transaction_type == self.PUT_SMGR_CFG_CLUSTER:
-            msg = "ACTION %s: %s %s" % \
-                       (transaction_type, data.query_string, success)
+            msg = "ACTION %s: %s %s %s" % \
+                       (transaction_type, data.url, data.json, success_str)
         elif transaction_type == self.PUT_SMGR_CFG_SERVER:
-             msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (transaction_type, data.url, data.json, success_str)
         elif transaction_type == self.PUT_SMGR_CFG_IMAGE:
-             msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (transaction_type, data.url, data.json, success_str)
         elif transaction_type == self.PUT_SMGR_CFG_TAG:
-             msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (transaction_type, data.url, data.json, success_str)
         elif transaction_type == self.DELETE_SMGR_CFG_ALL:
-            msg = "ACTION %s: %s %s" % \
-                     (transaction_type, data.query_string, success)
+            msg = "ACTION %s: %s %s %s" % \
+                     (transaction_type, data.url, query_string, success_str)
         elif transaction_type == self.DELETE_SMGR_CFG_CLUSTER:
-            msg = "ACTION %s: %s %s" % \
-                       (transaction_type, data.query_string, success)
+            msg = "ACTION %s: %s %s %s" % \
+                       (transaction_type, data.url, query_string, success_str)
         elif transaction_type == self.DELETE_SMGR_CFG_SERVER:
-             msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (transaction_type, data.url, query_string, success_str)
         elif transaction_type == self.DELETE_SMGR_CFG_IMAGE:
-             msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (transaction_type, data.url, query_string, success_str)
         elif transaction_type == self.MODIFY_SMGR_CFG_ALL:
-            msg = "ACTION %s: %s %s" % \
-                     (transaction_type, data.query_string, success)
-        elif transaction_type == self.MODIFY_SMGR_CFG_CLUSTER:
-            msg = "ACTION %s: %s %s" % \
-                       (transaction_type, data.query_string, success)
-        elif transaction_type == self.MODIFY_SMGR_CFG_SERVER:
-             msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
-        elif transaction_type == self.MODIFY_SMGR_CFG_IMAGE:
-             msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
+            msg = "ACTION %s: %s %s %s" % \
+                     (transaction_type, data.url, data.json, success_str)
         elif transaction_type == self.SMGR_REIMAGE:
-             msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (transaction_type, data.url, data.json, success_str)
         elif transaction_type == self.SMGR_REBOOT:
-             msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (transaction_type, data.url, data.json, success_str)
         elif transaction_type == self.SMGR_PROVISION:
-             msg = "ACTION %s: %s %s" % \
-                        (transaction_type, data.query_string, success)
+             msg = "ACTION %s: %s %s %s" % \
+                        (transaction_type, data.url, data.json, success_str)
 
         self._smgr_trans_log.error(msg)
 
