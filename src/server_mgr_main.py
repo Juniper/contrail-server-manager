@@ -2999,17 +2999,18 @@ class VncServerManager():
             # Now call puppet to provision the server.
             self._smgr_puppet.provision_server(
                 provision_parameters)
+
+            # Update Server table with provisioned id
+            update = {'id': provision_parameters['server_id'],
+                      'provisioned_id': provision_parameters['package_image_id']}
+            self._serverDb.modify_server(update)
+
             # Now kickstart agent run on the target
             host_name = provision_parameters['server_id'] + "." + \
                 provision_parameters.get('domain', '')
             rc = subprocess.check_call(
                 ["puppet", "kick", "--host", host_name])
             # Log, return error if return code is non-null - TBD Abhay
-
-            # Update Server table with provisioned id
-            update = {'id': provision_parameters['server_id'],
-                      'provisioned_id': provision_parameters['package_image_id']}
-            self._serverDb.modify_server(update)
         except subprocess.CalledProcessError as e:
             msg = ("do_provision_server: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
