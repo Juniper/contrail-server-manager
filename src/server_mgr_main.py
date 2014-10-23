@@ -17,6 +17,8 @@ import datetime
 import subprocess
 import json
 import argparse
+from gevent import monkey
+monkey.patch_all(thread=not 'unittest' in sys.modules)
 import bottle
 from bottle import route, run, request, abort
 import ConfigParser
@@ -40,6 +42,7 @@ from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
+from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 from send_mail import send_mail
 import tempfile
 
@@ -112,7 +115,9 @@ class VncServerManager():
                       "contrail-storage-ubuntu-package"]
     _tags_dict = {}
     _rev_tags_dict = {}
-
+    _dev_env_monitoring_obj = None
+    _dev_env_querying_obj = None
+    _dev_env_monitoring_handler = None
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
 
@@ -244,6 +249,50 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
+        if self._monitoring_args:
+            try:
+                if self._monitoring_args.query_module and self._monitoring_args.query_class:
+                    querying_module = __import__(str(self._monitoring_args.query_module),
+                                                 fromlist=[str(self._monitoring_args.query_class)])
+                    querying_class = getattr(querying_module, str(self._monitoring_args.query_class))
+                    config_set = 1
+                    self._dev_env_querying_obj = querying_class(self._smgr_log, self._smgr_trans_log)
+                else:
+                    self._dev_env_querying_obj = None
+                    config_set = 0
+
+                if self._monitoring_args.plugin_module and self._monitoring_args.plugin_class and config_set:
+                    monitoring_module = __import__(str(self._monitoring_args.plugin_module),
+                                                   fromlist=[str(self._monitoring_args.plugin_class)])
+                    monitoring_class = getattr(monitoring_module, str(self._monitoring_args.plugin_class))
+                    class_set = 1
+                else:
+                    monitoring_class = None
+                    class_set = 0
+
+                if self._monitoring_args.analytics_ip and class_set:
+                    self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_freq,
+                                                                    self._serverDb,
+                                                                    self._smgr_log, self._smgr_trans_log,
+                                                                    self._monitoring_args.analytics_ip)
+                    self._dev_env_monitoring_obj.sandesh_init(self._monitoring_args.analytics_ip)
+                    self._config_set = True
+                else:
+                    self._smgr_log.log(self._smgr_log.ERROR,
+                                       "Analytics IP and Monitoring API misconfigured, monitoring aborted")
+                    self._dev_env_monitoring_obj = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
+                    self._config_set = False
+
+            except ImportError:
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                   "Configured modules are missing. Server Manager will quit now.")
+                raise ImportError
+
+        else:
+            self._dev_env_monitoring_obj = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
+        self._dev_env_monitoring_obj.daemon = True
+        self._dev_env_monitoring_obj.start()
+
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
         self._pipe_start_app = bottle.app()
@@ -257,6 +306,11 @@ class VncServerManager():
         bottle.route('/status', 'GET', self.get_status)
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
+        bottle.route('/Fan', 'GET', self.get_fan_details)
+        bottle.route('/Temp', 'GET', self.get_temp_details)
+        bottle.route('/Pwr', 'GET', self.get_pwr_details)
+        bottle.route('/Env', 'GET', self.get_env_details)
+        bottle.route('/MonStatus', 'GET', self.get_mon_status)
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
@@ -426,6 +480,34 @@ class VncServerManager():
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_values[0]
             ret_data["detail"] = detail
+        return ret_data
+
+    def validate_smgr_env(self, request, data=None):
+        ret_data = {}
+        ret_data['status'] = 1
+        query_args = parse_qs(urlparse(request.url).query,
+                              keep_blank_values=True)
+
+        if len(query_args) == 0:
+            match_key = None
+            match_value = None
+            ret_data["status"] = 0
+            ret_data["match_key"] = match_key
+            ret_data["match_value"] = match_value
+        elif len(query_args) == 1:
+            match_key, match_value = query_args.popitem()
+            match_keys = list()
+            match_keys.append('id')
+            match_keys.append('cluster_id')
+            match_keys.append('tag')
+            match_keys.append('discovered')
+            if (match_key not in match_keys):
+                raise ServerMgrException("Match Key not present")
+            if match_value == None or match_value[0] == '':
+                raise ServerMgrException("Match Value not Specified")
+            ret_data["status"] = 0
+            ret_data["match_key"] = str(match_key)
+            ret_data["match_value"] = str(match_value[0])
         return ret_data
 
     def validate_smgr_put(self, validation_data, request, data=None,
@@ -1950,7 +2032,7 @@ class VncServerManager():
             raise ServerMgrException(msg)
         return base_image_id, images[0]
     # end get_base_image
-            
+
     # This call returns information about a provided server.
     # If no server if provided, information about all the servers
     # in server manager configuration is returned.
@@ -2237,6 +2319,197 @@ class VncServerManager():
         return server_ips
     # end get_server_ip_list
 
+    # Generic function to return env details based on key
+    def get_server_env_details_by_type(self, ret_data, detail_type):
+
+        try:
+            if ret_data['status'] == 0:
+                match_key = ret_data['match_key']
+                match_value = ret_data['match_value']
+                match_dict = {}
+                if match_key is not None:
+                    if match_key == 'tag':
+                        match_dict = self._process_server_tags(match_value)
+                    else:
+                        match_dict[match_key] = match_value
+                    detail = True
+                    servers = self._serverDb.get_server(
+                        match_dict, detail=detail)
+                    ipmi_add = ""
+                    hostname = ""
+                    server_ip = ""
+                    data = ""
+                    analytics_ip = list()
+                    for server in servers:
+                        server = dict(server)
+                        if 'ipmi_address' in server:
+                            ipmi_add = server['ipmi_address']
+                        if 'id' in server:
+                            hostname = server['id']
+                        if 'ip_address' in server:
+                            server_ip = server['ip_address']
+                        if self._monitoring_args.analytics_ip:
+                            analytics_ip = eval(str(self._monitoring_args.analytics_ip))
+                        else:
+                            self._smgr_log.log(self._smgr_log.ERROR,
+                                               "Missing analytics node IP address for " + str(server['id']))
+                            msg = "Missing analytics node IP address for " + \
+                                  str(server['id'] + "\n" +
+                                      "This needs to be configured in the Server Manager config or cluster JSON\n")
+                            raise ServerMgrException(msg)
+                        # Query is sent only to first Analytics IP in the list of Analytics IPs
+                        # We are assuming that all these Analytics nodes hold the same information
+                        self._smgr_log.log(self._smgr_log.INFO, "Sending the query to: " + str(analytics_ip[0]))
+                        if detail_type == 'ENV':
+                            env_details_dict = self._dev_env_querying_obj.get_env_details(analytics_ip[0], ipmi_add,
+                                                                                          server_ip, hostname)
+                        elif detail_type == 'TEMP':
+                            env_details_dict = self._dev_env_querying_obj.get_temp_details(analytics_ip[0], ipmi_add,
+                                                                                           server_ip, hostname)
+                        elif detail_type == 'FAN':
+                            env_details_dict = self._dev_env_querying_obj.get_fan_details(analytics_ip[0], ipmi_add,
+                                                                                          server_ip, hostname)
+                        elif detail_type == 'PWR':
+                            env_details_dict = self._dev_env_querying_obj.get_pwr_consumption(analytics_ip[0], ipmi_add,
+                                                                                              server_ip, hostname)
+                        else:
+                            self._smgr_log.log(self._smgr_log.ERROR, "No Environment Detail of the type specified")
+                            raise ServerMgrException("No Environment Detail of that Type")
+
+                        if env_details_dict is None:
+                            self._smgr_log.log(self._smgr_log.ERROR,
+                                               "Failed to get details for server: "
+                                               + str(hostname) + " with IP " + str(server_ip))
+                            data += "\nFailed to get details for server: " + str(hostname) + \
+                                    " with IP " + str(server_ip) + "\n"
+                        else:
+                            env_details_dict = dict(env_details_dict)
+                            data += "\nServer: " + str(hostname) + "\nServer IP Address: " + str(server_ip) + "\n"
+                            data += "{0}{1}{2}{3}{4}\n".format("Sensor", " " * (25 - len("Sensor")), "Reading",
+                                                               " " * (35 - len("Reading")), "Status")
+                            if server_ip in env_details_dict:
+                                if detail_type in env_details_dict[str(server_ip)]:
+                                    env_data = dict(env_details_dict[str(server_ip)][detail_type])
+                                    for key in env_data:
+                                        data_list = list(env_data[key])
+                                        data += "{0}{1}{2}{3}{4}\n".format(str(key), " " * (25 - len(str(key))),
+                                                                           str(data_list[0]),
+                                                                           " " * (35 - len(str(data_list[0]))),
+                                                                           str(data_list[1]))
+                else:
+                    raise ServerMgrException("Missing argument value in command line arguements"
+                        + "\nPlease specify one of the following options with this command:"
+                        + "\n--server_id <server_id>: To get the environment details of just one server"
+                        + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster"
+                        + "\n--tag <tag>: To get the environement details of all servers with a tag")
+            else:
+                raise ServerMgrException("Please specify one of the following options with this command:"
+                        + "\n--server_id <server_id>: To get the environment details of just one server"
+                        + "\n--cluster_id <cluster_id>: To get the environment details of all servers in the cluster"
+                        + "\n--tag <tag>: To get the environement details of all servers with a tag")
+            return data
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_DEV_ENV, False)
+            abort(404, e.value)
+        except Exception as e:
+            self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_DEV_ENV, False)
+            self.log_trace()
+            abort(404, repr(e))
+
+    # Function to get all env details
+    def get_env_details(self):
+        try:
+            if self._config_set is True:
+                ret_data = self.validate_smgr_env(bottle.request)
+                return self.get_server_env_details_by_type(ret_data, 'ENV')
+            else:
+                msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
+                      "\nServer Environement Information is unavailable."
+                return msg
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_DEV_ENV,
+                                     False)
+            abort(404, e.value)
+
+    # Function to get fan details
+    def get_fan_details(self):
+        try:
+            if self._config_set is True:
+                ret_data = self.validate_smgr_env(bottle.request)
+                return self.get_server_env_details_by_type(ret_data, 'FAN')
+            else:
+                msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
+                      "\nServer Environement Information is unavailable."
+                return msg
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_DEV_ENV,
+                                     False)
+            abort(404, e.value)
+
+    # Function to get temp details
+    def get_temp_details(self):
+        try:
+            if self._config_set is True:
+                ret_data = self.validate_smgr_env(bottle.request)
+                return self.get_server_env_details_by_type(ret_data, 'TEMP')
+            else:
+                msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
+                      "\nServer Environement Information is unavailable."
+                return msg
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_DEV_ENV,
+                                     False)
+            abort(404, e.value)
+
+    # Function to get pwr details
+    def get_pwr_details(self):
+        try:
+            if self._config_set is True:
+                ret_data = self.validate_smgr_env(bottle.request)
+                return self.get_server_env_details_by_type(ret_data, 'PWR')
+            else:
+                msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
+                      "\nServer Environement Information is unavailable."
+                return msg
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_DEV_ENV,
+                                     False)
+            abort(404, e.value)
+
+    # Function to get monitoring status
+    def get_mon_status(self):
+        try:
+            if self._config_set is True:
+                return "Configuration for Monitoring set correctly."
+            elif self._monitoring_args:
+                return_data = ""
+                if self._monitoring_args.analytics_ip is None:
+                    return_data += "The analytics IP parameter hasn't been correctly configured."
+                elif self._monitoring_args.query_class is None:
+                    return_data += "The Query API Class parameter hasn't been correctly configured."
+                elif self._monitoring_args.query_module is None:
+                    return_data += "The Query API Module parameter hasn't been correctly configured."
+                elif self._monitoring_args.plugin_class is None:
+                    return_data += "The Plugin API Class parameter hasn't been correctly configured."
+                elif self._monitoring_args.plugin_module is None:
+                    return_data += "The Plugin API Module parameter hasn't been correctly configured."
+
+                return_data += "\nReset the configuration in the sm-config.ini and restart Server Manager.\n"
+                return return_data
+            else:
+                return "Monitoring Parameters haven't been configured.\n" \
+                       "Reset the configuration in the sm-config.ini and restart Server Manager.\n"
+
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_DEV_ENV,
+                                     False)
+            abort(404, e.value)
+
     def interface_created(self):
         entity = bottle.request.json
         entity["interface_created"] = "Yes"
@@ -2308,7 +2581,7 @@ class VncServerManager():
         return server_packages
     # end get_server_packages
 
-                        
+
     # API call to provision server(s) as per roles/roles
     # defined for those server(s). This function creates the
     # puppet manifest file for the server and adds it to site
@@ -2519,7 +2792,7 @@ class VncServerManager():
                         num_storage_hosts += 1
                     else:
                         pass
-    
+
                 for role_server in role_servers['storage-master']:
                     server_params_master = eval(role_server['parameters'])
                     if 'live_migration' in server_params_master and server_params_master['live_migration'] == "enable":
@@ -2544,7 +2817,7 @@ class VncServerManager():
                     msg = "Invalid Live Migration Storage Scope (local/global are valid)"
                     raise ServerMgrException(msg)
 
-		    
+
 		provision_params['live_migration_storage_scope'] = live_migration_storage_scope
 		provision_params['contrail-storage-enabled'] = storage_status
 		provision_params['subnet-mask'] = subnet_mask
@@ -2700,14 +2973,31 @@ class VncServerManager():
             config_file = args.config_file
         else:
             config_file = _DEF_SMGR_CFG_FILE
-        try:
-            config = ConfigParser.SafeConfigParser()
-            config.read([args.config_file])
-            for key in serverMgrCfg.keys():
+        config = ConfigParser.SafeConfigParser()
+        config.read([args.config_file])
+        for key in dict(config.items("SERVER-MANAGER")).keys():
+            if key in serverMgrCfg.keys():
                 serverMgrCfg[key] = dict(config.items("SERVER-MANAGER"))[key]
-        except:
-            # if config file could not be read, use default values
-            pass
+            else:
+                self._smgr_log.log(self._smgr_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
+
+        try:
+            if dict(config.items("MONITORING")).keys():
+                # Handle parsing for monitoring
+                monitoring_config_parser = ServerMgrMonBasePlugin(self._smgr_log, self._smgr_trans_log)
+                monitoring_args = monitoring_config_parser.parse_args(args_str)
+                if monitoring_args:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "Monitoring arguments read from config.")
+                    self._monitoring_args = monitoring_args
+                else:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "No monitoring configuration set.")
+                    self._monitoring_args = None
+            else:
+                self._smgr_log.log(self._smgr_log.DEBUG, "No monitoring configuration set.")
+                self._monitoring_args = None
+        except ConfigParser.NoSectionError:
+            self._smgr_log.log(self._smgr_log.DEBUG, "No monitoring configuration set.")
+            self._monitoring_args = None
 
         self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg )
 
@@ -3052,3 +3342,4 @@ if __name__ == "__main__":
 
     main()
 # End if __name__
+
