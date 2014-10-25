@@ -2412,7 +2412,10 @@ class VncServerManager():
                     provision_params['server_gway'] = cluster_params['gateway']
                 else:
                     provision_params['server_gway'] = ''
-
+                if 'rsyslog_params' in cluster_params:
+                    cluster_params['rsyslog_params'] = cluster_params['rsyslog_params'].encode("ascii")
+                    cluster_params['rsyslog_params'] = ast.literal_eval(cluster_params['rsyslog_params'])
+                    provision_params['rsyslog_params'] = cluster_params['rsyslog_params']
                 if 'kernel_upgrade' in server_params and server_params['kernel_upgrade']:
                     provision_params['kernel_upgrade'] = server_params['kernel_upgrade']
                 elif 'kernel_upgrade' in cluster_params and cluster_params['kernel_upgrade']:
