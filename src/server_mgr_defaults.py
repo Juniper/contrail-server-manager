@@ -2,7 +2,7 @@
 
 #validation DS
 server_fields = {
-    "match_keys": "['id', 'mac_address', 'cluster_id', 'ip_address', 'tag']",
+    "match_keys": "['id', 'mac_address', 'cluster_id', 'ip_address', 'tag', 'where']",
     "obj_name": "server",
     "primary_keys": "['id', 'mac_address']",
     "id": "",
@@ -32,7 +32,7 @@ server_fields = {
 }
 
 cluster_fields = {
-    "match_keys": "['id']",
+    "match_keys": "['id', 'where']",
     "obj_name": "cluster",
     "id": "",
     "email": "",
@@ -63,7 +63,7 @@ cluster_fields = {
 }
 
 image_fields = {
-    "match_keys": "['id']",
+    "match_keys": "['id', 'where']",
     "obj_name": "image",
     "primary_keys": "['id']",
     "id": "",

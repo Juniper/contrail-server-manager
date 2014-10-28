@@ -219,16 +219,23 @@ class ServerMgrDb:
             delete_str = "DELETE FROM %s" %(table_name)
             # form a string to provide to where match clause
             match_list = []
+            where = None
             if match_dict:
-                match_list = ["%s = \'%s\'" %(
-                k,v) for k,v in match_dict.iteritems()]
-            if unmatch_dict:
-                match_list += ["%s != \'%s\'" %(
-                    k,v) for k,v in unmatch_dict.iteritems()]
-            if match_list:
-                match_str = " and ".join(match_list)
-                delete_str+= " WHERE " + match_str
-            # end if match_list
+                where = match_dict.get("where", None)
+
+            if where:
+                delete_str += " WHERE " + where
+            else:
+                if match_dict:
+                    match_list = ["%s = \'%s\'" %(
+                            k,v) for k,v in match_dict.iteritems()]
+                if unmatch_dict:
+                    match_list += ["%s != \'%s\'" %(
+                            k,v) for k,v in unmatch_dict.iteritems()]
+                if match_list:
+                    match_str = " and ".join(match_list)
+                    delete_str+= " WHERE " + match_str
+
             with self._con:
                 cursor = self._con.cursor()
                 cursor.execute(delete_str)
@@ -276,15 +283,21 @@ class ServerMgrDb:
                 select_str = "SELECT %s FROM %s" % (sel_cols, table_name)
                 # form a string to provide to where match clause
                 match_list = []
+                where = None
                 if match_dict:
-                    match_list = ["%s = \'%s\'" %(
-                        k,v) for k,v in match_dict.iteritems()]
-                if unmatch_dict:
-                    match_list += ["%s != \'%s\'" %(
-                        k,v) for k,v in unmatch_dict.iteritems()]
-                if match_list:
-                    match_str = " and ".join(match_list)
-                    select_str+= " WHERE " + match_str
+                    where = match_dict.get("where", None)
+                if where:
+                    select_str += " WHERE " + where
+                else:
+                    if match_dict:
+                        match_list = ["%s = \'%s\'" %(
+                                k,v) for k,v in match_dict.iteritems()]
+                    if unmatch_dict:
+                        match_list += ["%s != \'%s\'" %(
+                                k,v) for k,v in unmatch_dict.iteritems()]
+                    if match_list:
+                        match_str = " and ".join(match_list)
+                        select_str+= " WHERE " + match_str
                 cursor.execute(select_str)
             rows = [x for x in cursor]
             cols = [x[0] for x in cursor.description]
@@ -642,11 +655,13 @@ class ServerMgrDb:
     # End of modify_server_tags
 
     def get_image(self, match_dict=None, unmatch_dict=None,
-                  detail=False):
+                  detail=False, field_list=None):
         try:
+            if not field_list:
+                field_list = ["id"]
             images = self._get_items(
                 image_table, match_dict,
-                unmatch_dict, detail, ["id"])
+                unmatch_dict, detail, field_list)
         except Exception as e:
             raise e
         return images

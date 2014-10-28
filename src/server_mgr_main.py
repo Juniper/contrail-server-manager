@@ -332,12 +332,14 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
+                select_clause = ret_data["select"]
                 match_dict = {}
                 if match_key:
                     match_dict[match_key] = match_value
                 detail = ret_data["detail"]
                 entity = self._serverDb.get_cluster(
-                    match_dict, detail=detail)
+                    match_dict, detail=detail,
+                    field_list=select_clause)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_CLUSTER,
@@ -401,8 +403,10 @@ class VncServerManager():
 
         match_key = None
         match_value = None
+        select_clause = self.get_select_clause(query_args)
         if ((detail == True and len(query_args) == 1) or\
-                 (detail == False and len(query_args) == 0 )):
+                (detail == False and len(query_args) == 0) or\
+                (detail == False and len(query_args) == 1 and select_clause)):
             ret_data["status"] = 0
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_value
@@ -412,7 +416,10 @@ class VncServerManager():
             match_keys = eval(match_keys_str)
             match_values = []	
             matches = self.validate_smgr_keys(query_args, match_keys)
-            self._smgr_log.log(self._smgr_log.DEBUG, "match key returned: %s" % (matches))
+            self._smgr_log.log(self._smgr_log.DEBUG, 
+                               "match key returned: %s" % (matches))
+            self._smgr_log.log(self._smgr_log.DEBUG, 
+                               "select keys: %s" %(select_clause))
             match_key, match_values = matches.popitem()
             #TODO, Do we need this ?
             # Append "discovered" as one of the values, though
@@ -426,6 +433,8 @@ class VncServerManager():
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_values[0]
             ret_data["detail"] = detail
+        # end elif
+        ret_data['select'] = select_clause
         return ret_data
 
     def validate_smgr_put(self, validation_data, request, data=None,
@@ -531,7 +540,8 @@ class VncServerManager():
         match_keys = eval(match_keys_str)
         query_args = parse_qs(urlparse(request.url).query,
                               keep_blank_values=True)
-         # Get the query argument.
+
+        # Get the query argument.
         force = ("force" in query_args)
         query_args.pop("force", None)
         matches = self.validate_smgr_keys(query_args, match_keys)
@@ -613,7 +623,6 @@ class VncServerManager():
         return list( seen_twice )
 
     def validate_smgr_provision(self, validation_data, request , data=None):
-
         ret_data = {}
         ret_data['status'] = 1
 
@@ -710,9 +719,9 @@ class VncServerManager():
         ret_data['server_packages'] = \
             self.get_server_packages(servers, package_image_id)
         return ret_data
+    # end validate_smgr_provision
 
     def validate_smgr_reboot(self, validation_data, request , data=None):
-
         ret_data = {}
         ret_data['status'] = 1
 
@@ -765,9 +774,19 @@ class VncServerManager():
         ret_data['package_image_id'] = package_image_id
         ret_data['do_reboot'] = do_reboot
         return ret_data
-        # end else
+    # end validate_smgr_reimage
 
-    def validate_smgr_keys(self, entity, keys = ["id", "mac_address","tag","cluster_id"]):
+    def get_select_clause(self, entity):
+        select_clause = select = None
+        if entity:
+            select = entity.get("select", None)
+        if select:
+            return select[0].split(',')
+        return select_clause
+    # end get_select_clause
+
+    def validate_smgr_keys(self, entity, 
+                   keys = ["id", "mac_address","tag","cluster_id", "where"]):
         found = False
         for key in keys:
 	    if key in entity:
@@ -778,6 +797,7 @@ class VncServerManager():
 	    msg = "Match key not present"
 	    self.log_and_raise_exception(msg)
         return {match_key: match_value}
+    # end validate_smgr_keys
 
 
     def validate_smgr_request(self, type, oper, request, data = None, modify =
@@ -846,15 +866,17 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
+                select_clause = ret_data["select"]
                 match_dict = {}
                 if match_key == "tag":
                     match_dict = self._process_server_tags(match_value)
                 elif match_key:
                     match_dict[match_key] = match_value
                 detail = False
+                if not select_clause:
+                    select_clause = ["id", "mac_address", "ip_address", "status"] 
                 servers = self._serverDb.get_server(
-                    match_dict, detail=detail ,
-                    field_list = ["id", "mac_address", "ip_address", "status"])
+                    match_dict, detail=detail, field_list=select_clause)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
@@ -886,6 +908,7 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
+                select_clause = ret_data["select"]
                 match_dict = {}
                 if match_key == "tag":
                     match_dict = self._process_server_tags(match_value)
@@ -893,7 +916,7 @@ class VncServerManager():
                     match_dict[match_key] = match_value
                 detail = ret_data["detail"]
                 servers = self._serverDb.get_server(
-                    match_dict, detail=detail)
+                    match_dict, detail=detail, field_list=select_clause)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
@@ -938,12 +961,14 @@ class VncServerManager():
             if ret_data["status"] == 0:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
+                select_clause = ret_data["select"]
                 match_dict = {}
                 if match_key:
                     match_dict[match_key] = match_value
                 detail = ret_data["detail"]
             images = self._serverDb.get_image(match_dict,
-                                              detail=detail)
+                                              detail=detail, 
+                                              field_list=select_clause)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
@@ -1974,8 +1999,7 @@ class VncServerManager():
             base_image = {}
             if base_image_id:
                 base_image_id, base_image = self.get_base_image(base_image_id)
-            servers = self._serverDb.get_server(
-                match_dict, detail=True)
+            servers = self._serverDb.get_server(match_dict, detail=True)
             if len(servers) == 0:
                 msg = "No Servers found for %s" % (match_value)
                 self.log_and_raise_exception(msg)
@@ -2137,8 +2161,7 @@ class VncServerManager():
                     match_dict[match_key] = match_value
             reboot_server_list = []
             # if the key is server_id, server_table server key is 'id'
-            servers = self._serverDb.get_server(
-                    match_dict, detail=True)
+            servers = self._serverDb.get_server(match_dict, detail=True)
             if len(servers) == 0:
                 msg = "No Servers found for match %s" % \
                     (match_value)
