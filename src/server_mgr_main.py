@@ -1301,16 +1301,11 @@ class VncServerManager():
             image_params = {}
             if ((image_type == "contrail-centos-package") or
                 (image_type == "contrail-ubuntu-package")):
-                subprocess.check_call(
-                    ["cp", "-f", dest,
-                     self._args.html_root_dir + "contrail/images/"])
                 puppet_manifest_version = self._create_repo(
                     image_id, image_type, image_version, dest)
                 image_params['puppet_manifest_version'] = \
                     puppet_manifest_version
             elif image_type == "contrail-storage-ubuntu-package":
-                subprocess.check_call(["cp", "-f", dest,
-                                 self._args.html_root_dir + "contrail/images/"])
                 self._create_repo(
                     image_id, image_type, image_version, dest)
             else:
