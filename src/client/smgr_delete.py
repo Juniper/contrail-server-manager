@@ -15,6 +15,7 @@ import pycurl
 from StringIO import StringIO
 import ConfigParser
 import smgr_client_def
+import urllib
 
 def parse_arguments():
     # Process the arguments
@@ -51,22 +52,29 @@ def parse_arguments():
     group.add_argument("--tag",
                         help=("tag values for the server to be deleted "
                               "in t1=v1,t2=v2,... format"))
+    group.add_argument("--where",
+                       help=("sql where statement in quotation marks"))
     parser_server.set_defaults(func=delete_server)
 
     # Subparser for cluster delete
     parser_cluster = subparsers.add_parser(
         "cluster", help='Delete cluster')
-    parser_cluster.add_argument("cluster_id",
-                        help=("cluster id for vns to be deleted"))
+    parser_cluster_group = parser_cluster.add_mutually_exclusive_group(required=True)
+    parser_cluster_group.add_argument("--cluster_id",
+                                      help=("cluster id for cluster to be deleted"))
+    parser_cluster_group.add_argument("--where",
+                                      help=("sql where statement in quotation marks"))
     parser_cluster.add_argument("--force", "-f", action="store_true",
-                            help=("optional parameter to indicate ,"
-                                  "if cluster association to be removed from server"))
+                                help=("optional parameter to indicate ,"
+                                      "if cluster association to be removed from server"))
     parser_cluster.set_defaults(func=delete_cluster)
 
     # Subparser for image delete
     parser_image = subparsers.add_parser(
         "image", help='Delete image')
-    parser_image.add_argument("image_id",
+    parser_image.add_argument("--where",
+                              help=("sql where statement in quotation marks"))
+    parser_image.add_argument("--image_id",
                         help=("image id for image to be deleted"))
     parser_image.set_defaults(func=delete_image)
     return parser
@@ -77,7 +85,9 @@ def send_REST_request(ip, port, object, key, value, force=False):
         response = StringIO()
         headers = ["Content-Type:application/json"]
         url = "http://%s:%s/%s?%s=%s" %(
-            ip, port, object, key, value)
+            ip, port, object, 
+            urllib.quote_plus(key), 
+            urllib.quote_plus(value))
         if force:
             url += "&force"
         conn = pycurl.Curl()
@@ -109,6 +119,9 @@ def delete_server(args):
     elif args.tag:
         rest_api_params['match_key'] = 'tag'
         rest_api_params['match_value'] = args.tag
+    elif args.where:
+        rest_api_params['match_key'] = 'where'
+        rest_api_params['match_value'] = args.where
     else:
         rest_api_params['match_key'] = ''
         rest_api_params['match_value'] = ''
@@ -116,19 +129,37 @@ def delete_server(args):
 #end def delete_server
 
 def delete_cluster(args):
+    if args.cluster_id:
+        match_key = 'id'
+        match_value = args.cluster_id
+    elif args.where:
+        match_key = 'where'
+        match_value = args.where
+    else:
+        match_key = ''
+        match_value = ''
     rest_api_params = {
         'object' : 'cluster',
-        'match_key' : 'id',
-        'match_value' : args.cluster_id
+        'match_key' : match_key,
+        'match_value' : match_value
     }
     return rest_api_params
 #end def delete_cluster
 
 def delete_image(args):
+    if args.image_id:
+        match_key = 'id'
+        match_value = args.image_id
+    elif args.where:
+        match_key = 'where'
+        match_value = args.where
+    else:
+        match_key = ''
+        match_value = ''
     rest_api_params = {
         'object' : 'image',
-        'match_key' : 'id',
-        'match_value' : args.image_id
+        'match_key' : match_key,
+        'match_value' : match_value
     }
     return rest_api_params
 #end def delete_image
