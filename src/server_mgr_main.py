@@ -33,6 +33,7 @@ import uuid
 import traceback
 import platform
 from server_mgr_defaults import *
+from server_mgr_err import *
 from server_mgr_status import *
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
@@ -230,7 +231,7 @@ class VncServerManager():
                     "Server list is %s" % self.config_data)
 
             except Exception as e:
-                print repr(e)
+                print e.msg
                 self._smgr_log.log(self._smgr_log.ERROR,
                     "Initial config file %s format error. "
                     "File should be in JSON format") \
@@ -242,7 +243,7 @@ class VncServerManager():
             try:
                 self._create_server_manager_config(self.config_data)
             except Exception as e:
-                print repr(e)
+                print e.msg
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -312,7 +313,8 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_ALL,
                                      False)
             self.log_trace()
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR, None)
+            abort(404, resp_msg)
 
         self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_CFG_ALL)
         self._smgr_log.log(self._smgr_log.DEBUG, "Config returned: %s" % (config))
@@ -342,13 +344,17 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_CLUSTER,
                                      False)
-            abort(404, e.value)
+
+            resp_msg = self.form_operartion_data(e.msg, ERR_IMG_TYPE_INVALID,
+                                                                    None)
+            abort(404, resp_msg)
         except Exception as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_CLUSTER,
                                      False)
             self.log_trace()
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR, None)
+            abort(404, resp_msg)
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_CLUSTER,
                                      False)
@@ -376,7 +382,11 @@ class VncServerManager():
                                      self._smgr_trans_log.GET_SMGR_CFG_TAG,
                                      False)
             self.log_trace()
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+
+
         self._smgr_trans_log.log(bottle.request,
                                  self._smgr_trans_log.GET_SMGR_CFG_TAG)
         self._smgr_log.log(self._smgr_log.DEBUG, "Entity returned: %s" % (tag_dict))
@@ -419,9 +429,10 @@ class VncServerManager():
             # its not part of server table fields.
             match_keys.append("discovered")
             if (match_key not in match_keys):
-                raise ServerMgrException("Match Key not present")
+                raise ServerMgrException("Match Key not present", ERR_MATCH_KEY_NOT_PRESENT)
             if match_values == None or match_values[0] == '':
-                raise ServerMgrException("Match Value not Specified")
+                raise ServerMgrException("Match Value not Specified",
+                                                                ERR_MATCH_VALUE_NOT_PRESENT)
             ret_data["status"] = 0
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_values[0]
@@ -516,10 +527,10 @@ class VncServerManager():
         if 'roles' in data:
             if 'storage-compute' in data['roles'] and 'compute' not in data['roles']:
                 msg = "role 'storage-compute' needs role 'compute' in provision file"
-                raise ServerMgrException(msg)
+                raise ServerMgrException(msg, ERR_OPR_ERROR)
             elif 'storage-master' in data['roles'] and 'openstack' not in data['roles']:
                 msg = "role 'storage-master' needs role 'openstack' in provision file"
-                raise ServerMgrException(msg)
+                raise ServerMgrException(msg, ERR_OPR_ERROR)
         return ret_data
 
     def validate_smgr_delete(self, validation_data, request, data = None):
@@ -541,27 +552,6 @@ class VncServerManager():
         ret_data["match_key"] = match_key
         ret_data["match_value"] = match_values[0]
         ret_data["force"] = force
-        return ret_data
-
-    #TODO Need to reomve
-    def validate_smgr_modify(self, validation_data, request, data = None):
-
-        ret_data = {}
-        ret_data['status'] = 1
-
-        entity = request.json
-        if (not entity):
-            self._smgr_log.log(self._smgr_log.ERROR,
-                     "No JSON data specified")
-            abort(404, 'No JSON data specified')
-        #check if match_keys are present
-        match_keys_str = validation_data['match_keys']
-        match_keys = eval(match_keys_str)
-        for match_key in match_keys:
-            if match_key not in data:
-                msg =  ("Match Key %s not present") % (match_key)
-                self.log_and_raise_exception(msg)
-        #TODO Handle replace
         return ret_data
 
     def _validate_roles(self, cluster_id):
@@ -800,8 +790,6 @@ class VncServerManager():
             ret_val_data = self.validate_smgr_put(validation_data, request, data, modify)
         elif oper == "DELETE":
             ret_val_data = self.validate_smgr_delete(validation_data, request, data)
-        elif oper == "MODIFY":
-            ret_val_data = self.validate_smgr_modify(validation_data, request, data)
         elif oper == "PROVISION":
             ret_val_data = self.validate_smgr_provision(validation_data, request, data)
         elif oper == "REBOOT":
@@ -858,12 +846,16 @@ class VncServerManager():
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
         # Convert some of the fields in server entry to match what is accepted for put
@@ -897,12 +889,15 @@ class VncServerManager():
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(servers)))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
@@ -947,12 +942,15 @@ class VncServerManager():
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE)
         for image in images:
@@ -996,8 +994,11 @@ class VncServerManager():
                             server_data)
         except Exception as e:
             self.log_trace()
-            self._smgr_log.log(self._smgr_log.ERROR, "Error adding to db %s" % repr(e))
-            abort(404, repr(e))
+            self._smgr_log.log(self._smgr_log.ERROR, "Error adding to db %s" % e.msg)
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                        None)
+            abort(404, resp_msg)
+
 
 
     def get_status(self):
@@ -1028,7 +1029,8 @@ class VncServerManager():
                 if self._serverDb.check_obj(
                     "image", {"id" : image['id']},
                     raise_exception=False):
-                    raise ServerMgrException("image modification is not allowed, delete and add it.")
+                    raise ServerMgrException("image modification is not \
+                            allowed,delete and add it.", ERR_OPR_ERROR)
                 else:
                     self.validate_smgr_request("IMAGE", "PUT", bottle.request,
                                                 image)
@@ -1041,16 +1043,17 @@ class VncServerManager():
                     if (not image_id) or (not image_path):
                         self._smgr_log.log(self._smgr_log.ERROR,
                                      "image id or location not specified")
-                        raise ServerMgrException("image id or location not specified")
+                        raise ServerMgrException("image id or location \
+                                 not specified", ERR_OPR_ERROR)
                     if (image_type not in self._image_list):
-                        self._smgr_log.log(self._smgr_log.ERROR,
-                                    "image type not specified or invalid for image %s" %(
-                                    image_id))
-                        raise ServerMgrException("image type not specified or invalid for image %s" %(
-                                image_id))
+                        msg = "image type not specified or invalid for image %s" %(
+                                    image_id)
+                        self._smgr_log.log(self._smgr_log.ERROR, msg)
+                        raise ServerMgrException(msg, ERR_OPR_ERROR)
                     if not os.path.exists(image_path):
-                        raise ServerMgrException("image not found at %s" % \
-                                                (image_path))
+                        msg = "image not found at %s" % \
+                                                (image_path)
+                        raise ServerMgrException(msg, ERR_OPR_ERROR)
                     extn = os.path.splitext(image_path)[1]
                     dest = self._args.server_manager_base_dir + 'images/' + \
                         image_id + extn
@@ -1071,7 +1074,7 @@ class VncServerManager():
                         if image_kickstart:
                             if not os.path.exists(image_kickstart):
                                 raise ServerMgrException("kickstart not found at %s" % \
-                                                             (image_kickstart))
+                                                             (image_kickstart), ERR_OPR_ERROR)
                             kickstart_dest = self._args.html_root_dir + \
                                 "contrail/images/" + image_id + ".ks"
                             subprocess.check_call(["cp", "-f", image_kickstart,
@@ -1079,7 +1082,7 @@ class VncServerManager():
                         if image_kickseed:
                             if not os.path.exists(image_kickseed):
                                 raise ServerMgrException("kickseed not found at %s" % \
-                                                         (image_kickseed))
+                                                         (image_kickseed), ERR_OPR_ERROR)
                             kickseed_dest = self._args.html_root_dir + \
                                 "contrail/images/" + image_id + ".seed"
                             subprocess.check_call(["cp", "-f", image_kickseed,
@@ -1102,20 +1105,27 @@ class VncServerManager():
             self._smgr_trans_log.log(
                 bottle.request,
                 self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
-            abort(404, msg)
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
 
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_IMAGE)
-        return entity
+        msg = "Image add/Modify success"
+        resp_msg = self.form_operartion_data(msg, 0, entity)
+        return resp_msg
 
     def put_cluster(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "put_cluster")
@@ -1147,17 +1157,23 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER,
                                 False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER,
                                 False)
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+            
 
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER)
-        return entity
+        msg = "Cluster Add/Modify Success"
+        resp_msg = self.form_operartion_data(msg, 0, entity)
+        return resp_msg
 
     # Function to validate values of tag field, if present, in received
     # server json object.
@@ -1176,7 +1192,9 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, "add_server")
         entity = bottle.request.json
         if (not entity):
-            abort(404, 'Server MAC or server_id not specified')
+            msg = 'Server MAC or server_id not specified'
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
         try:
             self.validate_smgr_entity("server", entity)
             servers = entity.get("server", None)
@@ -1200,22 +1218,30 @@ class VncServerManager():
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
             self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
-        return entity
+        msg = "Server add/Modify Success" 
+        resp_msg = self.form_operartion_data(msg, 0, entity)
+        return resp_msg
 
     # Function to change tags used for grouping together servers.
     def put_server_tags(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "add_tag")
         entity = bottle.request.json
         if (not entity):
-            abort(404, 'no tags specified')
+            msg = 'no tags specified'
+            resp_msg = self.form_operartion_data(msg, ERR_MATCH_KEY_NOT_PRESENT, None)
+            abort(404, resp_msg)
+
         try:
             for key in entity.iterkeys():
                 if key not in self._tags_list:
@@ -1256,16 +1282,34 @@ class VncServerManager():
         except ServerMgrException as e:
             self._smgr_trans_log.log(
                 bottle.request, self._smgr_trans_log.PUT_SMGR_CFG_TAG, False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_TAG, False)
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+
         self._smgr_trans_log.log(bottle.request,
             self._smgr_trans_log.PUT_SMGR_CFG_TAG)
-        return self._tags_dict
+        msg = "Tags add/Modify Success" 
+        resp_msg = self.form_operartion_data(msg, 0, self._tags_dict)
+        return resp_msg
     # end put_server_tags
+
+    def form_operartion_data(self, msg, ret_code, data):
+        self._smgr_log.log(self._smgr_log.DEBUG, "function_start")
+        return_data = {}
+        return_data['return_code'] = ret_code
+        return_data['return_msg'] = msg
+        return_data['return_data'] = data
+        
+        return_data_str = print_rest_response(return_data)
+        
+        return return_data_str
+       
 
     # API Call to add image file to server manager (file is copied at
     # <default_base_path>/images/filename.iso and distro, profile
@@ -1279,17 +1323,20 @@ class VncServerManager():
         if (image_type not in [
                 "centos", "fedora", "ubuntu",
                 "contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]):
-            abort(404, "image type not specified or invalid")
+            resp_msg = self.form_operartion_data(msg, ERR_IMG_TYPE_INVALID, None)
+            abort(404, resp_msg)
         db_images = self._serverDb.get_image(
             {'id' : image_id}, detail=False)
         if db_images:
-            abort(
-                404,
-                "image %s already exists" %(
-                    image_id))
+            msg = "image %s already exists" %(image_id) 
+            resp_msg = self.form_operartion_data(msg, ERR_IMG_EXISTS, None)
+            abort(404, resp_msg)
+
         file_obj = bottle.request.files.get('file', None)
         if file_obj is None:
-            abort(404, "image file is not specified")
+            msg = "image file is not specified"
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
         file_name = file_obj.filename
         extn = os.path.splitext(file_name)[1]
         dest = self._args.server_manager_base_dir + 'images/' + \
@@ -1347,15 +1394,18 @@ class VncServerManager():
             self._smgr_trans_log.log(
                 bottle.request,
                 self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
-            abort(404, msg)
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
         except Exception as e:
             self.log_trace()
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(msg, ERR_GENERAL_ERROR,
+                                                                    e.msg)
+            abort(404, resp_msg)
         #TODO use the below method to return a JSON for all operations commands
         #with status, Move the codes and msg to a seprate file
-        entity = {}
-        new_entity = self._add_return_status(entity, 0, "Image Uploaded")
-        return new_entity
+        msg = "Image Uploaded"
+        resp_msg = self.form_operartion_data(msg, 0, None)
+        return resp_msg
     # End of upload_image
 
 
@@ -1439,7 +1489,7 @@ class VncServerManager():
             msg = ("add_puppet_modules: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
             self._smgr_log.log(self._smgr_log.ERROR, msg)
-            raise ServerMgrException(msg)
+            raise ServerMgrException(msg, ERR_OPR_ERROR)
         finally:
             try:
                 shutil.rmtree(tmpdirname) # delete directory
@@ -1503,7 +1553,7 @@ class VncServerManager():
             msg = ("create_yum_repo: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
             self._smgr_log.log(self._smgr_log.ERROR, msg)
-            raise ServerMgrException(msg)
+            raise ServerMgrException(msg, ERR_OPR_ERROR)
         except Exception as e:
             raise(e)
     # end _create_yum_repo
@@ -1561,7 +1611,7 @@ class VncServerManager():
             msg = ("create_deb_repo: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
             self._smgr_log.log(self._smgr_log.ERROR, msg)
-            raise ServerMgrException(msg)
+            raise ServerMgrException(msg, ERR_OPR_ERROR)
         except Exception as e:
             raise(e)
     # end _create_deb_repo
@@ -1612,7 +1662,7 @@ class VncServerManager():
             msg = ("create_storage_deb_repo: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
             self._smgr_log.log(self._smgr_log.ERROR, msg)
-            raise ServerMgrException(msg)
+            raise ServerMgrException(msg, ERR_OPR_ERROR)
         except Exception as e:
             raise(e)
     # end _create_storage_deb_repo
@@ -1709,8 +1759,13 @@ class VncServerManager():
                     self._args.listen_ip_addr, ubuntu_ks_file)
                 ks_meta = ''
             else:
+                #TODO Raise an exception here
                 self._smgr_log.log(self._smgr_log.ERROR, "Invalid image type")
-                abort(404, "invalid image type")
+                msg = "invalid image type"
+                resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+                abort(404, resp_msg)
+
+
             self._mount_and_copy_iso(dest, copy_path, distro_name,
                                      kernel_file, initrd_file, image_type)
             # Setup distro information in cobbler
@@ -1729,8 +1784,10 @@ class VncServerManager():
             self._smgr_cobbler.sync()
             return kickstart, kickseed
         except Exception as e:
-            self._smgr_log.log(self._smgr_log.ERROR, "Error adding image to cobbler %s" % e.value)
-            abort(404, repr(e))
+            self._smgr_log.log(self._smgr_log.ERROR, "Error adding image to cobbler %s" % e.msg)
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
     # End of _add_image_to_cobbler
 
     # API call to delete a cluster from server manager config. Along with
@@ -1752,18 +1809,24 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER,
                                      False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER,
                                      False)
             self._smgr_log.log(self._smgr_log.ERROR,
-                        "Error while deleting cluster %s" % (repr(e)))
-            abort(404, repr(e))
+                        "Error while deleting cluster %s" % (e.msg))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER)
-        return "CLUSTER deleted"
+        msg = "CLUSTER deleted"
+        resp_msg = self.form_operartion_data(msg, 0, None)
+        return resp_msg
+
     # end delete_cluster
 
     # API call to delete a server from the configuration.
@@ -1794,18 +1857,23 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
                                      False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
                                      False)
             self._smgr_log.log(self._smgr_log.ERROR,
-                        "Unable to delete server, %s" % (repr(e)))
-            abort(404, repr(e))
+                        "Unable to delete server, %s" % (e.msg))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_SERVER)
-        return "Server deleted"
+        msg = "Server deleted"
+        resp_msg = self.form_operartion_data(msg, 0, None)
+        return resp_msg
     # end delete_server
 
     # API Call to delete an image
@@ -1867,17 +1935,23 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE,
                                      False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE,
                                      False)
             self._smgr_log.log(self._smgr_log.ERROR,
-                "Unable to delete image, %s" % (repr(e)))
-            abort(404, repr(e))
+                "Unable to delete image, %s" % (e.msg))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
                                     self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE)
-        return "Image Deleted"
+        msg = "Image Deleted"
+        resp_msg = self.form_operartion_data(msg, 0, None)
+        return resp_msg
+
     # End of delete_image
 
     # API to create the server manager configuration DB from provided JSON
@@ -1885,7 +1959,10 @@ class VncServerManager():
     def create_server_mgr_config(self):
         entity = bottle.request.json
         if not entity:
-            abort(404, "No JSON config file specified")
+            msg =  "No JSON config file specified"
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
+
         # Validate the config for sematic correctness.
         self._validate_config(entity)
         # Store the initial configuration in our DB
@@ -1893,7 +1970,9 @@ class VncServerManager():
             self._create_server_manager_config(entity)
         except Exception as e:
             self.log_trace()
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         return entity
     # end create_server_mgr_config
 
@@ -1906,13 +1985,15 @@ class VncServerManager():
             self._serverDb.server_discovery(action, entity)
         except Exception as e:
             self.log_trace()
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         return entity
     # end process_dhcp_event
 
-    def log_and_raise_exception(self, msg):
+    def log_and_raise_exception(self, msg, err_code = ERR_OPR_ERROR):
          self._smgr_log.log(self._smgr_log.ERROR, msg)
-         raise ServerMgrException(msg)         
+         raise ServerMgrException(msg, err_code)         
  
 
     def get_package_image(self, package_image_id):
@@ -2105,14 +2186,17 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
             print 'Exception error is: %s' % e
-            abort(404, "Error in reimaging the Server")
+            resp_msg = self.form_operartion_data("Error in re-imaging server", ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         reimage_status['return_code'] = "0"
         reimage_status['return_message'] = "server(s) reimage issued"
         return reimage_status
@@ -2160,14 +2244,18 @@ class VncServerManager():
                 elif 'password' in cluster_parameters:
                     password = cluster_parameters['password']
                 else:
-                    abort(404, "Missing password for " + server_id)
+                    msg = "Missing password for " + server_id
+                    self.log_and_raise_exception(msg)
+
 
                 if 'domain' in server and server['domain']:
                     domain = server['domain']
                 elif 'domain' in cluster_parameters and cluster_parameters['domain']:
                     domain = cluster_parameters['domain']
                 else:
-                    abort(404, "Missing Domain for " + server_id)
+                    msg = "Missing Domain for " + server_id
+                    self.log_and_raise_exception(msg)
+
 
                 # Build list of servers to be rebooted.
                 reboot_server = {
@@ -2187,13 +2275,16 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REBOOT,
                                      False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
         except Exception as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REBOOT,
                                      False)
             self.log_trace()
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REBOOT)
         return status_msg
@@ -2316,6 +2407,7 @@ class VncServerManager():
     def provision_server(self):
         package_type_list = ["contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]
         self._smgr_log.log(self._smgr_log.DEBUG, "provision_server")
+        provision_status = {}
         try:
             entity = bottle.request.json
             interface_created = entity.pop("interface_created", None)
@@ -2331,7 +2423,6 @@ class VncServerManager():
                 msg = "Error validating request"
                 self.log_and_raise_exception(msg)
 
-            provision_status = {}
             provision_status['server'] = []
             for server_pkg in server_packages:
                 server = server_pkg['server']
@@ -2640,13 +2731,17 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION,
                                      False)
-            abort(404, e.value)
+            resp_msg = self.form_operartion_data(e.msg, ERR_IMG_NOT_FOUND,
+                                                                provision_status)
+            abort(404, resp_msg)
         except Exception as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION,
                                      False)
             self.log_trace()
-            abort(404, repr(e))
+            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION)
         provision_status['return_code'] = "0"
@@ -2885,7 +2980,7 @@ class VncServerManager():
                 failed_list.append(server['id'])
             except Exception as e:
                 self._smgr_log.log(self._smgr_log.ERROR,
-                                            repr(e))
+                                            e.msg)
                 self._smgr_log.log(self._smgr_log.ERROR,
                                 "Failed re-booting for server %s" % \
                                 (server['id']))

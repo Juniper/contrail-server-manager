@@ -5,6 +5,7 @@ import sys
 import pdb
 import uuid
 from netaddr import *
+from server_mgr_err import *
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 
@@ -60,6 +61,10 @@ class ServerMgrDb:
         except lite.OperationalError:
             pass
     # end _add_table_column
+
+    def log_and_raise_exception(self, msg, err_code = ERR_OPR_ERROR):
+         self._smgr_log.log(self._smgr_log.ERROR, msg)
+         raise ServerMgrException(msg, err_code)
 
     def __init__(self, db_file_name=def_server_db_file):
         try:
@@ -425,7 +430,7 @@ class ServerMgrDb:
             if servers:
                 msg = ("Servers are present in this cluster, "
                         "remove cluster association, prior to cluster delete.")
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
             self._delete_row(cluster_table, match_dict, unmatch_dict)
         except Exception as e:
             raise e
@@ -446,7 +451,7 @@ class ServerMgrDb:
         if not db_obj:
             msg = "%s not found" % (type)
             if raise_exception:
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
             return False
         return True
     #end of check_obj
@@ -493,7 +498,8 @@ class ServerMgrDb:
                 {"id" : cluster_id}, detail=True)
             if not db_cluster:
                 msg = "%s is not valid" % cluster_id
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+
             db_cluster_params_str = db_cluster[0] ['parameters']
             db_cluster_params = {}
             if db_cluster_params_str:
@@ -532,9 +538,11 @@ class ServerMgrDb:
                 {'id' : image_data['id']},
                 detail=True)
             if image_data['path'] != db_image[0]['path']:
-                raise ServerMgrException('Image path cannnot be modified')
+                msg = ('Image path cannnot be modified')
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
             if image_data['type'] != db_image[0]['type']:
-                raise ServerMgrException('Image type cannnot be modified')
+                msg = ('Image type cannnot be modified')
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
             # Store image_params dictionary as a text field
             image_parameters = image_data.pop("parameters", None)
             if image_parameters is not None:
@@ -568,7 +576,8 @@ class ServerMgrDb:
             if not server_mac:
                 server_id = server_data.get('id', None)
                 if not server_id:
-                    raise Exception("No server MAC or id specified")
+                    msg = ("No server MAC or id specified")
+                    self.log_and_raise_exception(msg, ERR_OPR_ERROR)
                 else:
                     server_mac = self.get_server_mac(server_id)
             #Check if object exists
@@ -578,7 +587,9 @@ class ServerMgrDb:
                                {'id' : server_data['id']})
                 #Reject if primary key values change
                 if server_data['mac_address'] != db_server[0]['mac_address']:
-                    raise ServerMgrException('MAC address cannnot be modified')
+                    msg = ('MAC address cannnot be modified', ERR_OPR_ERROR)
+                    self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+
 
             # Store roles list as a text field
             roles = server_data.pop("roles", None)

@@ -14,6 +14,7 @@ import string
 import textwrap
 import shutil
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
 
 
