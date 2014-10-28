@@ -52,6 +52,8 @@ def parse_arguments(args_str=None):
                         help=("cluster id for the server(s) to be provisioned"))
     group.add_argument("--tag",
                         help=("tag values for the servers to be provisioned"))
+    group.add_argument("--where",
+                       help=("sql where statement in quotation marks"))
     group.add_argument("--provision_params_file", "-f", 
                         help=("Optional json file containing parameters "
                              " for provisioning server"))
@@ -130,6 +132,7 @@ def provision_server(args_str=None):
     # end except
 
     provision_params = {}
+    payload = {}
     match_key = None
     match_param = None
     if args.server_id:
@@ -141,6 +144,9 @@ def provision_server(args_str=None):
     elif args.tag:
         match_key='tag'
         match_value = args.tag
+    elif args.where:
+        match_key='where'
+        match_value = args.where
     elif args.interactive:
        provision_params = get_provision_params()
     elif args.provision_params_file:
@@ -149,7 +155,6 @@ def provision_server(args_str=None):
     else:
         pass
 
-    payload = {}
     payload['package_image_id'] = args.package_image_id
     if match_key:
         payload[match_key] = match_value
@@ -163,10 +168,9 @@ def provision_server(args_str=None):
             pkg_id_str = "configured package"
         if match_key:
             msg = "Provision servers (%s:%s) with %s? (y/N) :" %(
-                match_key, match_value, args.package_image_id)
+                match_key, match_value, pkg_id_str)
         else:
-            msg = "Provision servers with %s? (y/N) :" %(
-                args.package_image_id)
+            msg = "Provision servers with %s? (y/N) :" %(pkg_id_str)
         user_input = raw_input(msg).lower()
         if user_input not in ["y", "yes"]:
             sys.exit()
