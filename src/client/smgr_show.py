@@ -218,7 +218,8 @@ def show_all(args):
     rest_api_params = {
         'object' : 'all',
         'match_key' : None,
-        'match_value' : None
+        'match_value' : None,
+        'select' : None
     }
     return rest_api_params
 #end def show_all
