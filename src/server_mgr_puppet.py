@@ -285,7 +285,8 @@ class ServerMgrPuppet:
         }\n\n''' % (provision_params['puppet_manifest_version'],
         intf, intf, members , bond_opts,
         values['ip_address'], values['gateway'])
-
+        
+        """
         data_first = '''    # Create repository config on target.
     contrail_%s::contrail_common::contrail-setup-repo{contrail_repo:
         contrail_repo_name => "%s",
@@ -297,14 +298,18 @@ class ServerMgrPuppet:
                '[%s]' % ','.join(map(str, require_list)))
 
         data = data_first + data
+        """
 
-        data += '''    #CB to start provision_after setup_interface
-        contrail_%s::contrail_common::create-interface-cb{create_interface_cb:
-        contrail_package_id => "%s",
-        require => %s
-        }\n\n''' % (provision_params['puppet_manifest_version'],
-                    provision_params['package_image_id'],
-                   '[%s]' % ','.join(map(str, require_list)))
+        if provision_params['setup_contrail'] and \
+                  provision_params['setup_contrail'].lower() == "yes":
+
+            data += '''    #CB to start provision_after setup_interface
+            contrail_%s::contrail_common::create-interface-cb{create_interface_cb:
+            contrail_package_id => "%s",
+            require => %s
+            }\n\n''' % (provision_params['puppet_manifest_version'],
+                        provision_params['package_image_id'],
+                       '[%s]' % ','.join(map(str, require_list)))
 
         return data
 

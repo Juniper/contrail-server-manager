@@ -6,7 +6,9 @@
             "ip_address": "10.84.51.13",
             "parameters" : {
                 "interface_name": "eth1",
-		"partition": ""
+		"partition": "",
+                "setup_interface": "No",
+                "setup_contrail": "No"
             },
             "roles" : ["config","openstack","control","compute","collector","webui","database"],
             "cluster_id": "demo-cluster",

@@ -2458,6 +2458,12 @@ class VncServerManager():
                 else:
                      provision_params['setup_interface'] = "No"
 
+                if 'setup_contrail' in server_params.keys():
+                    provision_params['setup_contrail'] = \
+                                                    server_params['setup_contrail']
+                else:
+                     provision_params['setup_contrail'] = "Yes"
+
                 provision_params['haproxy'] = cluster_params['haproxy']
                 if 'execute_script' in server_params.keys():
 		            provision_params['execute_script'] = server_params['execute_script']
