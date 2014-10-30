@@ -39,18 +39,18 @@ class IpmiData:
 class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
     _discover_client_port = '5998'
-    def __init__(self, val, frequency, serverdb, analytics_ip=None):
+    def __init__(self, val, frequency, analytics_ip=None):
         ''' Constructor '''
         ServerMgrMonBasePlugin.__init__(self)
+        self.base_obj = ServerMgrMonBasePlugin()
         self.val = val
         self.freq = float(frequency)
-        self._serverDb = serverdb
+        self._serverDb = None
         self._analytics_ip = analytics_ip
-        self._monitoring_log = super(ServerMgrIPMIMonitoring, self)._monitoring_log
 
     # call_send function is the sending function of the sandesh object (send_inst)
     def call_send(self, send_inst):
-        super(ServerMgrIPMIMonitoring, self).log("info", "Sending UVE Info over Sandesh")
+        self.base_obj.log("info", "Sending UVE Info over Sandesh")
         send_inst.send()
 
     # send_ipmi_stats function packages and sends the IPMI info gathered from server polling
@@ -75,7 +75,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
     # For this node, a discovery client is set up and passed to the sandesh init_generator.
     def sandesh_init(self, analytics_ip_list):
         try:
-            super(ServerMgrIPMIMonitoring, self).log("info", "Initializing sandesh")
+            self.base_obj.log("info", "Initializing sandesh")
             # storage node module initialization part
             module = Module.IPMI_STATS_MGR
             module_name = ModuleNames[module]
@@ -105,7 +105,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
     # It then calls other functions to send the information to the correct analytics server.
     def run(self):
         print "Starting monitoring thread"
-        super(ServerMgrIPMIMonitoring, self).log("info", "Starting monitoring thread")
+        self.base_obj.log("info", "Starting monitoring thread")
         ipmi_data = []
         supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
         while True:
@@ -124,7 +124,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                         hostname_list.append(server['id'])
                     if 'ip_address' in server:
                         server_ip_list.append(server['ip_address'])
-                super(ServerMgrIPMIMonitoring, self).log("info", "Started IPMI Polling")
+                self.base_obj.log("info", "Started IPMI Polling")
                 for ip, hostname in zip(ipmi_list, hostname_list):
                     ipmi_data = []
                     cmd = 'ipmitool -H %s -U admin -P admin sdr list all' % ip
@@ -144,12 +144,12 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                                     ipmidata.status = status
                                     ipmi_data.append(ipmidata)
                     else:
-                        super(ServerMgrIPMIMonitoring, self).log("info", "IPMI Polling failed for " + str(ip))
+                        self.base_obj.log("info", "IPMI Polling failed for " + str(ip))
                     self.send_ipmi_stats(ipmi_data, hostname=hostname)
             else:
-                super(ServerMgrIPMIMonitoring, self).log("error", "IPMI Polling: No Analytics IP info found")
+                self.base_obj.log("error", "IPMI Polling: No Analytics IP info found")
 
-            super(ServerMgrIPMIMonitoring, self).log("info",
+            self.base_obj.log("info",
                                                      "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
-            super(ServerMgrIPMIMonitoring, self).log("info", "Monitoring thread woke up")
+            self.base_obj.log("info", "Monitoring thread woke up")

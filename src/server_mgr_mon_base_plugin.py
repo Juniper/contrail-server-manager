@@ -38,6 +38,7 @@ class ServerMgrMonBasePlugin(Thread):
     _dev_env_monitoring_obj = None
     _config_set = False
     _serverDb = None
+    _monitoring_log = None
     DEBUG = "debug"
     INFO = "info"
     WARN = "warn"
@@ -56,6 +57,9 @@ class ServerMgrMonBasePlugin(Thread):
         logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
         # create logger
         self._monitoring_log = logging.getLogger('MONITORING')
+
+    def set_serverdb(self, server_db):
+        self._serverDb = server_db
 
     def log(self, level, msg):
         frame, filename, line_number, function_name, lines, index = inspect.stack()[1]
@@ -79,7 +83,7 @@ class ServerMgrMonBasePlugin(Thread):
             elif level == self.CRITICAL:
                 self._monitoring_log.critical(msg, extra=log_dict)
         except Exception as e:
-            print "Error logging msg"
+            print "Error logging msg" + e.message
 
     def parse_args(self, args_str):
         # Source any specified config/ini file
@@ -102,9 +106,9 @@ class ServerMgrMonBasePlugin(Thread):
             if key in self.MonitoringCfg.keys():
                 self.MonitoringCfg[key] = dict(config.items("MONITORING"))[key]
             else:
-                self._monitoring_log.log(self._monitoring_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
+                self._monitoring_log.log(self.DEBUG, "Configuration set for invalid parameter: %s" % key)
 
-        self._monitoring_log.log(self._monitoring_log.DEBUG, "Arguments read form monitoring config file %s" % MonitoringCfg)
+        self._monitoring_log.log(self.DEBUG, "Arguments read form monitoring config file %s" % self.MonitoringCfg)
         parser = argparse.ArgumentParser(
             # Inherit options from config_parser
             # parents=[conf_parser],

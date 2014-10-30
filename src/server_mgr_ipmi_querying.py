@@ -21,10 +21,9 @@ from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 # REST API calls to the Server Mgr Analytics Node that hosts the relevant DB.
 class ServerMgrIPMIQuerying():
     _query_engine_port = 8081
-    def __init__(self, log, translog):
+    def __init__(self, log_obj):
         ''' Constructor '''
-        self._smgr_log = log
-        self._smgr_trans_log = translog
+        self._mon_log = log_obj
 
     # Function handles the polling of info from an list of IPMI addresses using REST API calls to analytics DB
     # and returns the data as a dictionary (JSON)
@@ -34,7 +33,7 @@ class ServerMgrIPMIQuerying():
             results_dict[str(ip_add)] = self.send_REST_request(analytics_ip, self._query_engine_port, hostname)
             return results_dict
         else:
-            self._smgr_log.log(self._smgr_log.ERROR,
+            self._mon_log.log("error",
                                "Error Querying Server Env: Server details missing")
             raise ServerMgrException("Error Querying Server Env: Server details not available")
 
@@ -64,7 +63,7 @@ class ServerMgrIPMIQuerying():
             sensor_data_list = list(data["SMIpmiInfo"]["sensor_status"])
             return sensor_data_list
         except Exception as e:
-            self._smgr_log.log(self._smgr_log.ERROR, "Error Querying Server Env: REST request to Collector IP "
+            self._mon_log.log("error", "Error Querying Server Env: REST request to Collector IP "
                                + str(analytics_ip) + " failed - > " + str(e))
             raise ServerMgrException("Error Querying Server Env: REST request to Collector IP "
                                      + str(analytics_ip) + " failed -> " + str(e))
@@ -96,7 +95,7 @@ class ServerMgrIPMIQuerying():
     def get_env_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN', '^PWR', 'CPU[0-9][" "|_]Temp', '.*_Temp', '.*_Power']
         key = "ENV"
-        self._smgr_log.log(self._smgr_log.INFO, "Fetching ENV details for " + str(ip_add))
+        self._mon_log.log("info", "Fetching ENV details for " + str(ip_add))
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
@@ -105,7 +104,7 @@ class ServerMgrIPMIQuerying():
     def get_fan_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN']
         key = "FAN"
-        self._smgr_log.log(self._smgr_log.INFO, "Fetching FAN details for " + str(ip_add))
+        self._mon_log.log("info", "Fetching FAN details for " + str(ip_add))
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
@@ -114,7 +113,7 @@ class ServerMgrIPMIQuerying():
     def get_temp_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['CPU[0-9][" "|_]Temp', '.*_Temp']
         key = "TEMP"
-        self._smgr_log.log(self._smgr_log.INFO, "Fetching TEMP details for " + str(ip_add))
+        self._mon_log.log("info", "Fetching TEMP details for " + str(ip_add))
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
@@ -123,7 +122,7 @@ class ServerMgrIPMIQuerying():
     def get_pwr_consumption(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['^PWR', '.*_Power']
         key = "PWR"
-        self._smgr_log.log(self._smgr_log.INFO, "Fetching PWR details for " + str(ip_add))
+        self._mon_log.log("info", "Fetching PWR details for " + str(ip_add))
         results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data

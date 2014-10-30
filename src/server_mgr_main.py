@@ -142,10 +142,10 @@ class VncServerManager():
         except:
             print "Error Creating Transaction logger object"
 
+        self._monitoring_base_plugin_obj = ServerMgrMonBasePlugin()
         if not args_str:
             args_str = sys.argv[1:]
         self._parse_args(args_str)
-        self._monitoring_base_plugin_obj = ServerMgrMonBasePlugin()
         # Reads the tags.ini file to get tags mapping (if it exists)
         if os.path.isfile(_SERVER_TAGS_FILE):
             tags_config = ConfigParser.SafeConfigParser()
@@ -250,6 +250,7 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
+        self._dev_env_monitoring_obj.set_serverdb(self._serverDb)
         self._dev_env_monitoring_obj.daemon = True
         self._dev_env_monitoring_obj.start()
 
@@ -2351,7 +2352,7 @@ class VncServerManager():
                   "\nServer Environement Information is unavailable."
             return msg
         try:
-            ret_data = self._dev_env_querying_obj.get_env_details(bottle.request, self._rev_tags_dict)
+            ret_data = self._dev_env_monitoring_obj.get_env_details(bottle.request, self._rev_tags_dict)
             if ret_data:
                 return ret_data
         except ServerMgrException as e:
@@ -2364,7 +2365,7 @@ class VncServerManager():
                   "\nServer Environement Information is unavailable."
             return msg
         try:
-            ret_data = self._dev_env_querying_obj.get_fan_details(bottle.request, self._rev_tags_dict)
+            ret_data = self._dev_env_monitoring_obj.get_fan_details(bottle.request, self._rev_tags_dict)
             if ret_data:
                 return ret_data
         except ServerMgrException as e:
@@ -2377,7 +2378,7 @@ class VncServerManager():
                   "\nServer Environement Information is unavailable."
             return msg
         try:
-            ret_data = self._dev_env_querying_obj.get_temp_details(bottle.request, self._rev_tags_dict)
+            ret_data = self._dev_env_monitoring_obj.get_temp_details(bottle.request, self._rev_tags_dict)
             if ret_data:
                 return ret_data
         except ServerMgrException as e:
@@ -2390,7 +2391,7 @@ class VncServerManager():
                   "\nServer Environement Information is unavailable."
             return msg
         try:
-            ret_data = self._dev_env_querying_obj.get_pwr_details(bottle.request, self._rev_tags_dict)
+            ret_data = self._dev_env_monitoring_obj.get_pwr_details(bottle.request, self._rev_tags_dict)
             if ret_data:
                 return ret_data
         except ServerMgrException as e:
@@ -2876,16 +2877,14 @@ class VncServerManager():
             try:
                 if self._monitoring_args.monitoring_plugin and self._monitoring_args.querying_plugin \
                         and self._monitoring_args.analytics_ip:
-                    querying_module = __import__(str(self._monitoring_args.querying_plugin))
-                    module_components = self._monitoring_args.querying_plugin.split('.')
+                    module_components = str(self._monitoring_args.querying_plugin).split('.')
+                    querying_module = __import__(str(module_components[0]))
                     querying_class = getattr(querying_module, module_components[1])
-                    self._dev_env_querying_obj = querying_class(self._monitoring_log)
-                    monitoring_module = __import__(str(self._monitoring_args.monitoring_plugin))
-                    module_components = self._monitoring_args.monitoring_plugin.split('.')
+                    self._dev_env_querying_obj = querying_class(self._monitoring_base_plugin_obj)
+                    module_components = str(self._monitoring_args.monitoring_plugin).split('.')
+                    monitoring_module = __import__(str(module_components[0]))
                     monitoring_class = getattr(monitoring_module, module_components[1])
-                    self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_freq,
-                                                                    self._serverDb, self._smgr_log,
-                                                                    self._smgr_trans_log,
+                    self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_frequency,
                                                                     self._monitoring_args.analytics_ip)
                     self._dev_env_monitoring_obj.sandesh_init(self._monitoring_args.analytics_ip)
                     self._config_set = True

@@ -282,7 +282,8 @@ def show_all(args):
     rest_api_params = {
         'object' : 'all',
         'match_key' : None,
-        'match_value' : None
+        'match_value' : None,
+        'select': None
     }
     return rest_api_params
 #end def show_all
@@ -299,6 +300,7 @@ def show_tag(args):
 def show_fan_details(args):
     rest_api_params = {}
     rest_api_params['object'] = 'Fan'
+    rest_api_params['select'] = None
     if args.server_id:
         rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
@@ -320,6 +322,7 @@ def show_fan_details(args):
 def show_temp_details(args):
     rest_api_params = {}
     rest_api_params['object'] = 'Temp'
+    rest_api_params['select'] = None
     if args.server_id:
         rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
@@ -341,6 +344,7 @@ def show_temp_details(args):
 def show_pwr_details(args):
     rest_api_params = {}
     rest_api_params['object'] = 'Pwr'
+    rest_api_params['select'] = None
     if args.server_id:
         rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
@@ -362,6 +366,7 @@ def show_pwr_details(args):
 def show_env_details(args):
     rest_api_params = {}
     rest_api_params['object'] = 'Env'
+    rest_api_params['select'] = None
     if args.server_id:
         rest_api_params['match_key'] = 'id'
         rest_api_params['match_value'] = args.server_id
@@ -383,6 +388,7 @@ def show_env_details(args):
 
 def show_mon_status(args):
     rest_api_params = {}
+    rest_api_params['select'] = None
     rest_api_params['object'] = 'MonStatus'
     rest_api_params['match_key'] = None
     rest_api_params['match_value'] = None
