@@ -251,6 +251,7 @@ class VncServerManager():
                 print repr(e)
 
         self._dev_env_monitoring_obj.set_serverdb(self._serverDb)
+        self._dev_env_monitoring_obj.set_querying_obj(self._dev_env_querying_obj)
         self._dev_env_monitoring_obj.daemon = True
         self._dev_env_monitoring_obj.start()
 

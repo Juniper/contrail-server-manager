@@ -39,6 +39,7 @@ class ServerMgrMonBasePlugin(Thread):
     _config_set = False
     _serverDb = None
     _monitoring_log = None
+    _analytics_ip = None
     DEBUG = "debug"
     INFO = "info"
     WARN = "warn"
@@ -60,6 +61,9 @@ class ServerMgrMonBasePlugin(Thread):
 
     def set_serverdb(self, server_db):
         self._serverDb = server_db
+
+    def set_querying_obj(self, query_obj):
+        self._dev_env_querying_obj = query_obj
 
     def log(self, level, msg):
         frame, filename, line_number, function_name, lines, index = inspect.stack()[1]
@@ -118,6 +122,7 @@ class ServerMgrMonBasePlugin(Thread):
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         parser.set_defaults(**self.MonitoringCfg)
+        self._analytics_ip = self.MonitoringCfg['analytics_ip']
         return parser.parse_args(remaining_argv)
 
     # This function converts the string of tags received in REST call and make
@@ -172,8 +177,8 @@ class ServerMgrMonBasePlugin(Thread):
                             hostname = server['id']
                         if 'ip_address' in server:
                             server_ip = server['ip_address']
-                        if self.MonitoringCfg['analytics_ip']:
-                            analytics_ip = eval(str(self.MonitoringCfg['analytics_ip']))
+                        if self._analytics_ip:
+                            analytics_ip = eval(str(self._analytics_ip))
                         else:
                             self.log(self.ERROR, "Missing analytics node IP address for " + str(server['id']))
                             msg = "Missing analytics node IP address for " + \
@@ -232,10 +237,10 @@ class ServerMgrMonBasePlugin(Thread):
                                          + "\n--tag <tag>: To get the environement details of all servers with a tag")
             return data
         except ServerMgrException as e:
-            self.log(self.ERROR, "Error while Querying")
+            self.log(self.ERROR, "Error while Querying" + e.value)
             return None
         except Exception as e:
-            self.log(self.ERROR, "Error while Querying")
+            self.log(self.ERROR, "Error while Querying" + e.message)
         return None
 
     # Function to get all env details
