@@ -7,7 +7,7 @@
             "parameters" : {
                 "interface_name": "eth1",
                 "kernel_version": "3.13.0-34",
-                "kernel_upgrade": "no",
+                "kernel_upgrade": "yes",
 		"partition": ""
             },
             "roles" : ["config","openstack","control","compute","collector","webui","database"],

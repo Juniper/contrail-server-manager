@@ -120,7 +120,7 @@ class ServerMgrPuppet:
     def _update_kernel(self, provision_params):
         # Get all the parameters needed to send to puppet manifest.
         if 'kernel_upgrade' in provision_params and \
-             provision_params['kernel_upgrade'] == "yes" and \
+             provision_params['kernel_upgrade'].lower() == "yes" and \
             'kernel_version' in provision_params and \
             provision_params['kernel_version'] != '' :
             before_param = \

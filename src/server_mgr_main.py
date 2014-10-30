@@ -42,6 +42,7 @@ from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from send_mail import send_mail
 import tempfile
+from contrail_defaults import *
 
 bottle.BaseRequest.MEMFILE_MAX = 2 * 102400
 
@@ -2440,14 +2441,14 @@ class VncServerManager():
                 elif 'kernel_upgrade' in cluster_params and cluster_params['kernel_upgrade']:
                     provision_params['kernel_upgrade'] = cluster_params['kernel_upgrade']
                 else:
-                    provision_params['kernel_upgrade'] = 'no'
+                    provision_params['kernel_upgrade'] = DEFAULT_KERNEL_UPGRADE
 
                 if 'kernel_version' in server_params and server_params['kernel_version']:
                     provision_params['kernel_version'] = server_params['kernel_version']
                 elif 'kernel_version' in cluster_params and cluster_params['kernel_version']:
                     provision_params['kernel_version'] = cluster_params['kernel_version']
                 else:
-                    provision_params['kernel_version'] = ''
+                    provision_params['kernel_version'] = DEFUALT_KERNEL_VERSION
 
 
                 provision_params['haproxy'] = cluster_params['haproxy']
