@@ -38,15 +38,16 @@ class IpmiData:
 # Database to which the monitor pushes device environment information.
 class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
-    _discover_client_port = '5998'
-    def __init__(self, val, frequency, analytics_ip=None):
+    def __init__(self, val, frequency, collectors_ip=None, discovery_server=None, discovery_port=None):
         ''' Constructor '''
         ServerMgrMonBasePlugin.__init__(self)
         self.base_obj = ServerMgrMonBasePlugin()
         self.val = val
         self.freq = float(frequency)
         self._serverDb = None
-        self._analytics_ip = analytics_ip
+        self._collectors_ip = collectors_ip
+        self._discovery_server = discovery_server
+        self._discovery_port = discovery_port
 
     # call_send function is the sending function of the sandesh object (send_inst)
     def call_send(self, send_inst):
@@ -59,21 +60,21 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         sm_ipmi_info = SMIpmiInfo()
         sm_ipmi_info.name = str(hostname)
         sm_ipmi_info.sensor_stats = []
-        sm_ipmi_info.sensor_status = []
+        sm_ipmi_info.sensor_state = []
         for ipmidata in ipmi_data:
             ipmi_stats = IpmiSensor()
             ipmi_stats.sensor = ipmidata.sensor
             ipmi_stats.reading = ipmidata.reading
             ipmi_stats.status = ipmidata.status
             sm_ipmi_info.sensor_stats.append(ipmi_stats)
-            sm_ipmi_info.sensor_status.append(ipmi_stats)
+            sm_ipmi_info.sensor_state.append(ipmi_stats)
         ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
     # sandesh_init function opens a sandesh connection to the analytics node's ip
     # (this is recevied from Server Mgr's config or cluster config). The function is called only once.
     # For this node, a discovery client is set up and passed to the sandesh init_generator.
-    def sandesh_init(self, analytics_ip_list):
+    def sandesh_init(self, collectors_ip_list=None, discovery_server=None, discovery_port=None):
         try:
             self.base_obj.log("info", "Initializing sandesh")
             # storage node module initialization part
@@ -82,22 +83,35 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             node_type = Module2NodeType[module]
             node_type_name = NodeTypeNames[node_type]
             instance_id = INSTANCE_ID_DEFAULT
-            analytics_ip_list = eval(analytics_ip_list)
-            analytics_ip_set = set()
-            for ip in analytics_ip_list:
-                analytics_ip_set.add(ip)
-            for analytics_ip in analytics_ip_set:
-                _disc = client.DiscoveryClient(str(analytics_ip), self._discover_client_port, module_name)
+            if collectors_ip_list:
+                self.base_obj.log("info", "Collector IPs from config: "+str(collectors_ip_list))
+                collectors_ip_list = eval(collectors_ip_list)
                 sandesh_global.init_generator(
                     module_name,
                     socket.gethostname(),
                     node_type_name,
                     instance_id,
-                    [],
+                    collectors_ip_list,
                     module_name,
                     HttpPortIpmiStatsmgr,
-                    ['contrail_sm_monitoring.ipmi'],
-                    _disc)
+                    ['contrail_sm_monitoring.ipmi'])
+            elif discovery_server and discovery_port:
+                collectors_ip_set = []
+                _disc = client.DiscoveryClient(str(discovery_server), str(discovery_port), module_name)
+                sandesh_global.init_generator(
+                    module_name,
+                    socket.gethostname(),
+                    node_type_name,
+                    instance_id,
+                    collectors_ip_set,
+                    module_name,
+                    HttpPortIpmiStatsmgr,
+                    ['contrail_sm_monitoring.ipmi'], _disc)
+                collectors_ip = sandesh_global._client.connection().primary_collector()
+                collectors_ip_set.append(collectors_ip)
+                self.base_obj.log("info", "Collector IPs from discovery: " + str(collectors_ip_set))
+            else:
+                raise ServerMgrException("Error during Sandesh Init: No collector ips or Discovery server/port given")
         except Exception as e:
             raise ServerMgrException("Error during Sandesh Init: " + str(e))
 
@@ -115,7 +129,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             hostname_list = list()
             server_ip_list = list()
             data = ""
-            if self._analytics_ip is not None:
+            if self._collectors_ip or (self._discovery_server and self._discovery_port):
                 for server in servers:
                     server = dict(server)
                     if 'ipmi_address' in server:

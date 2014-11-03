@@ -20,7 +20,7 @@ import pdb
 from threading import Thread
 from server_mgr_exception import ServerMgrException as ServerMgrException
 
-_DEF_ANALYTICS_IP = None
+_DEF_COLLECTORS_IP = None
 _DEF_MON_FREQ = 300
 _DEF_MONITORING_PLUGIN = None
 _DEF_QUERYING_PLUGIN = None
@@ -39,7 +39,9 @@ class ServerMgrMonBasePlugin(Thread):
     _config_set = False
     _serverDb = None
     _monitoring_log = None
-    _analytics_ip = None
+    _collectors_ip = None
+    _discovery_server = None
+    _discovery_port = None
     DEBUG = "debug"
     INFO = "info"
     WARN = "warn"
@@ -50,7 +52,7 @@ class ServerMgrMonBasePlugin(Thread):
         ''' Constructor '''
         Thread.__init__(self)
         self.MonitoringCfg = {
-            'analytics_ip': _DEF_ANALYTICS_IP,
+            'collectors': _DEF_COLLECTORS_IP,
             'monitoring_frequency': _DEF_MON_FREQ,
             'monitoring_plugin': _DEF_MONITORING_PLUGIN,
             'querying_plugin': _DEF_QUERYING_PLUGIN
@@ -122,7 +124,7 @@ class ServerMgrMonBasePlugin(Thread):
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         parser.set_defaults(**self.MonitoringCfg)
-        self._analytics_ip = self.MonitoringCfg['analytics_ip']
+        self._collectors_ip = self.MonitoringCfg['collectors']
         return parser.parse_args(remaining_argv)
 
     # This function converts the string of tags received in REST call and make
@@ -168,7 +170,8 @@ class ServerMgrMonBasePlugin(Thread):
                     hostname = ""
                     server_ip = ""
                     data = ""
-                    analytics_ip = list()
+                    collectors_ip = list()
+                    env_details_dict = None
                     for server in servers:
                         server = dict(server)
                         if 'ipmi_address' in server:
@@ -177,28 +180,32 @@ class ServerMgrMonBasePlugin(Thread):
                             hostname = server['id']
                         if 'ip_address' in server:
                             server_ip = server['ip_address']
-                        if self._analytics_ip:
-                            analytics_ip = eval(str(self._analytics_ip))
+                        if self._collectors_ip:
+                            collectors_ip = eval(str(self._collectors_ip))
+                        elif self._discovery_server and self._discovery_port:
+                            ip = str(self._discovery_server)+":"+self._discovery_port
+                            collectors_ip = list()
+                            collectors_ip.append(ip)
                         else:
                             self.log(self.ERROR, "Missing analytics node IP address for " + str(server['id']))
                             msg = "Missing analytics node IP address for " + \
                                   str(server['id'] + "\n" +
-                                      "This needs to be configured in the Server Manager config or cluster JSON\n")
+                                      "This needs to be configured in the Server Manager config\n")
                             raise ServerMgrException(msg)
                         # Query is sent only to first Analytics IP in the list of Analytics IPs
                         # We are assuming that all these Analytics nodes hold the same information
-                        self.log(self.INFO, "Sending the query to: " + str(analytics_ip[0]))
+                        self.log(self.INFO, "Sending the query to: " + str(collectors_ip[0]))
                         if detail_type == 'ENV':
-                            env_details_dict = self._dev_env_querying_obj.get_env_details(analytics_ip[0], ipmi_add,
+                            env_details_dict = self._dev_env_querying_obj.get_env_details(collectors_ip[0], ipmi_add,
                                                                                           server_ip, hostname)
                         elif detail_type == 'TEMP':
-                            env_details_dict = self._dev_env_querying_obj.get_temp_details(analytics_ip[0], ipmi_add,
+                            env_details_dict = self._dev_env_querying_obj.get_temp_details(collectors_ip[0], ipmi_add,
                                                                                            server_ip, hostname)
                         elif detail_type == 'FAN':
-                            env_details_dict = self._dev_env_querying_obj.get_fan_details(analytics_ip[0], ipmi_add,
+                            env_details_dict = self._dev_env_querying_obj.get_fan_details(collectors_ip[0], ipmi_add,
                                                                                           server_ip, hostname)
                         elif detail_type == 'PWR':
-                            env_details_dict = self._dev_env_querying_obj.get_pwr_consumption(analytics_ip[0], ipmi_add,
+                            env_details_dict = self._dev_env_querying_obj.get_pwr_consumption(collectors_ip[0], ipmi_add,
                                                                                               server_ip, hostname)
                         else:
                             self.log(self.ERROR, "No Environment Detail of the type specified")
@@ -238,44 +245,40 @@ class ServerMgrMonBasePlugin(Thread):
             return data
         except ServerMgrException as e:
             self.log(self.ERROR, "Error while Querying" + e.value)
-            return None
+            return e.value
         except Exception as e:
             self.log(self.ERROR, "Error while Querying" + e.message)
-        return None
+            return None
 
     # Function to get all env details
-    def get_env_details(self, request, tags_dict):
+    def get_env_details(self, key_dict, tags_dict):
         try:
-            ret_data = self.validate_smgr_env(request)
-            return self.get_server_env_details_by_type(ret_data, 'ENV', tags_dict)
+            return self.get_server_env_details_by_type(key_dict, 'ENV', tags_dict)
         except ServerMgrException as e:
             self.log(self.ERROR, "Exception while Querying" + e.value)
             return None
 
     # Function to get fan details
-    def get_fan_details(self, request, tags_dict):
+    def get_fan_details(self, key_dict, tags_dict):
         try:
-            ret_data = self.validate_smgr_env(request)
-            return self.get_server_env_details_by_type(ret_data, 'FAN', tags_dict)
+            return self.get_server_env_details_by_type(key_dict, 'FAN', tags_dict)
         except ServerMgrException as e:
             self.log(self.ERROR, "Exception while Querying" + e.value)
             return None
 
     # Function to get temp details
-    def get_temp_details(self, request, tags_dict):
+    def get_temp_details(self, key_dict, tags_dict):
         try:
-            ret_data = self.validate_smgr_env(request)
-            return self.get_server_env_details_by_type(ret_data, 'TEMP', tags_dict)
+            return self.get_server_env_details_by_type(key_dict, 'TEMP', tags_dict)
         except ServerMgrException as e:
             self.log(self.ERROR, "Exception while Querying" + e.value)
             return None
 
 
     # Function to get pwr details
-    def get_pwr_details(self, request, tags_dict):
+    def get_pwr_details(self, key_dict, tags_dict):
         try:
-            ret_data = self.validate_smgr_env(request)
-            return self.get_server_env_details_by_type(ret_data, 'PWR', tags_dict)
+            return self.get_server_env_details_by_type(key_dict, 'PWR', tags_dict)
         except ServerMgrException as e:
             self.log(self.ERROR, "Exception while Querying" + e.value)
             return None
@@ -288,10 +291,22 @@ class ServerMgrMonBasePlugin(Thread):
         match_key = None
         match_value = None
         if len(query_args) == 0:
+            raise ServerMgrException("No Type specified for monitoring object: Zero Arguments")
+        elif len(query_args) == 1:
             ret_data["status"] = 0
+            monitoring_key, monitoring_value = query_args.popitem()
+            ret_data["monitoring_key"] = str(monitoring_key)
+            ret_data["monitoring_value"] = str(monitoring_value[0])
             ret_data["match_key"] = match_key
             ret_data["match_value"] = match_value
-        elif len(query_args) == 1:
+            if str(monitoring_value[0]) != "Status" or str(monitoring_key) != "Type":
+                raise ServerMgrException("No Type specified for monitoring object: One Argument" + str(monitoring_key) + "   " + str(monitoring_value[0]))
+        elif len(query_args) == 2:
+            monitoring_key, monitoring_value = query_args.popitem()
+            ret_data["monitoring_key"] = str(monitoring_key)
+            ret_data["monitoring_value"] = str(monitoring_value[0])
+            if str(monitoring_value[0]) == "Status" or str(monitoring_key) != "Type":
+                raise ServerMgrException("No Type specified for monitoring object: Two Arguments")
             match_key, match_value = query_args.popitem()
             match_keys = list()
             match_keys.append('id')

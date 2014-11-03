@@ -27,10 +27,10 @@ class ServerMgrIPMIQuerying():
 
     # Function handles the polling of info from an list of IPMI addresses using REST API calls to analytics DB
     # and returns the data as a dictionary (JSON)
-    def return_curl_call(self, ip_add, hostname, analytics_ip):
+    def return_curl_call(self, ip_add, hostname, collectors_ip):
         if ip_add is not None and hostname is not None:
             results_dict = dict()
-            results_dict[str(ip_add)] = self.send_REST_request(analytics_ip, self._query_engine_port, hostname)
+            results_dict[str(ip_add)] = self.send_REST_request(collectors_ip, self._query_engine_port, hostname)
             return results_dict
         else:
             self._mon_log.log("error",
@@ -46,10 +46,15 @@ class ServerMgrIPMIQuerying():
             raise ServerMgrException("Error Querying Server Env: IPMI Polling command failed -> " + str(e))
 
     # Packages and sends a REST API call to the Analytics node
-    def send_REST_request(self, analytics_ip, port, hostname):
+    def send_REST_request(self, collectors_ip, port, hostname):
         try:
             response = StringIO()
-            url = "http://%s:%s/analytics/uves/ipmi-stats/%s?flat" % (str(analytics_ip), port, hostname)
+            collectors_ip_components = str(collectors_ip).split(':')
+            collectors_ip_server = collectors_ip_components[0]
+            collectors_ip_port = collectors_ip_components[1]
+            url = "http://%s:%s/analytics/uves/server/%s?flat" % (collectors_ip_server,
+                                                                  self._query_engine_port, hostname)
+            self._mon_log.log("info", url)
             headers = ["Content-Type:application/json"]
             conn = pycurl.Curl()
             conn.setopt(pycurl.TIMEOUT, 5)
@@ -60,19 +65,18 @@ class ServerMgrIPMIQuerying():
             conn.perform()
             json_data = response.getvalue()
             data = json.loads(json_data)
-            sensor_data_list = list(data["SMIpmiInfo"]["sensor_status"])
+            sensor_data_list = list(data["SMIpmiInfo"]["sensor_state"])
             return sensor_data_list
         except Exception as e:
             self._mon_log.log("error", "Error Querying Server Env: REST request to Collector IP "
-                               + str(analytics_ip) + " failed - > " + str(e))
-            raise ServerMgrException("Error Querying Server Env: REST request to Collector IP "
-                                     + str(analytics_ip) + " failed -> " + str(e))
+                               + str(collectors_ip) + " failed - > " + str(e.message))
+            return None
     # end def send_REST_request
 
     # Filters the data returned from REST API call for requested information
     def filter_sensor_results(self, results_dict, key, match_patterns):
         return_data = dict()
-        if len(results_dict.keys()) >= 1:
+        if results_dict and len(results_dict.keys()) >= 1:
             for server in results_dict:
                 return_data[server] = dict()
                 sensor_data_list = list(results_dict[server])
@@ -92,38 +96,38 @@ class ServerMgrIPMIQuerying():
         return return_data
 
     # Function to get environment info of all types (TEMP, FAN, PWR) from a set of server addressses
-    def get_env_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
+    def get_env_details(self, collectors_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN', '^PWR', 'CPU[0-9][" "|_]Temp', '.*_Temp', '.*_Power']
         key = "ENV"
         self._mon_log.log("info", "Fetching ENV details for " + str(ip_add))
-        results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
+        results_dict = self.return_curl_call(ip_add, hostname, collectors_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 
     # Function to get FAN info from a set of server addressses
-    def get_fan_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
+    def get_fan_details(self, collectors_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['FAN', '.*_FAN']
         key = "FAN"
         self._mon_log.log("info", "Fetching FAN details for " + str(ip_add))
-        results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
+        results_dict = self.return_curl_call(ip_add, hostname, collectors_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 
     # Function to get TEMP info from a set of server addressses
-    def get_temp_details(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
+    def get_temp_details(self, collectors_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['CPU[0-9][" "|_]Temp', '.*_Temp']
         key = "TEMP"
         self._mon_log.log("info", "Fetching TEMP details for " + str(ip_add))
-        results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
+        results_dict = self.return_curl_call(ip_add, hostname, collectors_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 
     # Function to get PWR info from a set of server addressses
-    def get_pwr_consumption(self, analytics_ip, ipmi_add=None, ip_add=None, hostname=None):
+    def get_pwr_consumption(self, collectors_ip, ipmi_add=None, ip_add=None, hostname=None):
         match_patterns = ['^PWR', '.*_Power']
         key = "PWR"
         self._mon_log.log("info", "Fetching PWR details for " + str(ip_add))
-        results_dict = self.return_curl_call(ip_add, hostname, analytics_ip)
+        results_dict = self.return_curl_call(ip_add, hostname, collectors_ip)
         return_data = self.filter_sensor_results(results_dict, key, match_patterns)
         return return_data
 

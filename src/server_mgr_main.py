@@ -268,11 +268,7 @@ class VncServerManager():
         bottle.route('/status', 'GET', self.get_status)
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
-        bottle.route('/Fan', 'GET', self.get_fan_details)
-        bottle.route('/Temp', 'GET', self.get_temp_details)
-        bottle.route('/Pwr', 'GET', self.get_pwr_details)
-        bottle.route('/Env', 'GET', self.get_env_details)
-        bottle.route('/MonStatus', 'GET', self.get_mon_status)
+        bottle.route('/Mon', 'GET', self.get_mon_details)
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
@@ -2346,57 +2342,30 @@ class VncServerManager():
         return server_packages
     # end get_server_packages
 
-    # Function to get all env details
-    def get_env_details(self):
+    # Function to decide which type of monitoring info to fetch
+    def get_mon_details(self):
         if not self._config_set:
             msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
                   "\nServer Environement Information is unavailable."
             return msg
         try:
-            ret_data = self._dev_env_monitoring_obj.get_env_details(bottle.request, self._rev_tags_dict)
-            if ret_data:
-                return ret_data
+            key_dict = self._dev_env_monitoring_obj.validate_smgr_env(bottle.request)
+            ret_data = None
+            if key_dict['monitoring_key'] == "Type" and key_dict['monitoring_value']:
+                if key_dict['monitoring_value'] == "Env":
+                    ret_data = self._dev_env_monitoring_obj.get_env_details(key_dict, self._rev_tags_dict)
+                elif key_dict['monitoring_value'] == "Fan":
+                    ret_data = self._dev_env_monitoring_obj.get_fan_details(key_dict, self._rev_tags_dict)
+                elif key_dict['monitoring_value'] == "Temp":
+                    ret_data = self._dev_env_monitoring_obj.get_temp_details(key_dict, self._rev_tags_dict)
+                elif key_dict['monitoring_value'] == "Pwr":
+                    ret_data = self._dev_env_monitoring_obj.get_pwr_details(key_dict, self._rev_tags_dict)
+                elif key_dict['monitoring_value'] == "Status":
+                    return self.get_mon_status()
+            return ret_data
         except ServerMgrException as e:
             abort(404, e.value)
 
-    # Function to get fan details
-    def get_fan_details(self):
-        if not self._config_set:
-            msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
-                  "\nServer Environement Information is unavailable."
-            return msg
-        try:
-            ret_data = self._dev_env_monitoring_obj.get_fan_details(bottle.request, self._rev_tags_dict)
-            if ret_data:
-                return ret_data
-        except ServerMgrException as e:
-            abort(404, e.value)
-
-    # Function to get temp details
-    def get_temp_details(self):
-        if not self._config_set:
-            msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
-                  "\nServer Environement Information is unavailable."
-            return msg
-        try:
-            ret_data = self._dev_env_monitoring_obj.get_temp_details(bottle.request, self._rev_tags_dict)
-            if ret_data:
-                return ret_data
-        except ServerMgrException as e:
-            abort(404, e.value)
-
-    # Function to get pwr details
-    def get_pwr_details(self):
-        if not self._config_set:
-            msg = "Either Monitoring API layer or Analytics node IP is unconfigured. " \
-                  "\nServer Environement Information is unavailable."
-            return msg
-        try:
-            ret_data = self._dev_env_monitoring_obj.get_pwr_details(bottle.request, self._rev_tags_dict)
-            if ret_data:
-                return ret_data
-        except ServerMgrException as e:
-            abort(404, e.value)
 
     # Function to get monitoring status
     def get_mon_status(self):
@@ -2405,8 +2374,9 @@ class VncServerManager():
                 return "Configuration for Monitoring set correctly."
             elif self._monitoring_args:
                 return_data = ""
-                if self._monitoring_args.analytics_ip is None:
-                    return_data += "The analytics IP parameter hasn't been correctly configured.\n"
+                if self._monitoring_args.collectors is None and \
+                        (self._discovery_port in None or self._discovery_server is None):
+                    return_data += "The collectors/discovery IP parameter hasn't been correctly configured.\n"
                 elif self._monitoring_args.querying_plugin is None:
                     return_data += "The Querying Plugin parameter hasn't been correctly configured.\n"
                 elif self._monitoring_args.monitoring_plugin is None:
@@ -2858,6 +2828,8 @@ class VncServerManager():
         config = ConfigParser.SafeConfigParser()
         config.read([args.config_file])
         self._monitoring_args = None
+        self._discovery_server = None
+        self._discovery_port = None
         try:
             if dict(config.items("MONITORING")).keys():
                 # Handle parsing for monitoring
@@ -2874,10 +2846,25 @@ class VncServerManager():
         except ConfigParser.NoSectionError:
             self._smgr_log.log(self._smgr_log.DEBUG, "No monitoring configuration set.")
             self._monitoring_args = None
+        try:
+            if dict(config.items("DISCOVERY")).keys():
+                discovery_dict = dict(config.items("DISCOVERY"))
+                # Handle parsing of discovery server ip, port
+                if 'server' in discovery_dict and 'port' in discovery_dict:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "Discovery configuration set.")
+                    self._discovery_server = discovery_dict['server']
+                    self._discovery_port = discovery_dict['port']
+                else:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "No discovery configuration set.")
+                    self._discovery_server = None
+                    self._discovery_port = None
+        except ConfigParser.NoSectionError:
+            self._smgr_log.log(self._smgr_log.DEBUG, "No discovery configuration set.")
+            self._discovery_server = None
+            self._discovery_port = None
         if self._monitoring_args:
             try:
-                if self._monitoring_args.monitoring_plugin and self._monitoring_args.querying_plugin \
-                        and self._monitoring_args.analytics_ip:
+                if self._monitoring_args.monitoring_plugin and self._monitoring_args.querying_plugin:
                     module_components = str(self._monitoring_args.querying_plugin).split('.')
                     querying_module = __import__(str(module_components[0]))
                     querying_class = getattr(querying_module, module_components[1])
@@ -2885,10 +2872,20 @@ class VncServerManager():
                     module_components = str(self._monitoring_args.monitoring_plugin).split('.')
                     monitoring_module = __import__(str(module_components[0]))
                     monitoring_class = getattr(monitoring_module, module_components[1])
-                    self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_frequency,
-                                                                    self._monitoring_args.analytics_ip)
-                    self._dev_env_monitoring_obj.sandesh_init(self._monitoring_args.analytics_ip)
-                    self._config_set = True
+                    if self._monitoring_args.collectors:
+                        self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_frequency,
+                                                                        self._monitoring_args.collectors, None, None)
+                        self._dev_env_monitoring_obj.sandesh_init(self._monitoring_args.collectors,
+                                                                  None, None)
+                        self._config_set = True
+                    elif self._discovery_server and self._discovery_port:
+                        self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_frequency,
+                                                                        None, self._discovery_server,
+                                                                        self._discovery_port)
+                        self._dev_env_monitoring_obj.sandesh_init(collectors_ip_list=None,
+                                                                discovery_server=self._discovery_server,
+                                                                discovery_port=self._discovery_port)
+                        self._config_set = True
                 else:
                     self._smgr_log.log(self._smgr_log.ERROR, "Analytics IP and Monitoring API misconfigured, monitoring aborted")
                     self._dev_env_monitoring_obj = self._monitoring_base_plugin_obj
