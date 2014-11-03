@@ -7,6 +7,8 @@ import threading
 import time
 import subprocess
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from server_mgr_exception import ServerMgrException as ServerMgrException
+from server_mgr_err import *
 import cobbler.api as capi
 
 _DEF_COBBLER_IP = '127.0.0.1'
@@ -64,10 +66,14 @@ class ServerMgrCobbler:
         except subprocess.CalledProcessError as e:
             msg = ("Cobbler Init: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
-            raise ServerMgrException(msg)
+            self.log_and_raise_exception(msg, ERR_OPR_ERROR)
         except Exception as e:
             raise e
     # End of __init__
+
+    def log_and_raise_exception(self, msg, err_code = ERR_OPR_ERROR):
+         self._smgr_log.log(self._smgr_log.ERROR, msg)
+         raise ServerMgrException(msg, err_code)
 
     def _init_create_repo(self, repo_name, cobbler_server, token, base_dir):
         try:
@@ -96,7 +102,7 @@ class ServerMgrCobbler:
         except subprocess.CalledProcessError as e:
             msg = ("Cobbler Init: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
-            raise ServerMgrException(msg)
+            self.log_and_raise_exception(msg, ERR_OPR_ERROR)
         except Exception as e:
             raise e
     # End of _init_create_repo
@@ -231,7 +237,7 @@ class ServerMgrCobbler:
         except subprocess.CalledProcessError as e:
             msg = ("create_repo: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
-            raise ServerMgrException(msg)
+            self.log_and_raise_exception(msg, ERR_OPR_ERROR)
         except Exception as e:
             raise e
     # End of create_repo
@@ -363,8 +369,8 @@ class ServerMgrCobbler:
             self._validate_token(self._token, "system")
             system = self._server.find_system({"name":  system_name})
             if not system:
-                raise Exception(
-                    "cobbler error : System %s not found" % system_name)
+                msg = ("cobbler error : System %s not found" % system_name)
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
             system_id = self._server.get_system_handle(
                 system_name, self._token)
             self._server.modify_system(
