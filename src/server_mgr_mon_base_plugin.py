@@ -182,10 +182,6 @@ class ServerMgrMonBasePlugin(Thread):
                             server_ip = server['ip_address']
                         if self._collectors_ip:
                             collectors_ip = eval(str(self._collectors_ip))
-                        elif self._discovery_server and self._discovery_port:
-                            ip = str(self._discovery_server)+":"+self._discovery_port
-                            collectors_ip = list()
-                            collectors_ip.append(ip)
                         else:
                             self.log(self.ERROR, "Missing analytics node IP address for " + str(server['id']))
                             msg = "Missing analytics node IP address for " + \

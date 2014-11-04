@@ -107,14 +107,24 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     module_name,
                     HttpPortIpmiStatsmgr,
                     ['contrail_sm_monitoring.ipmi'], _disc)
-                collectors_ip = sandesh_global._client.connection().primary_collector()
-                collectors_ip_set.append(collectors_ip)
-                self.base_obj.log("info", "Collector IPs from discovery: " + str(collectors_ip_set))
+                _disc.subscribe(ModuleNames[Module.COLLECTOR], 2, self._handle_collector_update)
             else:
                 raise ServerMgrException("Error during Sandesh Init: No collector ips or Discovery server/port given")
         except Exception as e:
             raise ServerMgrException("Error during Sandesh Init: " + str(e))
 
+    def _handle_collector_update(self, collector_info):
+        if collector_info is not None:
+            if len(collector_info) > 0:
+                collector_ip = collector_info[0]['ip-address']+":"+collector_info[0]['port']
+                self.base_obj.log("info", "Collector IPs from discovery: " + str(collector_ip))
+                self._collectors_ip = list()
+                self._collectors_ip.append(collector_ip)
+        else:
+            self.base_obj.log("info", "Collector info is none.")
+
+    def return_collector_ip(self):
+        return self._collectors_ip
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
     # It then calls other functions to send the information to the correct analytics server.
     def run(self):
