@@ -228,7 +228,8 @@ def show_tag(args):
     rest_api_params = {
         'object' : 'tag',
         'match_key' : None,
-        'match_value' : None
+        'match_value' : None,
+        'select' : None
     }
     return rest_api_params
 #end def show_all
