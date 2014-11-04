@@ -232,7 +232,7 @@ class VncServerManager():
                     "Server list is %s" % self.config_data)
 
             except Exception as e:
-                print e.msg
+                print repr(e)
                 self._smgr_log.log(self._smgr_log.ERROR,
                     "Initial config file %s format error. "
                     "File should be in JSON format") \
@@ -244,7 +244,7 @@ class VncServerManager():
             try:
                 self._create_server_manager_config(self.config_data)
             except Exception as e:
-                print e.msg
+                print repr(e)
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -314,7 +314,7 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_ALL,
                                      False)
             self.log_trace()
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR, None)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR, None)
             abort(404, resp_msg)
 
         self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_CFG_ALL)
@@ -356,7 +356,7 @@ class VncServerManager():
                                      self._smgr_trans_log.GET_SMGR_CFG_CLUSTER,
                                      False)
             self.log_trace()
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR, None)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR, None)
             abort(404, resp_msg)
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_CLUSTER,
@@ -385,7 +385,7 @@ class VncServerManager():
                                      self._smgr_trans_log.GET_SMGR_CFG_TAG,
                                      False)
             self.log_trace()
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
 
@@ -875,7 +875,7 @@ class VncServerManager():
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
 
@@ -919,7 +919,7 @@ class VncServerManager():
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
         self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(servers)))
@@ -974,7 +974,7 @@ class VncServerManager():
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
@@ -1020,8 +1020,8 @@ class VncServerManager():
                             server_data)
         except Exception as e:
             self.log_trace()
-            self._smgr_log.log(self._smgr_log.ERROR, "Error adding to db %s" % e.msg)
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            self._smgr_log.log(self._smgr_log.ERROR, "Error adding to db %s" % repr(e))
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                         None)
             abort(404, resp_msg)
 
@@ -1143,7 +1143,7 @@ class VncServerManager():
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
 
@@ -1190,7 +1190,7 @@ class VncServerManager():
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER,
                                 False)
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
             
@@ -1250,7 +1250,7 @@ class VncServerManager():
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
@@ -1314,7 +1314,7 @@ class VncServerManager():
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_TAG, False)
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
 
@@ -1349,6 +1349,7 @@ class VncServerManager():
         if (image_type not in [
                 "centos", "fedora", "ubuntu",
                 "contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]):
+            msg = "Invalid Image" 
             resp_msg = self.form_operartion_data(msg, ERR_IMG_TYPE_INVALID, None)
             abort(404, resp_msg)
         db_images = self._serverDb.get_image(
@@ -1420,7 +1421,7 @@ class VncServerManager():
         except Exception as e:
             self.log_trace()
             resp_msg = self.form_operartion_data(msg, ERR_GENERAL_ERROR,
-                                                                    e.msg)
+                                                                    repr(e))
             abort(404, resp_msg)
         #TODO use the below method to return a JSON for all operations commands
         #with status, Move the codes and msg to a seprate file
@@ -1805,8 +1806,8 @@ class VncServerManager():
             self._smgr_cobbler.sync()
             return kickstart, kickseed
         except Exception as e:
-            self._smgr_log.log(self._smgr_log.ERROR, "Error adding image to cobbler %s" % e.msg)
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            self._smgr_log.log(self._smgr_log.ERROR, "Error adding image to cobbler %s" % repr(e))
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
     # End of _add_image_to_cobbler
@@ -1838,8 +1839,8 @@ class VncServerManager():
                                 self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER,
                                      False)
             self._smgr_log.log(self._smgr_log.ERROR,
-                        "Error while deleting cluster %s" % (e.msg))
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                        "Error while deleting cluster %s" % (repr(e)))
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
@@ -1886,8 +1887,8 @@ class VncServerManager():
                                 self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
                                      False)
             self._smgr_log.log(self._smgr_log.ERROR,
-                        "Unable to delete server, %s" % (e.msg))
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                        "Unable to delete server, %s" % (repr(e)))
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
@@ -1967,8 +1968,8 @@ class VncServerManager():
                                 self._smgr_trans_log.DELETE_SMGR_CFG_IMAGE,
                                      False)
             self._smgr_log.log(self._smgr_log.ERROR,
-                "Unable to delete image, %s" % (e.msg))
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+                "Unable to delete image, %s" % (repr(e)))
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
@@ -1995,7 +1996,7 @@ class VncServerManager():
             self._create_server_manager_config(entity)
         except Exception as e:
             self.log_trace()
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
         return entity
@@ -2010,7 +2011,7 @@ class VncServerManager():
             self._serverDb.server_discovery(action, entity)
         except Exception as e:
             self.log_trace()
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
         return entity
@@ -2305,7 +2306,7 @@ class VncServerManager():
                                      self._smgr_trans_log.SMGR_REBOOT,
                                      False)
             self.log_trace()
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
@@ -2539,7 +2540,7 @@ class VncServerManager():
                 elif 'kernel_version' in cluster_params and cluster_params['kernel_version']:
                     provision_params['kernel_version'] = cluster_params['kernel_version']
                 else:
-                    provision_params['kernel_version'] = DEFUALT_KERNEL_VERSION
+                    provision_params['kernel_version'] = DEFAULT_KERNEL_VERSION
 
 
                 provision_params['haproxy'] = cluster_params['haproxy']
@@ -2762,7 +2763,7 @@ class VncServerManager():
                                      self._smgr_trans_log.SMGR_PROVISION,
                                      False)
             self.log_trace()
-            resp_msg = self.form_operartion_data(e.msg, ERR_GENERAL_ERROR,
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
@@ -3003,7 +3004,7 @@ class VncServerManager():
                 failed_list.append(server['id'])
             except Exception as e:
                 self._smgr_log.log(self._smgr_log.ERROR,
-                                            e.msg)
+                                            repr(e))
                 self._smgr_log.log(self._smgr_log.ERROR,
                                 "Failed re-booting for server %s" % \
                                 (server['id']))
