@@ -112,6 +112,7 @@ class VncServerManager():
     _iso_types = ["centos", "redhat", "ubuntu", "fedora", "esxi5.1", "esxi5.5"]
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
                       "contrail-storage-ubuntu-package"]
+    _image_category_list = ["image", "package"]
     _tags_dict = {}
     _rev_tags_dict = {}
 
@@ -1055,8 +1056,8 @@ class VncServerManager():
                 if self._serverDb.check_obj(
                     "image", {"id" : image['id']},
                     raise_exception=False):
-                    raise ServerMgrException("image modification is not \
-                            allowed,delete and add it.", ERR_OPR_ERROR)
+                    raise ServerMgrException("image modification is not " \
+                           "allowed, delete and add it.", ERR_OPR_ERROR)
                 else:
                     self.validate_smgr_request("IMAGE", "PUT", bottle.request,
                                                 image)
@@ -1065,6 +1066,7 @@ class VncServerManager():
                     # Get Image type
                     image_type = image.get("type", None)
                     image_path = image.get("path", None)
+                    image_category = image.get("category", None)
                     image_params = image.get("parameters", {})
                     if (not image_id) or (not image_path):
                         self._smgr_log.log(self._smgr_log.ERROR,
@@ -1074,6 +1076,16 @@ class VncServerManager():
                     if (image_type not in self._image_list):
                         msg = "image type not specified or invalid for image %s" %(
                                     image_id)
+                        self._smgr_log.log(self._smgr_log.ERROR, msg)
+                        raise ServerMgrException(msg, ERR_OPR_ERROR)
+                    if (not image_category):
+                        if image_type in self._iso_types:
+                            image_category = "image"
+                        if image_type in self._package_types:
+                            image_category = "package"
+                    if (image_category not in self._image_category_list):
+                        msg = "image category (%s) is not supported" % \
+                                                (image_category)
                         self._smgr_log.log(self._smgr_log.ERROR, msg)
                         raise ServerMgrException(msg, ERR_OPR_ERROR)
                     if not os.path.exists(image_path):
@@ -1122,6 +1134,7 @@ class VncServerManager():
                         'version': image_version,
                         'type': image_type,
                         'path': image_path,
+                        'category' : image_category,
                         'parameters' : image_params}
                     self._serverDb.add_image(image_data)
         except subprocess.CalledProcessError as e:
