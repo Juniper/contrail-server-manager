@@ -15,7 +15,6 @@ import server_mgr_db
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from threading import Thread
-import discoveryclient.client as client
 from contrail_sm_monitoring.ipmi.ttypes import *
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -38,7 +37,7 @@ class IpmiData:
 # Database to which the monitor pushes device environment information.
 class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
-    def __init__(self, val, frequency, collectors_ip=None, discovery_server=None, discovery_port=None):
+    def __init__(self, val, frequency, collectors_ip=None):
         ''' Constructor '''
         ServerMgrMonBasePlugin.__init__(self)
         self.base_obj = ServerMgrMonBasePlugin()
@@ -46,8 +45,6 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         self.freq = float(frequency)
         self._serverDb = None
         self._collectors_ip = collectors_ip
-        self._discovery_server = discovery_server
-        self._discovery_port = discovery_port
 
     # call_send function is the sending function of the sandesh object (send_inst)
     def call_send(self, send_inst):
@@ -73,8 +70,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
     # sandesh_init function opens a sandesh connection to the analytics node's ip
     # (this is recevied from Server Mgr's config or cluster config). The function is called only once.
-    # For this node, a discovery client is set up and passed to the sandesh init_generator.
-    def sandesh_init(self, collectors_ip_list=None, discovery_server=None, discovery_port=None):
+    # For this node, a list of collector ips is passed to the sandesh init_generator.
+    def sandesh_init(self, collectors_ip_list=None):
         try:
             self.base_obj.log("info", "Initializing sandesh")
             # storage node module initialization part
@@ -95,33 +92,10 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     module_name,
                     HttpPortIpmiStatsmgr,
                     ['contrail_sm_monitoring.ipmi'])
-            elif discovery_server and discovery_port:
-                collectors_ip_set = []
-                _disc = client.DiscoveryClient(str(discovery_server), str(discovery_port), module_name)
-                sandesh_global.init_generator(
-                    module_name,
-                    socket.gethostname(),
-                    node_type_name,
-                    instance_id,
-                    collectors_ip_set,
-                    module_name,
-                    HttpPortIpmiStatsmgr,
-                    ['contrail_sm_monitoring.ipmi'], _disc)
-                _disc.subscribe(ModuleNames[Module.COLLECTOR], 2, self._handle_collector_update)
             else:
                 raise ServerMgrException("Error during Sandesh Init: No collector ips or Discovery server/port given")
         except Exception as e:
             raise ServerMgrException("Error during Sandesh Init: " + str(e))
-
-    def _handle_collector_update(self, collector_info):
-        if collector_info is not None:
-            if len(collector_info) > 0:
-                collector_ip = collector_info[0]['ip-address']+":"+collector_info[0]['port']
-                self.base_obj.log("info", "Collector IPs from discovery: " + str(collector_ip))
-                self._collectors_ip = list()
-                self._collectors_ip.append(collector_ip)
-        else:
-            self.base_obj.log("info", "Collector info is none.")
 
     def return_collector_ip(self):
         return self._collectors_ip
@@ -139,7 +113,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             hostname_list = list()
             server_ip_list = list()
             data = ""
-            if self._collectors_ip or (self._discovery_server and self._discovery_port):
+            if self._collectors_ip:
                 for server in servers:
                     server = dict(server)
                     if 'ipmi_address' in server:
@@ -173,7 +147,6 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             else:
                 self.base_obj.log("error", "IPMI Polling: No Analytics IP info found")
 
-            self.base_obj.log("info",
-                                                     "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
+            self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
             self.base_obj.log("info", "Monitoring thread woke up")
