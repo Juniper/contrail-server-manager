@@ -23,7 +23,6 @@ from server_mgr_exception import ServerMgrException as ServerMgrException
 _DEF_COLLECTORS_IP = None
 _DEF_MON_FREQ = 300
 _DEF_MONITORING_PLUGIN = None
-_DEF_QUERYING_PLUGIN = None
 _DEF_SMGR_BASE_DIR = '/opt/contrail/server_manager/'
 _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
 
@@ -34,7 +33,6 @@ class ServerMgrMonBasePlugin(Thread):
 
     val = 1
     freq = 300
-    _dev_env_querying_obj = None
     _dev_env_monitoring_obj = None
     _config_set = False
     _serverDb = None
@@ -54,8 +52,7 @@ class ServerMgrMonBasePlugin(Thread):
         self.MonitoringCfg = {
             'collectors': _DEF_COLLECTORS_IP,
             'monitoring_frequency': _DEF_MON_FREQ,
-            'monitoring_plugin': _DEF_MONITORING_PLUGIN,
-            'querying_plugin': _DEF_QUERYING_PLUGIN
+            'monitoring_plugin': _DEF_MONITORING_PLUGIN
         }
         logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
         # create logger
@@ -73,7 +70,6 @@ class ServerMgrMonBasePlugin(Thread):
         log_dict['log_function_name'] = function_name
         log_dict['log_line'] = lines
         log_dict['log_index'] = index
-        print "Log command"
         try:
             if level == self.DEBUG:
                 self._monitoring_log.debug(msg, extra=log_dict)

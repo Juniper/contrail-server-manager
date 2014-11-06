@@ -2849,13 +2849,17 @@ class VncServerManager():
             config_file = _DEF_SMGR_CFG_FILE
         config = ConfigParser.SafeConfigParser()
         config.read([args.config_file])
-        for key in dict(config.items("SERVER-MANAGER")).keys():
-            if key in serverMgrCfg.keys():
-                serverMgrCfg[key] = dict(config.items("SERVER-MANAGER"))[key]
-            else:
-                self._smgr_log.log(self._smgr_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
+        try:
+            for key in dict(config.items("SERVER-MANAGER")).keys():
+                if key in serverMgrCfg.keys():
+                    serverMgrCfg[key] = dict(config.items("SERVER-MANAGER"))[key]
+                else:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
 
-        self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg )
+            self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg)
+        except ConfigParser.NoSectionError:
+            msg = "Server Manager doesn't have a configuration set."
+            self.log_and_raise_exception(msg)
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h

@@ -229,7 +229,7 @@ class ServerMgrIPMIQuerying():
                     return msg
                 # Query is sent only to first Analytics IP in the list of Analytics IPs
                 # We are assuming that all these Analytics nodes hold the same information
-                detail_type = rest_api_params['monitoring_value']
+                detail_type = dict(rest_api_params).get('monitoring_value')
                 if detail_type == 'Env':
                     env_details_dict = self.get_env_details(collector_ips[0], ipmi_add, server_ip, hostname)
                 elif detail_type == 'Temp':
