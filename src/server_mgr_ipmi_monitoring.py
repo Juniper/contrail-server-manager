@@ -28,7 +28,8 @@ class IpmiData:
     sensor = ''
     reading = ''
     status = ''
-
+    unit = ''
+    sensor_type = ''
 
 # Class ServerMgrIPMIMonitoring provides a monitoring object that runs as a thread
 # when Server Manager starts/restarts. This thread continually polls all the servers
@@ -63,6 +64,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             ipmi_stats.sensor = ipmidata.sensor
             ipmi_stats.reading = ipmidata.reading
             ipmi_stats.status = ipmidata.status
+            ipmi_stats.unit = ipmidata.unit
+            ipmi_stats.sensor_type = ipmidata.sensor_type
             sm_ipmi_info.sensor_stats.append(ipmi_stats)
             sm_ipmi_info.sensor_state.append(ipmi_stats)
         ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
@@ -113,6 +116,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             hostname_list = list()
             server_ip_list = list()
             data = ""
+            sensor_type = None
             if self._collectors_ip:
                 for server in servers:
                     server = dict(server)
@@ -136,11 +140,23 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                             status = reading[2].strip()
                             for i in supported_sensors:
                                 if re.search(i, sensor) is not None:
+                                    if 'FAN' in sensor:
+                                        sensor_type = 'fan'
+                                    elif 'PWR' in sensor or 'Power' in sensor:
+                                        sensor_type = 'power'
+                                    elif 'Temp' in sensor:
+                                        sensor_type = 'temperature'
+                                    value = reading_value.split()
                                     ipmidata = IpmiData()
                                     ipmidata.sensor = sensor
-                                    ipmidata.reading = reading_value
                                     ipmidata.status = status
-                                    ipmi_data.append(ipmidata)
+                                    if status == "ns":
+                                        pass
+                                    elif status == "ok":
+                                        ipmidata.reading = long(value[0].strip())
+                                        ipmidata.unit = value[len(value) - 1].strip()
+                                        ipmidata.sensor_type = sensor_type
+                                        ipmi_data.append(ipmidata)
                     else:
                         self.base_obj.log("info", "IPMI Polling failed for " + str(ip))
                     self.send_ipmi_stats(ipmi_data, hostname=hostname)

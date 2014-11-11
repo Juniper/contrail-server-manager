@@ -321,17 +321,12 @@ def show_config(args_str=None):
                       "%s" %config_file))
         smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
         mon_config = dict(config.items("MONITORING"))
-        collector_ip_list = eval(mon_config.get("collectors", []))
-        collector_ips = []
-        if collector_ip_list:
-            for ip in collector_ip_list:
-                collector_ip = str(ip).split(':')[0]
-                collector_ips.append(collector_ip)
+        query_engine_port = mon_config.get("ipmi_introspect_port", None)
     except Exception as e:
         sys.exit("Exception: %s : Error reading config file %s" %(e.message, config_file))
     # end except
     rest_api_params = args.func(args)
-    if rest_api_params['object'] == "Monitor" and collector_ips:
+    if rest_api_params['object'] == "Monitor" and smgr_ip:
         if rest_api_params['monitoring_value'] != "Status":
             mon_query = True
             mon_rest_api_params = dict(rest_api_params)
@@ -347,7 +342,7 @@ def show_config(args_str=None):
                       rest_api_params['select'],
                       detail)
     if mon_query:
-        resp = mon_querying_obj.handle_smgr_response(resp, collector_ips, mon_rest_api_params)
+        resp = mon_querying_obj.handle_smgr_response(resp, smgr_ip, query_engine_port, mon_rest_api_params)
     smgr_client_def.print_rest_response(resp)
 # End of show_config
 
