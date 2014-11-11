@@ -14,9 +14,16 @@ import pdb
 import sys
 import pycurl
 
-_DEF_SMGR_CFG_FILE = './smgr.ini'
-_DEF_SMGR_IP_ADDR = '10.84.51.11'
+# The following 2 variable settings are important. These specify the IP address
+# and port where the below DHCP hook, that gets called from dhcpd, will send
+# REST request to server manager. The IP address field is replaced with host ip
+# as part of install process. The port number, if changed from default value (9001)
+# needs to be changed here too.
+_DEF_SMGR_IP_ADDR = '__$IPADDRESS__'
 _DEF_SMGR_PORT = 9001
+
+IP_ADDRESS_KEY = "ip_address"
+MAC_ADDRESS_KEY = "mac_address"
 
 
 def parse_arguments(args_str=None):
@@ -63,8 +70,9 @@ def dhcp_event(args_str=None):
         smgr_action = "add"
     else:
         smgr_action = "delete"
-    server_def = '{"ip":"%s", "mac":"%s"}' \
-                 % (args.server_ip, args.server_mac)
+    server_def = '{"%s":"%s", "%s":"%s"}' \
+                 % (IP_ADDRESS_KEY, args.server_ip, \
+                    MAC_ADDRESS_KEY, args.server_mac)
     send_REST_request(serverMgrCfg['smgr_ip_addr'],
                       serverMgrCfg['smgr_port'],
                       smgr_action, server_def)
