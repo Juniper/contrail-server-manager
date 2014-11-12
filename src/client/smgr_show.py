@@ -320,12 +320,23 @@ def show_config(args_str=None):
             sys.exit(("listen_ip_addr missing in config file"
                       "%s" %config_file))
         smgr_port = smgr_config.get("listen_port", smgr_client_def._DEF_SMGR_PORT)
-        mon_config = dict(config.items("MONITORING"))
-        query_engine_port = mon_config.get("ipmi_introspect_port", None)
     except Exception as e:
         sys.exit("Exception: %s : Error reading config file %s" %(e.message, config_file))
     # end except
     rest_api_params = args.func(args)
+    try:
+        mon_config = dict(config.items("MONITORING"))
+        query_engine_port = mon_config.get("ipmi_introspect_port", None)
+    except ConfigParser.NoSectionError:
+        if rest_api_params['object'] == "Monitor":
+            sys.exit("Monitoring hasn't been configured. Cannot use this command.")
+        else:
+            pass
+    except Exception as e:
+        if rest_api_params['object'] == "Monitor":
+            sys.exit("Monitoring hasn't been configured. Cannot use this command.")
+        else:
+            pass
     if rest_api_params['object'] == "Monitor" and smgr_ip:
         if rest_api_params['monitoring_value'] != "Status":
             mon_query = True

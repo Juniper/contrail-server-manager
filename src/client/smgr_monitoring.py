@@ -52,8 +52,8 @@ class ServerMgrIPMIQuerying():
             return data_list
         except Exception as e:
             msg = "Error Querying Server Env: REST request to Collector IP " \
-                  + str(server_ip) + " failed - > " + str(e.message)
-            return msg
+                  + str(server_ip) + " failed - > " + str(e)
+            return None
 
     # end def send_REST_request
 
@@ -229,7 +229,7 @@ class ServerMgrIPMIQuerying():
                 return "No Environment Detail of that Type"
 
             if env_details_dict is None:
-                data += "\nFailed to get details for query\n"
+                data += "\nFailed to get details for query. Monitoring might not be configured on Server Manager.\n"
             else:
                 env_details_dict = dict(env_details_dict)
                 for hostname in env_details_dict:
@@ -252,27 +252,39 @@ class ServerMgrIPMIQuerying():
     def get_env_details(self, server_ip, server_list=None):
         key = "all"
         data_list = self.send_REST_request(server_ip, self._query_engine_port)
-        return_data = self.filter_sensor_results(data_list, key, server_list)
-        return return_data
+        if data_list:
+            return_data = self.filter_sensor_results(data_list, key, server_list)
+            return return_data
+        else:
+            return None
 
     # Function to get FAN info from a set of server addressses
     def get_fan_details(self, server_ip, server_list=None):
         key = "fan"
         data_list = self.send_REST_request(server_ip, self._query_engine_port)
-        return_data = self.filter_sensor_results(data_list, key, server_list)
-        return return_data
+        if data_list:
+            return_data = self.filter_sensor_results(data_list, key, server_list)
+            return return_data
+        else:
+            return None
 
     # Function to get TEMP info from a set of server addressses
     def get_temp_details(self, server_ip, server_list=None):
         key = "temperature"
         data_list = self.send_REST_request(server_ip, self._query_engine_port)
-        return_data = self.filter_sensor_results(data_list, key, server_list)
-        return return_data
+        if data_list:
+            return_data = self.filter_sensor_results(data_list, key, server_list)
+            return return_data
+        else:
+            return None
 
     # Function to get PWR info from a set of server addressses
     def get_pwr_consumption(self, server_ip, server_list=None):
         key = "power"
         data_list = self.send_REST_request(server_ip, self._query_engine_port)
-        return_data = self.filter_sensor_results(data_list, key, server_list)
-        return return_data
+        if data_list:
+            return_data = self.filter_sensor_results(data_list, key, server_list)
+            return return_data
+        else:
+            return None
 
