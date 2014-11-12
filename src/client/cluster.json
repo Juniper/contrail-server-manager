@@ -19,7 +19,9 @@
                 "gateway": "10.204.221.46",
                 "password": "c0ntrail123",
                 "external_bgp": "",
-                "domain": "englab.juniper.net"
+                "domain": "englab.juniper.net",
+	        "base_image_id": "",
+	        "package_image_id": ""
                 }
         }
     ]

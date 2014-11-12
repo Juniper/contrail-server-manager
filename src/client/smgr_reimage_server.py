@@ -42,7 +42,7 @@ def parse_arguments(args_str=None):
                         help=("Server manager client config file "
                               " (default - %s)" %(
                               smgr_client_def._DEF_SMGR_CFG_FILE)))
-    parser.add_argument("base_image_id",
+    parser.add_argument("base_image_id", nargs='?',
                         help="image id for base image to be used")
     parser.add_argument("--package_image_id", "-p",
                         help=("Optional contrail package to be used"
@@ -59,6 +59,8 @@ def parse_arguments(args_str=None):
     group.add_argument("--tag",
                         help=("tag values for the servers to be reimaged"
                               "in t1=v1,t2=v2,... format"))
+    group.add_argument("--where",
+                       help=("sql where statement in quotation marks"))
     parser.add_argument("--no_confirm", "-F", action="store_true",
                         help=("flag to bypass confirmation message, "
                               "default = do not bypass"))
@@ -105,6 +107,7 @@ def reimage_server(args_str=None):
 
     match_key = None
     match_value = None
+    payload = {}
     if args.server_id:
         match_key='id'
         match_value = args.server_id
@@ -114,10 +117,12 @@ def reimage_server(args_str=None):
     elif args.tag:
         match_key='tag'
         match_value = args.tag
+    elif args.where:
+        match_key='where'
+        match_value = args.where
     else:
         pass
     
-    payload = {}
     payload['base_image_id'] = args.base_image_id
     payload['package_image_id'] = args.package_image_id
     if (args.no_reboot):
@@ -126,8 +131,12 @@ def reimage_server(args_str=None):
         payload[match_key] = match_value
 
     if (not args.no_confirm):
+        if args.base_image_id:
+            image_str = args.base_image_id
+        else:
+            image_str = "configured"
         msg = "Reimage servers (%s:%s) with %s? (y/N) :" %(
-            match_key, match_value, args.base_image_id)
+            match_key, match_value, image_str)
         user_input = raw_input(msg).lower()
         if user_input not in ["y", "yes"]:
             sys.exit()

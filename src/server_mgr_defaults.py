@@ -2,7 +2,7 @@
 
 #validation DS
 server_fields = {
-    "match_keys": "['id', 'mac_address', 'cluster_id', 'ip_address', 'tag']",
+    "match_keys": "['id', 'mac_address', 'cluster_id', 'ip_address', 'tag', 'where']",
     "obj_name": "server",
     "primary_keys": "['id', 'mac_address']",
     "id": "",
@@ -26,15 +26,19 @@ server_fields = {
     "control_data_network": "",
     "bond_interface": "",
     "ipmi_address": "",
-    "tag": ""
+    "tag": "",
+    "base_image_id": "",
+    "package_image_id": ""
 }
 
 cluster_fields = {
-    "match_keys": "['id']",
+    "match_keys": "['id', 'where']",
     "obj_name": "cluster",
     "id": "",
     "email": "",
     "primary_keys": "['id']",
+    "base_image_id": "",
+    "package_image_id": "",
     "parameters": """{
                 'router_asn': '64512',
                 'database_dir': '/home/cassandra',
@@ -59,10 +63,11 @@ cluster_fields = {
 }
 
 image_fields = {
-    "match_keys": "['id']",
+    "match_keys": "['id', 'where']",
     "obj_name": "image",
     "primary_keys": "['id']",
     "id": "",
+    "category": "",
     "type": "",
     "version": "",
     "path": "",

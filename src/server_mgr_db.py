@@ -5,6 +5,7 @@ import sys
 import pdb
 import uuid
 from netaddr import *
+from server_mgr_err import *
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 
@@ -53,6 +54,18 @@ class ServerMgrDb:
             raise e
     # end _get_table_columns
 
+    def _add_table_column(self, cursor, table, column, column_type):
+        try:
+            cmd = "ALTER TABLE " + table + " ADD COLUMN " + column + " " + column_type
+            cursor.execute(cmd)
+        except lite.OperationalError:
+            pass
+    # end _add_table_column
+
+    def log_and_raise_exception(self, msg, err_code = ERR_OPR_ERROR):
+         self._smgr_log.log(self._smgr_log.ERROR, msg)
+         raise ServerMgrException(msg, err_code)
+
     def __init__(self, db_file_name=def_server_db_file):
         try:
             self._smgr_log = ServerMgrlogger()
@@ -97,6 +110,16 @@ class ServerMgrDb:
                          value TEXT,
                          UNIQUE (tag_id),
                          UNIQUE (value))""")
+                # Add columns for image_table
+                self._add_table_column(cursor, image_table, "category", "TEXT")
+                # Add columns for cluster_table
+                self._add_table_column(cursor, cluster_table, "base_image_id", "TEXT")
+                self._add_table_column(cursor, cluster_table, "package_image_id", "TEXT")
+                self._add_table_column(cursor, cluster_table, "provisioned_id", "TEXT")
+                # Add columns for server_table
+                self._add_table_column(cursor, server_table, "reimaged_id", "TEXT")
+                self._add_table_column(cursor, server_table, "provisioned_id", "TEXT")
+
             self._get_table_columns()
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
 
@@ -201,16 +224,23 @@ class ServerMgrDb:
             delete_str = "DELETE FROM %s" %(table_name)
             # form a string to provide to where match clause
             match_list = []
+            where = None
             if match_dict:
-                match_list = ["%s = \'%s\'" %(
-                k,v) for k,v in match_dict.iteritems()]
-            if unmatch_dict:
-                match_list += ["%s != \'%s\'" %(
-                    k,v) for k,v in unmatch_dict.iteritems()]
-            if match_list:
-                match_str = " and ".join(match_list)
-                delete_str+= " WHERE " + match_str
-            # end if match_list
+                where = match_dict.get("where", None)
+
+            if where:
+                delete_str += " WHERE " + where
+            else:
+                if match_dict:
+                    match_list = ["%s = \'%s\'" %(
+                            k,v) for k,v in match_dict.iteritems()]
+                if unmatch_dict:
+                    match_list += ["%s != \'%s\'" %(
+                            k,v) for k,v in unmatch_dict.iteritems()]
+                if match_list:
+                    match_str = " and ".join(match_list)
+                    delete_str+= " WHERE " + match_str
+
             with self._con:
                 cursor = self._con.cursor()
                 cursor.execute(delete_str)
@@ -258,15 +288,21 @@ class ServerMgrDb:
                 select_str = "SELECT %s FROM %s" % (sel_cols, table_name)
                 # form a string to provide to where match clause
                 match_list = []
+                where = None
                 if match_dict:
-                    match_list = ["%s = \'%s\'" %(
-                        k,v) for k,v in match_dict.iteritems()]
-                if unmatch_dict:
-                    match_list += ["%s != \'%s\'" %(
-                        k,v) for k,v in unmatch_dict.iteritems()]
-                if match_list:
-                    match_str = " and ".join(match_list)
-                    select_str+= " WHERE " + match_str
+                    where = match_dict.get("where", None)
+                if where:
+                    select_str += " WHERE " + where
+                else:
+                    if match_dict:
+                        match_list = ["%s = \'%s\'" %(
+                                k,v) for k,v in match_dict.iteritems()]
+                    if unmatch_dict:
+                        match_list += ["%s != \'%s\'" %(
+                                k,v) for k,v in unmatch_dict.iteritems()]
+                    if match_list:
+                        match_str = " and ".join(match_list)
+                        select_str+= " WHERE " + match_str
                 cursor.execute(select_str)
             rows = [x for x in cursor]
             cols = [x[0] for x in cursor.description]
@@ -407,7 +443,7 @@ class ServerMgrDb:
             if servers:
                 msg = ("Servers are present in this cluster, "
                         "remove cluster association, prior to cluster delete.")
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
             self._delete_row(cluster_table, match_dict, unmatch_dict)
         except Exception as e:
             raise e
@@ -428,7 +464,7 @@ class ServerMgrDb:
         if not db_obj:
             msg = "%s not found" % (type)
             if raise_exception:
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
             return False
         return True
     #end of check_obj
@@ -475,7 +511,8 @@ class ServerMgrDb:
                 {"id" : cluster_id}, detail=True)
             if not db_cluster:
                 msg = "%s is not valid" % cluster_id
-                raise ServerMgrException(msg)
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+
             db_cluster_params_str = db_cluster[0] ['parameters']
             db_cluster_params = {}
             if db_cluster_params_str:
@@ -514,9 +551,11 @@ class ServerMgrDb:
                 {'id' : image_data['id']},
                 detail=True)
             if image_data['path'] != db_image[0]['path']:
-                raise ServerMgrException('Image path cannnot be modified')
+                msg = ('Image path cannnot be modified')
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
             if image_data['type'] != db_image[0]['type']:
-                raise ServerMgrException('Image type cannnot be modified')
+                msg = ('Image type cannnot be modified')
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
             # Store image_params dictionary as a text field
             image_parameters = image_data.pop("parameters", None)
             if image_parameters is not None:
@@ -550,7 +589,8 @@ class ServerMgrDb:
             if not server_mac:
                 server_id = server_data.get('id', None)
                 if not server_id:
-                    raise Exception("No server MAC or id specified")
+                    msg = ("No server MAC or id specified")
+                    self.log_and_raise_exception(msg, ERR_OPR_ERROR)
                 else:
                     server_mac = self.get_server_mac(server_id)
             #Check if object exists
@@ -560,7 +600,9 @@ class ServerMgrDb:
                                {'id' : server_data['id']})
                 #Reject if primary key values change
                 if server_data['mac_address'] != db_server[0]['mac_address']:
-                    raise ServerMgrException('MAC address cannnot be modified')
+                    msg = ('MAC address cannnot be modified', ERR_OPR_ERROR)
+                    self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+
 
             # Store roles list as a text field
             roles = server_data.pop("roles", None)
@@ -624,11 +666,13 @@ class ServerMgrDb:
     # End of modify_server_tags
 
     def get_image(self, match_dict=None, unmatch_dict=None,
-                  detail=False):
+                  detail=False, field_list=None):
         try:
+            if not field_list:
+                field_list = ["id"]
             images = self._get_items(
                 image_table, match_dict,
-                unmatch_dict, detail, ["id"])
+                unmatch_dict, detail, field_list)
         except Exception as e:
             raise e
         return images
@@ -687,25 +731,24 @@ class ServerMgrDb:
                         EUI(match_dict["mac_address"])).replace("-", ":")
             # For server table, when detail is false, return server_id, mac
             # and ip.
-            if field_list:
-                servers = self._get_items(
-                   server_table, match_dict,
-                   unmatch_dict, detail, field_list)
-            else:
-                servers = self._get_items(
-                   server_table, match_dict,
-                   unmatch_dict, detail, ["id", "mac_address", "ip_address"])
+            if not field_list:
+                field_list = ["id", "mac_address", "ip_address"]
+            servers = self._get_items(
+                server_table, match_dict,
+                unmatch_dict, detail, field_list)
         except Exception as e:
             raise e
         return servers
     # End of get_server
 
     def get_cluster(self, match_dict=None,
-                unmatch_dict=None, detail=False):
+                unmatch_dict=None, detail=False, field_list=None):
         try:
+            if not field_list:
+                field_list = ["id"]
             cluster = self._get_items(
                 cluster_table, match_dict,
-                unmatch_dict, detail, ["id"])
+                unmatch_dict, detail, field_list)
         except Exception as e:
             raise e
         return cluster
