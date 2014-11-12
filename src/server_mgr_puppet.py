@@ -13,6 +13,7 @@ from netaddr import *
 import string
 import textwrap
 import shutil
+import random 
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
@@ -311,6 +312,79 @@ class ServerMgrPuppet:
 
     def puppet_add_common_role(self, provision_params, last_res_added=None):
         data = ''
+
+        rsyslong_param = {}
+        rsyslog_string = "*.*"
+        # Get all the parameters needed to send to puppet manifest.
+
+        # Computing the rsyslog parameter here.
+        if 'rsyslog_params' in provision_params:
+            if  provision_params['rsyslog_params']['status'] == "enable":
+                if 'collector' in provision_params['rsyslog_params']:
+                    rsyslong_param['collector'] = provision_params['rsyslog_params']['collector']
+                else :
+                    rsyslong_param['collector'] = 'dynamic'
+
+                if 'port' in provision_params['rsyslog_params']:
+                    rsyslong_param['port'] = provision_params['rsyslog_params']['port']
+                else :
+                    rsyslong_param['port'] = "19876"
+
+                if 'proto' in provision_params['rsyslog_params']:
+                    rsyslong_param['proto'] = provision_params['rsyslog_params']['proto']
+                else :
+                    rsyslong_param['proto'] = 'tcp'
+
+                # Computing rsyslog string for rsyslog.conf
+                collector_servers = provision_params['roles']['collector']
+                collector_ip_list_control=[]
+                for itr in collector_servers:
+                    collector_ip_list_control.append(self.get_control_ip(provision_params, str(itr)))
+                if rsyslong_param['proto'] == 'tcp':
+                    rsyslog_string+=" "+"@@"
+                else:
+                    rsyslog_string+=" "+"@"
+
+                if rsyslong_param['collector'] == 'dynamic':
+                    rsyslog_string+=random.choice(collector_ip_list_control).replace('"','')   
+                else:
+                    rsyslog_string+=collector_ip_list_control[0].replace('"','')
+                rsyslog_string+= ":" + str(rsyslong_param['port'])
+
+                if self._params_dict.get('rsyslog_status', None) is None:
+                    self._params_dict['rsyslog_status'] = (
+                        "\"%s\"" %(   
+                        provision_params['rsyslog_params']['status']))
+
+                if self._params_dict.get('rsyslog_port', None) is None:
+                    self._params_dict['rsyslog_port'] = (  
+                        "\"%s\"" %(
+                        rsyslong_param['port']))
+
+                if self._params_dict.get('rsyslog_collector', None) is None:
+                    self._params_dict['rsyslog_collector'] = (
+                        "\"%s\"" %(  
+                        rsyslong_param['collector']))
+
+                if self._params_dict.get('rsyslog_proto', None) is None:
+                    self._params_dict['rsyslog_proto'] = (
+                        "\"%s\"" %(   
+                        rsyslong_param['proto']))
+
+                if self._params_dict.get('rsyslog_string', None) is None:
+                    self._params_dict['rsyslog_string'] = (
+                        "\"%s\"" %(
+                        rsyslog_string))
+        else:
+            if self._params_dict.get('rsyslog_status', None) is None:
+                    self._params_dict['rsyslog_status'] = (
+                        "\"%s\"" %(   
+                        "disable"))
+            if self._params_dict.get('rsyslog_port', None) is None:
+                    self._params_dict['rsyslog_port'] = (
+                        "\"%s\"" %(
+                        "-1"))
+
         # Build Params items
         if self._params_dict.get('self_ip', None) is None:
             self._params_dict['self_ip'] = (
