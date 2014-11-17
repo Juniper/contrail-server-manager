@@ -40,6 +40,8 @@ class ServerMgrMonBasePlugin(Thread):
     _collectors_ip = None
     _discovery_server = None
     _discovery_port = None
+    _default_ipmi_username = None
+    _default_ipmi_password = None
     DEBUG = "debug"
     INFO = "info"
     WARN = "warn"
@@ -60,6 +62,10 @@ class ServerMgrMonBasePlugin(Thread):
 
     def set_serverdb(self, server_db):
         self._serverDb = server_db
+
+    def set_ipmi_defaults(self, ipmi_username, ipmi_password):
+        self._default_ipmi_username = ipmi_username
+        self._default_ipmi_password = ipmi_password
 
     def log(self, level, msg):
         frame, filename, line_number, function_name, lines, index = inspect.stack()[1]

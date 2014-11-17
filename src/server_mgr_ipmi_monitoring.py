@@ -108,13 +108,15 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         print "Starting monitoring thread"
         self.base_obj.log("info", "Starting monitoring thread")
         ipmi_data = []
-        supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
+        supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*Temp', '.*_Power']
         while True:
             servers = self._serverDb.get_server(
                 None, detail=True)
             ipmi_list = list()
             hostname_list = list()
             server_ip_list = list()
+            ipmi_username_list = list()
+            ipmi_password_list = list()
             data = ""
             sensor_type = None
             if self._collectors_ip:
@@ -126,10 +128,19 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                         hostname_list.append(server['id'])
                     if 'ip_address' in server:
                         server_ip_list.append(server['ip_address'])
+                    if 'ipmi_username' in server and server['ipmi_username']:
+                        ipmi_username_list.append(server['ipmi_username'])
+                    else:
+                        ipmi_username_list.append(self._default_ipmi_username)
+                    if 'ipmi_password' in server and server['ipmi_password']:
+                        ipmi_password_list.append(server['ipmi_password'])
+                    else:
+                        ipmi_password_list.append(self._default_ipmi_password)
                 self.base_obj.log("info", "Started IPMI Polling")
-                for ip, hostname in zip(ipmi_list, hostname_list):
+                for ip, hostname, username, password in \
+                        zip(ipmi_list, hostname_list, ipmi_username_list, ipmi_password_list):
                     ipmi_data = []
-                    cmd = 'ipmitool -H %s -U admin -P admin sdr list all' % ip
+                    cmd = 'ipmitool -H %s -U %s -P %s sdr list all' % (ip, username, password)
                     result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
                     if result is not None:
                         fileoutput = cStringIO.StringIO(result)
@@ -139,7 +150,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                             reading_value = reading[1].strip()
                             status = reading[2].strip()
                             for i in supported_sensors:
-                                if re.search(i, sensor) is not None:
+                                if re.search(i, sensor, re.IGNORECASE) is not None:
                                     if 'FAN' in sensor:
                                         sensor_type = 'fan'
                                     elif 'PWR' in sensor or 'Power' in sensor:
