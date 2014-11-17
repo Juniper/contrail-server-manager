@@ -253,6 +253,7 @@ class VncServerManager():
                 print repr(e)
 
         self._dev_env_monitoring_obj.set_serverdb(self._serverDb)
+        self._dev_env_monitoring_obj.set_ipmi_defaults(self._args.ipmi_username, self._args.ipmi_password)
         self._dev_env_monitoring_obj.daemon = True
         self._dev_env_monitoring_obj.start()
 
