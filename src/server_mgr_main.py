@@ -66,6 +66,7 @@ _DEF_IPMI_PASSWORD = 'ADMIN'
 _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
 
+
 @bottle.error(403)
 def error_403(err):
     return err.body
@@ -121,10 +122,76 @@ class VncServerManager():
     _dev_env_monitoring_obj = None
     _monitoring_base_plugin_obj = None
     _config_set = False
+    #dict to hold cfg defaults
+    _cfg_defaults_dict = {}
+    #dict to hold code defaults
+    _code_defaults_dict = {}
+    _smgr_config = None
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
 
+    def merge_dict(self, d1, d2):
+        for k,v2 in d2.items():
+            v1 = d1.get(k) # returns None if v1 has no value for this key
+            if ( isinstance(v1, dict) and
+                 isinstance(v2, dict) ):
+                self.merge_dict(v1, v2)
+            elif v1:
+                #do nothing, Retain value
+                msg = "%s already present in dict d1," \
+                    "Retaining value %s against %s" % (k, v1, v2)
+                self._smgr_log.log(self._smgr_log.INFO, msg)
+            else:
+                #do nothing, Retain value
+                msg = "adding %s:%s" % (k, v1)
+                self._smgr_log.log(self._smgr_log.INFO, msg)
+                d1[k] = v2
 
+    def _cfg_parse_defaults(self, cfg_def_objs):
+        defaults_dict = {}
+        cur_dict = defaults_dict
+        for k,v in cfg_def_objs.items():
+            d_dict = v
+            cur_dict = defaults_dict
+            if k in cur_dict:
+                cur_dict_l1 = cur_dict[k]
+                continue
+            else:
+                new_dict = {}
+                cur_dict[k] = new_dict
+                previous_dict_l1 = cur_dict
+                cur_dict_l1 = new_dict
+            for k,v in d_dict.items():
+                cur_dict = cur_dict_l1
+                dict_key_list = k.split(".")
+                for x in dict_key_list:
+                    if x in cur_dict:
+                        cur_dict = cur_dict[x]
+                        continue
+                    else:
+                        new_dict = {}
+                        cur_dict[x] = new_dict
+                        previous_dict = cur_dict
+                        cur_dict = new_dict
+                previous_dict[x] = v
+
+        return defaults_dict
+
+    def _prepare_code_defaults(self):
+        code_defaults_dict = {}
+        obj_list = {"server" : server_fields, "cluster": cluster_fields,
+                                            "image": image_fields} 
+        for obj_name, obj in obj_list.items():
+            obj_cpy = obj.copy()
+            pop_items = ["match_keys", "obj_name", "primary_keys"]
+            obj_cpy.pop("match_keys")
+            obj_cpy.pop("obj_name")
+            obj_cpy.pop("primary_keys")
+            parameters = eval(obj_cpy.get("parameters", {}))
+            obj_cpy["parameters"] = parameters
+            code_defaults_dict[obj_name] = obj_cpy
+        return code_defaults_dict 
+        
     def __init__(self, args_str=None):
         self._args = None
         #Create an instance of logger
@@ -148,6 +215,10 @@ class VncServerManager():
         if not args_str:
             args_str = sys.argv[1:]
         self._parse_args(args_str)
+        self._cfg_obj_defaults = self._read_smgr_object_defaults(self._smgr_config)
+        self._cfg_defaults_dict = self._cfg_parse_defaults(self._cfg_obj_defaults)
+        self._code_defaults_dict = self._prepare_code_defaults()
+
         # Reads the tags.ini file to get tags mapping (if it exists)
         if os.path.isfile(_SERVER_TAGS_FILE):
             tags_config = ConfigParser.SafeConfigParser()
@@ -271,6 +342,8 @@ class VncServerManager():
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
         bottle.route('/Monitor', 'GET', self.get_mon_details)
+        bottle.route('/defaults', 'GET', self.get_defaults)
+
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
@@ -491,61 +564,35 @@ class VncServerManager():
                 self.log_and_raise_exception(msg)
         #Parse for the JSON to find allowable fields
         remove_list = []
-        for data_item_key, data_item_value in data.iteritems():
+
+        #new default code
+        if modify == False:
+            #pick the object defaults
+            obj_defaults = self._cfg_defaults_dict[obj_name]
+            obj_code_defaults = self._code_defaults_dict[obj_name]
+            #call the merge
+            self.merge_dict(data, obj_defaults)
+            self.merge_dict(data, obj_code_defaults)
+
+        obj_params_str = obj_name + "_params"
+        for k, v in validation_data.iteritems():
             #If json data name is not present in list of
             #allowable fields silently ignore them.
-            if data_item_key == "parameters" and modify == False:
-                object_parameters = data_item_value
-                default_object_parameters = eval(validation_data['parameters'])
-                for key,value in default_object_parameters.iteritems():
-                    if key not in object_parameters:
-                        msg = "Default Object param added is %s:%s" % \
-                                (key, value)
-                        self._smgr_log.log(self._smgr_log.INFO,
-                                   msg)
-                        object_parameters[key] = value
-                """
-
-                for k,v in object_parameters.iteritems():
-                    if k in default_object_parameters and v == ''
-                    if v == '""':
-                        object_parameters[k] = ''
-                """
-                data[data_item_key] = object_parameters
-            elif data_item_key not in validation_data:
-#                data.pop(data_item_key, None)
-                remove_list.append(data_item_key)
-                msg =  ("Value %s is not an option") % (data_item_key)
-                self._smgr_log.log(self._smgr_log.ERROR,
-                                   msg)
-            if data_item_value == '""':
-                data[data_item_key] = ''
-        for item in remove_list:
-            data.pop(item, None)
-
-        #Added default fields
-        for k,v in validation_data.items():
+            
             if k == "match_keys" or k == "primary_keys" \
                 or k == "obj_name":
                 continue
-            if k not in data and v and modify == False:
-                msg = "Default added is %s:%s" % \
-                                (k, v)
-                self._smgr_log.log(self._smgr_log.INFO,
+            elif k not in validation_data:
+#                data.pop(k, None)
+                remove_list.append(k)
+                msg =  ("Value %s is not an option") % (k)
+                self._smgr_log.log(self._smgr_log.ERROR,
                                    msg)
-                if k == 'parameters':
-                    data[k] = eval(v)
-                else:
-                    data[k] = v
+            if v == '""':
+                data[k] = ''
+        for item in remove_list:
+            data.pop(item, None)
 
-            """
-            if k not in data:
-                msg =  ("Field %s not present") % (k)
-                self.log_and_raise_exception(msg)
-            if v != '' and data[k] not in v:
-                msg =  ("Value %s is not an option") % (data[k])
-                self.log_and_raise_exception(msg)
-            """
         if 'roles' in data:
             if 'storage-compute' in data['roles'] and 'compute' not in data['roles']:
                 msg = "role 'storage-compute' needs role 'compute' in provision file"
@@ -2133,15 +2180,14 @@ class VncServerManager():
                 if not image:
                     msg = "No valid image id found for server %s" % (server['id'])
                     raise ServerMgrException(msg)
-                password = mask = gateway = domain = None
+                password = subnet_mask = gateway = domain = None
                 server_id = server['id']
                 if 'password' in server and server['password']:
                     password = server['password']
                 elif 'password' in cluster_parameters and cluster_parameters['password']:
                     password = cluster_parameters['password']
                 else:
-                    msg = "Missing Password for " + server_id
-                    self.log_and_raise_exception(msg)
+                    server['password'] = ''
 
                 if 'subnet_mask' in server and server['subnet_mask']:
                     subnet_mask = server['subnet_mask']
@@ -2149,7 +2195,7 @@ class VncServerManager():
                     subnet_mask = cluster_parameters['subnet_mask']
                 else:
                     msg = "Missing prefix/mask for " + server_id
-                    self.log_and_raise_exception(msg)
+                    server['subnet_mask'] = ''
 
                 if 'gateway' in server and server['gateway']:
                     gateway = server['gateway']
@@ -2157,7 +2203,7 @@ class VncServerManager():
                     gateway = cluster_parameters['gateway']
                 else:
                     msg = "Missing gateway for " + server_id
-                    self.log_and_raise_exception(msg)
+                    server['gateway'] = ''
 
                 if 'domain' in server and server['domain']:
                     domain = server['domain']
@@ -2165,13 +2211,13 @@ class VncServerManager():
                     domain = cluster_parameters['domain']
                 else:
                     msg = "Missing domain for " + server_id
-                    self.log_and_raise_exception(msg)
+                    server['domain'] = ''
 
                 if 'ip_address' in server and server['ip_address']:
                     ip = server['ip_address']
                 else:
                     msg = "Missing ip for " + server_id
-                    self.log_and_raise_exception(msg)
+                    server['ip_address'] = ''
 
                 reimage_parameters = {}
                 if ((image['type'] == 'esxi5.1') or
@@ -2191,9 +2237,9 @@ class VncServerManager():
                 if 'interface_name' not in server_parameters:
                     msg = "Missing interface name for " + server_id
                     self.log_and_raise_exception(msg)
-                if 'ipmi_addresss' in server and server['ipmi_addresss'] == None:
+                if 'ipmi_address' in server and server['ipmi_address'] == None:
                     msg = "Missing ipmi address for " + server_id
-                    self.log_and_raise_exception(msg)
+                    server['ipmi_address'] = ''
                 reimage_parameters['server_ifname'] = server_parameters['interface_name']
                 reimage_parameters['ipmi_type'] = server.get('ipmi_type')
                 if not reimage_parameters['ipmi_type']:
@@ -2207,6 +2253,21 @@ class VncServerManager():
                 reimage_parameters['ipmi_address'] = server.get(
                     'ipmi_address', '')
                 reimage_parameters['partition'] = server_parameters.get('partition', '')
+
+                _mandatory_reimage_params = {"server_password": "password", 
+                            "server_gateway": "gateway","server_domain":"domain",
+                            "ipmi_address":"ipmi_address","server_ifname" :"interface_name"}
+
+                msg = ''
+                for k,v in _mandatory_reimage_params.items():
+                    if k not in reimage_parameters or \
+                        reimage_parameters[k] == '' or \
+                        reimage_parameters[k] == None:
+                        msg += "%s " % v
+                if msg != '':
+                    err_msg = "Fields %s not present" % msg
+                    self.log_and_raise_exception(err_msg)
+
                 self._do_reimage_server(
                     image, package_image_id, reimage_parameters)
 
@@ -2447,6 +2508,35 @@ class VncServerManager():
             server_packages.append(server_pkg)
         return server_packages
     # end get_server_packages
+
+
+    # Function to decide which type of monitoring info to fetch
+    def get_defaults(self):
+        ret_defaults_dict = {}
+        try:
+            query_args = parse_qs(urlparse(request.url).query,
+                                    keep_blank_values=True)
+            obj = query_args.get("object", ['']) [0]
+            if obj not in ["server", "cluster", "image"]:
+                resp_msg = self.form_operartion_data("Unknown Object Type", ERR_OPR_ERROR,
+                                                                None)
+                abort(404, resp_msg)
+
+            level = query_args.get("level", ['']) [0]
+            if not level:
+                ret_defaults_dict = self._cfg_defaults_dict.copy()
+                self.merge_dict(ret_defaults_dict, self._code_defaults_dict)
+                return ret_defaults_dict[obj]
+            elif level == "code":
+                return self._code_defaults_dict[obj]
+            elif level == "config":
+                return self._cfg_defaults_dict[obj]
+        except Exception as e:
+            self.log_trace()
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+
 
     # Function to decide which type of monitoring info to fetch
     def get_mon_details(self):
@@ -2826,6 +2916,23 @@ class VncServerManager():
     # end cleanup
 
     # Private Methods
+
+    # Method to read defaults
+    def _read_smgr_object_defaults(self, smgr_config_sections):
+
+        cluster_defaults_dict = dict(smgr_config_sections.items("CLUSTER"))
+        server_defaults_dict = dict(smgr_config_sections.items("SERVER"))
+        image_defaults_dict = dict(smgr_config_sections.items("IMAGE"))
+
+        obj_cfg_defaults = {}
+
+        obj_cfg_defaults["server"] = server_defaults_dict
+        obj_cfg_defaults["cluster"] = cluster_defaults_dict
+        obj_cfg_defaults["image"] = image_defaults_dict
+
+        return obj_cfg_defaults
+
+
     # Parse program arguments.
     def _parse_args(self, args_str):
         '''
@@ -2868,6 +2975,7 @@ class VncServerManager():
             config_file = _DEF_SMGR_CFG_FILE
         config = ConfigParser.SafeConfigParser()
         config.read([args.config_file])
+        self._smgr_config = config
         try:
             for key in dict(config.items("SERVER-MANAGER")).keys():
                 if key in serverMgrCfg.keys():
