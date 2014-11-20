@@ -150,7 +150,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                             reading_value = reading[1].strip()
                             status = reading[2].strip()
                             for i in supported_sensors:
-                                if re.search(i, sensor, re.IGNORECASE) is not None:
+                                if re.search(i, sensor) is not None:
                                     if 'FAN' in sensor:
                                         sensor_type = 'fan'
                                     elif 'PWR' in sensor or 'Power' in sensor:
