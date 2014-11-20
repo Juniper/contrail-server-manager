@@ -111,9 +111,9 @@ class ServerMgrMonBasePlugin(Thread):
             if key in self.MonitoringCfg.keys():
                 self.MonitoringCfg[key] = dict(config.items("MONITORING"))[key]
             else:
-                self._monitoring_log.log(self.DEBUG, "Configuration set for invalid parameter: %s" % key)
+                self.log(self.DEBUG, "Configuration set for invalid parameter: %s" % key)
 
-        self._monitoring_log.log(self.DEBUG, "Arguments read form monitoring config file %s" % self.MonitoringCfg)
+        self.log(self.DEBUG, "Arguments read form monitoring config file %s" % self.MonitoringCfg)
         parser = argparse.ArgumentParser(
             # Inherit options from config_parser
             # parents=[conf_parser],
