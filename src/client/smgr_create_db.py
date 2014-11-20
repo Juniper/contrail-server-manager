@@ -25,7 +25,8 @@ import argparse
 import sys
 from datetime import datetime as dt
 from os.path import expanduser
-from smgr_add import get_default_object as get_default_object
+#from smgr_add import get_default_object as get_default_object
+from smgr_add import object_dict as object_dict
 import smgr_client_def
 import imp
 
@@ -116,10 +117,12 @@ def update_bond_from_testbed_py(server_dict):
               option['mode'] = mode
               option['xmit_hash_policy'] = 'layer3+4'
 
-              node['bond']={}
-              node['bond'][name]={}
-              node['bond'][name]['bond_options'] = "%s"%option
-              node['bond'][name]['member'] = "%s"%member
+
+              node['bond_interface']={}
+              node['bond_interface'][name]={}
+              #node['bond_interface'][name]['bond_options'] = "%s"%option
+              node['bond_interface'][name]['options'] = "%s"%option
+              node['bond_interface'][name]['member_interfaces'] = "%s"%member
     return server_dict
 #End update_bond_from_testbed_py(server_dict):
 
@@ -139,10 +142,10 @@ def update_multi_if_from_testbed_py(server_dict):
               gw = testbed.control_data[key]['gw']
               device = testbed.control_data[key]['device']
 
-              node['control']={}
-              node['control'][device] = {}
-              node['control'][device]['ip'] = ip
-              node['control'][device]['gw'] = gw
+              node['control_data_network']={}
+              node['control_data_network'][device] = {}
+              node['control_data_network'][device]['ip_address'] = ip
+              node['control_data_network'][device]['gateway'] = gw
     return server_dict
 #End update_multi_if_from_testbed_py(server_dict):
 
@@ -334,7 +337,31 @@ def modify_cluster_from_testbed_py(cluster_dict):
         cluster_dict['cluster'][0]['parameters']['keystone_tenant'] = testbed.os_tenant_name
     if 'router_asn' in dir(testbed):
         cluster_dict['cluster'][0]['parameters']['router_asn'] = testbed.router_asn
-        
+
+def get_object_config_ini_entries(object, config):
+    config_object_defaults = None
+    try:
+        config_object_defaults = config.items(object.upper())
+        return config_object_defaults
+    except ConfigParser.NoSectionError:
+        return config_object_defaults
+# end get_object_config_ini_entries
+
+def get_default_object(object, config):
+    # get current tag settings
+    payload = {}
+    default_object = {}
+    config_object_defaults = get_object_config_ini_entries(object, config)
+    if not config_object_defaults:
+        return default_object
+    default_object["parameters"] = {}
+    for key, value in config_object_defaults:
+        if key in object_dict[object]:
+            default_object[key] = value
+        elif key in object_dict[object]["parameters"]:
+            default_object["parameters"][key] = value
+    return default_object
+# end get_default_object
 
 
 def new_cluster():
@@ -383,14 +410,54 @@ def new_cluster():
 
 def parse_arguments(args_str=None):
     parser = argparse.ArgumentParser(
-            description='''Server Manager Tool to generate json from testbed.py .
-                           Value specified in --cluster_id will override value in 
-                           server.json and vns.json .
-                        ''',
-            usage= '''server-manager [-f <config_file>] [-c <cluster_id>]  -t testbed.py '''
+            description='''Value specified in --cluster_id will override value in 
+                           server.json and cluster.json.''',
+            usage= '''server-manager [-f <config_file>] [-c <cluster_id>]  -t testbed.py 
 
+                      Example1:
+                      server-manager -c cluster1 -t testbed.py
+
+                      Example2:
+                      server-manager -f smgr_input.ini -t testbed.py
+
+                      A sample of smgr_input.ini is provided below: 
+                      --------------------------------------
+                      [SERVER-MANAGER]
+                      cluster_file = /home/user/cluster.json
+                      image_file = /home/user/image.json
+                      pkg_file = /home/user/pkg.json
+                      server_file = /home/user/server.json
+                      cluster_id = cluster2
+                      --------------------------------------
+
+                      A sample of image.json is provided below: 
+                      --------------------------------------
+                      {
+                        "image": [
+                          {
+                            "id": "ubuntu32",
+                            "type": "contrail-ubuntu-package",
+                            "version": "ubuntu32",
+                            "path": "/image/contrail-install-packages_1.10-32~havana_all.deb"
+                          }
+                        ]
+                      }
+                      --------------------------------------
+
+                      A sample of pkg.json is provided below: 
+                      --------------------------------------
+                      {
+                        "image": [
+                            {
+                              "id": "ubuntu-12.04.3",
+                              "type": "ubuntu",
+                              "version": "ubuntu-12.04.3",
+                              "path": "/iso/ubuntu-12.04.3-server-amd64.iso"
+                            }
+                        ]
+                      }
+                      --------------------------------------'''
     )
-    #group1 = parser.add_mutually_exclusive_group()
 
     parser.add_argument("--config_file", "-f",
                         help="Server manager client config file ")
@@ -598,7 +665,7 @@ def verify_user_input():
     cluster_id = get_user_cluster_id()
 
     if not params and not cluster_id:
-        sys.exit(" User should either provide --cluster_id or config.ini ")
+        sys.exit("commandline parameter missing. You can run ./smgr_create_db.py -h for detail")
 
 def get_testbed():
     filepath = get_testbed_py(sys.argv[1:])

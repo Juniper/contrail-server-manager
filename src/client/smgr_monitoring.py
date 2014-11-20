@@ -288,4 +288,3 @@ class ServerMgrIPMIQuerying():
         else:
             return None
 
-

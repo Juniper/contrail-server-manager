@@ -145,4 +145,3 @@ class ServerMgrMonBasePlugin(Thread):
     # monitoring API layer to use.
     def run(self):
         self.log(self.INFO, "No monitoring API has been configured. Server Environement Info will not be monitored.")
-

@@ -297,6 +297,87 @@ def show_tag(args):
     return rest_api_params
 #end def show_all
 
+def show_fan_details(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'Fan'
+    if args.server_id:
+        rest_api_params['match_key'] = 'id'
+        rest_api_params['match_value'] = args.server_id
+    elif args.cluster_id:
+        rest_api_params['match_key'] = 'cluster_id'
+        rest_api_params['match_value'] = args.cluster_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
+    return rest_api_params
+#end def show_fan_details
+
+def show_temp_details(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'Temp'
+    if args.server_id:
+        rest_api_params['match_key'] = 'id'
+        rest_api_params['match_value'] = args.server_id
+    elif args.cluster_id:
+        rest_api_params['match_key'] = 'cluster_id'
+        rest_api_params['match_value'] = args.cluster_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
+    return rest_api_params
+# end def show_temp_details
+
+def show_pwr_details(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'Pwr'
+    if args.server_id:
+        rest_api_params['match_key'] = 'id'
+        rest_api_params['match_value'] = args.server_id
+    elif args.cluster_id:
+        rest_api_params['match_key'] = 'cluster_id'
+        rest_api_params['match_value'] = args.cluster_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
+    return rest_api_params
+# end def show_pwr_details
+
+def show_env_details(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'Env'
+    if args.server_id:
+        rest_api_params['match_key'] = 'id'
+        rest_api_params['match_value'] = args.server_id
+    elif args.cluster_id:
+        rest_api_params['match_key'] = 'cluster_id'
+        rest_api_params['match_value'] = args.cluster_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
+    return rest_api_params
+# end def show_env_details
+
+
+def show_mon_status(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'MonStatus'
+    rest_api_params['match_key'] = None
+    rest_api_params['match_value'] = None
+    return rest_api_params
+
+
 def show_config(args_str=None):
     mon_query = False
     mon_rest_api_params = None

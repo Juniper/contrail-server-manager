@@ -11,7 +11,7 @@ server_fields = {
     "ip_address": "",
     "parameters": """{
                     'interface_name': '',
-                    'partition': '',
+                    'partition': ''
                     }""",
     "roles": [],
     "cluster_id": "",
