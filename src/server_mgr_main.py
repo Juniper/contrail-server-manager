@@ -575,14 +575,11 @@ class VncServerManager():
             self.merge_dict(data, obj_code_defaults)
 
         obj_params_str = obj_name + "_params"
-        for k, v in validation_data.iteritems():
+        for k, v in data.iteritems():
             #If json data name is not present in list of
             #allowable fields silently ignore them.
             
-            if k == "match_keys" or k == "primary_keys" \
-                or k == "obj_name":
-                continue
-            elif k not in validation_data:
+            if k not in validation_data:
 #                data.pop(k, None)
                 remove_list.append(k)
                 msg =  ("Value %s is not an option") % (k)
@@ -1299,7 +1296,9 @@ class VncServerManager():
                 self.validate_server_mgr_tags(server)
                 if self._serverDb.check_obj(
                     "server", {"id" : server['id']},
-                    raise_exception=False):
+                    raise_exception=False) or self._serverDb.check_obj(
+                    "server", {"mac_address" : server['mac_address']},
+                    raise_exception=False) :
                     #TODO - Revisit this logic
                     # Do we need mac to be primary MAC
                     server_fields['primary_keys'] = "['id']"
@@ -1944,7 +1943,8 @@ class VncServerManager():
             self._serverDb.delete_server(match_dict)
             # delete the system entries from cobbler
             for server in servers:
-                self._smgr_cobbler.delete_system(server['id'])
+                if server['id']:
+                    self._smgr_cobbler.delete_system(server['id'])
             # Sync the above information
             self._smgr_cobbler.sync()
         except ServerMgrException as e:
@@ -2080,12 +2080,25 @@ class VncServerManager():
         action = bottle.request.query.action
         entity = bottle.request.json
         try:
+            if not self._serverDb.check_obj( \
+                    "server", {"mac_address" : entity['mac_address']}, \
+                    raise_exception=False):
+                self.merge_dict(entity, self._cfg_defaults_dict['server'])
+                self.merge_dict(entity, self._code_defaults_dict['server'])
             self._serverDb.server_discovery(action, entity)
         except Exception as e:
             self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.PUT_SMGR_CFG_SERVER,
+                                     False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+                           self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
         return entity
     # end process_dhcp_event
 

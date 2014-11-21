@@ -400,6 +400,18 @@ class ServerMgrDb:
             if action.lower() == "add":
                 # If this server is already present in our table,
                 # update IP address if DHCP was not static.
+
+                if self.check_obj("server", {'mac_address': entity['mac_address']}, {}, False):
+                    return                
+
+                server_tags = entity.pop("tag", None)
+                entity.pop("control_data_network", None)
+                entity.pop("bond_interface", None)
+                roles = entity.pop("roles", None)
+                if roles is not None:
+                    entity["roles"] = str(roles)
+                params = entity.pop("parameters", None)
+                entity["parameters"] = str(params)
                 servers = self._get_items(
                     server_table, {"mac_address" : mac_address},detail=True)
                 if servers:
@@ -409,6 +421,7 @@ class ServerMgrDb:
                         {"mac_address": mac_address}, {})
                     return
                 entity['discovered'] = "true"
+                entity.pop('id')
                 entity['status'] = "server_discovered"
                 self._add_row(server_table, entity)
             elif action.lower() == "delete":
@@ -418,7 +431,7 @@ class ServerMgrDb:
                                      {"mac_address" : mac_address})
             else:
                 return
-        except:
+        except Exception as e:
             return
     # End of server_discovery
 
@@ -569,13 +582,13 @@ class ServerMgrDb:
 
     def modify_server(self, server_data):
         db_server = None
-        if 'id' in server_data.keys():
-            db_server = self.get_server(
-                {'id': server_data['id']},
-                detail=True)
-        elif 'mac_address' in server_data.keys():
+        if 'mac_address' in server_data.keys():
             db_server = self.get_server(
                 {'mac_address' : server_data['mac_address']},
+                detail=True)
+        elif 'id' in server_data.keys():
+            db_server = self.get_server(
+                {'id': server_data['id']},
                 detail=True)
         try:
             cluster_id = server_data.get('cluster_id', None)
@@ -628,6 +641,10 @@ class ServerMgrDb:
             #check for modify in db server_params
             #Always Update DB server parmas
             db_server_params = {}
+            if len(db_server) == 0:
+                msg = ('DB server not found', ERR_OPR_ERROR)
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+               
             db_server_params_str = db_server[0] ['parameters']
             if db_server_params_str:
                 db_server_params = eval(db_server_params_str)
