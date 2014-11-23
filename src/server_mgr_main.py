@@ -575,14 +575,11 @@ class VncServerManager():
             self.merge_dict(data, obj_code_defaults)
 
         obj_params_str = obj_name + "_params"
-        for k, v in validation_data.iteritems():
+        for k, v in data.iteritems():
             #If json data name is not present in list of
             #allowable fields silently ignore them.
             
-            if k == "match_keys" or k == "primary_keys" \
-                or k == "obj_name":
-                continue
-            elif k not in validation_data:
+            if k not in validation_data:
 #                data.pop(k, None)
                 remove_list.append(k)
                 msg =  ("Value %s is not an option") % (k)
@@ -984,10 +981,13 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(servers)))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
+	
+
         # Convert some of the fields in server entry to match what is accepted for put
         for x in servers:
             if x.get("parameters", None) is not None:
                 x['parameters'] = eval(x['parameters'])
+
             if x.get("roles", None) is not None:
                 x['roles'] = eval(x['roles'])
             if x.get("intf_control", None) is not None:
@@ -996,7 +996,16 @@ class VncServerManager():
             if x.get("intf_bond", None) is not None:
                 x['bond_interface'] = eval(x['intf_bond'])
                 x.pop('intf_bond', None)
+
+
+
             if detail:
+                #Temp workarounf for UI, UI doesnt like None
+                if x.get("roles", None) is None:
+                    x['roles'] = []
+                if x.get("parameters", None) is None:
+                    x['parameters'] = {}
+
                 x['tag'] = {}
                 for i in range(1, len(self._tags_list)+1):
                     tag = "tag" + str(i)
@@ -1297,9 +1306,13 @@ class VncServerManager():
             servers = entity.get("server", None)
             for server in servers:
                 self.validate_server_mgr_tags(server)
+                server['status'] = "server_added"
+                server['discovered'] = "false"
                 if self._serverDb.check_obj(
                     "server", {"id" : server['id']},
-                    raise_exception=False):
+                    raise_exception=False) or self._serverDb.check_obj(
+                    "server", {"mac_address" : server['mac_address']},
+                    raise_exception=False) :
                     #TODO - Revisit this logic
                     # Do we need mac to be primary MAC
                     server_fields['primary_keys'] = "['id']"
@@ -1310,7 +1323,6 @@ class VncServerManager():
                 else:
                     self.validate_smgr_request("SERVER", "PUT", bottle.request,
                                                                         server)
-                    server['status'] = "server_added"
                     self._serverDb.add_server(server)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -1944,7 +1956,8 @@ class VncServerManager():
             self._serverDb.delete_server(match_dict)
             # delete the system entries from cobbler
             for server in servers:
-                self._smgr_cobbler.delete_system(server['id'])
+                if server['id']:
+                    self._smgr_cobbler.delete_system(server['id'])
             # Sync the above information
             self._smgr_cobbler.sync()
         except ServerMgrException as e:
@@ -2083,9 +2096,14 @@ class VncServerManager():
             self._serverDb.server_discovery(action, entity)
         except Exception as e:
             self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.PUT_SMGR_CFG_SERVER,
+                                     False)
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+                           self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
         return entity
     # end process_dhcp_event
 
