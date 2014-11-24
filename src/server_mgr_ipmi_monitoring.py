@@ -37,7 +37,6 @@ class IpmiData:
 # Server Manager opens a Sandesh Connection to the Analytics node that hosts the
 # Database to which the monitor pushes device environment information.
 class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
-
     def __init__(self, val, frequency, collectors_ip=None):
         ''' Constructor '''
         ServerMgrMonBasePlugin.__init__(self)
@@ -84,7 +83,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             node_type_name = NodeTypeNames[node_type]
             instance_id = INSTANCE_ID_DEFAULT
             if collectors_ip_list:
-                self.base_obj.log("info", "Collector IPs from config: "+str(collectors_ip_list))
+                self.base_obj.log("info", "Collector IPs from config: " + str(collectors_ip_list))
                 collectors_ip_list = eval(collectors_ip_list)
                 sandesh_global.init_generator(
                     module_name,
@@ -102,13 +101,15 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
     def return_collector_ip(self):
         return self._collectors_ip
+
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
     # It then calls other functions to send the information to the correct analytics server.
     def run(self):
         print "Starting monitoring thread"
         self.base_obj.log("info", "Starting monitoring thread")
         ipmi_data = []
-        supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*Temp', '.*_Power']
+        sel_log_dict = dict()
+        supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
         while True:
             servers = self._serverDb.get_server(
                 None, detail=True)
@@ -142,6 +143,10 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     ipmi_data = []
                     cmd = 'ipmitool -H %s -U %s -P %s sdr list all' % (ip, username, password)
                     result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
+                    sel_cmd = 'ipmitool -H %s -U %s -P %s sel elist' % (ip, username, password)
+                    sel_result = super(ServerMgrIPMIMonitoring, self).call_subprocess(sel_cmd)
+                    if hostname not in sel_log_dict:
+                        sel_log_dict[str(hostname)] = list()
                     if result is not None:
                         fileoutput = cStringIO.StringIO(result)
                         for line in fileoutput:
@@ -171,10 +176,37 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     else:
                         self.base_obj.log("info", "IPMI Polling failed for " + str(ip))
                     self.send_ipmi_stats(ipmi_data, hostname=hostname)
+                    if sel_result is not None:
+                        fileoutput = cStringIO.StringIO(sel_result)
+                        for line in fileoutput:
+                            sellog = IpmiSystemEventLog()
+                            sellog.name = str(hostname)
+                            col = line.split("|")
+                            hex_event_id = col[0]
+                            event_id = int(hex_event_id, 16)
+                            if event_id not in sel_log_dict[str(hostname)]:
+                                sel_log_dict[str(hostname)].append(event_id)
+                                sellog.event_id = event_id
+                                sellog.ipmi_timestamp = str(col[1]) + " " + str(col[2])
+                                sensor_data = str(col[3])
+                                sensor_data = sensor_data.split(" ")
+                                sellog.sensor_type = str(sensor_data[1]) + " " + str(sensor_data[2])
+                                sellog.sensor_name = str(sensor_data[3])
+                                if len(sensor_data) >= 5:
+                                    sellog.sensor_name += " " + str(sensor_data[4])
+                                sellog.ipmi_message = str(col[4])
+                                if len(col) >= 6:
+                                    sellog.ipmi_message += " " + str(col[5])
+                                self.base_obj.log("info", "Sending UVE: " + str(sellog))
+                                #import pdb; pdb.set_trace()
+                                sellog.send()
+                            else:
+                                self.base_obj.log("info", "Log already sent for " + str(event_id))
+                    else:
+                        self.base_obj.log("info", "IPMItool command failed for " + str(hostname))
             else:
                 self.base_obj.log("error", "IPMI Polling: No Analytics IP info found")
 
             self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
             self.base_obj.log("info", "Monitoring thread woke up")
-
