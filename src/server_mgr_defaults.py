@@ -26,7 +26,7 @@ server_fields = {
     "control_data_network": "",
     "bond_interface": "",
     "ipmi_address": "",
-    "tag": "",
+    "tag": None,
     "base_image_id": "",
     "package_image_id": ""
 }
