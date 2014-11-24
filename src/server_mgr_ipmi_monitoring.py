@@ -123,11 +123,32 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 for server in servers:
                     server = dict(server)
                     if 'ipmi_address' in server:
-                        ipmi_list.append(server['ipmi_address'])
+                        if server['ipmi_address']:
+                            ipmi_list.append(server['ipmi_address'])
+                        else:
+                            continue
+                    else:
+                        continue
                     if 'id' in server:
-                        hostname_list.append(server['id'])
+                        if server['id']:
+                            hostname_list.append(server['id'])
+                        else:
+                            ipmi_list.pop()
+                            continue
+                    else:
+                        ipmi_list.pop()
+                        continue
                     if 'ip_address' in server:
-                        server_ip_list.append(server['ip_address'])
+                        if server['ip_address']:
+                            server_ip_list.append(server['ip_address'])
+                        else:
+                            ipmi_list.pop()
+                            hostname_list.pop()
+                            continue
+                    else:
+                        ipmi_list.pop()
+                        hostname_list.pop()
+                        continue
                     if 'ipmi_username' in server and server['ipmi_username']:
                         ipmi_username_list.append(server['ipmi_username'])
                     else:
