@@ -418,7 +418,7 @@ class ServerMgrDb:
                                      {"mac_address" : mac_address})
             else:
                 return
-        except:
+        except Exception as e:
             return
     # End of server_discovery
 
@@ -569,13 +569,14 @@ class ServerMgrDb:
 
     def modify_server(self, server_data):
         db_server = None
-        if 'id' in server_data.keys():
-            db_server = self.get_server(
-                {'id': server_data['id']},
-                detail=True)
-        elif 'mac_address' in server_data.keys():
+        if 'mac_address' in server_data.keys() and \
+                 server_data['mac_address'] != None:
             db_server = self.get_server(
                 {'mac_address' : server_data['mac_address']},
+                detail=True)
+        elif 'id' in server_data.keys() and server_data['id'] != None:
+            db_server = self.get_server(
+                {'id': server_data['id']},
                 detail=True)
         try:
             cluster_id = server_data.get('cluster_id', None)
@@ -628,6 +629,10 @@ class ServerMgrDb:
             #check for modify in db server_params
             #Always Update DB server parmas
             db_server_params = {}
+            if len(db_server) == 0:
+                msg = ('DB server not found', ERR_OPR_ERROR)
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+               
             db_server_params_str = db_server[0] ['parameters']
             if db_server_params_str:
                 db_server_params = eval(db_server_params_str)
