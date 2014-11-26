@@ -11,7 +11,6 @@ import subprocess
 import cStringIO
 import pycurl
 import json
-import xmltodict
 
 
 # Class ServerMgrIPMIQuerying describes the API layer exposed to ServerManager to allow it to query
@@ -45,6 +44,7 @@ class ServerMgrIPMIQuerying():
             conn.setopt(pycurl.HTTPGET, 1)
             conn.perform()
             xml_data = response.getvalue()
+            import xmltodict
             data = xmltodict.parse(str(xml_data))
             json_obj = json.dumps(data, sort_keys=True, indent=4)
             data_dict = dict(json.loads(json_obj))
@@ -53,6 +53,7 @@ class ServerMgrIPMIQuerying():
         except Exception as e:
             msg = "Error Querying Server Env: REST request to Collector IP " \
                   + str(server_ip) + " failed - > " + str(e)
+            sys.stderr.write(msg)
             return None
 
     # end def send_REST_request

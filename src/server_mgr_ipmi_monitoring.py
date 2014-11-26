@@ -156,32 +156,35 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     sel_result = super(ServerMgrIPMIMonitoring, self).call_subprocess(sel_cmd)
                     if hostname not in sel_log_dict:
                         sel_log_dict[str(hostname)] = list()
-                    if result is not None:
+                    if result is not None and "|" in result:
                         fileoutput = cStringIO.StringIO(result)
-                        for line in fileoutput:
-                            reading = line.split("|")
-                            sensor = reading[0].strip()
-                            reading_value = reading[1].strip()
-                            status = reading[2].strip()
-                            for i in supported_sensors:
-                                if re.search(i, sensor) is not None:
-                                    if 'FAN' in sensor:
-                                        sensor_type = 'fan'
-                                    elif 'PWR' in sensor or 'Power' in sensor:
-                                        sensor_type = 'power'
-                                    elif 'Temp' in sensor:
-                                        sensor_type = 'temperature'
-                                    value = reading_value.split()
-                                    ipmidata = IpmiData()
-                                    ipmidata.sensor = sensor
-                                    ipmidata.status = status
-                                    if status == "ns":
-                                        pass
-                                    elif status == "ok":
-                                        ipmidata.reading = long(value[0].strip())
-                                        ipmidata.unit = value[len(value) - 1].strip()
-                                        ipmidata.sensor_type = sensor_type
-                                        ipmi_data.append(ipmidata)
+                        try:
+                            for line in fileoutput:
+                                reading = line.split("|")
+                                sensor = reading[0].strip()
+                                reading_value = reading[1].strip()
+                                status = reading[2].strip()
+                                for i in supported_sensors:
+                                    if re.search(i, sensor) is not None:
+                                        if 'FAN' in sensor:
+                                            sensor_type = 'fan'
+                                        elif 'PWR' in sensor or 'Power' in sensor:
+                                            sensor_type = 'power'
+                                        elif 'Temp' in sensor:
+                                            sensor_type = 'temperature'
+                                        value = reading_value.split()
+                                        ipmidata = IpmiData()
+                                        ipmidata.sensor = sensor
+                                        ipmidata.status = status
+                                        if status == "ns":
+                                            pass
+                                        elif status == "ok":
+                                            ipmidata.reading = long(value[0].strip())
+                                            ipmidata.unit = value[len(value) - 1].strip()
+                                            ipmidata.sensor_type = sensor_type
+                                            ipmi_data.append(ipmidata)
+                        except ValueError:
+                            pass
                     else:
                         self.base_obj.log("info", "IPMI Polling failed for " + str(ip))
                     self.send_ipmi_stats(ipmi_data, hostname=hostname)
