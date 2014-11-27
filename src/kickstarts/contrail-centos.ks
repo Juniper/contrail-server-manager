@@ -93,9 +93,7 @@ $SNIPPET('func_register_if_enabled')
 ##$SNIPPET('puppet_register_if_enabled')
 ## Configure puppet agent and start it
 echo "$server puppet" >> /etc/hosts
-echo "127.0.0.1 localhost.$system_domain localhost" >> /etc/hosts
-echo "$ip_address $system_name" >> /etc/hosts
-
+echo "$ip_address $system_name.$system_domain $system_name" >> /etc/hosts
 
 #if $str($getVar('puppet_auto_setup','')) == "1"
 ## Tmp fix, copy the init.d script for puppet agent. This should be included in puppet package install.
