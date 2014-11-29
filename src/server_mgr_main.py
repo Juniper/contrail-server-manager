@@ -1557,6 +1557,18 @@ class VncServerManager():
             # untar the puppet modules tgz file
             cmd = ("tar xvzf contrail-puppet-manifest.tgz > /dev/null")
             subprocess.check_call(cmd, shell=True)
+            # If the untarred file list has environment directory, copy it's
+            # contents to /etc/puppet/environments. This is where the new
+            # restructured contrail puppet labs modules are going to be 
+            # maintained. The old logic is being maintained for safety till
+            # the new refactored code is well tested and confirmed to be working.
+            # not environment directory can't contain "-". replace with "_".
+            environment_dir = "contrail/environment"
+            if os.path.isdir(environment_dir):
+                distutils.dir_util.copy_tree(environment_dir,
+                    "/etc/puppet/environments/" + image_id.replace('-','_'))
+                distutils.dir_util.remove_tree(environment_dir)
+            # end if os.path.isdir
             # Changing the below logic. Instead of reading version from
             # version file, use image id as the version. Image id is unique
             # and hence it would be easy to correlate puppet modules to
@@ -2917,7 +2929,8 @@ class VncServerManager():
                     else:
                         pass
 
-                self._do_provision_server(provision_params)
+                self._do_provision_server(
+                    provision_params, server, cluster, cluster_servers)
                 server_status = {}
                 server_status['id'] = server['id']
                 server_status['package_id'] = package_image_id
@@ -3317,11 +3330,15 @@ class VncServerManager():
 
     # Internal private call to provision server. This is called by REST API
     # provision_server and provision_cluster
-    def _do_provision_server(self, provision_parameters):
+    def _do_provision_server(
+        self, provision_parameters, server, cluster, cluster_servers):
         try:
             # Now call puppet to provision the server.
             self._smgr_puppet.provision_server(
-                provision_parameters)
+                provision_parameters,
+                server,
+                cluster,
+                cluster_servers)
 
             # Update Server table with provisioned id
             update = {'id': provision_parameters['server_id'],

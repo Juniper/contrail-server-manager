@@ -150,6 +150,12 @@ allow   *
 EOF
 cat /etc/puppet/auth.conf >> /tmp/puppet-auth.conf
 cp -f /tmp/puppet-auth.conf /etc/puppet/auth.conf
+
+# Tempprary patch to work around puppet issue of custom facts not working. The custom
+# fact scripts get installed with incorrect permissions (no execute permission). This
+# results in custom facts not working. Putting a hot patch to work around this problem.
+# could be removed once puppet issue is resolved. Abhay
+sed -i "s/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :ignore)/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :use)/g" /usr/lib/ruby/vendor_ruby/puppet/configurer/downloader.rb
 #--------------------------------------------------------------------------
 # Enable to start puppet agent on boot & Run Puppet agent
 sed -i 's/START=.*$/START=yes/' /etc/default/puppet
