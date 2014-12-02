@@ -34,6 +34,7 @@ import ast
 import uuid
 import traceback
 import platform
+import copy
 from server_mgr_defaults import *
 from server_mgr_err import *
 from server_mgr_status import *
@@ -162,7 +163,7 @@ class VncServerManager():
                 #do nothing, Retain value
                 msg = "adding %s:%s" % (k, v1)
                 self._smgr_log.log(self._smgr_log.INFO, msg)
-                d1[k] = v2
+                d1[k] = copy.deepcopy(v2)
 
     def _cfg_parse_defaults(self, cfg_def_objs):
         defaults_dict = {}
@@ -1863,8 +1864,7 @@ class VncServerManager():
                     "/install/netboot/ubuntu-installer/amd64/initrd.gz")
                 if not ks_file:
                     ubuntu_ks_file = 'kickstarts/contrail-ubuntu.ks'
-                    kickstart = self._args.html_root_dir + \
-                                "kickstarts/" + ubuntu_ks_file
+                    kickstart = self._args.html_root_dir + ubuntu_ks_file
                 else:
                     ubuntu_ks_file = 'contrail/images/' + ks_file.split('/').pop()
                 if not kseed_file:
@@ -2559,7 +2559,7 @@ class VncServerManager():
 
             level = query_args.get("level", ['']) [0]
             if not level:
-                ret_defaults_dict = self._cfg_defaults_dict.copy()
+                ret_defaults_dict = copy.deepcopy(self._cfg_defaults_dict)
                 self.merge_dict(ret_defaults_dict, self._code_defaults_dict)
                 return ret_defaults_dict[obj]
             elif level == "code":
