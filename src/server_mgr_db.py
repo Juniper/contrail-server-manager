@@ -578,6 +578,8 @@ class ServerMgrDb:
             db_server = self.get_server(
                 {'id': server_data['id']},
                 detail=True)
+        if not db_server:
+            return db_server
         try:
             cluster_id = server_data.get('cluster_id', None)
             if cluster_id:
@@ -650,6 +652,7 @@ class ServerMgrDb:
             self._modify_row(
                 server_table, server_data,
                 {'mac_address' : server_mac}, {})
+            return db_server
         except Exception as e:
             raise e
     # End of modify_server
