@@ -2155,13 +2155,13 @@ class VncServerManager():
             {"id": base_image_id}, detail=True)
         if not images:
             msg = "No Image %s found" % (base_image_id)
-            raise ServerMgrException(msg)
+            raise ServerMgrException(msg, ERR_IMG_NOT_FOUND)
         if images[0]['category'] and images[0]['category'] != 'image':
             msg = "Category is not image, it is %s" (images[0]['category'])
-            raise ServerMgrException(msg)
+            raise ServerMgrException(msg, ERR_IMG_CATEGORY_ERROR)
         if images[0]['type'] not in self._iso_types:
             msg = "Image %s is not an iso" % (base_image_id)
-            raise ServerMgrException(msg)
+            raise ServerMgrException(msg, ERR_IMG_TYPE_INVALID)
         return base_image_id, images[0]
     # end get_base_image
             
@@ -2185,6 +2185,7 @@ class VncServerManager():
                 do_reboot = ret_data['do_reboot']
 
             reboot_server_list = []
+            reimage_server_list = []
             base_image = {}
             if base_image_id:
                 base_image_id, base_image = self.get_base_image(base_image_id)
@@ -2193,6 +2194,7 @@ class VncServerManager():
                 msg = "No Servers found for %s" % (match_value)
                 self.log_and_raise_exception(msg)
             reimage_status = {}
+            reimage_status['return_code'] = 0
             reimage_status['server'] = []
             for server in servers:
                 cluster = None
@@ -2302,9 +2304,10 @@ class VncServerManager():
                 if msg != '':
                     err_msg = "Fields %s not present" % msg
                     self.log_and_raise_exception(err_msg)
-
-                self._do_reimage_server(
-                    image, package_image_id, reimage_parameters)
+                reimage_server_entry = {'image' : image,
+                                        'package_image_id' : package_image_id,
+                                        'reimage_parameters' : reimage_parameters}
+                reimage_server_list.append(reimage_server_entry)
 
                 # Build list of servers to be rebooted.
                 reboot_server = {
@@ -2321,32 +2324,44 @@ class VncServerManager():
                 reimage_status['server'].append(server_status)
             # end for server in servers
 
-            # now reboot the servers, if no_reboot is not specified by user.
-            if do_reboot:
-                status_msg = self._power_cycle_servers(
-                    reboot_server_list, True)
-            #After all system entries are created sync.
-            self._smgr_cobbler.sync()
-
+            gevent.spawn(self._reimage_server_cobbler, 
+                         reimage_server_list,
+                         reboot_server_list,
+                         do_reboot)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
             resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
             abort(404, resp_msg)
+            reimage_status['return_code'] = e.ret_code
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
             print 'Exception error is: %s' % e
-            resp_msg = self.form_operartion_data("Error in re-imaging server", ERR_GENERAL_ERROR,
-                                                                            None)
+            resp_msg = self.form_operartion_data("Error in re-imaging server", 
+                                                 ERR_GENERAL_ERROR,
+                                                 None)
             abort(404, resp_msg)
-        reimage_status['return_code'] = "0"
-        reimage_status['return_message'] = "server(s) reimage issued"
+            reimage_status['return_code'] = ERR_GENERAL_ERROR
+        reimage_status['return_message'] = "server(s) reimage queued"
         return reimage_status
     # end reimage_server
+
+    def _reimage_server_cobbler(self, reimage_server_list, 
+                                reboot_server_list, do_reboot):
+        self._smgr_log.log(self._smgr_log.DEBUG, "reimage_server_cobbler")
+        server = {}
+        if reimage_server_list:
+            for server in reimage_server_list:
+                self._do_reimage_server(server['image'],
+                                        server['package_image_id'],
+                                        server['reimage_parameters'])
+        if do_reboot and reboot_server_list:
+            self._power_cycle_servers(reboot_server_list, True)
+        self._smgr_cobbler.sync()
 
     # API call to power-cycle the server (IMPI Interface)
     def restart_server(self):
@@ -2392,7 +2407,6 @@ class VncServerManager():
                     msg = "Missing password for " + server_id
                     self.log_and_raise_exception(msg)
 
-
                 if 'domain' in server and server['domain']:
                     domain = server['domain']
                 elif 'domain' in cluster_parameters and cluster_parameters['domain']:
@@ -2400,7 +2414,6 @@ class VncServerManager():
                 else:
                     msg = "Missing Domain for " + server_id
                     self.log_and_raise_exception(msg)
-
 
                 # Build list of servers to be rebooted.
                 reboot_server = {
@@ -3225,8 +3238,13 @@ class VncServerManager():
                           'status' : 'restart_issued',
                           'last_update': strftime(
                              "%Y-%m-%d %H:%M:%S", gmtime())}
-                self._serverDb.modify_server(update)
-                success_list.append(server['id'])
+                if self._serverDb.modify_server(update):
+                    success_list.append(server['id'])
+                else:
+                    self._smgr_log.log(self._smgr_log.ERROR,
+                         "Failed re-booting for server %s, not present in the db" % \
+                                           (server['id']))
+                    failed_list.append(server['id'])
             except subprocess.CalledProcessError as e:
                 msg = ("power_cycle_servers: error %d when executing"
                        "\"%s\"" %(e.returncode, e.cmd))
@@ -3243,7 +3261,7 @@ class VncServerManager():
                                 (server['id']))
                 failed_list.append(server['id'])
         #end for
-        self._smgr_cobbler.sync()
+        #self._smgr_cobbler.sync()
         if power_reboot_list:
             try:
                 self._smgr_cobbler.reboot_system(
@@ -3296,23 +3314,22 @@ class VncServerManager():
                 reimage_parameters.get('ipmi_address',''),
                 base_image, self._args.listen_ip_addr,
                 reimage_parameters.get('partition', ''))
-
-            # Sync the above information
-            #self._smgr_cobbler.sync()
-
-            # Update Server table to add image name
+        except Exception as e:
+            msg = "Server %s reimaged failed" % server['reimage_parameters']['server_id']
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
             update = {
-                'mac_address': reimage_parameters['server_mac'],
-                'reimaged_id': base_image['id'],
-                'provisioned_id': package_image_id}
+                'mac_address': server['reimage_parameters']['server_mac'],
+                'status': "reimage_failed"
+            }
             self._serverDb.modify_server(update)
 
-            # TBD Need to add a way to confirm that server came up with
-            # upgrade OS and also add this info to the DB in server table
-            # (version upgraded to and timestamp). Possibly start a process
-            # to ping the server and when up, ssh and get contrail version.
-        except Exception as e:
-            raise e
+        # Update Server table to add image name
+        update = {
+            'mac_address': reimage_parameters['server_mac'],
+            'reimaged_id': base_image['id']}
+        if not self._serverDb.modify_server(update):
+            msg = "Server %s is not present" % reimage_parameters['server_id']
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
     # end _do_reimage_server
 
     # Internal private call to provision server. This is called by REST API
