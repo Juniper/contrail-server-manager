@@ -189,9 +189,9 @@ class ServerMgrPuppet:
                 provision_params['package_image_id'],
                 provision_params["server_mgr_ip"], before_param)
 
-        if 'kernel_upgrade' in provision_params['kernel_upgrade'] and \
-             provision_params['kernel_upgrade'] == "yes" and \
-            'kernel_version' in provision_params['kernel_version '] and \
+        if 'kernel_upgrade' in provision_params and \
+             provision_params['kernel_upgrade'].lower() == "yes" and \
+            'kernel_version' in provision_params and \
             provision_params['kernel_version'] != '' :
 
             before_param = "Contrail_%s::Contrail_common::Upgrade-kernel[\"upgrade_kernel\"]" % \
