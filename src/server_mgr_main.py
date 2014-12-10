@@ -1183,6 +1183,10 @@ class VncServerManager():
                     subprocess.check_call(["cp", "-f", image_path, dest])
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") ):
+                        if not self.validate_package_id(image_id):
+                            msg =  ("Id given %s,Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
+                            self.log_and_raise_exception(msg)
+
                         puppet_manifest_version = self._create_repo(
                             image_id, image_type, image_version, dest)
                         image_params['puppet_manifest_version'] = \
@@ -1436,7 +1440,18 @@ class VncServerManager():
         return_data_str = print_rest_response(return_data)
         
         return return_data_str
-       
+
+    def validate_package_id(self, package_id):
+        #ID shouldn't have only apha-numerice and "_"
+        #id can be none or empty, if server is discovered
+        id_valid = True
+        is_id_allowed = []
+        if package_id is not None and  package_id != "":
+            is_id_allowed = re.findall('^[a-z0-9_]+$', package_id)
+        if len(is_id_allowed) == 0:
+            return False
+        return True
+    
 
     # API Call to add image file to server manager (file is copied at
     # <default_base_path>/images/filename.iso and distro, profile
@@ -1477,6 +1492,10 @@ class VncServerManager():
             image_params = {}
             if ((image_type == "contrail-centos-package") or
                 (image_type == "contrail-ubuntu-package")):
+                if not self.validate_package_id(image_id):
+                    msg =  ("Id given %s, Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
+                    self.log_and_raise_exception(msg)
+ 
                 puppet_manifest_version = self._create_repo(
                     image_id, image_type, image_version, dest)
                 image_params['puppet_manifest_version'] = \
