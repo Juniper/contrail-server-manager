@@ -34,6 +34,7 @@ import ast
 import uuid
 import traceback
 import platform
+import copy
 from server_mgr_defaults import *
 from server_mgr_err import *
 from server_mgr_status import *
@@ -47,6 +48,10 @@ from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 from send_mail import send_mail
 import tempfile
 from contrail_defaults import *
+
+from gevent import monkey
+monkey.patch_all()
+import gevent
 
 bottle.BaseRequest.MEMFILE_MAX = 2 * 102400
 
@@ -130,6 +135,19 @@ class VncServerManager():
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
 
+    def _do_puppet_kick(self, host_ip):
+        msg = "Puppet kick trigered for %s" % (host_ip)
+        self._smgr_log.log(self._smgr_log.INFO, msg)
+
+        try:
+            rc = subprocess.check_call(
+                    ["puppet", "kick", "--host", host_ip])
+            # Log, return error if return code is non-null - TBD Abhay
+        except subprocess.CalledProcessError as e:
+            msg = ("put_image: error %d when executing"
+                       "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+
     def merge_dict(self, d1, d2):
         for k,v2 in d2.items():
             v1 = d1.get(k) # returns None if v1 has no value for this key
@@ -145,7 +163,7 @@ class VncServerManager():
                 #do nothing, Retain value
                 msg = "adding %s:%s" % (k, v1)
                 self._smgr_log.log(self._smgr_log.INFO, msg)
-                d1[k] = v2
+                d1[k] = copy.deepcopy(v2)
 
     def _cfg_parse_defaults(self, cfg_def_objs):
         defaults_dict = {}
@@ -326,6 +344,9 @@ class VncServerManager():
         self._dev_env_monitoring_obj.set_serverdb(self._serverDb)
         self._dev_env_monitoring_obj.set_ipmi_defaults(self._args.ipmi_username, self._args.ipmi_password)
         self._dev_env_monitoring_obj.daemon = True
+        if self._monitoring_args:
+            if self._monitoring_args.collectors:
+                self._monitoring_base_plugin_obj.sandesh_init(self._monitoring_args.collectors)
         self._dev_env_monitoring_obj.start()
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
@@ -603,14 +624,11 @@ class VncServerManager():
             self.merge_dict(data, obj_code_defaults)
 
         obj_params_str = obj_name + "_params"
-        for k, v in validation_data.iteritems():
+        for k, v in data.iteritems():
             #If json data name is not present in list of
             #allowable fields silently ignore them.
             
-            if k == "match_keys" or k == "primary_keys" \
-                or k == "obj_name":
-                continue
-            elif k not in validation_data:
+            if k not in validation_data:
 #                data.pop(k, None)
                 remove_list.append(k)
                 msg =  ("Value %s is not an option") % (k)
@@ -1012,10 +1030,13 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(servers)))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
+	
+
         # Convert some of the fields in server entry to match what is accepted for put
         for x in servers:
             if x.get("parameters", None) is not None:
                 x['parameters'] = eval(x['parameters'])
+
             if x.get("roles", None) is not None:
                 x['roles'] = eval(x['roles'])
             if x.get("intf_control", None) is not None:
@@ -1024,7 +1045,16 @@ class VncServerManager():
             if x.get("intf_bond", None) is not None:
                 x['bond_interface'] = eval(x['intf_bond'])
                 x.pop('intf_bond', None)
+
+
+
             if detail:
+                #Temp workarounf for UI, UI doesnt like None
+                if x.get("roles", None) is None:
+                    x['roles'] = []
+                if x.get("parameters", None) is None:
+                    x['parameters'] = {}
+
                 x['tag'] = {}
                 for i in range(1, len(self._tags_list)+1):
                     tag = "tag" + str(i)
@@ -1316,6 +1346,10 @@ class VncServerManager():
     def put_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "add_server")
         entity = bottle.request.json
+        server_hostname_list = list()
+        server_ipmi_list = list()
+        server_ipmi_pw_list = list()
+        server_ipmi_un_list = list()
         if (not entity):
             msg = 'Server MAC or server_id not specified'
             resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
@@ -1325,9 +1359,13 @@ class VncServerManager():
             servers = entity.get("server", None)
             for server in servers:
                 self.validate_server_mgr_tags(server)
+                server['status'] = "server_added"
+                server['discovered'] = "false"
                 if self._serverDb.check_obj(
                     "server", {"id" : server['id']},
-                    raise_exception=False):
+                    raise_exception=False) or self._serverDb.check_obj(
+                    "server", {"mac_address" : server['mac_address']},
+                    raise_exception=False) :
                     #TODO - Revisit this logic
                     # Do we need mac to be primary MAC
                     server_fields['primary_keys'] = "['id']"
@@ -1338,7 +1376,10 @@ class VncServerManager():
                 else:
                     self.validate_smgr_request("SERVER", "PUT", bottle.request,
                                                                         server)
-                    server['status'] = "server_added"
+                    server_ipmi_list.append(str(server['ipmi_address']))
+                    server_ipmi_un_list.append(str(server['ipmi_username']))
+                    server_ipmi_pw_list.append(str(server['ipmi_password']))
+                    server_hostname_list.append(str(server['id']))
                     self._serverDb.add_server(server)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -1354,7 +1395,10 @@ class VncServerManager():
             abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
             self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
-        msg = "Server add/Modify Success" 
+        msg = "Server add/Modify Success"
+        # Trigger to collect monitoring info
+        self._monitoring_base_plugin_obj.handle_inventory_trigger("put_server", server_hostname_list, server_ipmi_list,
+                                                                  server_ipmi_un_list, server_ipmi_pw_list)
         resp_msg = self.form_operartion_data(msg, 0, entity)
         return resp_msg
 
@@ -1862,8 +1906,7 @@ class VncServerManager():
                     "/install/netboot/ubuntu-installer/amd64/initrd.gz")
                 if not ks_file:
                     ubuntu_ks_file = 'kickstarts/contrail-ubuntu.ks'
-                    kickstart = self._args.html_root_dir + \
-                                "kickstarts/" + ubuntu_ks_file
+                    kickstart = self._args.html_root_dir + ubuntu_ks_file
                 else:
                     ubuntu_ks_file = 'contrail/images/' + ks_file.split('/').pop()
                 if not kseed_file:
@@ -1972,7 +2015,8 @@ class VncServerManager():
             self._serverDb.delete_server(match_dict)
             # delete the system entries from cobbler
             for server in servers:
-                self._smgr_cobbler.delete_system(server['id'])
+                if server['id']:
+                    self._smgr_cobbler.delete_system(server['id'])
             # Sync the above information
             self._smgr_cobbler.sync()
         except ServerMgrException as e:
@@ -2111,9 +2155,14 @@ class VncServerManager():
             self._serverDb.server_discovery(action, entity)
         except Exception as e:
             self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.PUT_SMGR_CFG_SERVER,
+                                     False)
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+                           self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
         return entity
     # end process_dhcp_event
 
@@ -2148,13 +2197,13 @@ class VncServerManager():
             {"id": base_image_id}, detail=True)
         if not images:
             msg = "No Image %s found" % (base_image_id)
-            raise ServerMgrException(msg)
+            raise ServerMgrException(msg, ERR_IMG_NOT_FOUND)
         if images[0]['category'] and images[0]['category'] != 'image':
             msg = "Category is not image, it is %s" (images[0]['category'])
-            raise ServerMgrException(msg)
+            raise ServerMgrException(msg, ERR_IMG_CATEGORY_ERROR)
         if images[0]['type'] not in self._iso_types:
             msg = "Image %s is not an iso" % (base_image_id)
-            raise ServerMgrException(msg)
+            raise ServerMgrException(msg, ERR_IMG_TYPE_INVALID)
         return base_image_id, images[0]
     # end get_base_image
             
@@ -2178,6 +2227,7 @@ class VncServerManager():
                 do_reboot = ret_data['do_reboot']
 
             reboot_server_list = []
+            reimage_server_list = []
             base_image = {}
             if base_image_id:
                 base_image_id, base_image = self.get_base_image(base_image_id)
@@ -2186,6 +2236,7 @@ class VncServerManager():
                 msg = "No Servers found for %s" % (match_value)
                 self.log_and_raise_exception(msg)
             reimage_status = {}
+            reimage_status['return_code'] = 0
             reimage_status['server'] = []
             for server in servers:
                 cluster = None
@@ -2295,9 +2346,10 @@ class VncServerManager():
                 if msg != '':
                     err_msg = "Fields %s not present" % msg
                     self.log_and_raise_exception(err_msg)
-
-                self._do_reimage_server(
-                    image, package_image_id, reimage_parameters)
+                reimage_server_entry = {'image' : image,
+                                        'package_image_id' : package_image_id,
+                                        'reimage_parameters' : reimage_parameters}
+                reimage_server_list.append(reimage_server_entry)
 
                 # Build list of servers to be rebooted.
                 reboot_server = {
@@ -2314,32 +2366,44 @@ class VncServerManager():
                 reimage_status['server'].append(server_status)
             # end for server in servers
 
-            # now reboot the servers, if no_reboot is not specified by user.
-            if do_reboot:
-                status_msg = self._power_cycle_servers(
-                    reboot_server_list, True)
-            #After all system entries are created sync.
-            self._smgr_cobbler.sync()
-
+            gevent.spawn(self._reimage_server_cobbler, 
+                         reimage_server_list,
+                         reboot_server_list,
+                         do_reboot)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
             resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
             abort(404, resp_msg)
+            reimage_status['return_code'] = e.ret_code
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
             print 'Exception error is: %s' % e
-            resp_msg = self.form_operartion_data("Error in re-imaging server", ERR_GENERAL_ERROR,
-                                                                            None)
+            resp_msg = self.form_operartion_data("Error in re-imaging server", 
+                                                 ERR_GENERAL_ERROR,
+                                                 None)
             abort(404, resp_msg)
-        reimage_status['return_code'] = "0"
-        reimage_status['return_message'] = "server(s) reimage issued"
+            reimage_status['return_code'] = ERR_GENERAL_ERROR
+        reimage_status['return_message'] = "server(s) reimage queued"
         return reimage_status
     # end reimage_server
+
+    def _reimage_server_cobbler(self, reimage_server_list, 
+                                reboot_server_list, do_reboot):
+        self._smgr_log.log(self._smgr_log.DEBUG, "reimage_server_cobbler")
+        server = {}
+        if reimage_server_list:
+            for server in reimage_server_list:
+                self._do_reimage_server(server['image'],
+                                        server['package_image_id'],
+                                        server['reimage_parameters'])
+        if do_reboot and reboot_server_list:
+            self._power_cycle_servers(reboot_server_list, True)
+        self._smgr_cobbler.sync()
 
     # API call to power-cycle the server (IMPI Interface)
     def restart_server(self):
@@ -2385,7 +2449,6 @@ class VncServerManager():
                     msg = "Missing password for " + server_id
                     self.log_and_raise_exception(msg)
 
-
                 if 'domain' in server and server['domain']:
                     domain = server['domain']
                 elif 'domain' in cluster_parameters and cluster_parameters['domain']:
@@ -2393,7 +2456,6 @@ class VncServerManager():
                 else:
                     msg = "Missing Domain for " + server_id
                     self.log_and_raise_exception(msg)
-
 
                 # Build list of servers to be rebooted.
                 reboot_server = {
@@ -2742,7 +2804,7 @@ class VncServerManager():
 
             level = query_args.get("level", ['']) [0]
             if not level:
-                ret_defaults_dict = self._cfg_defaults_dict.copy()
+                ret_defaults_dict = copy.deepcopy(self._cfg_defaults_dict)
                 self.merge_dict(ret_defaults_dict, self._code_defaults_dict)
                 return ret_defaults_dict[obj]
             elif level == "code":
@@ -3269,7 +3331,6 @@ class VncServerManager():
                     if self._monitoring_args.collectors:
                         self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_frequency,
                                                                         self._monitoring_args.collectors)
-                        self._dev_env_monitoring_obj.sandesh_init(self._monitoring_args.collectors)
                         self._config_set = True
                 else:
                     self._smgr_log.log(self._smgr_log.ERROR, "Analytics IP and Monitoring API misconfigured, monitoring aborted")
@@ -3409,8 +3470,13 @@ class VncServerManager():
                           'status' : 'restart_issued',
                           'last_update': strftime(
                              "%Y-%m-%d %H:%M:%S", gmtime())}
-                self._serverDb.modify_server(update)
-                success_list.append(server['id'])
+                if self._serverDb.modify_server(update):
+                    success_list.append(server['id'])
+                else:
+                    self._smgr_log.log(self._smgr_log.ERROR,
+                         "Failed re-booting for server %s, not present in the db" % \
+                                           (server['id']))
+                    failed_list.append(server['id'])
             except subprocess.CalledProcessError as e:
                 msg = ("power_cycle_servers: error %d when executing"
                        "\"%s\"" %(e.returncode, e.cmd))
@@ -3427,7 +3493,7 @@ class VncServerManager():
                                 (server['id']))
                 failed_list.append(server['id'])
         #end for
-        self._smgr_cobbler.sync()
+        #self._smgr_cobbler.sync()
         if power_reboot_list:
             try:
                 self._smgr_cobbler.reboot_system(
@@ -3480,23 +3546,22 @@ class VncServerManager():
                 reimage_parameters.get('ipmi_address',''),
                 base_image, self._args.listen_ip_addr,
                 reimage_parameters.get('partition', ''))
-
-            # Sync the above information
-            #self._smgr_cobbler.sync()
-
-            # Update Server table to add image name
+        except Exception as e:
+            msg = "Server %s reimaged failed" % server['reimage_parameters']['server_id']
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
             update = {
-                'mac_address': reimage_parameters['server_mac'],
-                'reimaged_id': base_image['id'],
-                'provisioned_id': package_image_id}
+                'mac_address': server['reimage_parameters']['server_mac'],
+                'status': "reimage_failed"
+            }
             self._serverDb.modify_server(update)
 
-            # TBD Need to add a way to confirm that server came up with
-            # upgrade OS and also add this info to the DB in server table
-            # (version upgraded to and timestamp). Possibly start a process
-            # to ping the server and when up, ssh and get contrail version.
-        except Exception as e:
-            raise e
+        # Update Server table to add image name
+        update = {
+            'mac_address': reimage_parameters['server_mac'],
+            'reimaged_id': base_image['id']}
+        if not self._serverDb.modify_server(update):
+            msg = "Server %s is not present" % reimage_parameters['server_id']
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
     # end _do_reimage_server
 
     # Internal private call to provision server. This is called by REST API
@@ -3512,12 +3577,9 @@ class VncServerManager():
                       'provisioned_id': provision_parameters['package_image_id']}
             self._serverDb.modify_server(update)
 
+            host_ip = provision_parameters['server_ip']
             # Now kickstart agent run on the target
-            host_name = provision_parameters['server_id'] + "." + \
-                provision_parameters.get('domain', '')
-            rc = subprocess.check_call(
-                ["puppet", "kick", "--host", host_name])
-            # Log, return error if return code is non-null - TBD Abhay
+            gevent.spawn(self._do_puppet_kick, host_ip)
         except subprocess.CalledProcessError as e:
             msg = ("do_provision_server: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
@@ -3575,7 +3637,8 @@ def main(args_str=None):
     f.close()
 
     try:
-        bottle.run(app=pipe_start_app, host=server_ip, port=server_port)
+        bottle.run(app=pipe_start_app,server = 'gevent', host=server_ip, port=server_port)
+
     except Exception as e:
         # cleanup gracefully
         print 'Exception error is: %s' % e

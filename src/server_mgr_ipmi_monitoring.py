@@ -70,34 +70,6 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
-    # sandesh_init function opens a sandesh connection to the analytics node's ip
-    # (this is recevied from Server Mgr's config or cluster config). The function is called only once.
-    # For this node, a list of collector ips is passed to the sandesh init_generator.
-    def sandesh_init(self, collectors_ip_list=None):
-        try:
-            self.base_obj.log("info", "Initializing sandesh")
-            # storage node module initialization part
-            module = Module.IPMI_STATS_MGR
-            module_name = ModuleNames[module]
-            node_type = Module2NodeType[module]
-            node_type_name = NodeTypeNames[node_type]
-            instance_id = INSTANCE_ID_DEFAULT
-            if collectors_ip_list:
-                self.base_obj.log("info", "Collector IPs from config: " + str(collectors_ip_list))
-                collectors_ip_list = eval(collectors_ip_list)
-                sandesh_global.init_generator(
-                    module_name,
-                    socket.gethostname(),
-                    node_type_name,
-                    instance_id,
-                    collectors_ip_list,
-                    module_name,
-                    HttpPortIpmiStatsmgr,
-                    ['contrail_sm_monitoring.ipmi'])
-            else:
-                raise ServerMgrException("Error during Sandesh Init: No collector ips or Discovery server/port given")
-        except Exception as e:
-            raise ServerMgrException("Error during Sandesh Init: " + str(e))
 
     def return_collector_ip(self):
         return self._collectors_ip
@@ -124,16 +96,28 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 for server in servers:
                     server = dict(server)
                     if 'ipmi_address' in server:
-                        ipmi_list.append(server['ipmi_address'])
+                        if server['ipmi_address']:
+                            ipmi_list.append(server['ipmi_address'])
+                        else:
+                            continue
                     else:
                         continue
                     if 'id' in server:
-                        hostname_list.append(server['id'])
+                        if server['id']:
+                            hostname_list.append(server['id'])
+                        else:
+                            ipmi_list.pop()
+                            continue
                     else:
                         ipmi_list.pop()
                         continue
                     if 'ip_address' in server:
-                        server_ip_list.append(server['ip_address'])
+                        if server['ip_address']:
+                            server_ip_list.append(server['ip_address'])
+                        else:
+                            ipmi_list.pop()
+                            hostname_list.pop()
+                            continue
                     else:
                         ipmi_list.pop()
                         hostname_list.pop()

@@ -115,6 +115,7 @@ EOF
 # Get puppet repo
 apt-get update
 apt-get -y install puppet
+apt-get -y install biosdevname
 
 #--------------------------------------------------------------------------
 #Set up the ntp client 
