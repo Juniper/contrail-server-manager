@@ -17,7 +17,7 @@ import json
 # the device environment information of the servers stored in its DB. The information is gathered through
 # REST API calls to the Server Mgr Analytics Node that hosts the relevant DB.
 class ServerMgrIPMIQuerying():
-    _query_engine_port = 8106
+    _query_engine_port = 8107
 
     def __init__(self):
         ''' Constructor '''
