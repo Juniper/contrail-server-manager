@@ -348,6 +348,8 @@ class VncServerManager():
             if self._monitoring_args.collectors:
                 self._monitoring_base_plugin_obj.sandesh_init(self._monitoring_args.collectors)
         self._dev_env_monitoring_obj.start()
+        self._monitoring_base_plugin_obj.set_serverdb(self._serverDb)
+        self._monitoring_base_plugin_obj.add_inventory()
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -1350,6 +1352,8 @@ class VncServerManager():
         server_ipmi_list = list()
         server_ipmi_pw_list = list()
         server_ipmi_un_list = list()
+        server_ip_list = list()
+        server_root_pw_list = list()
         if (not entity):
             msg = 'Server MAC or server_id not specified'
             resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
@@ -1380,6 +1384,8 @@ class VncServerManager():
                     server_ipmi_un_list.append(str(server['ipmi_username']))
                     server_ipmi_pw_list.append(str(server['ipmi_password']))
                     server_hostname_list.append(str(server['id']))
+                    server_ip_list.append(str(server['ip_address']))
+                    server_root_pw_list.append(str(server['password']))
                     self._serverDb.add_server(server)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -1397,8 +1403,8 @@ class VncServerManager():
             self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
         msg = "Server add/Modify Success"
         # Trigger to collect monitoring info
-        self._monitoring_base_plugin_obj.handle_inventory_trigger("put_server", server_hostname_list, server_ipmi_list,
-                                                                  server_ipmi_un_list, server_ipmi_pw_list)
+        self._monitoring_base_plugin_obj.handle_inventory_trigger("add", server_hostname_list, server_ip_list,
+                                        server_ipmi_list, server_ipmi_un_list, server_ipmi_pw_list, server_root_pw_list)
         resp_msg = self.form_operartion_data(msg, 0, entity)
         return resp_msg
 
@@ -1997,6 +2003,12 @@ class VncServerManager():
     # API call to delete a server from the configuration.
     def delete_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "delete_server")
+        server_ipmi_list = list()
+        server_ipmi_un_list = list()
+        server_ipmi_pw_list = list()
+        server_hostname_list = list()
+        server_ip_list = list()
+        server_root_pw_list = list()
         try:
             ret_data = self.validate_smgr_request("SERVER", "DELETE",
                                                          bottle.request)
@@ -2012,6 +2024,13 @@ class VncServerManager():
 
             servers = self._serverDb.get_server(
                 match_dict, detail= False)
+            for server in servers:
+                server_ipmi_list.append(str(server['ipmi_address']))
+                server_ipmi_un_list.append(str(server['ipmi_username']))
+                server_ipmi_pw_list.append(str(server['ipmi_password']))
+                server_hostname_list.append(str(server['id']))
+                server_ip_list.append(str(server['ip_address']))
+                server_root_pw_list.append(str(server['password']))
             self._serverDb.delete_server(match_dict)
             # delete the system entries from cobbler
             for server in servers:
@@ -2038,6 +2057,11 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_SERVER)
         msg = "Server deleted"
+        # Handle Inventory Trigger here
+        self._monitoring_base_plugin_obj.handle_inventory_trigger("delete", server_hostname_list, server_ip_list,
+                                                                  server_ipmi_list, server_ipmi_un_list,
+                                                                  server_ipmi_pw_list, server_root_pw_list)
+
         resp_msg = self.form_operartion_data(msg, 0, None)
         return resp_msg
     # end delete_server

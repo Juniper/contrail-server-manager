@@ -21,6 +21,10 @@ import ast
 from threading import Thread
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from gevent import monkey
+monkey.patch_all(thread=not 'unittest' in sys.modules)
+import gevent
+import math
+import paramiko
 from inventory_daemon.server_inventory.ttypes import *
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -181,70 +185,207 @@ class ServerMgrMonBasePlugin(Thread):
         sys.stderr.write('sending UVE:' + str(send_inst))
         send_inst.send()
 
-    def get_inventory_info(self, hostname_list, ipmi_list, ipmi_un_list, ipmi_pw_list):
-        for hostname, ip, username, password in zip(hostname_list, ipmi_list, ipmi_un_list, ipmi_pw_list):
-            cmd = 'ipmitool -H %s -U %s -P %s fru' % (ip, username, password)
-            result = self.call_subprocess(cmd)
-            if result:
-                inventory_info_obj = ServerInventoryInfo()
-                inventory_info_obj.name = hostname
-                fileoutput = cStringIO.StringIO(result)
-                fru_obj_list = list()
-                for line in fileoutput:
-                    self.log(self.INFO, "%s" % line)
-                    if ":" in line:
-                        reading = line.split(":")
-                        sensor = reading[0].strip()
-                        reading_value = reading[1].strip()
+    def populate_server_data_lists(self, servers, ipmi_list, hostname_list,
+                                       server_ip_list, ipmi_username_list, ipmi_password_list, root_pwd_list):
+        for server in servers:
+            server = dict(server)
+            if 'ipmi_address' in server and server['ipmi_address'] \
+                    and 'id' in server and server['id'] \
+                    and 'ip_address' in server and server['ip_address'] \
+                    and 'password' in server and server['password']:
+                ipmi_list.append(server['ipmi_address'])
+                hostname_list.append(server['id'])
+                server_ip_list.append(server['ip_address'])
+                root_pwd_list.append(server['password'])
+                if 'ipmi_username' in server and server['ipmi_username'] \
+                        and 'ipmi_password' in server and server['ipmi_password']:
+
+                    ipmi_username_list.append(server['ipmi_username'])
+                    ipmi_password_list.append(server['ipmi_password'])
+                else:
+                    ipmi_username_list.append(self._default_ipmi_username)
+                    ipmi_password_list.append(self._default_ipmi_password)
+
+
+    def get_fru_info(self, hostname, ip, username, password):
+        cmd = 'ipmitool -H %s -U %s -P %s fru' % (ip, username, password)
+        result = self.call_subprocess(cmd)
+        if result:
+            inventory_info_obj = ServerInventoryInfo()
+            inventory_info_obj.name = hostname
+            fileoutput = cStringIO.StringIO(result)
+            fru_obj_list = list()
+            self.log(self.INFO, "Got the FRU info for IP: %s" % ip)
+            for line in fileoutput:
+                if ":" in line:
+                    reading = line.split(":")
+                    sensor = reading[0].strip()
+                    reading_value = reading[1].strip()
+                else:
+                    sensor = ""
+                if sensor == "FRU Device Description":
+                    fru_info_obj = fru_info()
+                    fru_info_obj.fru_description = reading_value
+                    fru_info_obj.chassis_type = "Not Available"
+                    fru_info_obj.chassis_serial_number = "Not Available"
+                    fru_info_obj.board_mfg_date = "Not Available"
+                    fru_info_obj.board_manufacturer = "Not Available"
+                    fru_info_obj.board_product_name = "Not Available"
+                    fru_info_obj.board_serial_number = "Not Available"
+                    fru_info_obj.board_part_number = "Not Available"
+                    fru_info_obj.product_manfacturer = "Not Available"
+                    fru_info_obj.product_name = "Not Available"
+                    fru_info_obj.product_part_number = "Not Available"
+                elif sensor == "Chassis Type":
+                    fru_info_obj.chassis_type = reading_value
+                elif sensor == "Chassis Serial":
+                    fru_info_obj.chassis_serial_number = reading_value
+                elif sensor == "Board Mfg Date":
+                    fru_info_obj.board_mfg_date = reading_value
+                elif sensor == "Board Mfg":
+                    fru_info_obj.board_manufacturer = reading_value
+                elif sensor == "Board Product":
+                    fru_info_obj.board_product_name = reading_value
+                elif sensor == "Board Serial":
+                    fru_info_obj.board_serial_number = reading_value
+                elif sensor == "Board Part Number":
+                    fru_info_obj.board_part_number = reading_value
+                elif sensor == "Product Manufacturer":
+                    fru_info_obj.product_manfacturer = reading_value
+                elif sensor == "Product Name":
+                    fru_info_obj.product_name = reading_value
+                elif sensor == "Product Part Number":
+                    fru_info_obj.product_part_number = reading_value
+                elif sensor == "":
+                    fru_obj_list.append(fru_info_obj)
+            inventory_info_obj.fru_infos = fru_obj_list
+        else:
+            self.log(self.INFO, "Could not get the FRU info for IP: %s" % ip)
+            inventory_info_obj = ServerInventoryInfo()
+            inventory_info_obj.name = hostname
+            inventory_info_obj.fru_infos = None
+        self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
+
+    @staticmethod
+    def inventory_lookup(key):
+        return {
+            'hostname': 'name',
+            'boardproductname': 'board_product_name',
+            'boardserialnumber': 'board_serial_number',
+            'boardmanufacturer': 'board_manufacturer',
+            'hardwaremodel': 'hardware_model',
+            'interfaces': 'interface_name', 'physicalprocessorcount': 'physical_processor_count',
+            'processorcount'	: 'cpu_cores_count',
+            'virtual'			: 'virtual_machine',
+            'memorytotal'			: 'total_memory_mb',
+            'operatingsystem'		: 'os',
+            'operatingsystemrelease'	: 'os_version',
+            'osfamily'			: 'os_family',
+            'kernelversion'			: 'kernel_version',
+            'uptime_seconds'		: 'uptime_seconds',
+            'ipaddress'			: 'ip_addr',
+            'netmask'			: 'netmask',
+            'macaddress'			: 'macaddress'
+        }[key]
+
+    def get_facter_info(self, ip, root_pwd):
+        server_inventory_info = ServerInventoryInfo()
+        # Get the total number of disks
+        numdisks = self.call_subprocess('lsblk | grep disk | wc -l')
+        server_inventory_info.total_numof_disks = int(numdisks)
+        # Get the other inventory information from the facter tool
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(ip, username='root', password=root_pwd)
+        stdin, stdout, stderr = ssh.exec_command('facter')
+        filestr = stdout.read()
+        fileoutput = cStringIO.StringIO(filestr)
+        if fileoutput is not None:
+            self.log(self.INFO, "Got the Facter info for IP: %s" % ip)
+            interface_dict = {}
+            intinfo_list = []
+            for line in fileoutput:
+                inventory = line.split('=>')
+                try:
+                    key = inventory[0].strip()
+                    if len(inventory) > 1:
+                        value = inventory[1].strip()
+                    if key == 'interfaces':
+                        interface_list = value.split(',')
+                        for name in interface_list:
+                            #Skip the loopback interface
+                            if name.strip() == 'lo':
+                                continue
+                            intinfo = interface_info()
+                            intinfo.interface_name = name
+                            exp = '.*_' + name + '.*$'
+                            #exp = '(^ipaddress_|^macaddress_|^netmask_).*'+name+'.*$'
+                            res = re.findall(exp, filestr, re.MULTILINE)
+                            for items in res:
+                                actualkey = items.split('=>')
+                                namekey = actualkey[0].split('_')
+                                try:
+                                    objkey = self.inventory_lookup(key=namekey[0].strip())
+                                except KeyError:
+                                    continue
+                                value = actualkey[1].strip()
+                                setattr(intinfo, objkey, value)
+                            intinfo_list.append(intinfo)
                     else:
-                        sensor = ""
-                    if sensor == "FRU Device Description":
-                        fru_info_obj = fru_info()
-                        fru_info_obj.fru_description = reading_value
-                        fru_info_obj.chassis_type = "Not Available"
-                        fru_info_obj.chassis_serial_number = "Not Available"
-                        fru_info_obj.board_mfg_date = "Not Available"
-                        fru_info_obj.board_manufacturer = "Not Available"
-                        fru_info_obj.board_product_name = "Not Available"
-                        fru_info_obj.board_serial_number = "Not Available"
-                        fru_info_obj.board_part_number = "Not Available"
-                        fru_info_obj.product_manfacturer = "Not Available"
-                        fru_info_obj.product_name = "Not Available"
-                        fru_info_obj.product_part_number = "Not Available"
-                    elif sensor == "Chassis Type":
-                        fru_info_obj.chassis_type = reading_value
-                    elif sensor == "Chassis Serial":
-                        fru_info_obj.chassis_serial_number = reading_value
-                    elif sensor == "Board Mfg Date":
-                        fru_info_obj.board_mfg_date = reading_value
-                    elif sensor == "Board Mfg":
-                        fru_info_obj.board_manufacturer = reading_value
-                    elif sensor == "Board Product":
-                        fru_info_obj.board_product_name = reading_value
-                    elif sensor == "Board Serial":
-                        fru_info_obj.board_serial_number = reading_value
-                    elif sensor == "Board Part Number":
-                        fru_info_obj.board_part_number = reading_value
-                    elif sensor == "Product Manufacturer":
-                        fru_info_obj.product_manfacturer = reading_value
-                    elif sensor == "Product Name":
-                        fru_info_obj.product_name = reading_value
-                    elif sensor == "Product Part Number":
-                        fru_info_obj.product_part_number = reading_value
-                    elif sensor == "":
-                        fru_obj_list.append(fru_info_obj)
-                inventory_info_obj.fru_infos = fru_obj_list
-            else:
-                inventory_info_obj = ServerInventoryInfo
-                inventory_info_obj.name = hostname
-                inventory_info_obj.fru_infos = None
-            self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
+                        objkey = self.inventory_lookup(key)
+                        if key == 'physicalprocessorcount' or key == 'processorcount' or key == 'uptime_seconds':
+                            value = int(value)
+                        elif key == 'memorytotal':
+                            memval = value.split()
+                            value = math.trunc(float(memval[0]))
+                            if memval[1].strip() == 'GB':
+                                value *= 1024
+                        setattr(server_inventory_info, objkey, value)
+                except KeyError:
+                    continue
+            server_inventory_info.interface_infos = intinfo_list
+            self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+        else:
+            self.log(self.INFO, "Could not get the Facter info for IP: %s" % ip)
 
 
-    def handle_inventory_trigger(self, caller, hostname_list, ip_list, ipmi_un_list, ipmi_pw_list):
-        if caller == "put_server" and ip_list and len(ip_list) >= 1:
-            worker = Thread(target=self.get_inventory_info(hostname_list, ip_list, ipmi_un_list, ipmi_pw_list))
-            worker.start()
+    def add_inventory(self):
+        ipmi_list = list()
+        hostname_list = list()
+        server_ip_list = list()
+        ipmi_username_list = list()
+        ipmi_password_list = list()
+        root_pwd_list = list()
+        servers = self._serverDb.get_server(None, detail=True)
+        self.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list, ipmi_username_list,
+                                        ipmi_password_list, root_pwd_list)
+        self.handle_inventory_trigger("add", hostname_list, server_ip_list, ipmi_list, ipmi_username_list,
+                                      ipmi_password_list, root_pwd_list)
+
+    def delete_inventory_info(self, hostname):
+        inventory_info_obj = ServerInventoryInfo()
+        inventory_info_obj.name = hostname
+        inventory_info_obj.deleted = True
+        self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
+
+    def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, root_pw):
+        if action == "add":
+            self.get_fru_info(hostname, ipmi, username, password)
+            self.get_facter_info(ip, root_pw)
+        elif action == "delete":
+            self.delete_inventory_info(hostname)
+
+    def handle_inventory_trigger(self, action, hostname_list, ip_list, ipmi_list, ipmi_un_list, ipmi_pw_list,
+                                 root_pw_list):
+        gevent_threads = []
+        if ipmi_list and len(ipmi_list) >= 1:
+            for hostname, ip, ipmi, username, password, root_pwd in zip(hostname_list, ip_list, ipmi_list, ipmi_un_list,
+                                                                        ipmi_pw_list, root_pw_list):
+                thread = gevent.spawn(self.gevent_runner_function,
+                                      action, hostname, ip, ipmi, username, password, root_pwd)
+                gevent_threads.append(thread)
+        gevent.joinall(gevent_threads)
+
 
     # A place-holder run function that the Server Monitor defaults to in the absence of a configured
     # monitoring API layer to use.

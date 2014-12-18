@@ -78,6 +78,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
     def fetch_and_process_monitoring(self, hostname, ip, username, password, supported_sensors):
         ipmi_data = []
+        data = ""
+        sensor_type = None
         cmd = 'ipmitool -H %s -U %s -P %s sdr list all' % (ip, username, password)
         result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
         if result is not None and "|" in result:
@@ -146,109 +148,21 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     self.base_obj.log("info", "Log already sent for " + str(event_id))
         return sel_event_log_list
 
-    def populate_server_data_lists(self, server, ipmi_list, hostname_list,
-                                   server_ip_list, ipmi_username_list, ipmi_password_list):
-        server = dict(server)
-        if 'ipmi_address' in server and server['ipmi_address'] \
-                 and 'id' in server and server['id'] \
-                 and 'ip_address' in server and server['ip_address']:
-            ipmi_list.append(server['ipmi_address'])
-            hostname_list.append(server['id'])
-            server_ip_list.append(server['ip_address'])
-            if 'ipmi_username' in server and server['ipmi_username'] \
-                 and 'ipmi_password' in server and server['ipmi_password']:
-
-                ipmi_username_list.append(server['ipmi_username'])
-                ipmi_password_list.append(server['ipmi_password'])
-            else:
-                ipmi_username_list.append(self._default_ipmi_username)
-                ipmi_password_list.append(self._default_ipmi_password)
-
-    @staticmethod
-    def inventory_lookup(self, key):
-        return {
-            'hostname':	'name',
-        'boardproductname':	'board_product_name',
-        'boardserialnumber':	'board_serial_number',
-        'boardmanufacturer':	'board_manufacturer',
-        'hardwaremodel':	'hardware_model',
-        'interfaces':	'interface_name','physicalprocessorcount'	: 'physical_processor_count',
-        'processorcount'		: 'cpu_cores_count',
-        'virtual'			: 'virtual_machine',
-        'memorytotal'			: 'total_memory_mb',
-        'operatingsystem'		: 'os',
-        'operatingsystemrelease'	: 'os_version',
-        'osfamily'			: 'os_family',
-        'kernelversion'			: 'kernel_version',
-        'uptime_seconds'		: 'uptime_seconds',
-        'ipaddress'			: 'ip_addr',
-        'netmask'			: 'netmask',
-        'macaddress'			: 'macaddress'
-        }[key]
-
-    def get_inventory_details(self, server_ip_addr, rootpasswd):
-        server_inventory_info = ServerInventoryInfo()
-        # Get the total number of disks
-        numdisks = self.call_subprocess('lsblk | grep disk | wc -l')
-        server_inventory_info.total_numof_disks = int(numdisks)
-        #Get the other inventory information from the facter tool
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(server_ip_addr, username='root', password=rootpasswd)
-        stdin, stdout, stderr = ssh.exec_command('facter')
-        filestr = stdout.read()
-        fileoutput = cStringIO.StringIO(filestr)
-        if fileoutput is not None:
-            interface_dict = {}
-            intinfo_list = []
-            for line in fileoutput:
-                inventory = line.split('=>')
-                try:
-                    key = inventory[0].strip()
-                    if len(inventory) > 1:
-                        value = inventory[1].strip()
-                    if key == 'interfaces':
-                        interface_list = value.split(',')
-                        for name in interface_list:
-                            #Skip the loopback interface
-                            if name.strip() == 'lo':
-                                continue
-                            intinfo = interface_info()
-                            intinfo.interface_name = name
-                            exp = '.*_' + name + '.*$'
-                            #exp = '(^ipaddress_|^macaddress_|^netmask_).*'+name+'.*$'
-                            res = re.findall(exp, filestr, re.MULTILINE)
-                            for items in res:
-                                actualkey = items.split('=>')
-                                namekey = actualkey[0].split('_')
-                                try:
-                                    objkey = self.inventory_lookup(namekey[0].strip())
-                                except KeyError:
-                                    continue
-                                value = actualkey[1].strip()
-                                setattr(intinfo, objkey, value)
-                            intinfo_list.append(intinfo)
-                    else:
-                        objkey = self.inventory_lookup(key)
-                        if key == 'physicalprocessorcount' or key == 'processorcount' or key == 'uptime_seconds':
-                            value = int(value)
-                        elif key == 'memorytotal':
-                            memval = value.split()
-                            value = math.trunc(float(memval[0]))
-                            if memval[1].strip() == 'GB':
-                                value = 1024 * value
-                        setattr(server_inventory_info, objkey, value)
-                except KeyError:
-                    continue
-            server_inventory_info.interface_infos = intinfo_list
-            self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+    def delete_monitoring_info(self, hostname_list):
+        for hostname in hostname_list:
+            sm_ipmi_info = SMIpmiInfo()
+            sm_ipmi_info.name = str(hostname)
+            ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
+            self.call_send(ipmi_stats_trace)
 
     def gevent_runner_func(self, hostname, ip, username, password, supported_sensors, sel_log_dict):
+        self.base_obj.log("info", "Gevent Thread created for %s" % ip)
         self.fetch_and_process_monitoring(hostname, ip, username, password, supported_sensors)
         if str(hostname) in sel_log_dict:
             return self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_log_dict[str(hostname)])
         else:
             return self.fetch_and_process_sel_logs(hostname, ip, username, password, [])
+
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
     # It then calls other functions to send the information to the correct analytics server.
     def run(self):
@@ -256,20 +170,28 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         self.base_obj.log("info", "Starting monitoring thread")
         ipmi_data = []
         sel_log_dict = dict()
+        ipmi_list = list()
+        hostname_list = list()
+        server_ip_list = list()
+        ipmi_username_list = list()
+        ipmi_password_list = list()
         supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
         while True:
             servers = self._serverDb.get_server(
                 None, detail=True)
-            ipmi_list = list()
-            hostname_list = list()
-            server_ip_list = list()
-            ipmi_username_list = list()
-            ipmi_password_list = list()
-            data = ""
-            sensor_type = None
-            for server in servers:
-                self.populate_server_data_lists(server, ipmi_list, hostname_list,
-                                                server_ip_list, ipmi_username_list, ipmi_password_list)
+            old_server_set = set(hostname_list)
+            del ipmi_list[:]
+            del hostname_list[:]
+            del server_ip_list[:]
+            del ipmi_username_list[:]
+            del ipmi_password_list[:]
+            self.base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list,
+                                                     ipmi_username_list, ipmi_password_list, [])
+            new_server_set = set(hostname_list)
+            deleted_servers = set(old_server_set.difference(new_server_set))
+            if len(deleted_servers) > 0:
+                self.base_obj.log("info", "Deleting monitoring info of certain servers that have been removed")
+                self.delete_monitoring_info(list(deleted_servers))
             self.base_obj.log("info", "Started IPMI Polling")
             gevent_threads = []
             for ip, hostname, username, password in \
@@ -277,6 +199,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 thread = gevent.spawn(
                     self.gevent_runner_func, hostname, ip, username, password, supported_sensors, sel_log_dict)
                 sel_log_dict[str(hostname)] = thread.value
+                gevent_threads.append(thread)
             gevent.joinall(gevent_threads)
             self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
