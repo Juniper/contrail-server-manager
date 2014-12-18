@@ -44,6 +44,18 @@ service ssh restart
 # dependencies needed by puppet such as ruby, puppet-common etc.
 # add repos needed for puppet and its dependencies
 
+#Install puppet 2.7 against 3.x which is got from trusty repo.
+#Need to revisit this logic to use preferences.
+
+mv /etc/apt/sources.list /etc/apt/sources.list.orig
+
+echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
+
+apt-get update
+apt-get -y install puppet
+
+cp /etc/apt/sources.list.orig /etc/apt/sources.list
+
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
 deb http://$server/thirdparty_packages/ ./
@@ -114,7 +126,6 @@ EOF
 
 # Get puppet repo
 apt-get update
-apt-get -y install puppet
 apt-get -y install biosdevname
 
 #--------------------------------------------------------------------------
