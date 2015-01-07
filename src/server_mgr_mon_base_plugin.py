@@ -364,8 +364,10 @@ class ServerMgrMonBasePlugin(Thread):
 
     def delete_inventory_info(self, hostname):
         inventory_info_obj = ServerInventoryInfo()
-        inventory_info_obj.name = hostname
+        inventory_info_obj.name = str(hostname)
         inventory_info_obj.deleted = True
+        inventory_info_obj.interface_infos = None
+        inventory_info_obj.fru_infos = None
         self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
 
     def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, root_pw):
@@ -373,6 +375,7 @@ class ServerMgrMonBasePlugin(Thread):
             self.get_fru_info(hostname, ipmi, username, password)
             self.get_facter_info(ip, root_pw)
         elif action == "delete":
+            self.log(self.INFO, "Deleted info of server: %s" % hostname)
             self.delete_inventory_info(hostname)
 
     def handle_inventory_trigger(self, action, hostname_list, ip_list, ipmi_list, ipmi_un_list, ipmi_pw_list,

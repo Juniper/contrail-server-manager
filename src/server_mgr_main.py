@@ -289,6 +289,7 @@ class VncServerManager():
             status_thread_config = {}
             status_thread_config['listen_ip'] = self._args.listen_ip_addr
             status_thread_config['listen_port'] = '9002'
+            status_thread_config['base_obj'] = self._monitoring_base_plugin_obj
 
             status_thread = ServerMgrStatusThread(
                             None, "Status-Thread", status_thread_config)
@@ -2042,7 +2043,7 @@ class VncServerManager():
                     match_dict[match_key] = match_value
 
             servers = self._serverDb.get_server(
-                match_dict, detail= False)
+                match_dict, detail=True)
             for server in servers:
                 server_ipmi_list.append(str(server['ipmi_address']))
                 server_ipmi_un_list.append(str(server['ipmi_username']))

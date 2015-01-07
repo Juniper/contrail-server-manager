@@ -28,7 +28,7 @@ class ServerMgrStatusThread(threading.Thread):
 
     _smgr_log = None
     _status_serverDb = None
-
+    _base_obj = None
 
     ''' Class to run function that keeps validating the cobbler token
         periodically (every 30 minutes) on a new thread. '''
@@ -58,6 +58,7 @@ class ServerMgrStatusThread(threading.Thread):
         #set the status related handlers
         status_bottle_app = Bottle()
         status_bottle_app.route('/server_status', 'PUT', self.put_server_status)
+        self._base_obj = self._status_thread_config['base_obj']
 
         try:
             bottle.run(status_bottle_app,
@@ -85,7 +86,20 @@ class ServerMgrStatusThread(threading.Thread):
 
             servers = self._status_serverDb.modify_server(
                                                     server_data)
-
+            if servers:
+                hostname_list = list()
+                ipmi_list = list()
+                ipmi_password_list = list()
+                ipmi_username_list = list()
+                server_ip_list = list()
+                root_pwd_list = list()
+                if server_state == "reimage_completed":
+                    self._base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list,
+                                                              server_ip_list,
+                                                              ipmi_username_list,
+                                                              ipmi_password_list, root_pwd_list)
+                    self._base_obj.handle_inventory_trigger("add", hostname_list, server_ip_list, ipmi_list,
+                                                        ipmi_username_list, ipmi_password_list, root_pwd_list)
             if server_state in email_events:
                 self.send_status_mail(server_id, message, message)
 

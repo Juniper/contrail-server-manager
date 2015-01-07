@@ -152,6 +152,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         for hostname in hostname_list:
             sm_ipmi_info = SMIpmiInfo()
             sm_ipmi_info.name = str(hostname)
+            sm_ipmi_info.deleted = True
+            sm_ipmi_info.sensor_state = None
+            sm_ipmi_info.sensor_stats = None
             ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
             self.call_send(ipmi_stats_trace)
 
@@ -191,6 +194,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             deleted_servers = set(old_server_set.difference(new_server_set))
             if len(deleted_servers) > 0:
                 self.base_obj.log("info", "Deleting monitoring info of certain servers that have been removed")
+                self.base_obj.log("info", "Deleted servers: " + str(list(deleted_servers)))
                 self.delete_monitoring_info(list(deleted_servers))
             self.base_obj.log("info", "Started IPMI Polling")
             gevent_threads = []
