@@ -17,6 +17,8 @@ server_fields = {
     "cluster_id": "",
     "subnet_mask": "",
     "gateway": "",
+    "network": "",
+    "contrail": "",
     "password": "",
     "domain": "",
     "email": "",

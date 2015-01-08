@@ -211,8 +211,7 @@ def object_exists(object, object_id_key, object_id_value, payload):
                              object, payload, object_id_key,
                              object_id_value, True, "GET" )
     if resp:
-        json_str = resp.replace("null", "''")
-        smgr_object_dict = eval(json_str)
+        smgr_object_dict = json.loads(resp)
         if len(smgr_object_dict[object]):
             return True
 

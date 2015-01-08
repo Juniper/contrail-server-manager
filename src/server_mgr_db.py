@@ -102,6 +102,7 @@ class ServerMgrDb:
                          email TEXT, status TEXT,
                          tag1 TEXT, tag2 TEXT, tag3 TEXT,
                          tag4 TEXT, tag5 TEXT, tag6 TAXT, tag7 TEXT,
+                         network TEXT, contrail TEXT,
                          UNIQUE (id))""")
                 # Create server tags table
                 cursor.execute(
@@ -119,6 +120,8 @@ class ServerMgrDb:
                 # Add columns for server_table
                 self._add_table_column(cursor, server_table, "reimaged_id", "TEXT")
                 self._add_table_column(cursor, server_table, "provisioned_id", "TEXT")
+                self._add_table_column(cursor, server_table, "network", "TEXT")
+                self._add_table_column(cursor, server_table, "contrail", "TEXT")
 
             self._get_table_columns()
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
@@ -351,6 +354,15 @@ class ServerMgrDb:
             intf_bond = server_data.pop("bond_interface", None)
             if intf_bond:
                 server_data['intf_bond'] = str(intf_bond)
+            #Add network
+            if 'network' in server_data:
+                network_data_str = str(server_data.pop("network", None))
+                server_data['network'] = network_data_str
+            #Add contrail
+            if 'contrail' in server_data:
+                contrail_data_str = str(server_data.pop("contrail", None))
+                server_data['contrail'] = contrail_data_str
+
             # Store email list as text field
             email = server_data.pop("email", None)
             if email:
@@ -617,6 +629,16 @@ class ServerMgrDb:
             intf_bond = server_data.pop("bond_interface", None)
             if intf_bond:
                 server_data['intf_bond'] = str(intf_bond)
+
+            #Add network
+            if 'network' in server_data:
+                network_data_str = str(server_data.pop("network", None))
+                server_data['network'] = network_data_str
+            #Add contrail
+            if 'contrail' in server_data:
+                contrail_data_str = str(server_data.pop("contrail", None))
+                server_data['contrail'] = contrail_data_str
+
             # store tags if any
             server_tags = server_data.pop("tag", None)
             if server_tags is not None:

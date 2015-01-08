@@ -1,0 +1,142 @@
+{
+    "server": [
+        {
+            "contrail": {
+                "control_data_interface": "eth1"
+            },
+            "id": "nodec57", 
+            "roles": [
+                "compute"
+            ], 
+            "domain": "englab.juniper.net", 
+            "password": "c0ntrail123", 
+            "ipmi_address": "10.207.25.151", 
+            "cluster_id": "vns-automation",
+            "network": {
+                "management_interface": "eth0",
+                "provisioning": "kickstart",
+                "interfaces": [
+                    {  
+                        "name": "eth1",
+                        "ip_address": "192.168.100.2/24",
+                        "default_gateway": "192.168.100.254"
+                    },
+                    {  
+                        "name": "eth0",
+                        "mac_address": "00:25:90:c5:58:6e", 
+                        "ip_address": "10.204.221.61/28"
+                    }
+                ]
+            }
+        }, 
+        {
+            "contrail": {
+                "control_data_interface": "eth1"
+            },
+            "id": "nodec33", 
+            "roles": [
+                "webui", 
+                "config", 
+                "database", 
+                "collector"
+            ], 
+            "domain": "englab.juniper.net", 
+            "password": "c0ntrail123", 
+            "ipmi_address": "10.207.25.87", 
+            "cluster_id": "vns-automation",
+            "network": {
+                "management_interface": "eth0",
+                "provisioning": "kickstart",
+                "interfaces": [
+                    {  
+                        "name": "eth1",
+                        "ip_address": "192.168.100.3/24",
+                        "default_gateway": "192.168.100.254"
+                    },
+                    {  
+                        "name": "eth0",
+                        "ip_address": "10.204.221.59/28", 
+                        "mac_address": "00:25:90:c4:82:28" 
+                    }
+                ]
+            }
+        }, 
+        {
+            "contrail": {
+                "control_data_interface": "eth1"
+            },
+            "id": "nodec35", 
+            "roles": [
+                "control", 
+                "config", 
+                "openstack"
+            ], 
+            "domain": "englab.juniper.net", 
+            "password": "c0ntrail123", 
+            "mac_address": "00:25:90:c4:7a:70", 
+            "ipmi_address": "10.207.25.89", 
+            "cluster_id": "vns-automation",
+            "network": {
+                "management_interface": "eth0",
+                "provisioning": "kickstart",
+                "interfaces": [
+                    {  
+                        "name": "eth1",
+                        "ip_address": "192.168.100.4/24",
+                        "default_gateway": "192.168.100.254"
+                    },
+                    {  
+                        "name": "eth0",
+                        "ip_address": "10.204.221.58/28",
+                        "mac_address": "00:25:90:c4:7a:70" 
+                    }
+                ]
+            }
+        }, 
+        {
+            "contrail": {
+                "control_data_interface": "bond0"
+            },
+            "id": "nodea4", 
+            "roles": [
+                "compute"
+            ], 
+            "domain": "englab.juniper.net", 
+            "password": "c0ntrail123", 
+            "mac_address": "00:25:90:a5:3b:12", 
+            "ipmi_address": "10.207.25.17", 
+            "cluster_id": "vns-automation", 
+            "network": {
+                "management_interface": "eth0",
+                "provisioning": "kickstart",
+                "interfaces": [
+                    {  
+                        "name": "eth1"
+                    },
+                    {  
+                        "name": "eth2"
+                    },
+                    {  
+                        "name": "eth3"
+                    },
+                    {  
+                        "name": "eth4"
+                    },
+                    {  
+                        "name": "eth0",
+                        "ip_address": "10.204.221.60/28",
+                        "mac_address": "00:25:90:a5:3b:12"
+		    },
+                    {
+                        "name": "bond0",
+                        "type": "bond",
+                        "gateway": "192.168.100.254", 
+                        "ip_address": "192.168.100.1/24",
+                        "bond_options": {"miimon": "100", "mode": "802.3ad","xmit_hash_policy": "layer3+4"},
+                        "member_interfaces": ["eth1", "eth2", "eth3", "eth4"]
+                    }
+                ]
+            }
+        }
+    ]
+}

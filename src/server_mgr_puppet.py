@@ -89,8 +89,21 @@ class ServerMgrPuppet:
     def get_control_ip(self, provision_params, mgmt_ip_str):
         intf_control = {}
         mgmt_ip = mgmt_ip_str.strip("\"")
+        """
+        if 'contrail_params' in  provision_params:
+            contrail_dict = eval(provision_params['contrail_params'])
+            control_data_intf = contrail_dict['control_data_interface']
+            if provision_params['interface_list'] and \
+                     provision_params['interface_list'] [control_data_intf]:
+                control_data_ip = provision_params['interface_list'] \
+                                [control_data_intf] ['ip']
+            if control_data_ip:
+                return '"' + str(IPNetwork(control_data_ip).ip) + '"'
+            else:
+                return '"' + provision_params['server_ip'] + '"'
+        """
         if provision_params['control_net'] [mgmt_ip]:
-            intf_control = eval(provision_params['control_net'] [mgmt_ip])        
+            intf_control = eval(provision_params['control_net'] [mgmt_ip]) 
         for intf,values in intf_control.items():
             if intf:
                 return '"' + str(IPNetwork(values['ip_address']).ip) + '"'
@@ -105,7 +118,7 @@ class ServerMgrPuppet:
 	##netaddr.IPNetwork(ip_cidr).network, netaddr.IPNetwork(ip_cidr).prefixlen
         mgmt_ip = mgmt_ip_str.strip("\"")
         if provision_params['control_net'] [mgmt_ip]:
-            intf_control = eval(provision_params['control_net'] [mgmt_ip])        
+            intf_control = eval(provision_params['control_net'] [mgmt_ip])
         for intf,values in intf_control.items():
             if intf:
         	self._smgr_log.log(self._smgr_log.DEBUG, "ip_address : %s" % values['ip_address'])
@@ -189,9 +202,9 @@ class ServerMgrPuppet:
                 provision_params['package_image_id'],
                 provision_params["server_mgr_ip"], before_param)
 
-        if 'kernel_upgrade' in provision_params and \
-             provision_params['kernel_upgrade'].lower() == "yes" and \
-            'kernel_version' in provision_params and \
+        if 'kernel_upgrade' in provision_params['kernel_upgrade'] and \
+             provision_params['kernel_upgrade'] == "yes" and \
+            'kernel_version' in provision_params['kernel_version '] and \
             provision_params['kernel_version'] != '' :
 
             before_param = "Contrail_%s::Contrail_common::Upgrade-kernel[\"upgrade_kernel\"]" % \
@@ -1432,7 +1445,17 @@ $__contrail_quantum_servers__
         provision_params["compute_non_mgmt_ip"] = provision_params["server_ip"]
         provision_params["compute_non_mgmt_gway"] = provision_params['server_gway']
 
-        if provision_params['intf_control']:
+
+        if 'contrail_params' in  provision_params:
+            contrail_dict = eval(provision_params['contrail_params'])
+            control_data_intf = contrail_dict['control_data_interface']
+            if provision_params['interface_list'] and \
+                     provision_params['interface_list'] [control_data_intf]:
+                non_mgmt_ip = provision_params['interface_list'] \
+                                [control_data_intf] ['ip']
+                non_mgmt_gw =  provision_params['interface_list'] \
+                                [control_data_intf] ['d_gw']
+        elif provision_params['intf_control']:
             intf_control = eval(provision_params['intf_control'])
             for intf,values in intf_control.items():
                 non_mgmt_ip= values['ip_address'].split("/")[0]

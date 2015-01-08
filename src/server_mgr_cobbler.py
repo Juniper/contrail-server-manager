@@ -246,7 +246,8 @@ class ServerMgrCobbler:
                       mac, ip, subnet, gway, system_domain,
                       ifname, enc_passwd, server_license, esx_nicname,
                       power_type, power_user, power_pass, power_address,
-                      base_image, server_ip, partition=None):
+                      base_image, server_ip, partition=None,
+                      node_cfg = None):
         try:
             # Validate cobbler token
             self._validate_token(self._token, "system")
@@ -318,6 +319,10 @@ class ServerMgrCobbler:
             if package_image_id:
                 ks_metadata += ' contrail_repo_name=' + \
                     package_image_id
+
+            if node_cfg:
+                ks_metadata += ' device_cfg=' + node_cfg
+
             if ((base_image['type'] == 'esxi5.1') or
                 (base_image['type'] == 'esxi5.5')):
                 ks_metadata += ' server_license=' + server_license
