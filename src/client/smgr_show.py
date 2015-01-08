@@ -71,6 +71,14 @@ def parse_arguments():
         help="Flag to indicate if details are requested")
     parser_server.set_defaults(func=show_server)
 
+    # Subparser for inventory show
+    parser_inventory = subparsers.add_parser(
+        "inventory", help='Show server')
+    inv_group = parser_inventory.add_mutually_exclusive_group()
+    inv_group.add_argument("--server_id",
+                       help=("server id for server"))
+    parser_inventory.set_defaults(func=show_inventory)
+
     # Subparser for cluster show
     parser_cluster = subparsers.add_parser(
         "cluster", help='Show cluster')
@@ -238,6 +246,19 @@ def show_server(args):
         rest_api_params['match_value'] = None
     return rest_api_params
 #end def show_server
+
+def show_inventory(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'Inventory'
+    rest_api_params['select'] = None
+    if args.server_id:
+        rest_api_params['match_key'] = 'id'
+        rest_api_params['match_value'] = args.server_id
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
+    return rest_api_params
+# end def show_inventory
 
 def show_cluster(args):
     if args.cluster_id:

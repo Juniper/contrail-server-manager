@@ -366,6 +366,7 @@ class VncServerManager():
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
         bottle.route('/Monitor', 'GET', self.get_mon_details)
+        bottle.route('/Inventory', 'GET', self.get_inventory)
         bottle.route('/defaults', 'GET', self.get_defaults)
 
 
@@ -576,6 +577,32 @@ class VncServerManager():
             match_keys.append('id')
             match_keys.append('cluster_id')
             match_keys.append('tag')
+            match_keys.append('discovered')
+            if (match_key not in match_keys):
+                raise ServerMgrException("Match Key not present")
+            if match_value == None or match_value[0] == '':
+                raise ServerMgrException("Match Value not Specified")
+            ret_data["status"] = 0
+            ret_data["match_key"] = str(match_key)
+            ret_data["match_value"] = str(match_value[0])
+        return ret_data
+
+    def validate_smgr_inv(self, request, data=None):
+        ret_data = {}
+        ret_data['status'] = 1
+        query_args = parse_qs(urlparse(request.url).query,
+                              keep_blank_values=True)
+
+        if len(query_args) == 0:
+            match_key = None
+            match_value = None
+            ret_data["status"] = 0
+            ret_data["match_key"] = match_key
+            ret_data["match_value"] = match_value
+        elif len(query_args) == 1:
+            match_key, match_value = query_args.popitem()
+            match_keys = list()
+            match_keys.append('id')
             match_keys.append('discovered')
             if (match_key not in match_keys):
                 raise ServerMgrException("Match Key not present")
@@ -910,6 +937,8 @@ class VncServerManager():
             validation_data = cluster_fields
         elif type == "IMAGE":
             validation_data = image_fields
+        elif type == "INVENTORY":
+            validation_data = fru_fields
         else:
             validation_data = None
 
@@ -1067,6 +1096,35 @@ class VncServerManager():
                         x.pop(tag, None)
         return {"server": servers}
     # end get_server
+
+    # This call returns information about a provided server. If no server
+    # if provided, information about all the servers in server manager
+    # configuration is returned.
+
+    def get_inventory(self):
+        ret_data = None
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_inventory")
+        frus = []
+        try:
+            ret_data = self.validate_smgr_inv(bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                match_dict = dict()
+                match_dict[match_key] = match_value
+                self._smgr_log.log(self._smgr_log.DEBUG, match_key + " " + match_value)
+                frus = self._serverDb.get_inventory(match_dict)
+        except ServerMgrException as e:
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+        self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(frus)))
+        return {"frus": frus}
+        # end get_inventory
 
     # API Call to list images
     def get_image(self):

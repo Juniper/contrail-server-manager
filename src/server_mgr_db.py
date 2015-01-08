@@ -13,6 +13,7 @@ def_server_db_file = 'smgr_data.db'
 cluster_table = 'cluster_table'
 server_table = 'server_table'
 image_table = 'image_table'
+inventory_table = 'inventory_table'
 server_status_table = 'status_table'
 server_tags_table = 'server_tags_table'
 _DUMMY_STR = "DUMMY_STR"
@@ -25,6 +26,7 @@ class ServerMgrDb:
     _image_table_cols = []
     _status_table_cols = []
     _server_tags_table_cols = []
+    _inventory_table_cols = []
 
     # Keep list of table columns
     def _get_table_columns(self):
@@ -50,6 +52,10 @@ class ServerMgrDb:
                     "SELECT * FROM " +
                     server_status_table + " WHERE id=?", (_DUMMY_STR,))
                 self._status_table_cols = [x[0] for x in cursor.description]
+                cursor.execute(
+                    "SELECT * FROM " +
+                    inventory_table + " WHERE id=?", (_DUMMY_STR,))
+                self._inventory_table_cols = [x[0] for x in cursor.description]
         except Exception as e:
             raise e
     # end _get_table_columns
@@ -103,6 +109,16 @@ class ServerMgrDb:
                          tag1 TEXT, tag2 TEXT, tag3 TEXT,
                          tag4 TEXT, tag5 TEXT, tag6 TAXT, tag7 TEXT,
                          UNIQUE (id))""")
+                # Create inventory table
+                cursor.execute(
+                    "CREATE TABLE IF NOT EXISTS " + inventory_table +
+                    """ (board_serial_number TEXT PRIMARY KEY NOT NULL,
+                         id TEXT, fru_description TEXT, chassis_type TEXT,
+                         chassis_serial_number TEXT, board_mfg_date TEXT,
+                         board_manufacturer TEXT, board_product_name TEXT,
+                         board_part_number TEXT, product_manfacturer TEXT,
+                         product_name TEXT, product_part_number TEXT,
+                         UNIQUE (board_serial_number))""")
                 # Create server tags table
                 cursor.execute(
                     "CREATE TABLE IF NOT EXISTS " + server_tags_table +
@@ -144,6 +160,7 @@ class ServerMgrDb:
                 DELETE FROM """ + server_table + """;
                 DELETE FROM """ + server_tags_table + """;
                 DELETE FROM """ + server_status_table + """;
+                DELETE FROM """ + inventory_table + """;
                 DELETE FROM """ + image_table + ";")
         except:
             raise e
@@ -331,6 +348,17 @@ class ServerMgrDb:
         except Exception as e:
             raise e
     # End of add_cluster
+
+    def add_inventory(self, fru_data):
+        try:
+            fru_data = dict(fru_data)
+            if fru_data and 'id' in fru_data:
+                self._add_row(inventory_table, fru_data)
+                self._smgr_log.log(self._smgr_log.DEBUG, "ADDED FRU INFO FOR " + fru_data['id'])
+        except Exception as e:
+            return e.message
+        return 0
+    # End of add_inventory
 
     def add_server(self, server_data):
         try:
@@ -748,6 +776,14 @@ class ServerMgrDb:
             raise e
         return servers
     # End of get_server
+
+    def get_inventory(self, match_dict=None, unmatch_dict=None):
+        try:
+            frus = self._get_items(inventory_table, match_dict, unmatch_dict, True, None)
+        except Exception as e:
+            raise e
+        return frus
+    # End of get_inventory
 
     def get_cluster(self, match_dict=None,
                 unmatch_dict=None, detail=False, field_list=None):

@@ -215,6 +215,7 @@ class ServerMgrMonBasePlugin(Thread):
             inventory_info_obj.name = hostname
             fileoutput = cStringIO.StringIO(result)
             fru_obj_list = list()
+            fru_dict = dict()
             self.log(self.INFO, "Got the FRU info for IP: %s" % ip)
             for line in fileoutput:
                 if ":" in line:
@@ -226,38 +227,63 @@ class ServerMgrMonBasePlugin(Thread):
                 if sensor == "FRU Device Description":
                     fru_info_obj = fru_info()
                     fru_info_obj.fru_description = reading_value
+                    fru_dict['fru_description'] = reading_value
+                    fru_dict['id'] = hostname
                     fru_info_obj.chassis_type = "Not Available"
+                    fru_dict['chassis_type'] = "Not Available"
                     fru_info_obj.chassis_serial_number = "Not Available"
+                    fru_dict['chassis_serial_number'] = "Not Available"
                     fru_info_obj.board_mfg_date = "Not Available"
+                    fru_dict['board_mfg_date'] = "Not Available"
                     fru_info_obj.board_manufacturer = "Not Available"
+                    fru_dict['board_manufacturer'] = "Not Available"
                     fru_info_obj.board_product_name = "Not Available"
+                    fru_dict['board_product_name'] = "Not Available"
                     fru_info_obj.board_serial_number = "Not Available"
+                    fru_dict['board_serial_number'] = "Not Available"
                     fru_info_obj.board_part_number = "Not Available"
+                    fru_dict['board_part_number'] = "Not Available"
                     fru_info_obj.product_manfacturer = "Not Available"
+                    fru_dict['product_manfacturer'] = "Not Available"
                     fru_info_obj.product_name = "Not Available"
+                    fru_dict['product_name'] = "Not Available"
                     fru_info_obj.product_part_number = "Not Available"
+                    fru_dict['product_part_number'] = "Not Available"
                 elif sensor == "Chassis Type":
                     fru_info_obj.chassis_type = reading_value
+                    fru_dict['chassis_type'] = reading_value
                 elif sensor == "Chassis Serial":
                     fru_info_obj.chassis_serial_number = reading_value
+                    fru_dict['chassis_serial_number'] = reading_value
                 elif sensor == "Board Mfg Date":
                     fru_info_obj.board_mfg_date = reading_value
+                    fru_dict['board_mfg_date'] = reading_value
                 elif sensor == "Board Mfg":
                     fru_info_obj.board_manufacturer = reading_value
+                    fru_dict['board_manufacturer'] = reading_value
                 elif sensor == "Board Product":
                     fru_info_obj.board_product_name = reading_value
+                    fru_dict['board_product_name'] = reading_value
                 elif sensor == "Board Serial":
                     fru_info_obj.board_serial_number = reading_value
+                    fru_dict['board_serial_number'] = reading_value
                 elif sensor == "Board Part Number":
                     fru_info_obj.board_part_number = reading_value
+                    fru_dict['board_part_number'] = reading_value
                 elif sensor == "Product Manufacturer":
                     fru_info_obj.product_manfacturer = reading_value
+                    fru_dict['product_manfacturer'] = reading_value
                 elif sensor == "Product Name":
                     fru_info_obj.product_name = reading_value
+                    fru_dict['product_name'] = reading_value
                 elif sensor == "Product Part Number":
                     fru_info_obj.product_part_number = reading_value
+                    fru_dict['product_part_number'] = reading_value
                 elif sensor == "":
                     fru_obj_list.append(fru_info_obj)
+                    rc = self._serverDb.add_inventory(fru_dict)
+                    if rc != 0:
+                        self.log(self.ERROR, "ERROR REPORTED BY INVENTORY ADD: %s" % rc)
             inventory_info_obj.fru_infos = fru_obj_list
         else:
             self.log(self.INFO, "Could not get the FRU info for IP: %s" % ip)
@@ -366,8 +392,6 @@ class ServerMgrMonBasePlugin(Thread):
         inventory_info_obj = ServerInventoryInfo()
         inventory_info_obj.name = str(hostname)
         inventory_info_obj.deleted = True
-        inventory_info_obj.interface_infos = None
-        inventory_info_obj.fru_infos = None
         self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
 
     def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, root_pw):
