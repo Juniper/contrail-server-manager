@@ -34,6 +34,7 @@ import ast
 import uuid
 import traceback
 import platform
+from netaddr import *
 import copy
 from server_mgr_defaults import *
 from server_mgr_err import *
@@ -653,12 +654,16 @@ class VncServerManager():
 
         cluster_role_list = []
         for server in servers:
-            duplicate_roles = self.list_duplicates(eval(server['roles']))
+            if 'roles' in server and server['roles']:
+                role_list = eval(server['roles'])
+            else:
+                role_list = []
+            duplicate_roles = self.list_duplicates(role_list)
             if len(duplicate_roles):
                 msg = "Duplicate Roles '%s' present" % \
                         ", ".join(str(e) for e in duplicate_roles)
                 self.log_and_raise_exception(msg)
-            cluster_role_list.extend(eval(server['roles']))
+            cluster_role_list.extend(role_list)
 
         cluster_unique_roles = set(cluster_role_list)
 
@@ -1014,8 +1019,10 @@ class VncServerManager():
             if x.get("intf_bond", None) is not None:
                 x['bond_interface'] = eval(x['intf_bond'])
                 x.pop('intf_bond', None)
-
-
+            if x.get("network", None):
+                x['network'] = eval(x['network'])
+            if x.get("contrail", None):
+                x['contrail'] = eval(x['contrail'])
 
             if detail:
                 #Temp workarounf for UI, UI doesnt like None
@@ -1316,6 +1323,29 @@ class VncServerManager():
                 self.log_and_raise_exception(msg)
     # end validate_server_mgr_tags
 
+    def plug_mgmt_intf_details(self, server):
+        if 'network' in server and server['network']:
+            intf_dict = self.get_interfaces(server)        
+            network_dict = server['network']
+            mgmt_intf_name = network_dict['management_interface']
+            mgmt_intf_obj = intf_dict[mgmt_intf_name]
+
+            server['mac_address'] = mgmt_intf_obj['mac_address']
+            server['ip_address'] = mgmt_intf_obj['ip']
+            server['subnet_mask'] = mgmt_intf_obj['mask']
+            server['gateway'] = mgmt_intf_obj['d_gw']   
+            if 'parameters' in server: 
+                server_parameters = server['paramaters']
+            else:
+                server_parameters = {}
+                server['parameters'] = server_parameters
+            server_parameters['interface_name'] = mgmt_intf_name
+
+        else:
+            print 'check'
+            # check if old details are there else throw error
+
+
     def put_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "add_server")
         entity = bottle.request.json
@@ -1327,6 +1357,7 @@ class VncServerManager():
             self.validate_smgr_entity("server", entity)
             servers = entity.get("server", None)
             for server in servers:
+                self.plug_mgmt_intf_details(server)
                 self.validate_server_mgr_tags(server)
                 server['status'] = "server_added"
                 server['discovered'] = "false"
@@ -1440,7 +1471,7 @@ class VncServerManager():
         return_data_str = print_rest_response(return_data)
         
         return return_data_str
-
+       
     def validate_package_id(self, package_id):
         #ID shouldn't have only apha-numerice and "_"
         #id can be none or empty, if server is discovered
@@ -2183,6 +2214,35 @@ class VncServerManager():
             raise ServerMgrException(msg, ERR_IMG_TYPE_INVALID)
         return base_image_id, images[0]
     # end get_base_image
+
+    def get_interfaces(self, server):
+        #Fetch network realted data and push to reimage
+        if 'network' in server and server['network']:
+            network_dict = server['network']
+            if isinstance(network_dict, basestring):
+                network_dict = eval(network_dict)
+            mgmt_intf = network_dict['management_interface']
+            interface_list = network_dict["interfaces"]
+            return_intf_dict = {}
+            for intf in interface_list:
+                intf_dict = {}
+                name = intf['name']
+                ip_addr = intf.get('ip_address', None)
+                if ip_addr is None:
+                    continue
+                ip = IPNetwork(ip_addr)
+                intf_dict['ip'] = str(ip.ip)
+                intf_dict['d_gw'] = intf.get('default_gateway', None)
+                intf_dict['dhcp'] = intf.get('dhcp', None)
+                intf_dict['type'] = intf.get('type', None)
+                intf_dict['bond_opts'] = intf.get('bond_options', None)
+                intf_dict['mem_intfs'] = intf.get('member_interfaces', None)
+                intf_dict['mac_address'] = intf.get('mac_address', None)
+                intf_dict['mask'] = str(ip.netmask)
+
+                return_intf_dict[name] = intf_dict
+            return return_intf_dict
+        return None
             
     # This call returns information about a provided server.
     # If no server if provided, information about all the servers
@@ -2238,6 +2298,9 @@ class VncServerManager():
                     raise ServerMgrException(msg)
                 password = subnet_mask = gateway = domain = None
                 server_id = server['id']
+
+
+                #Move this to a function and return a single error
                 if 'password' in server and server['password']:
                     password = server['password']
                 elif 'password' in cluster_parameters and cluster_parameters['password']:
@@ -2275,6 +2338,8 @@ class VncServerManager():
                     msg = "Missing ip for " + server_id
                     server['ip_address'] = ''
 
+ 
+
                 reimage_parameters = {}
                 if ((image['type'] == 'esxi5.1') or
                     (image['type'] == 'esxi5.5')):
@@ -2309,6 +2374,16 @@ class VncServerManager():
                 reimage_parameters['ipmi_address'] = server.get(
                     'ipmi_address', '')
                 reimage_parameters['partition'] = server_parameters.get('partition', '')
+
+                execute_script = self.build_server_cfg(server)
+
+                #network
+                if execute_script:
+                    reimage_parameters['config_file'] = \
+                                "http://%s/contrail/config_file/%s.sh" % \
+                                (self._args.listen_ip_addr, server_id)
+#                self._do_reimage_server(
+#                    image, package_image_id, reimage_parameters)
 
                 _mandatory_reimage_params = {"server_password": "password", 
                             "server_gateway": "gateway","server_domain":"domain",
@@ -2368,6 +2443,54 @@ class VncServerManager():
         reimage_status['return_message'] = "server(s) reimage queued"
         return reimage_status
     # end reimage_server
+
+
+    def build_server_cfg(self, server):
+        #Fetch network realted data and push to reimage
+        execute_script = False
+        if 'network' in server and server['network']:
+            network_dict = eval(server['network'])
+            mgmt_intf = network_dict['management_interface']
+            interface_list = network_dict["interfaces"]
+            i = 0 
+            device_str = "#!/bin/bash\n"
+            for intf in interface_list:
+                i += 1
+                name = intf['name']
+                ip_addr = intf.get('ip_address', None)
+                if ip_addr is None:
+                    continue
+                if name.lower() == mgmt_intf.lower():
+                    continue
+
+                ip = IPNetwork(ip_addr)
+                d_gw = intf.get('default_gateway', None)
+                dhcp = intf.get('dhcp', None)
+                type = intf.get('type', None)
+                bond_opts = intf.get('bond_options', None)
+                mem_intfs = intf.get('member_interfaces', None)
+
+                #form string
+                if type and type.lower() == 'bond':
+                    device_str+= ("python interface_setup.py \
+--device %s --members %s --bond-opts \"%s\" --ip %s\n") % \
+                        (name,
+            			" ".join(mem_intfs),
+			            json.dumps(bond_opts), ip_addr)
+                    execute_script = True
+                else:
+                    if dhcp:
+                        device_str+= ("python interface_setup.py --device %s --dhcp\n") % \
+                            (name)
+                    else:
+                        device_str+= ("python interface_setup.py --device %s --ip %s\n") % \
+                            (name, ip_addr)    
+                    execute_script = True
+            sh_file_name = "/var/www/html/contrail/config_file/%s.sh" % (server['id'])
+            f = open(sh_file_name, "w")  
+            f.write(device_str)
+            f.close()
+        return execute_script
 
     def _reimage_server_cobbler(self, reimage_server_list, 
                                 reboot_server_list, do_reboot):
@@ -2483,6 +2606,18 @@ class VncServerManager():
         for server in cluster_servers:
             if 'intf_control' not in server:
                     intf_control = ""
+            elif 'contrail' in server:
+		contrail_dict = eval(server['contrail'])
+		control_data_intf = contrail_dict['control_data_interface']
+
+		interface_list = self.get_interfaces(server)
+		intf_dict = {}
+		control_ip = interface_list[control_data_intf] ['ip']	
+		control_mask = interface_list[control_data_intf] ['mask']	
+ 		ip_prefix = "%s/%s" %(control_ip, control_mask)
+		ip_obj = IPNetwork(ip_prefix)
+		intf_dict[control_data_intf] = {"ip_address":str(ip_obj)}
+	        server_control_list[server['ip_address']] = str(intf_dict)
             else:
                 intf_control = server['intf_control']
                 server_control_list[server['ip_address']] = intf_control
@@ -2707,6 +2842,7 @@ class VncServerManager():
                 if 'intf_bond' in server:
                     provision_params['intf_bond'] = server['intf_bond']
                 provision_params['control_net'] = self.get_control_net(cluster_servers)
+                provision_params['interface_list'] = self.get_interfaces(server)
                 provision_params['server_ip'] = server['ip_address']
                 provision_params['database_dir'] = cluster_params['database_dir']
                 provision_params['database_token'] = cluster_params['database_token']
@@ -2722,6 +2858,8 @@ class VncServerManager():
                 provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
                 provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
                 provision_params['phy_interface'] = server_params['interface_name']
+                if 'contrail' in server:
+                    provision_params['contrail_params']  = server['contrail']
                 if 'gateway' in server and server['gateway']:
                     provision_params['server_gway'] = server['gateway']
                 elif 'gateway' in cluster_params and cluster_params['gateway']:
@@ -3332,7 +3470,8 @@ class VncServerManager():
                 reimage_parameters.get('ipmi_password',self._args.ipmi_password),
                 reimage_parameters.get('ipmi_address',''),
                 base_image, self._args.listen_ip_addr,
-                reimage_parameters.get('partition', ''))
+                reimage_parameters.get('partition', ''),
+                reimage_parameters.get('config_file', None))
         except Exception as e:
             msg = "Server %s reimaged failed" % server['reimage_parameters']['server_id']
             self._smgr_log.log(self._smgr_log.ERROR, msg)
