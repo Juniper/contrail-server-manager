@@ -112,13 +112,13 @@ class ServerMgrDb:
                 # Create inventory table
                 cursor.execute(
                     "CREATE TABLE IF NOT EXISTS " + inventory_table +
-                    """ (board_serial_number TEXT PRIMARY KEY NOT NULL,
-                         id TEXT, fru_description TEXT, chassis_type TEXT,
+                    """ (fru_description TEXT PRIMARY KEY NOT NULL,
+                         id TEXT, board_serial_number TEXT, chassis_type TEXT,
                          chassis_serial_number TEXT, board_mfg_date TEXT,
                          board_manufacturer TEXT, board_product_name TEXT,
                          board_part_number TEXT, product_manfacturer TEXT,
                          product_name TEXT, product_part_number TEXT,
-                         UNIQUE (board_serial_number))""")
+                         UNIQUE (fru_description))""")
                 # Create server tags table
                 cursor.execute(
                     "CREATE TABLE IF NOT EXISTS " + server_tags_table +

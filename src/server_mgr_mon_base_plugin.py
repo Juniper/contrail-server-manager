@@ -227,7 +227,7 @@ class ServerMgrMonBasePlugin(Thread):
                 if sensor == "FRU Device Description":
                     fru_info_obj = fru_info()
                     fru_info_obj.fru_description = reading_value
-                    fru_dict['fru_description'] = reading_value
+                    fru_dict['fru_description'] = str(hostname) + " " + reading_value
                     fru_dict['id'] = hostname
                     fru_info_obj.chassis_type = "Not Available"
                     fru_dict['chassis_type'] = "Not Available"
