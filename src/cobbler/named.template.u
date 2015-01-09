@@ -1,0 +1,14 @@
+#for $zone in $forward_zones
+zone "${zone}." {
+    type master;
+    file "/etc/bind/db.$zone";
+};
+
+#end for
+#for $zone, $arpa in $reverse_zones
+zone "${arpa}." {
+    type master;
+    file "/etc/bind/db.$zone";
+};
+
+#end for
