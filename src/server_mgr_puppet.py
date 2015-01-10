@@ -14,6 +14,9 @@ import string
 import textwrap
 import shutil
 import random 
+import tempfile
+import re
+import openstack_hieradata
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
@@ -22,6 +25,7 @@ from esxi_contrailvm import ContrailVM as ContrailVM
 class ServerMgrPuppet:
     _puppet_site_file_name = "site.pp"
     _site_manifest_file = ''
+    _node_env_map_file = "puppet/node_mapping.json"
     # Dictionary to keep information about which parameters are already added
     # when cycling thru parameter list for all the roles.
     _params_dict = {}
@@ -1676,7 +1680,254 @@ $__contrail_quantum_servers__
         "storage-master": puppet_add_storage_manager_role
     }
 
-    def provision_server(self, provision_params):
+    def delete_node_entry(self, site_file, server_fqdn):
+        tempfd, temp_file = tempfile.mkstemp()
+        fh = os.fdopen(tempfd, "w")
+        node_found = False
+        brace_count = 0
+        with open(site_file, "r") as site_fh:
+            for line in site_fh:
+                tokens = line.strip().split()
+                if ((len(tokens) >= 2) and
+                    (tokens[0] == "node") and
+                    ((re.findall(r"['\"](.*?)['\"]", tokens[1]))[0] == server_fqdn)):
+                    node_found = True
+                #end if tokens...
+                if not node_found:
+                    fh.write(line)
+                else:
+                    # skip comments
+                    if tokens[0].startswith("#"):
+                        continue
+                    # Skip lines till closing brace
+                    if "{" in line:
+                        brace_count += 1
+                    if "}" in line:
+                        brace_count -= 1
+                    if brace_count == 0:
+                        node_found = False
+                # end else not node_found
+            # end for
+        # end with
+        fh.close()
+        shutil.copy(temp_file, site_file)
+        os.remove(temp_file)
+    # end def delete_node_entry
+
+    def add_node_entry(
+        self, site_file, provision_params,
+        server, cluster, cluster_servers):
+        server_fqdn = provision_params['server_id'] + "." + \
+            provision_params['domain']
+        data = ''
+        data += "node \'%s\' {\n" %server_fqdn
+        # Add Stage relationships
+        data += '    stage{ \'first\': }\n'
+        data += '    stage{ \'last\': }\n'
+        data += '    stage{ \'compute\': }\n'
+        data += '    Stage[\'first\']->Stage[\'main\']->Stage[\'last\']->Stage[\'compute\']\n'
+        # Add common role
+        data += '    class { \'::contrail::profile::common\' : stage => \'first\' }\n'
+        # Add keepalived (This class is no-op if vip is not configured.)
+        if 'config' in server['roles']:
+            data += '    include ::contrail::profile::keepalived\n'
+        # Add haproxy (for config node)
+        if 'config' in server['roles']:
+            data += '    include ::contrail::profile::haproxy\n'
+        # Add database role.
+        if 'database' in server['roles']:
+            data += '    include ::contrail::profile::database\n'
+        # Add webui role.
+        if 'webui' in server['roles']:
+            data += '    include ::contrail::profile::webui\n'
+        # Add openstack role.
+        if 'openstack' in server['roles']:
+            data += '    include ::contrail::profile::openstack_controller\n'
+        # Add config role.
+        if 'config' in server['roles']:
+            data += '    include ::contrail::profile::config\n'
+        # Add controller role.
+        if 'control' in server['roles']:
+            data += '    include ::contrail::profile::controller\n'
+        # Add collector role.
+        if 'collector' in server['roles']:
+            data += '    include ::contrail::profile::collector\n'
+        # Add config provision role.
+        if 'config' in server['roles']:
+            data += '    class { \'::contrail::profile::provision\' : stage => \'last\' }\n'
+        # Add compute role
+        if 'compute' in server['roles']:
+            data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
+        data += "}\n"
+        with open(site_file, "a") as site_fh:
+            site_fh.write(data)
+        # end with
+    # end def add_node_entry
+
+    def build_contrail_hiera_file(
+        self, hiera_filename, provision_params,
+        server, cluster, cluster_servers):
+        cluster_params = eval(cluster['parameters'])
+        server_params = eval(server['parameters'])
+        data = ''
+        data += 'contrail::params::contrail_repo_name: "%s"\n' %(
+            provision_params.get('package_image_id', ""))
+        data += 'contrail::params::contrail_repo_type: "%s"\n' %(
+            provision_params.get('package_type', ""))
+        data += 'contrail::params::host_ip: "%s"\n' %(
+            server.get('ip_address', ""))
+        if "uuid" in cluster_params:
+            data += 'contrail::params::uuid: "%s"\n' %(
+                cluster_params.get('uuid', ""))
+        role_ips = {}
+        role_ids = {}
+        for role in ['database', 'config', 'openstack',
+                     'control', 'collector',
+                     'webui', 'compute']:
+            role_ips[role] = [
+                x["ip_address"].encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
+            data += 'contrail::params::%s_ip_list: %s\n' %(
+                role, str(role_ips[role]))
+            role_ids[role] = [
+                x["id"].encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
+            data += 'contrail::params::%s_name_list: %s\n' %(
+                role, str(role_ids[role]))
+        if "internal_vip" in cluster_params:
+            data += 'contrail::params::internal_vip: "%s"\n' %(
+                cluster_params.get('internal_vip', ""))
+        if "contrail_internal_vip" in cluster_params:
+            data += 'contrail::params::contrail_internal_vip: "%s"\n' %(
+                cluster_params.get('contrail_internal_vip', ""))
+        if "external_vip" in cluster_params:
+            data += 'contrail::params::external_vip: "%s"\n' %(
+                cluster_params.get('external_vip', ""))
+        with open(hiera_filename, "w") as site_fh:
+            site_fh.write(data)
+        # end with
+    # end def build_contrail_hiera_file
+
+    # Use template to prepare hiera data file for openstack modules. Revisit later to refine.
+    def build_openstack_hiera_file(
+        self, hiera_filename, provision_params,
+        server, cluster, cluster_servers):
+        cluster_params = eval(cluster['parameters'])
+        server_params = eval(server['parameters'])
+        # Get all values needed to fill he template.
+        openstack_ip = cluster_params.get("internal_vip", None)
+        if openstack_ip is None:
+            openstack_ip = server.get("ip_address", "")
+        subnet_mask = server.get("subnet_mask", "")
+        if subnet_mask == "":
+            subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
+        mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
+        mysql_service_password = cluster_params.get("mysql_service_password", "c0ntrail123")
+        keystone_admin_token = cluster_params.get("service_token", "c0ntrail123")
+        keystone_admin_password = cluster_params.get("keystone_password", "c0ntrail123")
+        openstack_password = cluster_params.get("openstack_passwd", "c0ntrail123")
+        subnet_address = str(IPNetwork(
+            openstack_ip + "/" + subnet_mask).network)
+        subnet_octets = subnet_address.split(".")
+        if subnet_octets[3] == "0":
+            subnet_octets[3] = "%"
+            if subnet_octets[2] == "0":
+                subnet_octets[2] = "%"
+                if subnet_octets[1] == "0":
+                    subnet_octets[1] = "%"
+        mysql_allowed_hosts = ".".join(subnet_octets)
+        template_vals = {
+            '__openstack_ip__': openstack_ip,
+            '__subnet_mask__': subnet_mask,
+            '__mysql_root_password__': mysql_root_password,
+            '__mysql_service_password__': mysql_service_password,
+            '__keystone_admin_token__': keystone_admin_token,
+            '__keystone_admin_password__': keystone_admin_password,
+            '__mysql_allowed_hosts__': mysql_allowed_hosts,
+            '__openstack_password__': openstack_password
+        }
+        data = openstack_hieradata.template.safe_substitute(template_vals)
+        outfile = open(hiera_filename, 'w')
+        outfile.write(data)
+        outfile.close()
+    # end def build_openstack_hiera_file
+
+    def build_hiera_files(
+        self, hieradata_dir, provision_params,
+        server, cluster, cluster_servers):
+        server_fqdn = provision_params['server_id'] + "." + \
+            provision_params['domain']
+        contrail_hiera_file = hieradata_dir + server_fqdn + \
+            "-contrail.yaml"
+        self.build_contrail_hiera_file(
+            contrail_hiera_file, provision_params, server,
+            cluster, cluster_servers)
+        openstack_hiera_file = hieradata_dir + server_fqdn + \
+            "-openstack.yaml"
+        self.build_openstack_hiera_file(
+            openstack_hiera_file, provision_params, server,
+            cluster, cluster_servers)
+    # end def build_hieradata_files
+
+    def new_provision_server(
+        self, provision_params, server, cluster, cluster_servers):
+        server_fqdn = provision_params['server_id'] + "." + \
+            provision_params['domain']
+        env_name = provision_params['puppet_manifest_version']
+        env_name = env_name.replace('-', '_')
+        site_file = self.puppet_directory + "environments/" + \
+            env_name + "/manifests/site.pp"
+        hieradata_dir = self.puppet_directory + "environments/" + \
+            env_name + "/hieradata/"
+        # Build Hiera data for the server
+        self.build_hiera_files(
+            hieradata_dir, provision_params,
+            server, cluster, cluster_servers)
+        # Create an entry for this node in site.pp.
+        # First, delete any existing entry and then add a new one.
+        self.delete_node_entry(site_file, server_fqdn)
+        # Now add a new node entry
+        self.add_node_entry(
+            site_file, provision_params, server, cluster, cluster_servers)
+        # Add entry for the server to environment mapping in 
+        # node_mapping.json file.
+	try:
+            node_env_dict = {}
+            try:
+		with open(
+		    self.smgr_base_dir+self._node_env_map_file,
+		    "r") as env_file:
+		    node_env_dict = json.load(env_file)
+		# end with
+            except:
+                pass
+            node_env_dict[server_fqdn] = env_name
+	    with open(
+                self.smgr_base_dir+self._node_env_map_file,
+                "w") as env_file:
+		json.dump(
+                    node_env_dict, env_file,
+                    sort_keys = True, indent = 4)
+            # end with
+	except:
+	    pass
+    # end def new_provision_server
+
+    def provision_server(
+        self, provision_params, server, cluster, cluster_servers):
+
+        # The new way to create necessary puppet manifest files and parameters data.
+        # The existing method is kept till the new method is well tested and confirmed
+        # to be working.
+        puppet_manifest_version = provision_params.get(
+            'puppet_manifest_version', "")
+        environment = puppet_manifest_version.replace('-','_')
+        if ((environment != "") and
+            (os.path.isdir(
+                "/etc/puppet/environments/" + environment))):
+            self.new_provision_server(
+                provision_params, server, cluster, cluster_servers)
+            return
+        # end if puppet_manifest_version
+        
         resource_data = ''
         # Create a new site file for this server
         server_manifest_file = self.pupp_create_server_manifest_file(
