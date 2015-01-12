@@ -36,6 +36,7 @@ import traceback
 import platform
 from netaddr import *
 import copy
+import distutils.core
 from server_mgr_defaults import *
 from server_mgr_err import *
 from server_mgr_status import *
