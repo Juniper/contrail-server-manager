@@ -1725,7 +1725,12 @@ $__contrail_quantum_servers__
         data += '    stage{ \'first\': }\n'
         data += '    stage{ \'last\': }\n'
         data += '    stage{ \'compute\': }\n'
-        data += '    Stage[\'first\']->Stage[\'main\']->Stage[\'last\']->Stage[\'compute\']\n'
+        data += '    stage{ \'pre\': }\n'
+        data += '    stage{ \'post\': }\n'
+        data += '    Stage[\'pre\']->Stage[\'first\']->Stage[\'main\']->Stage[\'last\']->Stage[\'post\']\n'
+
+        # Add pre role
+        data += '    class { \'::contrail::provision_start\' : state => \'provision_started\', stage => \'pre\' }\n'
         # Add common role
         data += '    class { \'::contrail::profile::common\' : stage => \'first\' }\n'
         # Add keepalived (This class is no-op if vip is not configured.)
@@ -1758,9 +1763,13 @@ $__contrail_quantum_servers__
         # Add compute role
         if 'compute' in server['roles']:
             data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
+        # Add post role
+        data += '    class { \'::contrail::provision_complete\' : state => \'provision_completed\', stage => \'post\' }\n'
+
         data += "}\n"
         with open(site_file, "a") as site_fh:
             site_fh.write(data)
+        os.chmod(site_file, 0744)
         # end with
     # end def add_node_entry
 
@@ -1781,6 +1790,8 @@ $__contrail_quantum_servers__
                 cluster_params.get('uuid', ""))
         role_ips = {}
         role_ids = {}
+        role_passwd = {}
+        role_users = {}
         for role in ['database', 'config', 'openstack',
                      'control', 'collector',
                      'webui', 'compute']:
@@ -1792,6 +1803,15 @@ $__contrail_quantum_servers__
                 x["id"].encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
             data += 'contrail::params::%s_name_list: %s\n' %(
                 role, str(role_ids[role]))
+            role_passwd[role] = [
+                x["password"].encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
+            data += 'contrail::params::%s_passwd_list: %s\n' %(
+                role, str(role_passwd[role]))
+            role_users[role] = [
+                "root".encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
+            data += 'contrail::params::%s_user_list: %s\n' %(
+                role, str(role_users[role]))
+
         if "internal_vip" in cluster_params:
             data += 'contrail::params::internal_vip: "%s"\n' %(
                 cluster_params.get('internal_vip', ""))
@@ -1810,20 +1830,31 @@ $__contrail_quantum_servers__
     def build_openstack_hiera_file(
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
+	    mysql_allowed_hosts = []
+	    role_ips_dict = provision_params['roles']
         cluster_params = eval(cluster['parameters'])
         server_params = eval(server['parameters'])
         # Get all values needed to fill he template.
+        self_ip = server.get("ip_address", "")
         openstack_ip = cluster_params.get("internal_vip", None)
-        if openstack_ip is None:
-            openstack_ip = server.get("ip_address", "")
+        if openstack_ip != None and openstack_ip != "":
+            mysql_allowed_hosts.append(openstack_ip)
+        mysql_allowed_hosts = mysql_allowed_hosts + role_ips_dict['openstack']
+
+        if openstack_ip is None or openstack_ip == '':
+            if self_ip in role_ips_dict['openstack']:
+                openstack_ip = self_ip
+            else:
+                openstack_ip = role_ips_dict['openstack'][0]
+        
         subnet_mask = server.get("subnet_mask", "")
         if subnet_mask == "":
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
         mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
         mysql_service_password = cluster_params.get("mysql_service_password", "c0ntrail123")
         keystone_admin_token = cluster_params.get("service_token", "c0ntrail123")
-        keystone_admin_password = cluster_params.get("keystone_password", "c0ntrail123")
-        openstack_password = cluster_params.get("openstack_passwd", "c0ntrail123")
+        keystone_admin_password = cluster_params.get("keystone_password", "contrail123")
+        openstack_password = cluster_params.get("openstack_passwd", "contrail123")
         subnet_address = str(IPNetwork(
             openstack_ip + "/" + subnet_mask).network)
         subnet_octets = subnet_address.split(".")
@@ -1833,7 +1864,7 @@ $__contrail_quantum_servers__
                 subnet_octets[2] = "%"
                 if subnet_octets[1] == "0":
                     subnet_octets[1] = "%"
-        mysql_allowed_hosts = ".".join(subnet_octets)
+        #mysql_allowed_hosts = openstack_ip 
         template_vals = {
             '__openstack_ip__': openstack_ip,
             '__subnet_mask__': subnet_mask,
@@ -1841,7 +1872,7 @@ $__contrail_quantum_servers__
             '__mysql_service_password__': mysql_service_password,
             '__keystone_admin_token__': keystone_admin_token,
             '__keystone_admin_password__': keystone_admin_password,
-            '__mysql_allowed_hosts__': mysql_allowed_hosts,
+            '__mysql_allowed_hosts__': (', '.join("'" + item + "'" for item in mysql_allowed_hosts)),
             '__openstack_password__': openstack_password
         }
         data = openstack_hieradata.template.safe_substitute(template_vals)
