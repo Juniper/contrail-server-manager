@@ -2618,15 +2618,15 @@ class VncServerManager():
 
     #Function to get control section for all servers
     # belonging to the same VN
+    # If 'contrail' block ins present, use the new interface configuration
+    #   otherwise, use the old way of configuration
     def get_control_net(self, cluster_servers):
         server_control_list = {}
         for server in cluster_servers:
-            if 'intf_control' not in server:
-                    intf_control = ""
-            elif 'contrail' in server:
-		contrail_dict = eval(server['contrail'])
-		control_data_intf = contrail_dict['control_data_interface']
-
+            contrail = server.get('contrail', "")
+            if contrail:
+		contrail_dict = eval(contrail)
+		control_data_intf = contrail_dict.get('control_data_interface', "")
 		interface_list = self.get_interfaces(server)
 		intf_dict = {}
 		control_ip = interface_list[control_data_intf] ['ip']	
