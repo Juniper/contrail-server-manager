@@ -27,7 +27,7 @@ openstack::storage::address::management: '$__openstack_ip__'
 openstack::mysql::root_password: '$__mysql_root_password__'
 openstack::mysql::service_password: '$__mysql_service_password__'
 ##### TBD has hard-coded vaue. need to plug in local interface network.
-openstack::mysql::allowed_hosts: ['localhost', '127.0.0.1', '$__mysql_allowed_hosts__']
+openstack::mysql::allowed_hosts: ['localhost', '127.0.0.1', $__mysql_allowed_hosts__]
 
 ######## RabbitMQ
 openstack::rabbitmq::user: 'guest'

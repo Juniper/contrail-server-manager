@@ -4,10 +4,8 @@
             "id": "demo2-server",
             "password": "juniper",
             "domain": "demo.juniper.net",
-
             "contrail": {
-                "control_data_interface": "bond0",
-                "package": "contrail-ubuntu-havana-build63.deb"
+                "control_data_interface": "bond0"
             },
             "network": {
                 "management_interface": "eth1",
@@ -18,7 +16,7 @@
                         "ip_address": "10.84.51.13/24",
                         "mac_address": "00:25:90:aa:36:32",
                         "default_gateway": "10.84.51.254",
-                        "dhcp": "False"
+                        "dhcp": true
                     },
                     {
                         "name": "eth2",
@@ -34,13 +32,6 @@
                         "ip_address": "20.20.20.2/24",
                         "bond_options": "{'miimon': '100', 'mode': '802.3ad','xmit_hash_policy': 'layer3+4'}",
                         "member_interfaces": "['eth2', 'eth3']"
-                    }
-                ],
-                "routes": [
-                    {
-                        "network": "<ip>/<prefix>",
-                        "gateway": "<ip>",
-                        "device": "<interface_id>"
                     }
                 ]
             }
