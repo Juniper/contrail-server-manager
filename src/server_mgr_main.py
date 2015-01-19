@@ -76,7 +76,7 @@ _DEF_PUPPET_DIR = '/etc/puppet/'
 # Temporary variable added to disable use of new puppet framework. This should be removed/enabled
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
 # this variable and it's use when enabling new puppet framework.
-_ENABLE_NEW_PUPPET_FRAMEWORK = False
+_ENABLE_NEW_PUPPET_FRAMEWORK = True
 
 @bottle.error(403)
 def error_403(err):
