@@ -3384,6 +3384,9 @@ class VncServerManager():
                     self._smgr_log.log(
                         self._smgr_log.DEBUG,
                         cmd + "; ret_code = %d" %(ret_code))
+                    # Remove any puppet files for new framework
+                    self._smgr_puppet.new_unprovision_server(
+                        server['id'], server['domain'])
                     # Remove manifest file for this server
                     cmd = "rm -f /etc/puppet/manifests/%s.%s.pp" %(
                         server['id'], server['domain'])
