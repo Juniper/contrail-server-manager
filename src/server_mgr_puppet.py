@@ -1942,6 +1942,51 @@ $__contrail_quantum_servers__
 	    pass
     # end def new_provision_server
 
+    # Function to remove puppet files and entries created when provisioning the server. This is called
+    # when server is being reimaged. We do not want old provisioning data to be retained.
+    def new_unprovision_server(self, server_id, server_domain):
+        server_fqdn = server_id + "." + server_domain
+        # Remove node to environment mapping from node_mapping.json file.
+	node_env_dict = {}
+        env_name = None
+	try:
+	    with open(
+		self.smgr_base_dir+self._node_env_map_file,
+		"r") as env_file:
+		node_env_dict = json.load(env_file)
+	    # end with
+	    env_name = node_env_dict.pop(server_fqdn, None)
+	    try:
+		with open(
+		    self.smgr_base_dir+self._node_env_map_file,
+		    "w") as env_file:
+		    json.dump(
+			node_env_dict, env_file,
+			sort_keys = True, indent = 4)
+		# end with
+	    except:
+		pass
+	except:
+	    pass
+        if env_name is None:
+            return
+        # Remove server node entry from site.pp.
+        site_file = self.puppet_directory + "environments/" + \
+            env_name + "/manifests/site.pp"
+        try:
+            self.delete_node_entry(site_file, server_fqdn)
+	except:
+	    pass
+        # Remove Hiera Data files for the server.
+        hiera_datadir = self.puppet_directory + "environments/" + \
+            env_name + "/hieradata/"
+        try:
+            os.remove(hiera_datadir + server_fqdn + "-contrail.yaml")
+            os.remove(hiera_datadir + server_fqdn + "-openstack.yaml")
+	except:
+	    pass
+    # end new_unprovision_server()
+
     def provision_server(
         self, provision_params, server, cluster, cluster_servers):
 
