@@ -72,6 +72,7 @@ openstack::nova::password: '$__openstack_password__'
 ######## Neutron
 openstack::neutron::password: '$__openstack_password__'
 openstack::neutron::shared_secret: 'by-sa-bo'
+neutron::bind_port: '9697'
 
 ######## Ceilometer
 openstack::ceilometer::mongo::password: '$__openstack_password__'
