@@ -1340,7 +1340,7 @@ class VncServerManager():
             server['subnet_mask'] = mgmt_intf_obj['mask']
             server['gateway'] = mgmt_intf_obj['d_gw']   
             if 'parameters' in server: 
-                server_parameters = server['paramaters']
+                server_parameters = server['parameters']
             else:
                 server_parameters = {}
                 server['parameters'] = server_parameters
@@ -3023,7 +3023,7 @@ class VncServerManager():
 		provision_params['live_migration_storage_scope'] = live_migration_storage_scope
 		provision_params['contrail-storage-enabled'] = storage_status
 		provision_params['subnet-mask'] = subnet_mask
-                provision_params['host_roles'] = eval(server['roles'])
+                provision_params['host_roles'] = [ x.encode('ascii') for x in eval(server['roles']) ]
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = cluster_params['storage_virsh_uuid']
