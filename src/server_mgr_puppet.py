@@ -1779,10 +1779,14 @@ $__contrail_quantum_servers__
         cluster_params = eval(cluster['parameters'])
         server_params = eval(server['parameters'])
         data = ''
-        data += 'contrail::params::contrail_repo_name: "%s"\n' %(
-            provision_params.get('package_image_id', ""))
-        data += 'contrail::params::contrail_repo_type: "%s"\n' %(
-            provision_params.get('package_type', ""))
+        package_ids = [provision_params.get('package_image_id', "").encode('ascii')]
+        package_types = [provision_params.get('package_type', "").encode('ascii')]
+	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
+            package_ids.append(provision_params.get('storage_repo_id', "").encode('ascii'))
+            package_types.append("contrail-ubuntu-storage-repo".encode('ascii'))
+        data += 'contrail::params::contrail_repo_name: %s\n' %(str(package_ids))
+        data += 'contrail::params::contrail_repo_type: %s\n' %(str(package_types))
+
         data += 'contrail::params::host_ip: "%s"\n' %(
             server.get('ip_address', ""))
         if "uuid" in cluster_params:
@@ -1821,6 +1825,26 @@ $__contrail_quantum_servers__
         if "external_vip" in cluster_params:
             data += 'contrail::params::external_vip: "%s"\n' %(
                 cluster_params.get('external_vip', ""))
+
+	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
+            ## Storage code
+            data += 'contrail::params::host_roles: %s\n' %(str(provision_params['host_roles']))
+            data += 'contrail::params::storage_num_osd: %s\n' %(provision_params['storage_num_osd'])
+            data += 'contrail::params::storage_fsid: "%s"\n' %(provision_params['storage_fsid'])
+            data += 'contrail::params::storage_num_hosts: %s\n' %(provision_params['num_storage_hosts'])
+            data += 'contrail::params::storage_virsh_uuid: "%s"\n' %(provision_params['storage_virsh_uuid'])
+            data += 'contrail::params::storage_monitor_secret: "%s"\n' %(provision_params['storage_mon_secret'])
+            data += 'contrail::params::storage_admin_key: "%s"\n' %(provision_params['admin_key'])
+            data += 'contrail::params::osd_bootstrap_key: "%s"\n' %(provision_params['osd_bootstrap_key'])
+            data += 'contrail::params::storage_enabled: "%s"\n' %(provision_params['contrail-storage-enabled'])
+            data += 'contrail::params::live_migration_storage_scope: "%s"\n' %(provision_params['live_migration_storage_scope'])
+            data += 'contrail::params::live_migration_host: "%s"\n' %(provision_params['live_migration_host'])
+            storage_mon_hosts = [ x.encode('ascii') for x in provision_params['storage_monitor_hosts']]
+            data += 'contrail::params::storage_monitor_hosts: %s\n' %(str(storage_mon_hosts))
+            if 'storage_server_disks' in provision_params:
+                storage_disks = [  x.encode('ascii') for x in provision_params['storage_server_disks']]
+                data += 'contrail::params::storage_osd_disks: %s\n' %(str(storage_disks))
+
         with open(hiera_filename, "w") as site_fh:
             site_fh.write(data)
         # end with
