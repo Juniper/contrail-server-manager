@@ -42,7 +42,9 @@ class ServerMgrPuppet:
     # end pupp_create_site_manifest_file
 
     def pupp_create_server_manifest_file(self, provision_params):
-        server_manifest_file = self.puppet_directory + "manifests/" + \
+        version = provision_params.get('puppet_manifest_version', "")
+        server_manifest_file = self.puppet_directory + "environments/contrail_" + \
+            version + "/manifests/" + \
             provision_params['server_id'] + "." + \
             provision_params['domain'] + ".pp"
         if not os.path.exists(os.path.dirname(server_manifest_file)):
@@ -600,7 +602,9 @@ class ServerMgrPuppet:
 
 
     def create_config_ha_proxy(self, provision_params):
-	smgr_dir  = staging_dir = "/etc/puppet/modules/contrail_"+ provision_params['puppet_manifest_version'] + "/files/"
+        smgr_dir  = staging_dir = "/etc/puppet/environments/contrail_" + \
+            provision_params['puppet_manifest_version'] + "/modules/contrail_" + \
+            provision_params['puppet_manifest_version'] + "/files/"
 
         cfg_ha_proxy_tmpl = string.Template("""
 #contrail-config-marker-start
@@ -645,7 +649,9 @@ $__contrail_disc_backend_servers__
         api_server_lines = ''
         disc_listen_port = 9110
         disc_server_lines = ''
-	smgr_dir  = staging_dir = "/etc/puppet/modules/contrail_"+ provision_params['puppet_manifest_version'] + "/files/"
+        smgr_dir  = staging_dir = "/etc/puppet/environments/contrail_" + \
+            provision_params['puppet_manifest_version'] + "/modules/contrail_" + \
+            provision_params['puppet_manifest_version'] + "/files/"
         #TODO
         nworkers = 1
         for config_host in config_role_list:
@@ -1180,7 +1186,9 @@ $__contrail_disc_backend_servers__
     #Function to create haproxy cfg file for compute nodes
     def create_compute_ha_proxy(self, provision_params):
         
-	smgr_dir  = staging_dir = "/etc/puppet/modules/contrail_"+ provision_params['puppet_manifest_version'] + "/files/"
+        smgr_dir  = staging_dir = "/etc/puppet/environments/contrail_" + \
+            provision_params['puppet_manifest_version'] + "/modules/contrail_" + \
+            provision_params['puppet_manifest_version'] + "/files/"
 
         compute_haproxy_template = string.Template("""
 #contrail-compute-marker-start
@@ -1319,7 +1327,9 @@ $__contrail_glance_apis__
 
     #Function to create haproxy cfg for openstack nodes
     def create_openstack_ha_proxy(self, provision_params):
-	smgr_dir  = staging_dir = "/etc/puppet/modules/contrail_"+ provision_params['puppet_manifest_version'] + "/files/"
+        smgr_dir  = staging_dir = "/etc/puppet/environments/contrail_" + \
+            provision_params['puppet_manifest_version'] + "/modules/contrail_" + \
+            provision_params['puppet_manifest_version'] + "/files/"
 
         openstack_haproxy_template = string.Template("""
 #contrail-openstack-marker-start
@@ -2043,6 +2053,9 @@ $__contrail_quantum_servers__
                 provision_params, server, cluster, cluster_servers)
             return
         # end if puppet_manifest_version
+        server_fqdn = provision_params["server_id"] + "." + \
+            provision_params["domain"]
+        env_name = "contrail_" + environment
         
         resource_data = ''
         # Create a new site file for this server
@@ -2060,15 +2073,28 @@ $__contrail_quantum_servers__
             # write the data to manifest file for this server.
             with open(server_manifest_file, 'w') as f:
                 f.write(data)
-            # Now add an entry in site manifest file for this server
-            server_line = "import \'%s\'\n" % (
-                os.path.basename(server_manifest_file))
-            with open(self._site_manifest_file, 'a+') as f:
-                lines = f.readlines()
-                if not server_line in lines:
-                    f.write(server_line)
-            cmd = "touch %s" %(self._site_manifest_file)
-            ret_code = subprocess.call(cmd, shell=True)
+            # Add entry for the server to environment mapping in 
+            # node_mapping.json file.
+	    try:
+                node_env_dict = {}
+                try:
+                    with open(
+                        self.smgr_base_dir+self._node_env_map_file,
+	                "r") as env_file:
+                        node_env_dict = json.load(env_file)
+                    # end with
+                except:
+                    pass
+                node_env_dict[server_fqdn] = env_name
+                with open(
+                    self.smgr_base_dir+self._node_env_map_file,
+                    "w") as env_file:
+                    json.dump(
+                        node_env_dict, env_file,
+                        sort_keys = True, indent = 4)
+                # end with
+	    except:
+	        pass
             return
 
         if (provision_params['openstack_mgmt_ip'] == ''):
@@ -2154,15 +2180,28 @@ $__contrail_quantum_servers__
         # write the data to manifest file for this server.
         with open(server_manifest_file, 'w') as f:
             f.write(data)
-        # Now add an entry in site manifest file for this server
-        server_line = "import \'%s\'\n" % (
-            os.path.basename(server_manifest_file))
-        with open(self._site_manifest_file, 'a+') as f:
-            lines = f.readlines()
-            if not server_line in lines:
-                f.write(server_line)
-        cmd = "touch %s" %(self._site_manifest_file)
-        ret_code = subprocess.call(cmd, shell=True)
+        # Add entry for the server to environment mapping in 
+        # node_mapping.json file.
+	try:
+            node_env_dict = {}
+            try:
+                with open(
+                    self.smgr_base_dir+self._node_env_map_file,
+	            "r") as env_file:
+                    node_env_dict = json.load(env_file)
+                # end with
+            except:
+                pass
+            node_env_dict[server_fqdn] = env_name
+            with open(
+                self.smgr_base_dir+self._node_env_map_file,
+                "w") as env_file:
+                json.dump(
+                    node_env_dict, env_file,
+                    sort_keys = True, indent = 4)
+            # end with
+	except:
+	    pass
     # end provision_server
 # class ServerMgrPuppet
 

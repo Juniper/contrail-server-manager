@@ -1637,7 +1637,8 @@ class VncServerManager():
             #    version = f.read().splitlines()[0]
             version = image_id
             # Create modules directory if it does not exist.
-            target_dir = "/etc/puppet/modules/contrail_" + version
+            target_dir = "/etc/puppet/environments/contrail_" + version + \
+                "/modules/contrail_" + version
             if not os.path.isdir(target_dir):
                 os.makedirs(target_dir)
             if not os.path.isdir("/etc/puppet/modules/inifile"):
