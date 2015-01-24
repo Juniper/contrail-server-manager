@@ -9,7 +9,6 @@
 # Description:       This file should be used to construct scripts to be
 #                    placed in /etc/init.d.
 ### END INIT INFO
-
 # Author: Foo Bar <foobar@baz.org>
 #
 # Please remove the "Author" lines above and replace them
@@ -51,11 +50,11 @@ do_start()
 	#   2 if daemon could not be started
 #	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
 #		|| return 1
-	start-stop-daemon --start -b --quiet --pidfile $PIDFILE --exec $DAEMON -- \
+	start-stop-daemon --start -v --pidfile $PIDFILE --exec $DAEMON -- \
 		$DAEMON_ARGS
 	RETVAL="$?"
 #	[ "$RETVAL" = 2 ] && return 2
-	start-stop-daemon --status -p $PIDFILE
+	start-stop-daemon --status -v -p $PIDFILE
   	RETVAL="$?"
         [ "$RETVAL" = 0 ] && return 0
 	# Add code here, if necessary, that waits for the process to be ready
@@ -73,7 +72,7 @@ do_stop()
 	#   1 if daemon was already stopped
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
-	start-stop-daemon --stop --retry=TERM/30/KILL/5 --pidfile $PIDFILE
+	start-stop-daemon --stop -v --retry=TERM/30/KILL/5 --pidfile $PIDFILE
 	RETVAL="$?"
 	[ "$RETVAL" = 2 ] && return 2
 	# Wait for children to finish too if this is a daemon that forks
@@ -82,7 +81,7 @@ do_stop()
 	# that waits for the process to drop all resources that could be
 	# needed by services started subsequently.  A last resort is to
 	# sleep for some time.
-	
+
 	# Many daemons don't delete their pidfiles when they exit.
 	rm -f $PIDFILE
 	return "$RETVAL"
@@ -97,25 +96,25 @@ do_reload() {
 	# restarting (for example, when it is sent a SIGHUP),
 	# then implement that here.
 	#
-	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+	start-stop-daemon --stop -v --signal 1 --pidfile $PIDFILE --name $NAME
 	return 0
 }
 
 case "$1" in
   start)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+	log_daemon_msg "Starting $DESC" "$NAME"
 	do_start
 	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
 	esac
 	;;
   stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	log_daemon_msg "Stopping $DESC" "$NAME"
 	do_stop
 	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
 	esac
 	;;
   status)
@@ -124,7 +123,9 @@ case "$1" in
         RETVAL="$?"
         if [ "$RETVAL" = 0 ]; then
 		echo "contrail-server-manager is running!"
-	fi
+	else
+                echo "contrail-server-manager is not running!"
+        fi
 
        ;;
   #reload|force-reload)
