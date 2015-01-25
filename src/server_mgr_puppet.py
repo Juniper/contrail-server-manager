@@ -92,9 +92,8 @@ class ServerMgrPuppet:
 
     #API to return control interfaces IP address 
     # else return MGMT IP address
-    def get_control_ip(self, provision_params, mgmt_ip_str):
+    def get_control_ip(self, provision_params, mgmt_ip):
         intf_control = {}
-        mgmt_ip = mgmt_ip_str.strip("\"")
         """
         if 'contrail_params' in  provision_params:
             contrail_dict = eval(provision_params['contrail_params'])
@@ -112,10 +111,10 @@ class ServerMgrPuppet:
             intf_control = eval(provision_params['control_net'] [mgmt_ip]) 
         for intf,values in intf_control.items():
             if intf:
-                return '"' + str(IPNetwork(values['ip_address']).ip) + '"'
+                return str(IPNetwork(values['ip_address']).ip)
             else:
-                return '"' + provision_params['server_ip'] + '"'
-        return '"' + mgmt_ip + '"'
+                return provision_params['server_ip']
+        return mgmt_ip
     # end get_control_ip
 
     ## return 1.1.1.0/24 format network and mask
@@ -358,7 +357,7 @@ class ServerMgrPuppet:
                 collector_servers = provision_params['roles']['collector']
                 collector_ip_list_control=[]
                 for itr in collector_servers:
-                    collector_ip_list_control.append(self.get_control_ip(provision_params, str(itr)))
+                    collector_ip_list_control.append(self.get_control_ip(provision_params, itr))
                 if rsyslong_param['proto'] == 'tcp':
                     rsyslog_string+=" "+"@@"
                 else:
@@ -409,7 +408,7 @@ class ServerMgrPuppet:
             self._params_dict['self_ip'] = (
                 "\"%s\"" %(
                     self.get_control_ip(provision_params,
-                    provision_params['server_ip']).replace('"', '')))
+                    provision_params['server_ip'])))
         if self._params_dict.get('system_name', None) is None:
             self._params_dict['system_name'] = (
                 "\"%s\"" %(
@@ -431,7 +430,7 @@ class ServerMgrPuppet:
             provision_params, provision_params['server_ip'])
         database_ip_control_list=[]
         for item in database_server:
-            database_ip_control_list.append(self.get_control_ip(provision_params,str(item)))
+            database_ip_control_list.append(self.get_control_ip(provision_params,item))
         
         config_server_control = self.get_control_ip(
             provision_params, config_server)
@@ -450,7 +449,7 @@ class ServerMgrPuppet:
             provision_params['roles']['config']]
         cassandra_seeds_control_list=[]
         for item in cassandra_seeds:
-            cassandra_seeds_control_list.append(self.get_control_ip(provision_params,str(item)))
+            cassandra_seeds_control_list.append(self.get_control_ip(provision_params,item))
         #####-
 
         # Build Params items
@@ -542,7 +541,7 @@ class ServerMgrPuppet:
             self._params_dict['contrail_openstack_ip'] = (
                 "\"%s\"" %(self.get_control_ip(
                     provision_params,
-                    provision_params["server_ip"]).replace('"', '')))
+                    provision_params["server_ip"])))
         if self._params_dict.get(
             'contrail_config_ip', None) is None:
             self._params_dict['contrail_config_ip'] = (
@@ -656,7 +655,7 @@ $__contrail_disc_backend_servers__
         nworkers = 1
         for config_host in config_role_list:
              host_ip = config_host
-             host_ip_control=self.get_control_ip(provision_params,host_ip).strip('"')
+             host_ip_control=self.get_control_ip(provision_params,host_ip)
              n_workers = 1
              q_server_lines = q_server_lines + \
                              '    server %s %s:%s check\n' \
@@ -751,11 +750,11 @@ $__contrail_disc_backend_servers__
             zoo_ip_list_control=[]
             zk_ip_list_control=[]
             for itr in cfgm_ip_list:
-                cfgm_ip_list_control.append(self.get_control_ip(provision_params,str(itr)))
+                cfgm_ip_list_control.append(self.get_control_ip(provision_params,itr))
             for itr in zoo_ip_list:
-                zoo_ip_list_control.append(self.get_control_ip(provision_params,str(itr)))
+                zoo_ip_list_control.append(self.get_control_ip(provision_params,itr))
             for itr in zk_ip_list:
-                zk_ip_list_control.append(self.get_control_ip(provision_params,str(itr)))
+                zk_ip_list_control.append(self.get_control_ip(provision_params,itr))
 
             contrail_cfgm_index = config_servers.index(
                 provision_params["server_ip"])+1
@@ -763,7 +762,7 @@ $__contrail_disc_backend_servers__
                 provision_params['roles']['database']]
         cassandra_ip_list_control=[]
         for itr in cassandra_ip_list:
-            cassandra_ip_list_control.append(self.get_control_ip(provision_params,str(itr)))
+            cassandra_ip_list_control.append(self.get_control_ip(provision_params,itr))
 
         openstack_server = provision_params['roles']['openstack'][0]
         openstack_server_control = self.get_control_ip(provision_params,openstack_server)
@@ -773,7 +772,7 @@ $__contrail_disc_backend_servers__
 
         control_ip_list_control=[]
         for itr in control_ip_list:
-            control_ip_list_control.append(self.get_control_ip(provision_params,str(itr)))
+            control_ip_list_control.append(self.get_control_ip(provision_params,itr))
             
         if (provision_params['openstack_mgmt_ip'] == ''):
             contrail_openstack_mgmt_ip = provision_params['roles']['openstack'][0]
@@ -839,7 +838,7 @@ $__contrail_disc_backend_servers__
             self._params_dict['contrail_config_ip'] = (
                 "\"%s\"" %(self.get_control_ip(
                     provision_params,
-                    provision_params["server_ip"]).replace('"', '')))
+                    provision_params["server_ip"])))
         if self._params_dict.get(
             'contrail_control_ip_list', None) is None:
             self._params_dict['contrail_control_ip_list'] = (
@@ -893,7 +892,7 @@ $__contrail_disc_backend_servers__
             self._params_dict['contrail_redis_ip'] = (
                 "\"%s\"" %(self.get_control_ip(
                     provision_params,
-                    config_servers[0]).replace('"', '')))
+                    config_servers[0])))
         if self._params_dict.get(
             'contrail_cfgm_index', None) is None:
             self._params_dict['contrail_cfgm_index'] = (
@@ -1070,7 +1069,7 @@ $__contrail_disc_backend_servers__
             provision_params['roles']['database']]
         cassandra_ip_list_control=[]
         for itr in cassandra_ip_list:
-            cassandra_ip_list_control.append(self.get_control_ip(provision_params, str(itr)))
+            cassandra_ip_list_control.append(self.get_control_ip(provision_params, itr))
         collector_servers = provision_params['roles']['collector']
         redis_master_ip = collector_servers[0]
         if (redis_master_ip == provision_params["server_ip"]):
@@ -1137,11 +1136,11 @@ $__contrail_disc_backend_servers__
         #TODO Webui_ips_control is not needed
         webui_ips_control=[]
         for itr in webui_ips:
-            webui_ips_control.append(self.get_control_ip(provision_params, str(itr)))
+            webui_ips_control.append(self.get_control_ip(provision_params, itr))
         collector_servers = provision_params['roles']['collector']
         collector_servers_control=[]
         for itr in collector_servers:
-            collector_servers_control.append(self.get_control_ip(provision_params, str(itr)))
+            collector_servers_control.append(self.get_control_ip(provision_params, itr))
         if (provision_params["server_ip"] in collector_servers):
            collector_server = provision_params['server_ip']
         else:
@@ -1155,7 +1154,7 @@ $__contrail_disc_backend_servers__
             provision_params['roles']['database']]
         cassandra_ip_list_control=[]
         for itr in cassandra_ip_list:
-            cassandra_ip_list_control.append(self.get_control_ip(provision_params, str(itr)))
+            cassandra_ip_list_control.append(self.get_control_ip(provision_params, itr))
         # Build Params items
         if self._params_dict.get(
             'contrail_config_ip', None) is None:
@@ -1806,7 +1805,7 @@ $__contrail_quantum_servers__
         data += 'contrail::params::contrail_repo_type: %s\n' %(str(package_types))
 
         data += 'contrail::params::host_ip: "%s"\n' %(
-            server.get('ip_address', ""))
+            self.get_control_ip(provision_params, server.get('ip_address', "")))
         if "uuid" in cluster_params:
             data += 'contrail::params::uuid: "%s"\n' %(
                 cluster_params.get('uuid', ""))
@@ -1818,7 +1817,8 @@ $__contrail_quantum_servers__
                      'control', 'collector',
                      'webui', 'compute']:
             role_ips[role] = [
-                x["ip_address"].encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
+                self.get_control_ip(provision_params, x["ip_address"].encode('ascii')) \
+                    for x in cluster_servers if role in set(eval(x['roles']))]
             data += 'contrail::params::%s_ip_list: %s\n' %(
                 role, str(role_ips[role]))
             role_ids[role] = [
