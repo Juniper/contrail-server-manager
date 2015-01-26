@@ -1,0 +1,9 @@
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Code-Review+2: Abhay Joshi <abhayj@juniper.net>
+Approved+1: Karl Klashinsky <klash@juniper.net>
+Code-Review+2: Karl Klashinsky <klash@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Mon, 26 Jan 2015 09:40:57 -0800
+Reviewed-on: https://review.opencontrail.org/6572
+Project: Juniper/contrail-server-manager
+Branch: refs/heads/R2.1
