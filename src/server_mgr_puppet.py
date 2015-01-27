@@ -1898,7 +1898,7 @@ $__contrail_quantum_servers__
                 openstack_ip = role_ips_dict['openstack'][0]
         
         subnet_mask = server.get("subnet_mask", "")
-        if subnet_mask == "":
+        if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
         mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
         mysql_service_password = cluster_params.get("mysql_service_password", "c0ntrail123")
