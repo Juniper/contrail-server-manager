@@ -134,9 +134,123 @@ class ServerMgrDb:
                 if 'storage_fsid' not in set(eval(cluster['parameters'])) or 'storage_virsh_uuid' not in set(eval(
                         cluster['parameters'])):
                     self.update_cluster_uuids(cluster)
+            self.convert_server_table_to_new_interface()
         except e:
             raise e
     # End of __init__
+
+    def get_subnet_mask(self, server):
+        subnet_mask = server.get('subnet_mask', None)
+        if not subnet_mask:
+            cluster = server.get('cluster', None)
+            if cluster:
+                subnet_mask = cluster.get('subnet_mask', None)
+        return subnet_mask
+    # End get_subnet_mask
+
+    def convert_server_config_to_new_interface(self, server):
+        if not server:
+            return
+        # Check for network and contrail blocks and skip conversion
+        contrail = server.get('contrail', "")
+        if contrail:
+            contrail = eval(contrail)
+        network = server.get('network', "")
+        if network:
+            network = eval(network)
+        if network and contrail:
+            return
+        update_server = {}
+        network = {}
+        contrail = {}
+        interfaces = []
+        # Management interface
+        server_parameters = server.get('parameters', "{}")
+        if not server_parameters:
+            server_parameters = "{}"
+        server_parameters = eval(server_parameters)
+        interface_name = server_parameters.get('interface_name', "")
+        if interface_name:
+            # Management interface, convert to new way
+            network['management_interface'] = interface_name
+            interface = {}
+            interface['name'] = interface_name
+            interface['dhcp'] = True
+            ip_address = server.get('ip_address', "")
+            subnet_mask = self.get_subnet_mask(server)
+            if ip_address:
+                ip_str = ip_address
+                if subnet_mask:
+                    ip_str = ip_str + '/' + subnet_mask
+                ip = IPNetwork(ip_str)
+                interface['ip_address'] = str(ip)
+            mac_address = server.get('mac_address', "")
+            if mac_address:
+                interface['mac_address'] = mac_address
+            gateway = server.get('gateway', "")
+            if gateway:
+                interface['gateway'] = gateway
+            interfaces.append(interface)
+
+        #Control/data interface
+        intf_control = server.get('intf_control', None)
+        intf_bond = server.get('intf_bond', None)
+        if intf_control:
+            intf_control = eval(intf_control)
+            for key in intf_control.keys():
+                interface = {}
+                control_interface = intf_control[key]
+                ip_address = control_interface.get('ip_address', None)
+                interface['name'] = key
+                if ip_address:
+                    interface['ip_address'] = ip_address
+                if intf_bond:
+                    intf_bond = eval(intf_bond)
+                    for bond_key in intf_bond.keys():
+                        bond_interface = intf_bond.get(bond_key, None)
+                        if bond_interface:
+                            interface['type'] = 'bond0'
+                            options = bond_interface.get('bond_options', None)
+                            if options:
+                                interface['bond_options'] = options
+                            members = bond_interface.get('member_interfaces', None)
+                            if members:
+                                interface['members'] = members
+                            if key == bond_key:
+                                contrail['contrail_data_interface'] = key
+                            break
+                interfaces.append(interface)
+                break
+        if interfaces:
+            network['interfaces'] = interfaces
+            network['provisioning'] = 'kickstart'
+        update_server['contrail'] = contrail
+        update_server['network'] = network
+        update_server['mac_address'] = server['mac_address']
+        self.modify_server(update_server)
+    # End convert_server_config_to_new_interface
+
+    def modify_server_to_new_interface_config(self, server_data):
+        if not server_data:
+            return
+        mac_address = server_data.get('mac_address', None)
+        id = server_data.get('id', None)
+        servers = []
+        if mac_address:
+            servers = self.get_server(
+                {'mac_address' : mac_address}, detail=True)
+        elif id:
+            servers = self.get_server(
+                {'id': id}, detail=True)
+        if not servers:
+            return
+        self.convert_server_config_to_new_interface(servers[0])
+
+    def convert_server_table_to_new_interface(self):
+        servers = self.get_server(None, detail=True)
+        for server in servers:
+            self.convert_server_config_to_new_interface(server)
+    # End convert_server_table_to_new_interface
 
     def delete_tables(self):
         try:
@@ -416,6 +530,9 @@ class ServerMgrDb:
                     server_table, {"mac_address" : mac_address},detail=True)
                 if servers:
                     server = servers[0]
+                    # Adding network and contrail blocks
+                    entity['network'] = "{}"
+                    entity['contrail'] = "{}"
                     self._modify_row(
                         server_table, entity,
                         {"mac_address": mac_address}, {})
