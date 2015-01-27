@@ -1382,6 +1382,10 @@ class VncServerManager():
                     self.validate_smgr_request("SERVER", "PUT", bottle.request,
                                                                         server)
                     self._serverDb.add_server(server)
+                server_data = {}
+                server_data['mac_address'] = server.get('mac_address', None)
+                server_data['id'] = server.get('id', None)
+                self._serverDb.modify_server_to_new_interface_config(server_data)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
@@ -2240,6 +2244,8 @@ class VncServerManager():
             network_dict = server['network']
             if isinstance(network_dict, basestring):
                 network_dict = eval(network_dict)
+            if not network_dict:
+                return None
             mgmt_intf = network_dict['management_interface']
             interface_list = network_dict["interfaces"]
             return_intf_dict = {}
@@ -2467,8 +2473,9 @@ class VncServerManager():
     def build_server_cfg(self, server):
         #Fetch network realted data and push to reimage
         execute_script = False
-        if 'network' in server and server['network']:
-            network_dict = eval(server['network'])
+        network = server.get('network', "{}")
+        if network and eval(network):
+            network_dict = eval(network)
             mgmt_intf = network_dict['management_interface']
             interface_list = network_dict["interfaces"]
             i = 0 
@@ -2625,8 +2632,8 @@ class VncServerManager():
     def get_control_net(self, cluster_servers):
         server_control_list = {}
         for server in cluster_servers:
-            contrail = server.get('contrail', "")
-            if contrail:
+            contrail = server.get('contrail', "{}")
+            if contrail and eval(contrail):
 		contrail_dict = eval(contrail)
 		control_data_intf = contrail_dict.get('control_data_interface', "")
 		interface_list = self.get_interfaces(server)
