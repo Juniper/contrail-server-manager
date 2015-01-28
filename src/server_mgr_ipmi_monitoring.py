@@ -26,13 +26,6 @@ from sandesh_common.vns.constants import *
 from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 
 
-class IpmiData:
-    sensor = ''
-    reading = ''
-    status = ''
-    unit = ''
-    sensor_type = ''
-
 # Class ServerMgrIPMIMonitoring provides a monitoring object that runs as a thread
 # when Server Manager starts/restarts. This thread continually polls all the servers
 # that are stored in the Server Manager DB at any point. Before this polling can occur,
@@ -55,20 +48,17 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
     # send_ipmi_stats function packages and sends the IPMI info gathered from server polling
     # to the analytics node
-    def send_ipmi_stats(self, ipmi_data, hostname):
+    def send_ipmi_stats(self, ipmi_data, hostname, data_type):
         sm_ipmi_info = SMIpmiInfo()
         sm_ipmi_info.name = str(hostname)
-        sm_ipmi_info.sensor_stats = []
-        sm_ipmi_info.sensor_state = []
-        for ipmidata in ipmi_data:
-            ipmi_stats = IpmiSensor()
-            ipmi_stats.sensor = ipmidata.sensor
-            ipmi_stats.reading = ipmidata.reading
-            ipmi_stats.status = ipmidata.status
-            ipmi_stats.unit = ipmidata.unit
-            ipmi_stats.sensor_type = ipmidata.sensor_type
-            sm_ipmi_info.sensor_stats.append(ipmi_stats)
-            sm_ipmi_info.sensor_state.append(ipmi_stats)
+        if data_type == "ipmi_data":
+            sm_ipmi_info.sensor_stats = []
+            sm_ipmi_info.sensor_state = []
+            for ipmidata in ipmi_data:
+                sm_ipmi_info.sensor_stats.append(ipmidata)
+                sm_ipmi_info.sensor_state.append(ipmidata)
+        elif data_type == "ipmi_chassis_data":
+            sm_ipmi_info.chassis_state = ipmi_data
         ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
@@ -78,8 +68,6 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
     def fetch_and_process_monitoring(self, hostname, ip, username, password, supported_sensors):
         ipmi_data = []
-        data = ""
-        sensor_type = None
         cmd = 'ipmitool -H %s -U %s -P %s sdr list all' % (ip, username, password)
         result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
         if result is not None and "|" in result:
@@ -100,7 +88,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                             elif 'Temp' in sensor:
                                 sensor_type = 'temperature'
                             value = reading_value.split()
-                            ipmidata = IpmiData()
+                            ipmidata = IpmiSensor()
                             ipmidata.sensor = sensor
                             ipmidata.status = status
                             if status == "ns":
@@ -114,8 +102,44 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 pass
         else:
             self.base_obj.log("info", "IPMI Polling failed for " + str(ip))
-        self.send_ipmi_stats(ipmi_data, hostname=hostname)
+        self.send_ipmi_stats(ipmi_data, hostname, "ipmi_data")
 
+
+    def fetch_and_process_chassis(self, hostname, ip, username, password):
+        ipmi_chassis_data = IpmiChassis_status_info()
+        cmd = 'ipmitool -H %s -U %s -P %s chassis status' % (ip, username, password)
+        result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
+        if result is not None:
+            fileoutput = cStringIO.StringIO(result)
+            ipmichassisdata = IpmiChassis_status_info()
+            for line in fileoutput:
+                reading = line.split(":")
+                chassis_key = reading[0].strip()
+                chassis_value = reading[1].strip()
+                if chassis_key == "System Power":
+                    ipmichassisdata.system_power = chassis_value
+                elif chassis_key == "Power Overload" and chassis_value:
+                    ipmichassisdata.power_overload = bool(chassis_value)
+                elif chassis_key == "Power Interlock" and chassis_value:
+                    ipmichassisdata.power_interlock = chassis_value
+                elif chassis_key == "Main Power Fault" and chassis_value:
+                    ipmichassisdata.main_power_fault = bool(chassis_value)
+                elif chassis_key == "Power Control Fault" and chassis_value:
+                    ipmichassisdata.power_control_fault = bool(chassis_value)
+                elif chassis_key == "Power Restore Policy" and chassis_value:
+                    ipmichassisdata.power_restore_policy = chassis_value
+                elif chassis_key == "Last Power Event" and chassis_value:
+                    ipmichassisdata.last_power_event = chassis_value
+                elif chassis_key == "Chassis Intrusion" and chassis_value:
+                    ipmichassisdata.chassis_intrusion = chassis_value
+                elif chassis_key == "Front-Panel Lockout" and chassis_value:
+                    ipmichassisdata.front_panel_lockout = chassis_value
+                elif chassis_key == "Drive Fault" and chassis_value:
+                    ipmichassisdata.drive_fault = bool(chassis_value)
+                elif chassis_value:
+                    ipmichassisdata.cooling_fan_fault = bool(chassis_value)
+            ipmi_chassis_data = ipmichassisdata
+        self.send_ipmi_stats(ipmi_chassis_data, hostname, "ipmi_chassis_data")
 
     def fetch_and_process_sel_logs(self, hostname, ip, username, password, sel_event_log_list):
         sel_cmd = 'ipmitool -H %s -U %s -P %s sel elist' % (ip, username, password)
@@ -161,6 +185,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
     def gevent_runner_func(self, hostname, ip, username, password, supported_sensors, sel_log_dict):
         self.base_obj.log("info", "Gevent Thread created for %s" % ip)
         self.fetch_and_process_monitoring(hostname, ip, username, password, supported_sensors)
+        self.fetch_and_process_chassis(hostname, ip, username, password)
         if str(hostname) in sel_log_dict:
             return self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_log_dict[str(hostname)])
         else:
