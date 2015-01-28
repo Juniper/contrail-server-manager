@@ -20,6 +20,7 @@ import openstack_hieradata
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
+from contrail_defaults import *
 
 
 class ServerMgrPuppet:
@@ -1806,6 +1807,17 @@ $__contrail_quantum_servers__
 
         data += 'contrail::params::host_ip: "%s"\n' %(
             self.get_control_ip(provision_params, server.get('ip_address', "")))
+
+        #Upgrade Kernel
+        if 'kernel_upgrade' in provision_params and \
+            'kernel_version' in provision_params and \
+            provision_params['kernel_version'] != '' :
+
+            data += 'contrail::params::kernel_upgrade: "%s"\n' %(
+                provision_params.get('kernel_upgrade', DEFAULT_KERNEL_UPGRADE))
+            data += 'contrail::params::kernel_version: "%s"\n' %(
+                provision_params.get('kernel_version', DEFAULT_KERNEL_VERSION))
+
         if "uuid" in cluster_params:
             data += 'contrail::params::uuid: "%s"\n' %(
                 cluster_params.get('uuid', ""))
@@ -1833,6 +1845,8 @@ $__contrail_quantum_servers__
                 "root".encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
             data += 'contrail::params::%s_user_list: %s\n' %(
                 role, str(role_users[role]))
+
+
 
         if "internal_vip" in cluster_params:
             data += 'contrail::params::internal_vip: "%s"\n' %(
