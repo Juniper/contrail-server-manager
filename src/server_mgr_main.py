@@ -2230,7 +2230,7 @@ class VncServerManager():
             msg = "No Image %s found" % (base_image_id)
             raise ServerMgrException(msg, ERR_IMG_NOT_FOUND)
         if images[0]['category'] and images[0]['category'] != 'image':
-            msg = "Category is not image, it is %s" (images[0]['category'])
+            msg = "Category is not image, it is %s" % (images[0]['category'])
             raise ServerMgrException(msg, ERR_IMG_CATEGORY_ERROR)
         if images[0]['type'] not in self._iso_types:
             msg = "Image %s is not an iso" % (base_image_id)
@@ -3503,10 +3503,10 @@ class VncServerManager():
                 reimage_parameters.get('partition', ''),
                 reimage_parameters.get('config_file', None))
         except Exception as e:
-            msg = "Server %s reimaged failed" % server['reimage_parameters']['server_id']
+            msg = "Server %s reimaged failed" % reimage_parameters['server_id']
             self._smgr_log.log(self._smgr_log.ERROR, msg)
             update = {
-                'mac_address': server['reimage_parameters']['server_mac'],
+                'mac_address': reimage_parameters['server_mac'],
                 'status': "reimage_failed"
             }
             self._serverDb.modify_server(update)
