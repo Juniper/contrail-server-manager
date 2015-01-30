@@ -1882,21 +1882,6 @@ $__contrail_quantum_servers__
                 data += 'contrail::params::storage_osd_disks: %s\n' %(str(storage_disks))
             else:
                 data += 'contrail::params::storage_osd_disks: []\n' 
-        else:
-            data += 'contrail::params::host_roles: []\n'
-            data += 'contrail::params::storage_num_osd: ""\n'
-            data += 'contrail::params::storage_fsid: ""\n'
-            data += 'contrail::params::storage_num_hosts: 0\n'
-            data += 'contrail::params::storage_virsh_uuid: ""\n'
-            data += 'contrail::params::storage_monitor_secret: ""\n'
-            data += 'contrail::params::storage_admin_key: ""\n'
-            data += 'contrail::params::osd_bootstrap_key: ""\n'
-            data += 'contrail::params::storage_enabled: ""\n'
-            data += 'contrail::params::live_migration_storage_scope: ""\n'
-            data += 'contrail::params::live_migration_host: ""\n'
-            data += 'contrail::params::storage_monitor_hosts: []\n'
-            data += 'contrail::params::storage_osd_disks: []\n'
-            
 
         with open(hiera_filename, "w") as site_fh:
             site_fh.write(data)
