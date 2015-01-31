@@ -1934,7 +1934,10 @@ $__contrail_quantum_servers__
                 provision_params.get('kernel_upgrade', DEFAULT_KERNEL_UPGRADE))
             data += 'contrail::params::kernel_version: "%s"\n' %(
                 provision_params.get('kernel_version', DEFAULT_KERNEL_VERSION))
-
+        if 'external_bgp' in provision_params and \
+            provision_params['external_bgp'] :
+            data += 'contrail::params::external_bgp: "%s"\n' %(
+                provision_params.get('external_bgp', ""))
         if "uuid" in cluster_params:
             data += 'contrail::params::uuid: "%s"\n' %(
                 cluster_params.get('uuid', ""))
