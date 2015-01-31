@@ -189,7 +189,7 @@ class ServerMgrDb:
                 interface['mac_address'] = mac_address
             gateway = server.get('gateway', "")
             if gateway:
-                interface['gateway'] = gateway
+                interface['default_gateway'] = gateway
             interfaces.append(interface)
 
         #Control/data interface
