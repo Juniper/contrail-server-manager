@@ -163,7 +163,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     ipmi_data = []
                     cmd = 'ipmitool -H %s -U %s -P %s sdr list all' % (ip, username, password)
                     result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
-                    if result is not None:
+                    if result is not None and "|" not in result:
                         fileoutput = cStringIO.StringIO(result)
                         for line in fileoutput:
                             reading = line.split("|")
