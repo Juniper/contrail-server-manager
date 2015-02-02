@@ -1860,6 +1860,16 @@ $__contrail_quantum_servers__
         if "external_vip" in cluster_params:
             data += 'contrail::params::external_vip: "%s"\n' %(
                 cluster_params.get('external_vip', ""))
+        if "contrail_external_vip" in cluster_params:
+            data += 'contrail::params::contrail_external_vip: "%s"\n' %(
+                cluster_params.get('contrail_external_vip', ""))
+
+        if "nfs_server" in cluster_params:
+            data += 'contrail::params::nfs_server: "%s"\n' %(
+                cluster_params.get('nfs_server', ""))
+        if "nfs_glance_path" in cluster_params:
+            data += 'contrail::params::nfs_glance_path: "%s"\n' %(
+                cluster_params.get('nfs_glance_path', ""))
 
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
