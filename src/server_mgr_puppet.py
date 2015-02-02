@@ -117,6 +117,41 @@ class ServerMgrPuppet:
         return mgmt_ip
     # end get_control_ip
 
+    def storage_get_control_network_mask(self, provision_params,
+        server, cluster):
+        role_ips_dict = provision_params['roles']
+        cluster_params = eval(cluster['parameters'])
+        server_params = eval(server['parameters'])
+        openstack_ip = cluster_params.get("internal_vip", None)
+        self_ip = server.get("ip_address", "")
+        if openstack_ip is None or openstack_ip == '':
+            if self_ip in role_ips_dict['openstack']:
+                openstack_ip = self_ip
+            else:
+                openstack_ip = role_ips_dict['openstack'][0]
+
+        subnet_mask = server.get("subnet_mask", "")
+        if not subnet_mask:
+            subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
+
+        subnet_address = str(IPNetwork(
+            openstack_ip + "/" + subnet_mask).network)
+
+        self._smgr_log.log(self._smgr_log.DEBUG, "control-net : %s" % str( provision_params['control_net']))
+        if provision_params['control_net'] [openstack_ip]:
+            intf_control = eval(provision_params['control_net'] [openstack_ip])
+            self._smgr_log.log(self._smgr_log.DEBUG, "openstack-control-net : %s" % str(intf_control ))
+
+        for intf,values in intf_control.items():
+            if intf:
+                self._smgr_log.log(self._smgr_log.DEBUG, "ip_address : %s" % values['ip_address'])
+                return '"' + str(IPNetwork(values['ip_address']).network) + '/'+ str(IPNetwork(values['ip_address']).prefixlen) + '"'
+            else:
+                self._smgr_log.log(self._smgr_log.DEBUG, "server_ip : %s" % values['server_ip'])
+                return '"' + str(IPNetwork(provision_params['server_ip']).network) + '/'+ str(IPNetwork(provision_params['server_ip']).prefixlen) + '"'
+
+        return '"' + str(IPNetwork(subnet_address).network) + '/'+ str(IPNetwork(subnet_address).prefixlen) + '"'
+
     ## return 1.1.1.0/24 format network and mask
     def get_control_network_mask(self, provision_params, mgmt_ip_str):
         intf_control = {}
@@ -1941,6 +1976,9 @@ $__contrail_quantum_servers__
                 data += 'contrail::params::storage_osd_disks: %s\n' %(str(storage_disks))
             else:
                 data += 'contrail::params::storage_osd_disks: []\n' 
+            control_network = self.storage_get_control_network_mask(provision_params, server, cluster)
+            self._smgr_log.log(self._smgr_log.DEBUG, "control-net : %s" %(control_network))
+            data += 'contrail::params::storage_cluster_network: %s\n' %(control_network) 
 
         with open(hiera_filename, "w") as site_fh:
             site_fh.write(data)
