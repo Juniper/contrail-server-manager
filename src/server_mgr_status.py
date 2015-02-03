@@ -57,6 +57,7 @@ class ServerMgrStatusThread(threading.Thread):
 
         #set the status related handlers
         status_bottle_app = Bottle()
+        status_bottle_app.route('/server_status', 'POST', self.put_server_status)
         status_bottle_app.route('/server_status', 'PUT', self.put_server_status)
         self._base_obj = self._status_thread_config['base_obj']
 

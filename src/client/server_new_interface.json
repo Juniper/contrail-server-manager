@@ -1,0 +1,40 @@
+{
+    "server": [
+        {
+            "id": "demo2-server",
+            "password": "juniper",
+            "domain": "demo.juniper.net",
+            "contrail": {
+                "control_data_interface": "bond0"
+            },
+            "network": {
+                "management_interface": "eth1",
+                "provisioning": "kickstart",
+                "interfaces": [
+                    {
+                        "name": "eth1",
+                        "ip_address": "10.84.51.13/24",
+                        "mac_address": "00:25:90:aa:36:32",
+                        "default_gateway": "10.84.51.254",
+                        "dhcp": true
+                    },
+                    {
+                        "name": "eth2",
+                        "mac_address": "00:25:90:aa:36:22"
+                    },
+                    {
+                        "name": "eth3",
+                        "mac_address": "00:25:90:aa:36:33"
+                    },
+                    {
+                        "name": "bond0",
+                        "type": "bond",
+                        "ip_address": "20.20.20.2/24",
+                        "bond_options": "{'miimon': '100', 'mode': '802.3ad','xmit_hash_policy': 'layer3+4'}",
+                        "member_interfaces": "['eth2', 'eth3']"
+                    }
+                ]
+            }
+        }
+    ]
+}

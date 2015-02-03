@@ -34,7 +34,9 @@ import ast
 import uuid
 import traceback
 import platform
+from netaddr import *
 import copy
+import distutils.core
 from server_mgr_defaults import *
 from server_mgr_err import *
 from server_mgr_status import *
@@ -76,6 +78,10 @@ _DEF_IPMI_PASSWORD = 'ADMIN'
 _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
 
+# Temporary variable added to disable use of new puppet framework. This should be removed/enabled
+# only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
+# this variable and it's use when enabling new puppet framework.
+_ENABLE_NEW_PUPPET_FRAMEWORK = True
 
 @bottle.error(403)
 def error_403(err):
@@ -720,12 +726,16 @@ class VncServerManager():
 
         cluster_role_list = []
         for server in servers:
-            duplicate_roles = self.list_duplicates(eval(server['roles']))
+            if 'roles' in server and server['roles']:
+                role_list = eval(server['roles'])
+            else:
+                role_list = []
+            duplicate_roles = self.list_duplicates(role_list)
             if len(duplicate_roles):
                 msg = "Duplicate Roles '%s' present" % \
                         ", ".join(str(e) for e in duplicate_roles)
                 self.log_and_raise_exception(msg)
-            cluster_role_list.extend(eval(server['roles']))
+            cluster_role_list.extend(role_list)
 
         cluster_unique_roles = set(cluster_role_list)
 
@@ -1083,8 +1093,10 @@ class VncServerManager():
             if x.get("intf_bond", None) is not None:
                 x['bond_interface'] = eval(x['intf_bond'])
                 x.pop('intf_bond', None)
-
-
+            if x.get("network", None):
+                x['network'] = eval(x['network'])
+            if x.get("contrail", None):
+                x['contrail'] = eval(x['contrail'])
 
             if detail:
                 #Temp workarounf for UI, UI doesnt like None
@@ -1436,6 +1448,29 @@ class VncServerManager():
                 self.log_and_raise_exception(msg)
     # end validate_server_mgr_tags
 
+    def plug_mgmt_intf_details(self, server):
+        if 'network' in server and server['network']:
+            intf_dict = self.get_interfaces(server)        
+            network_dict = server['network']
+            mgmt_intf_name = network_dict['management_interface']
+            mgmt_intf_obj = intf_dict[mgmt_intf_name]
+
+            server['mac_address'] = mgmt_intf_obj['mac_address']
+            server['ip_address'] = mgmt_intf_obj['ip']
+            server['subnet_mask'] = mgmt_intf_obj['mask']
+            server['gateway'] = mgmt_intf_obj['d_gw']   
+            if 'parameters' in server: 
+                server_parameters = server['parameters']
+            else:
+                server_parameters = {}
+                server['parameters'] = server_parameters
+            server_parameters['interface_name'] = mgmt_intf_name
+
+        else:
+            print 'check'
+            # check if old details are there else throw error
+
+
     def put_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "add_server")
         entity = bottle.request.json
@@ -1453,6 +1488,7 @@ class VncServerManager():
             self.validate_smgr_entity("server", entity)
             servers = entity.get("server", None)
             for server in servers:
+                self.plug_mgmt_intf_details(server)
                 self.validate_server_mgr_tags(server)
                 server['status'] = "server_added"
                 server['discovered'] = "false"
@@ -1478,6 +1514,10 @@ class VncServerManager():
                     server_ip_list.append(str(server['ip_address']))
                     server_root_pw_list.append(str(server['password']))
                     self._serverDb.add_server(server)
+                server_data = {}
+                server_data['mac_address'] = server.get('mac_address', None)
+                server_data['id'] = server.get('id', None)
+                self._serverDb.modify_server_to_new_interface_config(server_data)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
@@ -1575,7 +1615,7 @@ class VncServerManager():
         return_data_str = print_rest_response(return_data)
         
         return return_data_str
-
+       
     def validate_package_id(self, package_id):
         #ID shouldn't have only apha-numerice and "_"
         #id can be none or empty, if server is discovered
@@ -1712,6 +1752,19 @@ class VncServerManager():
             # untar the puppet modules tgz file
             cmd = ("tar xvzf contrail-puppet-manifest.tgz > /dev/null")
             subprocess.check_call(cmd, shell=True)
+            # If the untarred file list has environment directory, copy it's
+            # contents to /etc/puppet/environments. This is where the new
+            # restructured contrail puppet labs modules are going to be 
+            # maintained. The old logic is being maintained for safety till
+            # the new refactored code is well tested and confirmed to be working.
+            # not environment directory can't contain "-". replace with "_".
+            environment_dir = "contrail/environment"
+            if os.path.isdir(environment_dir):
+                if _ENABLE_NEW_PUPPET_FRAMEWORK:
+                    distutils.dir_util.copy_tree(environment_dir,
+                        "/etc/puppet/environments/" + image_id.replace('-','_'))
+                distutils.dir_util.remove_tree(environment_dir)
+            # end if os.path.isdir
             # Changing the below logic. Instead of reading version from
             # version file, use image id as the version. Image id is unique
             # and hence it would be easy to correlate puppet modules to
@@ -1723,7 +1776,8 @@ class VncServerManager():
             #    version = f.read().splitlines()[0]
             version = image_id
             # Create modules directory if it does not exist.
-            target_dir = "/etc/puppet/modules/contrail_" + version
+            target_dir = "/etc/puppet/environments/contrail_" + version + \
+                "/modules/contrail_" + version
             if not os.path.isdir(target_dir):
                 os.makedirs(target_dir)
             if not os.path.isdir("/etc/puppet/modules/inifile"):
@@ -2329,13 +2383,44 @@ class VncServerManager():
             msg = "No Image %s found" % (base_image_id)
             raise ServerMgrException(msg, ERR_IMG_NOT_FOUND)
         if images[0]['category'] and images[0]['category'] != 'image':
-            msg = "Category is not image, it is %s" (images[0]['category'])
+            msg = "Category is not image, it is %s" % (images[0]['category'])
             raise ServerMgrException(msg, ERR_IMG_CATEGORY_ERROR)
         if images[0]['type'] not in self._iso_types:
             msg = "Image %s is not an iso" % (base_image_id)
             raise ServerMgrException(msg, ERR_IMG_TYPE_INVALID)
         return base_image_id, images[0]
     # end get_base_image
+
+    def get_interfaces(self, server):
+        #Fetch network realted data and push to reimage
+        if 'network' in server and server['network']:
+            network_dict = server['network']
+            if isinstance(network_dict, basestring):
+                network_dict = eval(network_dict)
+            if not network_dict:
+                return None
+            mgmt_intf = network_dict['management_interface']
+            interface_list = network_dict["interfaces"]
+            return_intf_dict = {}
+            for intf in interface_list:
+                intf_dict = {}
+                name = intf['name']
+                ip_addr = intf.get('ip_address', None)
+                if ip_addr is None:
+                    continue
+                ip = IPNetwork(ip_addr)
+                intf_dict['ip'] = str(ip.ip)
+                intf_dict['d_gw'] = intf.get('default_gateway', None)
+                intf_dict['dhcp'] = intf.get('dhcp', None)
+                intf_dict['type'] = intf.get('type', None)
+                intf_dict['bond_opts'] = intf.get('bond_options', None)
+                intf_dict['mem_intfs'] = intf.get('member_interfaces', None)
+                intf_dict['mac_address'] = intf.get('mac_address', None)
+                intf_dict['mask'] = str(ip.netmask)
+
+                return_intf_dict[name] = intf_dict
+            return return_intf_dict
+        return None
             
     # This call returns information about a provided server.
     # If no server if provided, information about all the servers
@@ -2391,6 +2476,9 @@ class VncServerManager():
                     raise ServerMgrException(msg)
                 password = subnet_mask = gateway = domain = None
                 server_id = server['id']
+
+
+                #Move this to a function and return a single error
                 if 'password' in server and server['password']:
                     password = server['password']
                 elif 'password' in cluster_parameters and cluster_parameters['password']:
@@ -2428,6 +2516,8 @@ class VncServerManager():
                     msg = "Missing ip for " + server_id
                     server['ip_address'] = ''
 
+ 
+
                 reimage_parameters = {}
                 if ((image['type'] == 'esxi5.1') or
                     (image['type'] == 'esxi5.5')):
@@ -2462,6 +2552,16 @@ class VncServerManager():
                 reimage_parameters['ipmi_address'] = server.get(
                     'ipmi_address', '')
                 reimage_parameters['partition'] = server_parameters.get('partition', '')
+
+                execute_script = self.build_server_cfg(server)
+
+                #network
+                if execute_script:
+                    reimage_parameters['config_file'] = \
+                                "http://%s/contrail/config_file/%s.sh" % \
+                                (self._args.listen_ip_addr, server_id)
+#                self._do_reimage_server(
+#                    image, package_image_id, reimage_parameters)
 
                 _mandatory_reimage_params = {"server_password": "password", 
                             "server_gateway": "gateway","server_domain":"domain",
@@ -2521,6 +2621,55 @@ class VncServerManager():
         reimage_status['return_message'] = "server(s) reimage queued"
         return reimage_status
     # end reimage_server
+
+
+    def build_server_cfg(self, server):
+        #Fetch network realted data and push to reimage
+        execute_script = False
+        network = server.get('network', "{}")
+        if network and eval(network):
+            network_dict = eval(network)
+            mgmt_intf = network_dict['management_interface']
+            interface_list = network_dict["interfaces"]
+            i = 0 
+            device_str = "#!/bin/bash\n"
+            for intf in interface_list:
+                i += 1
+                name = intf['name']
+                ip_addr = intf.get('ip_address', None)
+                if ip_addr is None:
+                    continue
+                if name.lower() == mgmt_intf.lower():
+                    continue
+
+                ip = IPNetwork(ip_addr)
+                d_gw = intf.get('default_gateway', None)
+                dhcp = intf.get('dhcp', None)
+                type = intf.get('type', None)
+                bond_opts = intf.get('bond_options', None)
+                mem_intfs = intf.get('member_interfaces', None)
+
+                #form string
+                if type and type.lower() == 'bond':
+                    device_str+= ("python interface_setup.py \
+--device %s --members %s --bond-opts \"%s\" --ip %s\n") % \
+                        (name,
+            			" ".join(mem_intfs),
+			            json.dumps(bond_opts), ip_addr)
+                    execute_script = True
+                else:
+                    if dhcp:
+                        device_str+= ("python interface_setup.py --device %s --dhcp\n") % \
+                            (name)
+                    else:
+                        device_str+= ("python interface_setup.py --device %s --ip %s\n") % \
+                            (name, ip_addr)    
+                    execute_script = True
+            sh_file_name = "/var/www/html/contrail/config_file/%s.sh" % (server['id'])
+            f = open(sh_file_name, "w")  
+            f.write(device_str)
+            f.close()
+        return execute_script
 
     def _reimage_server_cobbler(self, reimage_server_list, 
                                 reboot_server_list, do_reboot):
@@ -2631,11 +2780,23 @@ class VncServerManager():
 
     #Function to get control section for all servers
     # belonging to the same VN
+    # If 'contrail' block ins present, use the new interface configuration
+    #   otherwise, use the old way of configuration
     def get_control_net(self, cluster_servers):
         server_control_list = {}
         for server in cluster_servers:
-            if 'intf_control' not in server:
-                    intf_control = ""
+            contrail = server.get('contrail', "{}")
+            if contrail and eval(contrail):
+		contrail_dict = eval(contrail)
+		control_data_intf = contrail_dict.get('control_data_interface', "")
+		interface_list = self.get_interfaces(server)
+		intf_dict = {}
+		control_ip = interface_list[control_data_intf] ['ip']	
+		control_mask = interface_list[control_data_intf] ['mask']	
+ 		ip_prefix = "%s/%s" %(control_ip, control_mask)
+		ip_obj = IPNetwork(ip_prefix)
+		intf_dict[control_data_intf] = {"ip_address":str(ip_obj)}
+	        server_control_list[server['ip_address']] = str(intf_dict)
             else:
                 intf_control = server['intf_control']
                 server_control_list[server['ip_address']] = intf_control
@@ -2860,6 +3021,7 @@ class VncServerManager():
                 if 'intf_bond' in server:
                     provision_params['intf_bond'] = server['intf_bond']
                 provision_params['control_net'] = self.get_control_net(cluster_servers)
+                provision_params['interface_list'] = self.get_interfaces(server)
                 provision_params['server_ip'] = server['ip_address']
                 provision_params['database_dir'] = cluster_params['database_dir']
                 provision_params['database_token'] = cluster_params['database_token']
@@ -2875,6 +3037,8 @@ class VncServerManager():
                 provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
                 provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
                 provision_params['phy_interface'] = server_params['interface_name']
+                if 'contrail' in server:
+                    provision_params['contrail_params']  = server['contrail']
                 if 'gateway' in server and server['gateway']:
                     provision_params['server_gway'] = server['gateway']
                 elif 'gateway' in cluster_params and cluster_params['gateway']:
@@ -3020,7 +3184,7 @@ class VncServerManager():
                 provision_params['live_migration_storage_scope'] = live_migration_storage_scope
                 provision_params['contrail-storage-enabled'] = storage_status
                 provision_params['subnet-mask'] = subnet_mask
-                provision_params['host_roles'] = eval(server['roles'])
+                provision_params['host_roles'] = [ x.encode('ascii') for x in eval(server['roles']) ]
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = cluster_params['storage_virsh_uuid']
@@ -3102,7 +3266,8 @@ class VncServerManager():
                     else:
                         pass
 
-                self._do_provision_server(provision_params)
+                self._do_provision_server(
+                    provision_params, server, cluster, cluster_servers)
                 server_status = {}
                 server_status['id'] = server['id']
                 server_status['package_id'] = package_image_id
@@ -3380,6 +3545,9 @@ class VncServerManager():
                     self._smgr_log.log(
                         self._smgr_log.DEBUG,
                         cmd + "; ret_code = %d" %(ret_code))
+                    # Remove any puppet files for new framework
+                    self._smgr_puppet.new_unprovision_server(
+                        server['id'], server['domain'])
                     # Remove manifest file for this server
                     cmd = "rm -f /etc/puppet/manifests/%s.%s.pp" %(
                         server['id'], server['domain'])
@@ -3485,12 +3653,13 @@ class VncServerManager():
                 reimage_parameters.get('ipmi_password',self._args.ipmi_password),
                 reimage_parameters.get('ipmi_address',''),
                 base_image, self._args.listen_ip_addr,
-                reimage_parameters.get('partition', ''))
+                reimage_parameters.get('partition', ''),
+                reimage_parameters.get('config_file', None))
         except Exception as e:
-            msg = "Server %s reimaged failed" % server['reimage_parameters']['server_id']
+            msg = "Server %s reimaged failed" % reimage_parameters['server_id']
             self._smgr_log.log(self._smgr_log.ERROR, msg)
             update = {
-                'mac_address': server['reimage_parameters']['server_mac'],
+                'mac_address': reimage_parameters['server_mac'],
                 'status': "reimage_failed"
             }
             self._serverDb.modify_server(update)
@@ -3506,11 +3675,15 @@ class VncServerManager():
 
     # Internal private call to provision server. This is called by REST API
     # provision_server and provision_cluster
-    def _do_provision_server(self, provision_parameters):
+    def _do_provision_server(
+        self, provision_parameters, server, cluster, cluster_servers):
         try:
             # Now call puppet to provision the server.
             self._smgr_puppet.provision_server(
-                provision_parameters)
+                provision_parameters,
+                server,
+                cluster,
+                cluster_servers)
 
             # Update Server table with provisioned id
             update = {'id': provision_parameters['server_id'],
