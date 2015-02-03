@@ -1791,6 +1791,55 @@ $__contrail_quantum_servers__
         # end with
     # end def add_node_entry
 
+    def add_cluster_parameters(self, cluster_params):
+        cluster_params_mapping = {
+            "uuid" : ["uuid", "string"],
+            "internal_vip" : ["internal_vip", "string"],
+            "external_vip" : ["external_vip", "string"],
+            "contrail_internal_vip" : ["contrail_internal_vip", "string"],
+            "contrail_external_vip" : ["contrail_external_vip", "string"],
+            "analytics_data_ttl" : ["analytics_data_ttl", "integer"],
+            "analytics_syslog_port" : ["analytics_syslog_port", "integer"],
+            "database_dir" : ["database_dir", "string"],
+            "analytics_data_dir" : ["analytics_data_dir", "string"],
+            "ssd_data_dir" : ["ssd_data_dir", "string"],
+            "keystone_ip" : ["keystone_ip", "string"],
+            "keystone_password" : ["keystone_admin_password", "string"],
+            "service_token" : ["keystone_service_token", "string"],
+            "keystone_username" : ["keystone_admin_user", "string"],
+            "keystone_tenant" : ["keystone_admin_tenant", "string"],
+            "keystone_service_tenant" : ["keystone_service_tenant", "string"],
+            "keystone_region_name" : ["keystone_region_name", "string"],
+            "multi_tenancy" : ["multi_tenancy", "boolean"],
+            "zookeeper_ip_list" : ["zookeeper_ip_list", "array"],
+            "haproxy" : ["haproxy_flag", "string"],
+            "hc_interval" : ["hc_interval", "integer"],
+            "nfs_server" : ["nfs_server", "string"],
+            "nfs_glance_path" : ["nfs_glance_path", "string"],
+            "database_token" : ["database_initial_token", "integer"],
+            "encapsulation_priority" : ["encap_priority", "string"],
+            "router_asn" : ["router_asn", "string"],
+            "external_bgp" : ["external_bgp", "string"],
+            "use_certificates" : ["use_certs", "boolean"]
+        }
+
+        data = ''
+
+        # Go thru all the keys above and if present, add to parameter list
+        for k,v in cluster_params_mapping.items():
+            if k in cluster_params:
+                # if value is text, add with quotes, else without the quotes.
+                if v[1].lower() == "string":
+                    data += 'contrail::params::' + v[0] + ': "' + \
+                        cluster_params.get(k, "") + '"\n'
+                else:
+                    data += 'contrail::params::' + v[0] + ': ' + \
+                        cluster_params.get(k, "") + '\n'
+                # end if-else
+        # end for
+        return data
+    # end add cluster_parameters
+
     def build_contrail_hiera_file(
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
@@ -1817,13 +1866,7 @@ $__contrail_quantum_servers__
                 provision_params.get('kernel_upgrade', DEFAULT_KERNEL_UPGRADE))
             data += 'contrail::params::kernel_version: "%s"\n' %(
                 provision_params.get('kernel_version', DEFAULT_KERNEL_VERSION))
-        if 'external_bgp' in provision_params and \
-            provision_params['external_bgp'] :
-            data += 'contrail::params::external_bgp: "%s"\n' %(
-                provision_params.get('external_bgp', ""))
-        if "uuid" in cluster_params:
-            data += 'contrail::params::uuid: "%s"\n' %(
-                cluster_params.get('uuid', ""))
+
         role_ips = {}
         role_ids = {}
         role_passwd = {}
@@ -1849,17 +1892,31 @@ $__contrail_quantum_servers__
             data += 'contrail::params::%s_user_list: %s\n' %(
                 role, str(role_users[role]))
 
-
-
-        if "internal_vip" in cluster_params:
-            data += 'contrail::params::internal_vip: "%s"\n' %(
-                cluster_params.get('internal_vip', ""))
-        if "contrail_internal_vip" in cluster_params:
-            data += 'contrail::params::contrail_internal_vip: "%s"\n' %(
-                cluster_params.get('contrail_internal_vip', ""))
-        if "external_vip" in cluster_params:
-            data += 'contrail::params::external_vip: "%s"\n' %(
-                cluster_params.get('external_vip', ""))
+        # Retrieve and add all the cluster parameters specified.
+        data += self.add_cluster_parameters(cluster_params)
+        # Handle any other additional parameters to be added to yaml file.
+        # openstack_mgmt_ip_list
+        openstack_mgmt_ip_list = [x["ip_address"].encode('ascii') \
+                for x in cluster_servers if "openstack" in set(eval(x['roles']))]
+        data += 'contrail::params::openstack_mgmt_ip_list: %s\n' %(
+            str(openstack_mgmt_ip_list))
+        # host_non_mgmt_ip
+        server_mgmt_ip = server.get("ip_address", "").encode('ascii')
+        server_control_ip = self.get_control_ip(
+            provision_params, server_mgmt_ip)
+        if (server_control_ip != server_mgmt_ip):
+            data += 'contrail::params::host_non_mgmt_ip: "%s"\n' %(
+                server_control_ip)
+            # host_non_mgmt_gateway
+            control_intf_dict = provision_params.get("control_net", "")
+            if control_intf_dict:
+                server_control_intf = control_intf_dict.get(server_mgmt_ip, "")
+                if server_control_intf:
+                    data += 'contrail::params::host_non_mgmt_gateway: "%s"\n' %(
+                        server_control_intf.get("gateway", ""))
+                # end if server_control_intf
+            # end if control_intf_dict
+        # enf if server_control_ip...
 
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
