@@ -77,6 +77,8 @@ _DEF_IPMI_USERNAME = 'ADMIN'
 _DEF_IPMI_PASSWORD = 'ADMIN'
 _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
+_DEF_COLLECTORS_IP = ['127.0.0.1:8086']
+_DEF_INTROSPECT_PORT = 8107
 
 # Temporary variable added to disable use of new puppet framework. This should be removed/enabled
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
@@ -356,9 +358,7 @@ class VncServerManager():
         self._dev_env_monitoring_obj.set_serverdb(self._serverDb)
         self._dev_env_monitoring_obj.set_ipmi_defaults(self._args.ipmi_username, self._args.ipmi_password)
         self._dev_env_monitoring_obj.daemon = True
-        if self._monitoring_args:
-            if self._monitoring_args.collectors:
-                self._monitoring_base_plugin_obj.sandesh_init(self._monitoring_args.collectors)
+        self._monitoring_base_plugin_obj.sandesh_init(self._args.collectors)
         self._dev_env_monitoring_obj.start()
         self._monitoring_base_plugin_obj.set_serverdb(self._serverDb)
         self._monitoring_base_plugin_obj.add_inventory()
@@ -1151,7 +1151,7 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, "get_inventory_info")
         try:
             url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerInventoryInfo" % (
-                str(self._args.listen_ip_addr), self._monitoring_args.ipmi_introspect_port)
+                str(self._args.listen_ip_addr), self._args.http_introspect_port)
             headers = {'content-type': 'application/json'}
             resp = requests.get(url, timeout=5, headers=headers)
             xml_data = resp.text
@@ -1174,7 +1174,7 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, "get_monitoring_info")
         try:
             url = "http://%s:%s/Snh_SandeshUVECacheReq?x=SMIpmiInfo" % (str(self._args.listen_ip_addr),
-                                                                        self._monitoring_args.ipmi_introspect_port)
+                                                                        self._args.http_introspect_port)
             headers = {'content-type': 'application/json'}
             resp = requests.get(url, timeout=5, headers=headers)
             xml_data = resp.text
@@ -2951,7 +2951,7 @@ class VncServerManager():
                 return "Configuration for Monitoring set correctly."
             elif self._monitoring_args:
                 return_data = ""
-                if self._monitoring_args.collectors is None:
+                if self._args.collectors is None:
                     return_data += "The collectors IP parameter hasn't been correctly configured.\n"
                 elif self._monitoring_args.monitoring_plugin is None:
                     return_data += "The Monitoring Plugin parameter hasn't been correctly configured.\n"
@@ -3376,7 +3376,9 @@ class VncServerManager():
             'ipmi_username'             : _DEF_IPMI_USERNAME,
             'ipmi_password'             : _DEF_IPMI_PASSWORD,
             'ipmi_type'                 : _DEF_IPMI_TYPE,
-            'puppet_dir'                 : _DEF_PUPPET_DIR
+            'puppet_dir'                 : _DEF_PUPPET_DIR,
+            'collectors'                 : _DEF_COLLECTORS_IP,
+            'http_introspect_port'       : _DEF_INTROSPECT_PORT
         }
 
         if args.config_file:
@@ -3427,8 +3429,8 @@ class VncServerManager():
             help=(
                 "Name of JSON file containing list of cluster and servers,"
                 " default None"))
-        self._parse_monitoring_args(args_str, args)
         self._args = parser.parse_args(remaining_argv)
+        self._parse_monitoring_args(args_str, args)
         self._args.config_file = args.config_file
     # end _parse_args
 
@@ -3458,9 +3460,9 @@ class VncServerManager():
                     module_components = str(self._monitoring_args.monitoring_plugin).split('.')
                     monitoring_module = __import__(str(module_components[0]))
                     monitoring_class = getattr(monitoring_module, module_components[1])
-                    if self._monitoring_args.collectors:
+                    if self._args.collectors:
                         self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_frequency,
-                                                                        self._monitoring_args.collectors)
+                                                                        self._args.collectors)
                         self._config_set = True
                 else:
                     self._smgr_log.log(self._smgr_log.ERROR, "Analytics IP and Monitoring API misconfigured, monitoring aborted")

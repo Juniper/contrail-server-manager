@@ -22,14 +22,6 @@ class ServerMgrIPMIQuerying():
     def __init__(self):
         ''' Constructor '''
 
-    # Calls the IPMI tool command as a subprocess
-    def call_subprocess(self, cmd):
-        try:
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-            return p.stdout.read()
-        except Exception as e:
-            return "Error Querying Server Env: IPMI Polling command failed -> " + str(e)
-
     # Packages and sends a REST API call to the Server Manager node
     def send_REST_request(self, server_ip, port):
         try:

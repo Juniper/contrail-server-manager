@@ -37,7 +37,6 @@ _DEF_MON_FREQ = 300
 _DEF_MONITORING_PLUGIN = None
 _DEF_SMGR_BASE_DIR = '/opt/contrail/server_manager/'
 _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
-_DEF_INTROSPECT_PORT = 8107
 
 # Class ServerMgrDevEnvMonitoring provides a base class that can be inherited by
 # any implementation of a plugabble monitoring API that interacts with the
@@ -67,8 +66,7 @@ class ServerMgrMonBasePlugin(Thread):
         self.MonitoringCfg = {
             'collectors': _DEF_COLLECTORS_IP,
             'monitoring_frequency': _DEF_MON_FREQ,
-            'monitoring_plugin': _DEF_MONITORING_PLUGIN,
-            'ipmi_introspect_port': _DEF_INTROSPECT_PORT
+            'monitoring_plugin': _DEF_MONITORING_PLUGIN
         }
         logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
         # create logger
@@ -138,7 +136,8 @@ class ServerMgrMonBasePlugin(Thread):
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         parser.set_defaults(**self.MonitoringCfg)
-        self._collectors_ip = self.MonitoringCfg['collectors']
+        _args = parser.parse_args(remaining_argv)
+        self._collectors_ip = _args.collectors
         return parser.parse_args(remaining_argv)
 
     def sandesh_init(self, collectors_ip_list=None):
@@ -153,15 +152,32 @@ class ServerMgrMonBasePlugin(Thread):
             collectors_ip_list = eval(collectors_ip_list)
             if collectors_ip_list:
                 self.log("info", "Collector IPs from config: " + str(collectors_ip_list))
-                sandesh_global.init_generator(
-                    module_name,
-                    socket.gethostname(),
-                    node_type_name,
-                    instance_id,
-                    collectors_ip_list,
-                    module_name,
-                    HttpPortInventorymgr,
-                    ['inventory_daemon.server_inventory', 'contrail_sm_monitoring.ipmi'])
+                monitoring = True
+                try:
+                    __import__('contrail_sm_monitoring.ipmi')
+                except ImportError:
+                    monitoring = False
+                    pass
+                if monitoring:
+                    sandesh_global.init_generator(
+                        module_name,
+                        socket.gethostname(),
+                        node_type_name,
+                        instance_id,
+                        collectors_ip_list,
+                        module_name,
+                        HttpPortInventorymgr,
+                        ['inventory_daemon.server_inventory', 'contrail_sm_monitoring.ipmi'])
+                else:
+                    sandesh_global.init_generator(
+                        module_name,
+                        socket.gethostname(),
+                        node_type_name,
+                        instance_id,
+                        collectors_ip_list,
+                        module_name,
+                        HttpPortInventorymgr,
+                        ['inventory_daemon.server_inventory'])
             else:
                 pass
         except Exception as e:
@@ -231,26 +247,26 @@ class ServerMgrMonBasePlugin(Thread):
                     fru_info_obj.fru_description = reading_value
                     fru_dict['fru_description'] = str(hostname) + " " + reading_value
                     fru_dict['id'] = hostname
-                    fru_info_obj.chassis_type = "Not Available"
-                    fru_dict['chassis_type'] = "Not Available"
-                    fru_info_obj.chassis_serial_number = "Not Available"
-                    fru_dict['chassis_serial_number'] = "Not Available"
-                    fru_info_obj.board_mfg_date = "Not Available"
-                    fru_dict['board_mfg_date'] = "Not Available"
-                    fru_info_obj.board_manufacturer = "Not Available"
-                    fru_dict['board_manufacturer'] = "Not Available"
-                    fru_info_obj.board_product_name = "Not Available"
-                    fru_dict['board_product_name'] = "Not Available"
-                    fru_info_obj.board_serial_number = "Not Available"
-                    fru_dict['board_serial_number'] = "Not Available"
-                    fru_info_obj.board_part_number = "Not Available"
-                    fru_dict['board_part_number'] = "Not Available"
-                    fru_info_obj.product_manfacturer = "Not Available"
-                    fru_dict['product_manfacturer'] = "Not Available"
-                    fru_info_obj.product_name = "Not Available"
-                    fru_dict['product_name'] = "Not Available"
-                    fru_info_obj.product_part_number = "Not Available"
-                    fru_dict['product_part_number'] = "Not Available"
+                    fru_info_obj.chassis_type = " "
+                    fru_dict['chassis_type'] = " "
+                    fru_info_obj.chassis_serial_number = " "
+                    fru_dict['chassis_serial_number'] = " "
+                    fru_info_obj.board_mfg_date = " "
+                    fru_dict['board_mfg_date'] = " "
+                    fru_info_obj.board_manufacturer = " "
+                    fru_dict['board_manufacturer'] = " "
+                    fru_info_obj.board_product_name = " "
+                    fru_dict['board_product_name'] = " "
+                    fru_info_obj.board_serial_number = " "
+                    fru_dict['board_serial_number'] = " "
+                    fru_info_obj.board_part_number = " "
+                    fru_dict['board_part_number'] = " "
+                    fru_info_obj.product_manfacturer = " "
+                    fru_dict['product_manfacturer'] = " "
+                    fru_info_obj.product_name = " "
+                    fru_dict['product_name'] = " "
+                    fru_info_obj.product_part_number = " "
+                    fru_dict['product_part_number'] = " "
                 elif sensor == "Chassis Type":
                     fru_info_obj.chassis_type = reading_value
                     fru_dict['chassis_type'] = reading_value
@@ -347,7 +363,6 @@ class ServerMgrMonBasePlugin(Thread):
                             intinfo = interface_info()
                             intinfo.interface_name = name
                             exp = '.*_' + name + '.*$'
-                            #exp = '(^ipaddress_|^macaddress_|^netmask_).*'+name+'.*$'
                             res = re.findall(exp, filestr, re.MULTILINE)
                             for items in res:
                                 actualkey = items.split('=>')
@@ -358,6 +373,12 @@ class ServerMgrMonBasePlugin(Thread):
                                     continue
                                 value = actualkey[1].strip()
                                 setattr(intinfo, objkey, value)
+                            if not getattr(intinfo, 'macaddress'):
+                                setattr(intinfo, 'macaddress', " ")
+                            if not getattr(intinfo, 'ip_addr'):
+                                setattr(intinfo, 'ip_addr', " ")
+                            if not getattr(intinfo, 'netmask'):
+                                setattr(intinfo, 'netmask', " ")
                             intinfo_list.append(intinfo)
                     else:
                         objkey = self.inventory_lookup(key)

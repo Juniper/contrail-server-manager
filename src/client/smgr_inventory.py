@@ -158,7 +158,8 @@ class ServerMgrInventory():
         try:
             inv_details_dict = self.get_inventory(ip_add, smgr_port, server_list)
             if inv_details_dict is None:
-                data += "\nFailed to get details for query. Monitoring might not be configured on Server Manager.\n"
+                data += "\nFailed to get details for query. " \
+                        "Inventory collectors and introspect port might not be configured on Server Manager.\n"
             else:
                 inv_details_dict = dict(inv_details_dict)
                 for hostname in inv_details_dict:
