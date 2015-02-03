@@ -44,7 +44,7 @@ cluster_fields = {
     "parameters": """{
                 'router_asn': '64512',
                 'database_dir': '/home/cassandra',
-                'database_token': '',
+                'database_token': '0',
                 'openstack_mgmt_ip': '',
                 'use_certificates': 'False',
                 'multi_tenancy': 'True',
