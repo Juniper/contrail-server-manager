@@ -454,8 +454,11 @@ def show_config(args_str=None):
                       rest_api_params['match_value'],
                       rest_api_params['select'],
                       detail)
-    if mon_query:
-        resp = mon_querying_obj.handle_smgr_response(resp, smgr_ip, query_engine_port, mon_rest_api_params)
+    if mon_query and mon_rest_api_params['match_key'] and mon_rest_api_params['match_value']:
+        resp = mon_querying_obj.handle_smgr_response(resp, smgr_ip, smgr_port, mon_rest_api_params)
+    else:
+        resp = "server-manager show monitoring: error: no arguments specified - choose Cluster/Server/Tag/Select Clause"
+
     smgr_client_def.print_rest_response(resp)
 # End of show_config
 
