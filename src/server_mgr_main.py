@@ -2640,9 +2640,13 @@ class VncServerManager():
 		intf_dict = {}
 		control_ip = interface_list[control_data_intf] ['ip']	
 		control_mask = interface_list[control_data_intf] ['mask']	
+		control_gway = interface_list[control_data_intf].get('d_gw', "")
  		ip_prefix = "%s/%s" %(control_ip, control_mask)
 		ip_obj = IPNetwork(ip_prefix)
-		intf_dict[control_data_intf] = {"ip_address":str(ip_obj)}
+		intf_dict[control_data_intf] = {
+                    "ip_address" : str(ip_obj),
+                    "gateway" : str(control_gway)
+                }
 	        server_control_list[server['ip_address']] = str(intf_dict)
             else:
                 intf_control = server['intf_control']
