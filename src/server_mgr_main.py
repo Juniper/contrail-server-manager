@@ -377,8 +377,8 @@ class VncServerManager():
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
         bottle.route('/MonitorConf', 'GET', self.get_mon_conf_details)
-        bottle.route('/MonitorInfo', 'GET', self.get_mon_info)
-        bottle.route('/Inventory', 'GET', self.get_inventory)
+        bottle.route('/MonitorInfo', 'GET', self.get_monitoring_info)
+        bottle.route('/InventoryInfo', 'GET', self.get_inventory_info)
         bottle.route('/defaults', 'GET', self.get_defaults)
 
 
@@ -615,6 +615,8 @@ class VncServerManager():
             match_key, match_value = query_args.popitem()
             match_keys = list()
             match_keys.append('id')
+            match_keys.append('cluster_id')
+            match_keys.append('tag')
             match_keys.append('discovered')
             if (match_key not in match_keys):
                 raise ServerMgrException("Match Key not present")
@@ -1119,9 +1121,9 @@ class VncServerManager():
     # if provided, information about all the servers in server manager
     # configuration is returned.
 
-    def get_inventory(self):
+    def get_FRU_info(self):
         ret_data = None
-        self._smgr_log.log(self._smgr_log.DEBUG, "get_inventory")
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_FRU_info")
         frus = []
         try:
             ret_data = self.validate_smgr_inv(bottle.request)
@@ -1144,9 +1146,32 @@ class VncServerManager():
         return {"frus": frus}
         # end get_inventory
 
-    def get_mon_info(self):
+    def get_inventory_info(self):
         data_dict = None
-        self._smgr_log.log(self._smgr_log.DEBUG, "get_mon_info")
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_inventory_info")
+        try:
+            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerInventoryInfo" % (
+                str(self._args.listen_ip_addr), self._monitoring_args.ipmi_introspect_port)
+            headers = {'content-type': 'application/json'}
+            resp = requests.get(url, timeout=5, headers=headers)
+            xml_data = resp.text
+            data = xmltodict.parse(str(xml_data))
+            json_obj = json.dumps(data, sort_keys=True, indent=4)
+            data_dict = dict(json.loads(json_obj))
+        except ServerMgrException as e:
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+        return data_dict
+        # end get_inventory_info
+
+    def get_monitoring_info(self):
+        data_dict = None
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_monitoring_info")
         try:
             url = "http://%s:%s/Snh_SandeshUVECacheReq?x=SMIpmiInfo" % (str(self._args.listen_ip_addr),
                                                                         self._monitoring_args.ipmi_introspect_port)

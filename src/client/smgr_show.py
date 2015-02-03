@@ -20,8 +20,10 @@ import smgr_client_def
 import json
 import urllib
 from smgr_monitoring import ServerMgrIPMIQuerying
+from smgr_inventory import ServerMgrInventory
 
 mon_querying_obj = ServerMgrIPMIQuerying()
+inv_querying_obj = ServerMgrInventory()
 
 def parse_arguments():
     # Process the arguments
@@ -73,11 +75,17 @@ def parse_arguments():
 
     # Subparser for inventory show
     parser_inventory = subparsers.add_parser(
-        "inventory", help='Show server')
+        "inventory", help='Show server inventory')
     inv_group = parser_inventory.add_mutually_exclusive_group()
     inv_group.add_argument("--server_id",
                        help=("server id for server"))
-    parser_inventory.set_defaults(func=show_inventory)
+    inv_group.add_argument("--cluster_id",
+                           help=("cluster id for server"))
+    inv_group.add_argument("--tag", help=("tag values for the server"
+                                          "in t1=v1,t2=v2,... format"))
+    inv_group.add_argument("--where",
+                           help=("sql where statement in quotation marks"))
+    parser_inventory.set_defaults(func=inv_querying_obj.show_inventory)
 
     # Subparser for cluster show
     parser_cluster = subparsers.add_parser(
@@ -247,19 +255,6 @@ def show_server(args):
     return rest_api_params
 #end def show_server
 
-def show_inventory(args):
-    rest_api_params = {}
-    rest_api_params['object'] = 'Inventory'
-    rest_api_params['select'] = None
-    if args.server_id:
-        rest_api_params['match_key'] = 'id'
-        rest_api_params['match_value'] = args.server_id
-    else:
-        rest_api_params['match_key'] = None
-        rest_api_params['match_value'] = None
-    return rest_api_params
-# end def show_inventory
-
 def show_cluster(args):
     if args.cluster_id:
         match_key = 'id'
@@ -318,90 +313,10 @@ def show_tag(args):
     return rest_api_params
 #end def show_all
 
-def show_fan_details(args):
-    rest_api_params = {}
-    rest_api_params['object'] = 'Fan'
-    if args.server_id:
-        rest_api_params['match_key'] = 'id'
-        rest_api_params['match_value'] = args.server_id
-    elif args.cluster_id:
-        rest_api_params['match_key'] = 'cluster_id'
-        rest_api_params['match_value'] = args.cluster_id
-    elif args.tag:
-        rest_api_params['match_key'] = 'tag'
-        rest_api_params['match_value'] = args.tag
-    else:
-        rest_api_params['match_key'] = None
-        rest_api_params['match_value'] = None
-    return rest_api_params
-#end def show_fan_details
-
-def show_temp_details(args):
-    rest_api_params = {}
-    rest_api_params['object'] = 'Temp'
-    if args.server_id:
-        rest_api_params['match_key'] = 'id'
-        rest_api_params['match_value'] = args.server_id
-    elif args.cluster_id:
-        rest_api_params['match_key'] = 'cluster_id'
-        rest_api_params['match_value'] = args.cluster_id
-    elif args.tag:
-        rest_api_params['match_key'] = 'tag'
-        rest_api_params['match_value'] = args.tag
-    else:
-        rest_api_params['match_key'] = None
-        rest_api_params['match_value'] = None
-    return rest_api_params
-# end def show_temp_details
-
-def show_pwr_details(args):
-    rest_api_params = {}
-    rest_api_params['object'] = 'Pwr'
-    if args.server_id:
-        rest_api_params['match_key'] = 'id'
-        rest_api_params['match_value'] = args.server_id
-    elif args.cluster_id:
-        rest_api_params['match_key'] = 'cluster_id'
-        rest_api_params['match_value'] = args.cluster_id
-    elif args.tag:
-        rest_api_params['match_key'] = 'tag'
-        rest_api_params['match_value'] = args.tag
-    else:
-        rest_api_params['match_key'] = None
-        rest_api_params['match_value'] = None
-    return rest_api_params
-# end def show_pwr_details
-
-def show_env_details(args):
-    rest_api_params = {}
-    rest_api_params['object'] = 'Env'
-    if args.server_id:
-        rest_api_params['match_key'] = 'id'
-        rest_api_params['match_value'] = args.server_id
-    elif args.cluster_id:
-        rest_api_params['match_key'] = 'cluster_id'
-        rest_api_params['match_value'] = args.cluster_id
-    elif args.tag:
-        rest_api_params['match_key'] = 'tag'
-        rest_api_params['match_value'] = args.tag
-    else:
-        rest_api_params['match_key'] = None
-        rest_api_params['match_value'] = None
-    return rest_api_params
-# end def show_env_details
-
-
-def show_mon_status(args):
-    rest_api_params = {}
-    rest_api_params['object'] = 'MonStatus'
-    rest_api_params['match_key'] = None
-    rest_api_params['match_value'] = None
-    return rest_api_params
-
 
 def show_config(args_str=None):
-    mon_query = False
     mon_rest_api_params = None
+    inv_rest_api_params = None
     parser = parse_arguments()
     args = parser.parse_args(args_str)
     if args.config_file:
@@ -426,20 +341,7 @@ def show_config(args_str=None):
         sys.exit("Exception: %s : Error reading config file %s" %(e.message, config_file))
     # end except
     rest_api_params = args.func(args)
-    try:
-        mon_config = dict(config.items("MONITORING"))
-        query_engine_port = mon_config.get("ipmi_introspect_port", None)
-    except ConfigParser.NoSectionError:
-        if rest_api_params['object'] == "Monitor":
-            sys.exit("Monitoring hasn't been configured. Cannot use this command.")
-        else:
-            pass
-    except Exception as e:
-        if rest_api_params['object'] == "Monitor":
-            sys.exit("Monitoring hasn't been configured. Cannot use this command.")
-        else:
-            pass
-    if rest_api_params['object'] == "Monitor" and smgr_ip:
+    if rest_api_params["object"] == "Monitor" and smgr_ip and smgr_port:
         if rest_api_params['monitoring_value'] != "Status":
             mon_query = True
             mon_rest_api_params = dict(rest_api_params)
@@ -448,6 +350,14 @@ def show_config(args_str=None):
             mon_query = False
     else:
         mon_query = False
+
+    if rest_api_params['object'] == "Inventory" and smgr_ip and smgr_port:
+        inv_query = True
+        inv_rest_api_params = dict(rest_api_params)
+        rest_api_params = inv_querying_obj.get_wrapper_call_params(rest_api_params)
+    else:
+        inv_query = False
+
     resp = send_REST_request(smgr_ip, smgr_port,
                       rest_api_params['object'],
                       rest_api_params['match_key'],
@@ -456,9 +366,13 @@ def show_config(args_str=None):
                       detail)
     if mon_query and mon_rest_api_params['match_key'] and mon_rest_api_params['match_value']:
         resp = mon_querying_obj.handle_smgr_response(resp, smgr_ip, smgr_port, mon_rest_api_params)
-    else:
+    elif mon_query:
         resp = "server-manager show monitoring: error: no arguments specified - choose Cluster/Server/Tag/Select Clause"
 
+    if inv_query and inv_rest_api_params['match_key'] and inv_rest_api_params['match_value']:
+        resp = inv_querying_obj.handle_smgr_response(resp, smgr_ip, smgr_port, inv_rest_api_params)
+    elif inv_query:
+        resp = "server-manager show inventory: error: no arguments specified - choose Cluster/Server/Tag/Select Clause"
     smgr_client_def.print_rest_response(resp)
 # End of show_config
 
