@@ -1910,10 +1910,11 @@ $__contrail_quantum_servers__
             # host_non_mgmt_gateway
             control_intf_dict = provision_params.get("control_net", "")
             if control_intf_dict:
-                server_control_intf = control_intf_dict.get(server_mgmt_ip, "")
+                server_control_intf = eval(control_intf_dict.get(server_mgmt_ip, ""))
                 if server_control_intf:
+                    intf_name, intf_details = server_control_intf.popitem()
                     data += 'contrail::params::host_non_mgmt_gateway: "%s"\n' %(
-                        server_control_intf.get("gateway", ""))
+                        intf_details.get("gateway", ""))
                 # end if server_control_intf
             # end if control_intf_dict
         # enf if server_control_ip...
