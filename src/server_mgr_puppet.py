@@ -1967,6 +1967,14 @@ $__contrail_quantum_servers__
             data += 'contrail::params::%s_user_list: %s\n' %(
                 role, str(role_users[role]))
 
+        if (server['id'] == role_ids['openstack'][0]) :
+           data += 'contrail::params::sync_db: %s\n' %(
+               "True")
+        else:
+           data += 'contrail::params::sync_db: %s\n' %(
+               "False")
+ 
+
         # Retrieve and add all the cluster parameters specified.
         data += self.add_cluster_parameters(cluster_params)
         # Handle any other additional parameters to be added to yaml file.
