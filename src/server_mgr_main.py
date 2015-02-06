@@ -1291,6 +1291,15 @@ class VncServerManager():
                     cur_cluster["parameters"].update({"uuid": str_uuid})
                     cur_cluster["parameters"].update({"storage_fsid": storage_fsid})
                     cur_cluster["parameters"].update({"storage_virsh_uuid": storage_virsh_uuid})
+                    if "service_token" not in cur_cluster["parameters"]:
+                        try:
+                            service_token = (subprocess.Popen(
+                                ["openssl", "rand", "-hex", "10"],
+                                stdout=subprocess.PIPE).communicate()[0]).rstrip()
+                        except:
+                            service_token = "contrail123"
+                    cur_cluster["parameters"].update(
+                        {"service_token": service_token})
                     self._smgr_log.log(self._smgr_log.INFO, "Cluster Data %s" % cur_cluster)
                     self._serverDb.add_cluster(cur_cluster)
         except ServerMgrException as e:
