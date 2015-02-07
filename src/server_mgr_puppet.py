@@ -1974,10 +1974,8 @@ $__contrail_quantum_servers__
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
         mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
-        mysql_service_password = cluster_params.get("mysql_service_password", "c0ntrail123")
-        keystone_admin_token = cluster_params.get("service_token", "c0ntrail123")
+        keystone_admin_token = cluster_params.get("service_token", "contrail123")
         keystone_admin_password = cluster_params.get("keystone_password", "contrail123")
-        openstack_password = cluster_params.get("openstack_passwd", "contrail123")
         subnet_address = str(IPNetwork(
             openstack_ip + "/" + subnet_mask).network)
         subnet_octets = subnet_address.split(".")
@@ -1992,11 +1990,11 @@ $__contrail_quantum_servers__
             '__openstack_ip__': openstack_ip,
             '__subnet_mask__': subnet_mask,
             '__mysql_root_password__': mysql_root_password,
-            '__mysql_service_password__': mysql_service_password,
+            '__mysql_service_password__': mysql_root_password,
             '__keystone_admin_token__': keystone_admin_token,
             '__keystone_admin_password__': keystone_admin_password,
             '__mysql_allowed_hosts__': (', '.join("'" + item + "'" for item in mysql_allowed_hosts)),
-            '__openstack_password__': openstack_password
+            '__openstack_password__': keystone_admin_password
         }
         data = openstack_hieradata.template.safe_substitute(template_vals)
         outfile = open(hiera_filename, 'w')
