@@ -1298,6 +1298,8 @@ class VncServerManager():
                                 stdout=subprocess.PIPE).communicate()[0]).rstrip()
                         except:
                             service_token = "contrail123"
+                    else:
+                        service_token = cur_cluster["parameters"]["service_token"]
                     cur_cluster["parameters"].update(
                         {"service_token": service_token})
                     self._smgr_log.log(self._smgr_log.INFO, "Cluster Data %s" % cur_cluster)
