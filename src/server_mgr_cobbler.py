@@ -66,22 +66,15 @@ class ServerMgrCobbler:
         except subprocess.CalledProcessError as e:
             msg = ("Cobbler Init: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
-<<<<<<< HEAD
-            raise ServerMgrException(msg)
-=======
             self.log_and_raise_exception(msg, ERR_OPR_ERROR)
->>>>>>> origin/monitoring_cli_move
         except Exception as e:
             raise e
     # End of __init__
 
-<<<<<<< HEAD
-=======
     def log_and_raise_exception(self, msg, err_code = ERR_OPR_ERROR):
          self._smgr_log.log(self._smgr_log.ERROR, msg)
          raise ServerMgrException(msg, err_code)
 
->>>>>>> origin/monitoring_cli_move
     def _init_create_repo(self, repo_name, cobbler_server, token, base_dir):
         try:
             repo = cobbler_server.find_repo({"name": repo_name})
