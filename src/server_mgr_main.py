@@ -1291,13 +1291,17 @@ class VncServerManager():
                     cur_cluster["parameters"].update({"uuid": str_uuid})
                     cur_cluster["parameters"].update({"storage_fsid": storage_fsid})
                     cur_cluster["parameters"].update({"storage_virsh_uuid": storage_virsh_uuid})
-                    if "service_token" not in cur_cluster["parameters"]:
+                    service_token = cur_cluster["parameters"].get(
+                        "service_token", "")
+                    if not service_token:
                         try:
                             service_token = (subprocess.Popen(
                                 ["openssl", "rand", "-hex", "10"],
                                 stdout=subprocess.PIPE).communicate()[0]).rstrip()
                         except:
                             service_token = "contrail123"
+                    else:
+                        service_token = cur_cluster["parameters"]["service_token"]
                     cur_cluster["parameters"].update(
                         {"service_token": service_token})
                     self._smgr_log.log(self._smgr_log.INFO, "Cluster Data %s" % cur_cluster)
