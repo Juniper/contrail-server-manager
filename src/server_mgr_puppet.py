@@ -1936,7 +1936,7 @@ $__contrail_quantum_servers__
                 storage_disks = [  x.encode('ascii') for x in provision_params['storage_server_disks']]
                 data += 'contrail::params::storage_osd_disks: %s\n' %(str(storage_disks))
             else:
-                data += 'contrail::params::storage_osd_disks: []\n'%(str())%(str()) 
+                data += 'contrail::params::storage_osd_disks: []\n' 
         else:
             data += 'contrail::params::host_roles: []\n'
             data += 'contrail::params::storage_num_osd: ""\n'
