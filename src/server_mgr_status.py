@@ -28,6 +28,7 @@ class ServerMgrStatusThread(threading.Thread):
 
     _smgr_log = None
     _status_serverDb = None
+    _smgr_puppet = None
 
 
     ''' Class to run function that keeps validating the cobbler token
@@ -36,7 +37,7 @@ class ServerMgrStatusThread(threading.Thread):
     def __init__(self, timer, server, status_thread_config):
         threading.Thread.__init__(self)
         self._status_thread_config = status_thread_config
-
+        self._smgr_puppet = status_thread_config['smgr_puppet']
 
     def run(self):
         #create the logger
@@ -80,16 +81,19 @@ class ServerMgrStatusThread(threading.Thread):
         server_data['id'] = server_id
         server_data['status'] = server_state
         try:
-            message = server_id + ' ' + server_state + \
-                                strftime(" (%Y-%m-%d %H:%M:%S)", localtime())
+            time_str = strftime(" %Y-%m-%d %H:%M:%S", gmtime())
+            message = server_id + ' ' + server_state + time_str
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
-
             servers = self._status_serverDb.modify_server(
                                                     server_data)
-
+            if server_state == "provision_completed":
+                domain = self._status_serverDb.get_server_domain(server_id)
+                environment_name = 'TurningOffPuppetAgent:' + time_str
+                if domain:
+                    self._smgr_puppet.update_node_map_file(server_id,
+                                                       domain, environment_name)
             if server_state in email_events:
                 self.send_status_mail(server_id, message, message)
-
         except Exception as e:
 #            self.log_trace()
             self._smgr_log.log(self._smgr_log.ERROR, "Error adding to db %s" % repr(e))
@@ -138,4 +142,5 @@ class ServerMgrStatusThread(threading.Thread):
         msg = "An email is sent to " + ','.join(email_to) + " with content " + message
         self._smgr_log.log(self._smgr_log.DEBUG, msg)
     # send_status_mail
+        
 
