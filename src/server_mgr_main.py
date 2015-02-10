@@ -3056,7 +3056,7 @@ class VncServerManager():
                     if len(role_servers['storage-master']) == 0:
                         msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
                         raise ServerMgrException(msg)
-                    if 'storage_mon_secret' in cluster_params.keys():
+                    if 'storage_mon_secret' in cluster_params.keys() and cluster_params['storage_mon_secret']:
                         if len(cluster_params['storage_mon_secret']) == 40:
                             provision_params['storage_mon_secret'] = cluster_params['storage_mon_secret']
                         else:
@@ -3064,7 +3064,7 @@ class VncServerManager():
                             raise ServerMgrException(msg)
                     else:
                         provision_params['storage_mon_secret'] = ""
-                    if 'osd_bootstrap_key' in cluster_params.keys():
+                    if 'osd_bootstrap_key' in cluster_params.keys() and cluster_params['osd_bootstrap_key']:
                         if len(cluster_params['osd_bootstrap_key']) == 40:
                             provision_params['osd_bootstrap_key'] = cluster_params['osd_bootstrap_key']
                         else:
@@ -3072,7 +3072,7 @@ class VncServerManager():
                             raise ServerMgrException(msg)
                     else:
                         provision_params['osd_bootstrap_key'] = ""
-                    if 'admin_key' in cluster_params.keys():
+                    if 'admin_key' in cluster_params.keys() and cluster_params['admin_key']:
                         if len(cluster_params['admin_key']) == 40:
                             provision_params['admin_key'] = cluster_params['admin_key']
                         else:
@@ -3080,7 +3080,7 @@ class VncServerManager():
                             raise ServerMgrException(msg)
                     else:
                         provision_params['admin_key'] = ""
-                    if 'disks' in server_params and total_osd > 0:
+                    if 'disks' in server_params and server_params['disks'] and total_osd > 0:
                         provision_params['storage_server_disks'] = []
                         provision_params['storage_server_disks'].extend(server_params['disks'])
 
@@ -3093,7 +3093,7 @@ class VncServerManager():
                 provision_params['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
 
                 # Multiple Repo support
-                if 'storage_repo_id' in server_params.keys():
+                if 'storage_repo_id' in server_params.keys() and server_params['storage_repo_id']:
                     images = self.get_image()
                     image_ids = dict()
                     for image in images['image']:
