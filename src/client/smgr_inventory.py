@@ -14,15 +14,15 @@ import json
 import xmltodict
 
 
-# Class ServerMgrIPMIQuerying describes the API layer exposed to ServerManager to allow it to query
-# the device environment information of the servers stored in its DB. The information is gathered through
-# REST API calls to the Server Mgr Analytics Node that hosts the relevant DB.
+# Class ServerMgrInventory describes the API layer exposed to ServerManager to allow it to query
+# the device inventory information of the servers stored in its DB. The information is gathered through
+# REST API calls to the Server Mgr Node that hosts the relevant DB and Cache.
 class ServerMgrInventory():
 
     def __init__(self):
         ''' Constructor '''
 
-    # Packages and sends a REST API call to the Analytics node
+    # Packages and sends a REST API call to the ServerManager node
     def send_REST_request(self, server_ip, port):
         try:
             response = StringIO()

@@ -229,7 +229,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     self.gevent_runner_func, hostname, ip, username, password, supported_sensors, sel_log_dict)
                 sel_log_dict[str(hostname)] = thread.value
                 gevent_threads.append(thread)
-            gevent.joinall(gevent_threads)
+            #gevent.joinall(gevent_threads)
             self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
             self.base_obj.log("info", "Monitoring thread woke up")

@@ -530,7 +530,7 @@ class ServerMgrMonBasePlugin(Thread):
                 thread = gevent.spawn(self.gevent_runner_function,
                                       action, hostname, ip, ipmi, username, password, root_pwd)
                 gevent_threads.append(thread)
-        gevent.joinall(gevent_threads)
+        #gevent.joinall(gevent_threads)
 
 
     # A place-holder run function that the Server Monitor defaults to in the absence of a configured

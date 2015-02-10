@@ -404,6 +404,7 @@ class VncServerManager():
         bottle.route('/server/restart', 'POST', self.restart_server)
         bottle.route('/dhcp_event', 'POST', self.process_dhcp_event)
         bottle.route('/interface_created', 'POST', self.interface_created)
+        bottle.route('/run_inventory', 'POST', self.run_inventory)
 
     def get_pipe_start_app(self):
         return self._pipe_start_app
@@ -2849,6 +2850,48 @@ class VncServerManager():
         entity["interface_created"] = "Yes"
         print "Interface Created"
         self.provision_server()
+
+    def run_inventory(self):
+        server_hostname_list = list()
+        server_ipmi_list = list()
+        server_ipmi_pw_list = list()
+        server_ipmi_un_list = list()
+        server_ip_list = list()
+        server_root_pw_list = list()
+        self._smgr_log.log(self._smgr_log.DEBUG, "run_inventory")
+        try:
+            entity = bottle.request.json
+            matches = self.validate_smgr_keys(entity)
+            match_key, match_value = matches.popitem()
+            match_dict = {}
+            if match_key == "tag":
+                match_dict = self._process_server_tags(match_value)
+            elif match_key:
+                match_dict[match_key] = match_value
+            servers = self._serverDb.get_server(
+                match_dict, detail=True)
+            for server in servers:
+                server_ipmi_list.append(str(server['ipmi_address']))
+                server_ipmi_un_list.append(str(server['ipmi_username']))
+                server_ipmi_pw_list.append(str(server['ipmi_password']))
+                server_hostname_list.append(str(server['id']))
+                server_ip_list.append(str(server['ip_address']))
+                server_root_pw_list.append(str(server['password']))
+        except ServerMgrException as e:
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+        self._smgr_log.log(self._smgr_log.DEBUG, "Running inventory on following servers: " + str(server_hostname_list))
+        self._monitoring_base_plugin_obj.handle_inventory_trigger("add", server_hostname_list, server_ip_list,
+                                                                  server_ipmi_list, server_ipmi_un_list,
+                                                                  server_ipmi_pw_list, server_root_pw_list)
+        inventory_status = dict()
+        inventory_status['return_message'] = "server(s) run_inventory issued"
+        return inventory_status
 
     def log_trace(self):
         exc_type, exc_value, exc_traceback = sys.exc_info()
