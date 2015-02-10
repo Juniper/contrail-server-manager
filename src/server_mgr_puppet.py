@@ -1736,7 +1736,12 @@ $__contrail_quantum_servers__
         data += '    stage{ \'compute\': }\n'
         data += '    stage{ \'pre\': }\n'
         data += '    stage{ \'post\': }\n'
-        data += '    Stage[\'pre\']->Stage[\'first\']->Stage[\'main\']->Stage[\'last\']->Stage[\'compute\']->Stage[\'post\']\n'
+	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+            data += '    stage{ \'storage\': }\n'
+        data += '    Stage[\'pre\']->Stage[\'first\']->Stage[\'main\']->Stage[\'last\']->Stage[\'compute\']->'
+	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+            data += 'Stage[\'storage\']->'
+        data += 'Stage[\'post\']\n'
 
         # Add pre role
         data += '    class { \'::contrail::provision_start\' : state => \'provision_started\', stage => \'pre\' }\n'
@@ -1772,6 +1777,9 @@ $__contrail_quantum_servers__
         # Add compute role
         if 'compute' in server['roles']:
             data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
+        # Add Storage Role
+	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+            data += '    class { \'::contrail::profile::storage\' :  stage => \'storage\' }\n'
         # Add post role
         data += '    class { \'::contrail::provision_complete\' : state => \'provision_completed\', stage => \'post\' }\n'
 
@@ -1927,6 +1935,8 @@ $__contrail_quantum_servers__
             if 'storage_server_disks' in provision_params:
                 storage_disks = [  x.encode('ascii') for x in provision_params['storage_server_disks']]
                 data += 'contrail::params::storage_osd_disks: %s\n' %(str(storage_disks))
+            else:
+                data += 'contrail::params::storage_osd_disks: []\n'%(str())%(str()) 
         else:
             data += 'contrail::params::host_roles: []\n'
             data += 'contrail::params::storage_num_osd: ""\n'
