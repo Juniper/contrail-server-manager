@@ -2078,28 +2078,12 @@ $__contrail_quantum_servers__
         # Now add a new node entry
         self.add_node_entry(
             site_file, provision_params, server, cluster, cluster_servers)
+
         # Add entry for the server to environment mapping in 
         # node_mapping.json file.
-	try:
-            node_env_dict = {}
-            try:
-		with open(
-		    self.smgr_base_dir+self._node_env_map_file,
-		    "r") as env_file:
-		    node_env_dict = json.load(env_file)
-		# end with
-            except:
-                pass
-            node_env_dict[server_fqdn] = env_name
-	    with open(
-                self.smgr_base_dir+self._node_env_map_file,
-                "w") as env_file:
-		json.dump(
-                    node_env_dict, env_file,
-                    sort_keys = True, indent = 4)
-            # end with
-	except:
-	    pass
+        self.update_node_map_file(provision_params['server_id'],
+                                  provision_params['domain'],
+                                  env_name)
     # end def new_provision_server
 
     # Function to remove puppet files and entries created when provisioning the server. This is called
@@ -2108,26 +2092,7 @@ $__contrail_quantum_servers__
         server_fqdn = server_id + "." + server_domain
         # Remove node to environment mapping from node_mapping.json file.
 	node_env_dict = {}
-        env_name = None
-	try:
-	    with open(
-		self.smgr_base_dir+self._node_env_map_file,
-		"r") as env_file:
-		node_env_dict = json.load(env_file)
-	    # end with
-	    env_name = node_env_dict.pop(server_fqdn, None)
-	    try:
-		with open(
-		    self.smgr_base_dir+self._node_env_map_file,
-		    "w") as env_file:
-		    json.dump(
-			node_env_dict, env_file,
-			sort_keys = True, indent = 4)
-		# end with
-	    except:
-		pass
-	except:
-	    pass
+        env_name = self.update_node_map_file(server_id, server_domain, None)
         if env_name is None:
             return
         # Remove server node entry from site.pp.
@@ -2146,6 +2111,52 @@ $__contrail_quantum_servers__
 	except:
 	    pass
     # end new_unprovision_server()
+
+
+    # env_name empty string or None is to remove the entry from the map file.
+    # env_name value specified will be updated to the map file.
+    # env_name could be valid one or invalid manifest.
+    #        invalid valid manifest is used to turn off the agent puppet run
+    # server_id and domain are required for both update and delete of an entry
+    def update_node_map_file(self, server_id, server_domain, env_name):
+        if not server_id or not server_domain:
+            return None
+
+        server_fqdn = server_id + "." + server_domain
+        node_env_map_file = self.smgr_base_dir+self._node_env_map_file
+        
+        try:
+            with open(node_env_map_file, "r") as env_file:
+                node_env_dict = json.load(env_file)
+            # end with
+        except:
+            msg = "Not able open environment map file %s" % (node_env_map_file)
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            return None
+
+        if env_name:
+            node_env_dict[server_fqdn] = env_name
+            msg = "Add/Modify map file with env_name %s for server %s" % (env_name, server_fqdn)
+            self._smgr_log.log(self._smgr_log.DEBUG, msg)
+        else:
+            env_name = node_env_dict.pop(server_fqdn, None)
+            msg = "Remove server from map file for server %s" % (server_fqdn)
+            self._smgr_log.log(self._smgr_log.DEBUG, msg)
+            if not env_name:
+                return env_name
+
+        try:
+            with open(node_env_map_file, "w") as env_file:
+                json.dump(node_env_dict, env_file, sort_keys = True,
+                          indent = 4)
+            # end with
+        except:
+            msg = "Not able open environment map file %s for update" % (node_env_map_file)
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            return None
+        return env_name
+    # end update_node_map_file
+
 
     def provision_server(
         self, provision_params, server, cluster, cluster_servers):

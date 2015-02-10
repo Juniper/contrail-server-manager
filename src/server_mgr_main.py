@@ -290,12 +290,22 @@ class VncServerManager():
             print "Error connecting to cobbler"
             exit()
 
+        # Create an instance of puppet interface class.
+        try:
+            # TBD - Puppet parameters to be added.
+            self._smgr_puppet = ServerMgrPuppet(self._args.server_manager_base_dir,
+                                                self._args.puppet_dir)
+        except:
+            self._smgr_log.log(self._smgr_log.ERROR, "Error creating instance of puppet object")
+            exit()
+
+
         try:
             # needed for testing...
             status_thread_config = {}
             status_thread_config['listen_ip'] = self._args.listen_ip_addr
             status_thread_config['listen_port'] = '9002'
-
+            status_thread_config['smgr_puppet'] = self._smgr_puppet
             status_thread = ServerMgrStatusThread(
                             None, "Status-Thread", status_thread_config)
             # Make the thread as daemon
@@ -304,15 +314,6 @@ class VncServerManager():
         except:
             self._smgr_log.log(self._smgr_log.ERROR,
                      "Error starting the status thread")
-            exit()
-
-        # Create an instance of puppet interface class.
-        try:
-            # TBD - Puppet parameters to be added.
-            self._smgr_puppet = ServerMgrPuppet(self._args.server_manager_base_dir,
-                                                self._args.puppet_dir)
-        except:
-            self._smgr_log.log(self._smgr_log.ERROR, "Error creating instance of puppet object")
             exit()
 
         # Read the JSON file, validate for correctness and add the entries to

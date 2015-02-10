@@ -148,6 +148,42 @@ class ServerMgrDb:
         return subnet_mask
     # End get_subnet_mask
 
+    def get_server_domain(self, server_id):
+        server_domain = ""
+        if not server_id:
+            return server_domain
+        servers = self.get_server(
+            {"id" : server_id}, detail=True)
+        if not servers:
+            msg = "No server found with server_id " + server_id
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            return server_domain
+        server = servers[0]
+        server_domain = server.get('domain', "")
+        if not server_domain:
+            cluster_id = server.get('cluster_id', "")
+            if not cluster_id:
+                msg = "No domain found for server_id " + server_id
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+                return server_domain
+            clusters = self.get_cluster(
+                {"id" : cluster_id}, detail=True)
+            if not clusters:
+                msg = "No domain found for server_id %s, no cluster for cluster_id %s," \
+                    % (server_id, cluster_id)
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+                return server_domain
+            cluster = clusters[0]
+            cluster_params = eval(cluster['parameters'])
+            server_domain = cluster_params.get('domain', "")
+            if not server_domain:
+                msg = "No domain found for server_id %s, cluster_id %s" \
+                    % (server_id, cluster_id)
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+                return server_domain
+        return server_domain
+    # End get_server_domain
+
     def convert_server_config_to_new_interface(self, server):
         if not server:
             return
