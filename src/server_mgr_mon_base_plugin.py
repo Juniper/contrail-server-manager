@@ -37,12 +37,12 @@ _DEF_MON_FREQ = 300
 _DEF_MONITORING_PLUGIN = None
 _DEF_SMGR_BASE_DIR = '/opt/contrail/server_manager/'
 _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
+_DEF_INTROSPECT_PORT = 8107
 
 # Class ServerMgrDevEnvMonitoring provides a base class that can be inherited by
 # any implementation of a plugabble monitoring API that interacts with the
 # analytics node
 class ServerMgrMonBasePlugin(Thread):
-
     val = 1
     freq = 300
     _dev_env_monitoring_obj = None
@@ -204,7 +204,7 @@ class ServerMgrMonBasePlugin(Thread):
         send_inst.send()
 
     def populate_server_data_lists(self, servers, ipmi_list, hostname_list,
-                                       server_ip_list, ipmi_username_list, ipmi_password_list, root_pwd_list):
+                                   server_ip_list, ipmi_username_list, ipmi_password_list, root_pwd_list):
         for server in servers:
             server = dict(server)
             if 'ipmi_address' in server and server['ipmi_address'] \
@@ -319,20 +319,19 @@ class ServerMgrMonBasePlugin(Thread):
             'boardmanufacturer': 'board_manufacturer',
             'hardwaremodel': 'hardware_model',
             'interfaces': 'interface_name', 'physicalprocessorcount': 'physical_processor_count',
-            'processorcount'	: 'cpu_cores_count',
-            'virtual'			: 'virtual_machine',
+            'processorcount': 'cpu_cores_count',
+            'virtual'		: 'virtual_machine',
             'memorytotal'			: 'total_memory_mb',
-            'operatingsystem'		: 'os',
-            'operatingsystemrelease'	: 'os_version',
-            'osfamily'			: 'os_family',
-            'kernelversion'			: 'kernel_version',
-            'uptime_seconds'		: 'uptime_seconds',
-            'ipaddress'			: 'ip_addr',
-            'netmask'			: 'netmask',
+            'operatingsystem'		: 'os','operatingsystemrelease'	: 'os_version',
+            'osfamily'			:'os_family',
+            'kernelversion'			:'kernel_version',
+            'uptime_seconds'		:'uptime_seconds',
+            'ipaddress'			:'ip_addr',
+            'netmask'			:'netmask',
             'macaddress'			: 'macaddress'
         }[key]
 
-    def get_facter_info(self, ip, root_pwd):
+    def get_facter_info(self, hostname, ip, root_pwd):
         server_inventory_info = ServerInventoryInfo()
         # Get the total number of disks
         numdisks = self.call_subprocess('lsblk | grep disk | wc -l')
@@ -357,12 +356,13 @@ class ServerMgrMonBasePlugin(Thread):
                     if key == 'interfaces':
                         interface_list = value.split(',')
                         for name in interface_list:
-                            #Skip the loopback interface
+                            # Skip the loopback interface
                             if name.strip() == 'lo':
                                 continue
                             intinfo = interface_info()
                             intinfo.interface_name = name
                             exp = '.*_' + name + '.*$'
+                            #exp = '(^ipaddress_|^macaddress_|^netmask_).*'+name+'.*$'
                             res = re.findall(exp, filestr, re.MULTILINE)
                             for items in res:
                                 actualkey = items.split('=>')
@@ -392,11 +392,104 @@ class ServerMgrMonBasePlugin(Thread):
                         setattr(server_inventory_info, objkey, value)
                 except KeyError:
                     continue
+            server_inventory_info.name = str(hostname)
             server_inventory_info.interface_infos = intinfo_list
             self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
         else:
             self.log(self.INFO, "Could not get the Facter info for IP: %s" % ip)
 
+    def get_field_value(self, ip, root_pwd, cmd):
+        times = datetime.datetime.now()
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(ip, username='root', password=root_pwd)
+        stdin, stdout, stderr = ssh.exec_command(cmd)
+        while stdout is None:
+            time.sleep(0.1)
+            now = datetime.datetime.now()
+            diff = now - times
+            if diff.seconds > 3:
+                os.kill(p.pid, signal.SIGKILL)
+                os.waitpid(-1, os.WNOHANG)
+                syslog.syslog("command:" + cmd + " --> hanged")
+                return None
+        filestr = stdout.read()
+        fileoutput = cStringIO.StringIO(filestr)
+        if fileoutput is not None:
+            for line in fileoutput:
+                if "=>" in line:
+                    value = line.rstrip("\n").split("=>")[1].lstrip()
+                    return value
+                elif ":" not in line:
+                    return line
+                value = line.rstrip("\n").split(":")[1].lstrip()
+                return value
+
+    def get_cpu_info(self, hostname, ip, root_pwd):
+        server_inventory_info = ServerInventoryInfo()
+        # Get the other inventory information from the facter tool
+        server_inventory_info.name = str(hostname)
+        server_inventory_info.cpu_info_state = cpu_info()
+        server_inventory_info.cpu_info_state.model = self.get_field_value(ip, root_pwd,
+                                                                          'cat /proc/cpuinfo | grep "model name" | head -n 1') if self.get_field_value(
+            ip, root_pwd, 'cat /proc/cpuinfo | grep "model name" | head -n 1') else " "
+        server_inventory_info.cpu_info_state.core_count = int(self.get_field_value(ip, root_pwd,
+                                                                                   'cat /proc/cpuinfo | grep "cpu cores" | head -n 1')) if self.get_field_value(
+            ip, root_pwd, 'cat /proc/cpuinfo | grep "cpu cores" | head -n 1') else 0
+        server_inventory_info.cpu_info_state.clock_speed = self.get_field_value(ip, root_pwd,
+                                                                                'cat /proc/cpuinfo | grep "cpu MHz" | head -n 1') + " MHz" if self.get_field_value(
+            ip, root_pwd, 'cat /proc/cpuinfo | grep "cpu MHz" | head -n 1') else " "
+        server_inventory_info.cpu_info_state.num_of_threads = int(
+            self.get_field_value(ip, root_pwd, 'lscpu | grep "Thread"')) if self.get_field_value(ip, root_pwd,
+                                                                                                 'lscpu | grep "Thread"') else 0
+        self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+
+    def get_ethernet_info(self, hostname, ip, root_pwd):
+        is_ethtool = self.get_field_value(ip, root_pwd, 'which ethtool')
+        if not is_ethtool:
+            server_inventory_info = ServerInventoryInfo()
+            server_inventory_info.name = str(hostname)
+            server_inventory_info.eth_controller_state = ethernet_controller()
+            server_inventory_info.eth_controller_state.speed = " "
+            server_inventory_info.eth_controller_state.num_of_ports = " "
+            server_inventory_info.eth_controller_state.model = " "
+            self.log(self.DEBUG, "ethtool not installed on host : %s" % ip)
+        else:
+            server_inventory_info = ServerInventoryInfo()
+            server_inventory_info.name = str(hostname)
+            server_inventory_info.eth_controller_state = ethernet_controller()
+            server_inventory_info.eth_controller_state.speed = self.get_field_value(ip, root_pwd,
+                                                                                    'ethtool eth0 | grep Speed') if self.get_field_value(
+                ip, root_pwd, 'ethtool eth0 | grep Speed') else " "
+            server_inventory_info.eth_controller_state.num_of_ports = self.get_field_value(ip, root_pwd,
+                                                                                           'ethtool eth0 | grep "Supported ports"') if self.get_field_value(
+                ip, root_pwd, 'ethtool eth0 | grep "Supported ports"') else " "
+            server_inventory_info.eth_controller_state.model = self.get_field_value(ip, root_pwd,
+                                                                                    'ethtool -i eth0 | grep driver') if self.get_field_value(
+                ip, root_pwd, 'ethtool -i eth0 | grep driver') else " "
+        self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+
+    def get_memory_info(self, hostname, ip, root_pwd):
+        server_inventory_info = ServerInventoryInfo()
+        server_inventory_info.name = str(hostname)
+        server_inventory_info.mem_state = memory_info()
+        server_inventory_info.mem_state.mem_type = self.get_field_value(ip, root_pwd,
+                                                                        'dmidecode -t memory | grep -m2 "Type" | tail -n1') if self.get_field_value(
+            ip, root_pwd, 'dmidecode -t memory | grep -m2 "Type" | tail -n1') else " "
+        server_inventory_info.mem_state.mem_speed = self.get_field_value(ip, root_pwd,
+                                                                         'dmidecode -t memory | grep "Speed" | head -n1') if self.get_field_value(
+            ip, root_pwd, 'dmidecode -t memory | grep "Speed" | head -n1') else " "
+        server_inventory_info.mem_state.dimm_size = self.get_field_value(ip, root_pwd,
+                                                                         'dmidecode -t memory | grep "Size" | head -n1') if self.get_field_value(
+            ip, root_pwd, 'dmidecode -t memory | grep "Size" | head -n1') else " "
+        server_inventory_info.mem_state.num_of_dimms = int(
+            self.get_field_value(ip, root_pwd, 'dmidecode -t memory | grep "Size" | wc -l')) if self.get_field_value(ip,
+                                                                                                                     root_pwd,
+                                                                                                                     'dmidecode -t memory | grep "Size" | wc -l') else 0
+        server_inventory_info.mem_state.swap_size = self.get_field_value(ip, root_pwd,
+                                                                         'facter | egrep -w swapsize') if self.get_field_value(
+            ip, root_pwd, 'facter | egrep -w swapsize') else " "
+        self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
 
     def add_inventory(self):
         ipmi_list = list()
@@ -420,7 +513,10 @@ class ServerMgrMonBasePlugin(Thread):
     def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, root_pw):
         if action == "add":
             self.get_fru_info(hostname, ipmi, username, password)
-            self.get_facter_info(ip, root_pw)
+            self.get_facter_info(hostname, ip, root_pw)
+            self.get_cpu_info(hostname, ip, root_pw)
+            self.get_ethernet_info(hostname, ip, root_pw)
+            self.get_memory_info(hostname, ip, root_pw)
         elif action == "delete":
             self.log(self.INFO, "Deleted info of server: %s" % hostname)
             self.delete_inventory_info(hostname)

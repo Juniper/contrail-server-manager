@@ -211,7 +211,7 @@ class VncServerManager():
     def _prepare_code_defaults(self):
         code_defaults_dict = {}
         obj_list = {"server" : server_fields, "cluster": cluster_fields,
-                                            "image": image_fields} 
+                                            "image": image_fields}
         for obj_name, obj in obj_list.items():
             obj_cpy = obj.copy()
             pop_items = ["match_keys", "obj_name", "primary_keys"]
@@ -221,8 +221,8 @@ class VncServerManager():
             parameters = eval(obj_cpy.get("parameters", {}))
             obj_cpy["parameters"] = parameters
             code_defaults_dict[obj_name] = obj_cpy
-        return code_defaults_dict 
-        
+        return code_defaults_dict
+
     def __init__(self, args_str=None):
         self._args = None
         #Create an instance of logger
@@ -547,11 +547,11 @@ class VncServerManager():
         elif len(query_args) >= 1:
             match_keys_str = validation_data['match_keys']
             match_keys = eval(match_keys_str)
-            match_values = []	
+            match_values = []
             matches = self.validate_smgr_keys(query_args, match_keys)
-            self._smgr_log.log(self._smgr_log.DEBUG, 
+            self._smgr_log.log(self._smgr_log.DEBUG,
                                "match key returned: %s" % (matches))
-            self._smgr_log.log(self._smgr_log.DEBUG, 
+            self._smgr_log.log(self._smgr_log.DEBUG,
                                "select keys: %s" %(select_clause))
             match_key, match_values = matches.popitem()
             #TODO, Do we need this ?
@@ -671,7 +671,7 @@ class VncServerManager():
         for k, v in data.iteritems():
             #If json data name is not present in list of
             #allowable fields silently ignore them.
-            
+
             if k not in validation_data:
 #                data.pop(k, None)
                 remove_list.append(k)
@@ -929,14 +929,14 @@ class VncServerManager():
         return select_clause
     # end get_select_clause
 
-    def validate_smgr_keys(self, entity, 
+    def validate_smgr_keys(self, entity,
                    keys = ["id", "mac_address","tag","cluster_id", "where"]):
         found = False
         for key in keys:
 	    if key in entity:
 	        found = True
 	        match_key = key
-	        match_value = entity[key]		
+	        match_value = entity[key]
         if found == False:
 	    msg = "Match key not present"
 	    self.log_and_raise_exception(msg)
@@ -1018,7 +1018,7 @@ class VncServerManager():
                     match_dict[match_key] = match_value
                 detail = False
                 if not select_clause:
-                    select_clause = ["id", "mac_address", "ip_address", "status"] 
+                    select_clause = ["id", "mac_address", "ip_address", "status"]
                 servers = self._serverDb.get_server(
                     match_dict, detail=detail, field_list=select_clause)
         except ServerMgrException as e:
@@ -1080,7 +1080,7 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(servers)))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
-	
+
 
         # Convert some of the fields in server entry to match what is accepted for put
         for x in servers:
@@ -1206,7 +1206,7 @@ class VncServerManager():
                     match_dict[match_key] = match_value
                 detail = ret_data["detail"]
             images = self._serverDb.get_image(match_dict,
-                                              detail=detail, 
+                                              detail=detail,
                                               field_list=select_clause)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -1452,7 +1452,7 @@ class VncServerManager():
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
-            
+
 
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER)
@@ -1475,7 +1475,7 @@ class VncServerManager():
 
     def plug_mgmt_intf_details(self, server):
         if 'network' in server and server['network']:
-            intf_dict = self.get_interfaces(server)        
+            intf_dict = self.get_interfaces(server)
             network_dict = server['network']
             mgmt_intf_name = network_dict['management_interface']
             mgmt_intf_obj = intf_dict[mgmt_intf_name]
@@ -1483,8 +1483,8 @@ class VncServerManager():
             server['mac_address'] = mgmt_intf_obj['mac_address']
             server['ip_address'] = mgmt_intf_obj['ip']
             server['subnet_mask'] = mgmt_intf_obj['mask']
-            server['gateway'] = mgmt_intf_obj['d_gw']   
-            if 'parameters' in server: 
+            server['gateway'] = mgmt_intf_obj['d_gw']
+            if 'parameters' in server:
                 server_parameters = server['parameters']
             else:
                 server_parameters = {}
@@ -1625,7 +1625,7 @@ class VncServerManager():
 
         self._smgr_trans_log.log(bottle.request,
             self._smgr_trans_log.PUT_SMGR_CFG_TAG)
-        msg = "Tags add/Modify Success" 
+        msg = "Tags add/Modify Success"
         resp_msg = self.form_operartion_data(msg, 0, self._tags_dict)
         return resp_msg
     # end put_server_tags
@@ -1636,11 +1636,11 @@ class VncServerManager():
         return_data['return_code'] = ret_code
         return_data['return_msg'] = msg
         return_data['return_data'] = data
-        
+
         return_data_str = print_rest_response(return_data)
-        
+
         return return_data_str
-       
+
     def validate_package_id(self, package_id):
         #ID shouldn't have only apha-numerice and "_"
         #id can be none or empty, if server is discovered
@@ -1651,7 +1651,7 @@ class VncServerManager():
         if len(is_id_allowed) == 0:
             return False
         return True
-    
+
 
     # API Call to add image file to server manager (file is copied at
     # <default_base_path>/images/filename.iso and distro, profile
@@ -1666,13 +1666,13 @@ class VncServerManager():
         if (image_type not in [
                 "centos", "fedora", "ubuntu",
                 "contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]):
-            msg = "Invalid Image type for %s" % (image_id) 
+            msg = "Invalid Image type for %s" % (image_id)
             resp_msg = self.form_operartion_data(msg, ERR_IMG_TYPE_INVALID, None)
             abort(404, resp_msg)
         db_images = self._serverDb.get_image(
             {'id' : image_id}, detail=False)
         if db_images:
-            msg = "image %s already exists" %(image_id) 
+            msg = "image %s already exists" %(image_id)
             resp_msg = self.form_operartion_data(msg, ERR_IMG_EXISTS, None)
             abort(404, resp_msg)
 
@@ -1695,7 +1695,7 @@ class VncServerManager():
                 if not self.validate_package_id(image_id):
                     msg =  ("Id given %s, Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
                     self.log_and_raise_exception(msg)
- 
+
                 puppet_manifest_version = self._create_repo(
                     image_id, image_type, image_version, dest)
                 image_params['puppet_manifest_version'] = \
@@ -1779,7 +1779,7 @@ class VncServerManager():
             subprocess.check_call(cmd, shell=True)
             # If the untarred file list has environment directory, copy it's
             # contents to /etc/puppet/environments. This is where the new
-            # restructured contrail puppet labs modules are going to be 
+            # restructured contrail puppet labs modules are going to be
             # maintained. The old logic is being maintained for safety till
             # the new refactored code is well tested and confirmed to be working.
             # not environment directory can't contain "-". replace with "_".
@@ -2377,8 +2377,8 @@ class VncServerManager():
 
     def log_and_raise_exception(self, msg, err_code = ERR_OPR_ERROR):
          self._smgr_log.log(self._smgr_log.ERROR, msg)
-         raise ServerMgrException(msg, err_code)         
- 
+         raise ServerMgrException(msg, err_code)
+
 
     def get_package_image(self, package_image_id):
         package_image = {}
@@ -2446,7 +2446,7 @@ class VncServerManager():
                 return_intf_dict[name] = intf_dict
             return return_intf_dict
         return None
-            
+
     # This call returns information about a provided server.
     # If no server if provided, information about all the servers
     # in server manager configuration is returned.
@@ -2541,7 +2541,7 @@ class VncServerManager():
                     msg = "Missing ip for " + server_id
                     server['ip_address'] = ''
 
- 
+
 
                 reimage_parameters = {}
                 if ((image['type'] == 'esxi5.1') or
@@ -2588,7 +2588,7 @@ class VncServerManager():
 #                self._do_reimage_server(
 #                    image, package_image_id, reimage_parameters)
 
-                _mandatory_reimage_params = {"server_password": "password", 
+                _mandatory_reimage_params = {"server_password": "password",
                             "server_gateway": "gateway","server_domain":"domain",
                             "ipmi_address":"ipmi_address","server_ifname" :"interface_name"}
 
@@ -2621,7 +2621,7 @@ class VncServerManager():
                 reimage_status['server'].append(server_status)
             # end for server in servers
 
-            gevent.spawn(self._reimage_server_cobbler, 
+            gevent.spawn(self._reimage_server_cobbler,
                          reimage_server_list,
                          reboot_server_list,
                          do_reboot)
@@ -2638,7 +2638,7 @@ class VncServerManager():
                                      self._smgr_trans_log.SMGR_REIMAGE,
                                      False)
             print 'Exception error is: %s' % e
-            resp_msg = self.form_operartion_data("Error in re-imaging server", 
+            resp_msg = self.form_operartion_data("Error in re-imaging server",
                                                  ERR_GENERAL_ERROR,
                                                  None)
             abort(404, resp_msg)
@@ -2656,7 +2656,7 @@ class VncServerManager():
             network_dict = eval(network)
             mgmt_intf = network_dict['management_interface']
             interface_list = network_dict["interfaces"]
-            i = 0 
+            i = 0
             device_str = "#!/bin/bash\n"
             for intf in interface_list:
                 i += 1
@@ -2688,15 +2688,15 @@ class VncServerManager():
                             (name)
                     else:
                         device_str+= ("python interface_setup.py --device %s --ip %s\n") % \
-                            (name, ip_addr)    
+                            (name, ip_addr)
                     execute_script = True
             sh_file_name = "/var/www/html/contrail/config_file/%s.sh" % (server['id'])
-            f = open(sh_file_name, "w")  
+            f = open(sh_file_name, "w")
             f.write(device_str)
             f.close()
         return execute_script
 
-    def _reimage_server_cobbler(self, reimage_server_list, 
+    def _reimage_server_cobbler(self, reimage_server_list,
                                 reboot_server_list, do_reboot):
         self._smgr_log.log(self._smgr_log.DEBUG, "reimage_server_cobbler")
         server = {}
@@ -2816,8 +2816,8 @@ class VncServerManager():
 		control_data_intf = contrail_dict.get('control_data_interface', "")
 		interface_list = self.get_interfaces(server)
 		intf_dict = {}
-		control_ip = interface_list[control_data_intf] ['ip']	
-		control_mask = interface_list[control_data_intf] ['mask']	
+		control_ip = interface_list[control_data_intf] ['ip']
+		control_mask = interface_list[control_data_intf] ['mask']
  		ip_prefix = "%s/%s" %(control_ip, control_mask)
 		ip_obj = IPNetwork(ip_prefix)
 		intf_dict[control_data_intf] = {"ip_address":str(ip_obj)}
