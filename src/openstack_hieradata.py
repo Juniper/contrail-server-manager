@@ -63,7 +63,7 @@ openstack::cinder::volume_size: '8G'
 
 ######## Swift
 openstack::swift::password: '$__openstack_password__'
-openstack::swift::hash_suffix: 'pop-bang'
+openstack::swift::hash_suffix: ''
 
 ######## Nova
 openstack::nova::libvirt_type: 'kvm'
@@ -71,17 +71,17 @@ openstack::nova::password: '$__openstack_password__'
 
 ######## Neutron
 openstack::neutron::password: '$__openstack_password__'
-openstack::neutron::shared_secret: 'by-sa-bo'
+openstack::neutron::shared_secret: ''
 neutron::bind_port: '9697'
 
 ######## Ceilometer
 openstack::ceilometer::mongo::password: '$__openstack_password__'
 openstack::ceilometer::password: '$__openstack_password__'
-openstack::ceilometer::meteringsecret: 'ceilometersecretkey'
+openstack::ceilometer::meteringsecret: ''
 
 ######## Heat
 openstack::heat::password: '$__openstack_password__'
-openstack::heat::encryption_key: 'heatsecretkey'
+openstack::heat::encryption_key: ''
 
 ######## Horizon
 openstack::horizon::secret_key: '$__openstack_password__'
