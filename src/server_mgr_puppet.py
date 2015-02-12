@@ -2006,10 +2006,16 @@ $__contrail_quantum_servers__
         # Get all values needed to fill he template.
         self_ip = server.get("ip_address", "")
         openstack_ip = cluster_params.get("internal_vip", None)
+
+        os_ip_list =  [self.get_control_ip(provision_params, x["ip_address"].encode('ascii')) \
+                    for x in cluster_servers if 'openstack' in set(eval(x['roles']))]
+
+        config_ip_list =  [self.get_control_ip(provision_params, x["ip_address"].encode('ascii')) \
+                    for x in cluster_servers if 'config' in set(eval(x['roles']))]
+
         if openstack_ip != None and openstack_ip != "":
             mysql_allowed_hosts.append(openstack_ip)
-        mysql_allowed_hosts = mysql_allowed_hosts + list(set(role_ips_dict['openstack'] + role_ips_dict['config']))
-
+        mysql_allowed_hosts = mysql_allowed_hosts + list(set(os_ip_list + config_ip_list ))
 
         if openstack_ip is None or openstack_ip == '':
             if self_ip in role_ips_dict['openstack']:
