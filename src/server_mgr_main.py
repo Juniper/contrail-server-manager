@@ -2481,6 +2481,22 @@ class VncServerManager():
         return reimage_status
     # end reimage_server
 
+    def get_member_interfaces(self, network_dict, member_intfs):
+        new_member_list = []
+        if not member_intfs:
+            return new_member_list
+        interface_list = network_dict["interfaces"]
+        for intf in interface_list:
+            name = intf.get('name', '')
+            if name and name in member_intfs:
+                mac_address = intf.get('mac_address', '')
+                if mac_address:
+                    new_member_list.append(mac_address)
+                else:
+                    new_member_list.append(name)
+        return new_member_list
+            
+    # end get_member_interfaces
 
     def build_server_cfg(self, server):
         #Fetch network realted data and push to reimage
@@ -2494,22 +2510,27 @@ class VncServerManager():
             device_str = "#!/bin/bash\n"
             for intf in interface_list:
                 i += 1
-                name = intf['name']
+                if 'mac_address' in intf:
+                    name = intf['mac_address']
+                else:
+                    name = intf['name']
                 ip_addr = intf.get('ip_address', None)
                 if ip_addr is None:
                     continue
-                if name.lower() == mgmt_intf.lower():
+                if intf['name'].lower() == mgmt_intf.lower():
                     continue
 
                 ip = IPNetwork(ip_addr)
                 d_gw = intf.get('default_gateway', None)
                 dhcp = intf.get('dhcp', None)
                 type = intf.get('type', None)
-                bond_opts = intf.get('bond_options', None)
-                mem_intfs = intf.get('member_interfaces', None)
-
                 #form string
                 if type and type.lower() == 'bond':
+                    bond_opts = intf.get('bond_options', {})
+                    member_intfs = intf.get('member_interfaces', [])
+                    if member_intfs:
+                        mem_intfs = self.get_member_interfaces(network_dict,
+                                                               member_intfs)
                     device_str+= ("python interface_setup.py \
 --device %s --members %s --bond-opts \"%s\" --ip %s\n") % \
                         (name,
