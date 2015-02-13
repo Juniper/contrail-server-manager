@@ -17,6 +17,7 @@ import cStringIO
 import re
 import socket
 import pdb
+import re
 import ast
 from threading import Thread
 from server_mgr_exception import ServerMgrException as ServerMgrException
@@ -458,9 +459,9 @@ class ServerMgrMonBasePlugin(Thread):
             server_inventory_info = ServerInventoryInfo()
             server_inventory_info.name = str(hostname)
             server_inventory_info.eth_controller_state = ethernet_controller()
-            server_inventory_info.eth_controller_state.speed = self.get_field_value(ip, root_pwd,
-                                                                                    'ethtool eth0 | grep Speed') if self.get_field_value(
-                ip, root_pwd, 'ethtool eth0 | grep Speed') else " "
+            server_inventory_info.eth_controller_state.speed = self.get_field_value(ip, root_pwd, 'ethtool eth0 | grep Speed') if self.get_field_value(ip, root_pwd, 'ethtool eth0 | grep Speed') else " "
+            temp_var = re.findall('\d+|\D+', server_inventory_info.eth_controller_state.speed)
+            server_inventory_info.eth_controller_state.speed = temp_var[0] + " " + temp_var[1]
             server_inventory_info.eth_controller_state.num_of_ports = self.get_field_value(ip, root_pwd,
                                                                                            'ethtool eth0 | grep "Supported ports"') if self.get_field_value(
                 ip, root_pwd, 'ethtool eth0 | grep "Supported ports"') else " "
