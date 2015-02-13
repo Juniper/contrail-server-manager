@@ -340,7 +340,7 @@ class ServerMgrMonBasePlugin(Thread):
         # Get the other inventory information from the facter tool
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ip, username='root', password=root_pwd)
+        ssh.connect(ip, username='root', key_filename="/root/.ssh/server_mgr_rsa", timeout=3)
         stdin, stdout, stderr = ssh.exec_command('facter')
         filestr = stdout.read()
         fileoutput = cStringIO.StringIO(filestr)
@@ -403,17 +403,10 @@ class ServerMgrMonBasePlugin(Thread):
         times = datetime.datetime.now()
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ip, username='root', password=root_pwd)
+        ssh.connect(ip, username='root', key_filename="/root/.ssh/server_mgr_rsa", timeout=3)
         stdin, stdout, stderr = ssh.exec_command(cmd)
-        while stdout is None:
-            time.sleep(0.1)
-            now = datetime.datetime.now()
-            diff = now - times
-            if diff.seconds > 3:
-                os.kill(p.pid, signal.SIGKILL)
-                os.waitpid(-1, os.WNOHANG)
-                syslog.syslog("command:" + cmd + " --> hanged")
-                return None
+        if stdout is None:
+            return None
         filestr = stdout.read()
         fileoutput = cStringIO.StringIO(filestr)
         if fileoutput is not None:

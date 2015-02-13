@@ -204,4 +204,13 @@ fi
 #blacklist mei module for ocp
 echo "blacklist mei" >> /etc/modprobe.d/blacklist.conf
 wget http://$server/cblr/svc/op/trig/mode/post/system/$system_name
+#SSH keyless access - Copy public key of Server Manager node into authorized keys dir
+mkdir -p /root/.ssh/
+if [ -f  /root/.ssh/authorized_keys ];
+then
+    rm -rf /root/.ssh/authorized_keys
+fi
+cd  /root/.ssh/
+wget http://$server/kickstarts/server_mgr_rsa.pub
+cat ./server_mgr_rsa.pub >> /root/.ssh/authorized_keys
 %end
