@@ -1736,7 +1736,12 @@ $__contrail_quantum_servers__
         data += '    stage{ \'compute\': }\n'
         data += '    stage{ \'pre\': }\n'
         data += '    stage{ \'post\': }\n'
-        data += '    Stage[\'pre\']->Stage[\'first\']->Stage[\'main\']->Stage[\'last\']->Stage[\'compute\']->Stage[\'post\']\n'
+	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+            data += '    stage{ \'storage\': }\n'
+        data += '    Stage[\'pre\']->Stage[\'first\']->Stage[\'main\']->Stage[\'last\']->Stage[\'compute\']->'
+	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+            data += 'Stage[\'storage\']->'
+        data += 'Stage[\'post\']\n'
 
         # Add pre role
         data += '    class { \'::contrail::provision_start\' : state => \'provision_started\', stage => \'pre\' }\n'
@@ -1772,6 +1777,9 @@ $__contrail_quantum_servers__
         # Add compute role
         if 'compute' in server['roles']:
             data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
+        # Add Storage Role
+	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+            data += '    class { \'::contrail::profile::storage\' :  stage => \'storage\' }\n'
         # Add post role
         data += '    class { \'::contrail::provision_complete\' : state => \'provision_completed\', stage => \'post\' }\n'
 
@@ -1781,6 +1789,55 @@ $__contrail_quantum_servers__
         os.chmod(site_file, 0644)
         # end with
     # end def add_node_entry
+
+    def add_cluster_parameters(self, cluster_params):
+        cluster_params_mapping = {
+            "uuid" : ["uuid", "string"],
+            "internal_vip" : ["internal_vip", "string"],
+            "external_vip" : ["external_vip", "string"],
+            "contrail_internal_vip" : ["contrail_internal_vip", "string"],
+            "contrail_external_vip" : ["contrail_external_vip", "string"],
+            "analytics_data_ttl" : ["analytics_data_ttl", "integer"],
+            "analytics_syslog_port" : ["analytics_syslog_port", "integer"],
+            "database_dir" : ["database_dir", "string"],
+            "analytics_data_dir" : ["analytics_data_dir", "string"],
+            "ssd_data_dir" : ["ssd_data_dir", "string"],
+            "keystone_ip" : ["keystone_ip", "string"],
+            "keystone_password" : ["keystone_admin_password", "string"],
+            "service_token" : ["keystone_service_token", "string"],
+            "keystone_username" : ["keystone_admin_user", "string"],
+            "keystone_tenant" : ["keystone_admin_tenant", "string"],
+            "keystone_service_tenant" : ["keystone_service_tenant", "string"],
+            "keystone_region_name" : ["keystone_region_name", "string"],
+            "multi_tenancy" : ["multi_tenancy", "boolean"],
+            "zookeeper_ip_list" : ["zookeeper_ip_list", "array"],
+            "haproxy" : ["haproxy_flag", "string"],
+            "hc_interval" : ["hc_interval", "integer"],
+            "nfs_server" : ["nfs_server", "string"],
+            "nfs_glance_path" : ["nfs_glance_path", "string"],
+            "database_token" : ["database_initial_token", "integer"],
+            "encapsulation_priority" : ["encap_priority", "string"],
+            "router_asn" : ["router_asn", "string"],
+            "external_bgp" : ["external_bgp", "string"],
+            "use_certificates" : ["use_certs", "boolean"]
+        }
+
+        data = ''
+
+        # Go thru all the keys above and if present, add to parameter list
+        for k,v in cluster_params_mapping.items():
+            if k in cluster_params:
+                # if value is text, add with quotes, else without the quotes.
+                if v[1].lower() == "string":
+                    data += 'contrail::params::' + v[0] + ': "' + \
+                        cluster_params.get(k, "") + '"\n'
+                else:
+                    data += 'contrail::params::' + v[0] + ': ' + \
+                        cluster_params.get(k, "") + '\n'
+                # end if-else
+        # end for
+        return data
+    # end add cluster_parameters
 
     def build_contrail_hiera_file(
         self, hiera_filename, provision_params,
@@ -1798,9 +1855,16 @@ $__contrail_quantum_servers__
 
         data += 'contrail::params::host_ip: "%s"\n' %(
             self.get_control_ip(provision_params, server.get('ip_address', "")))
-        if "uuid" in cluster_params:
-            data += 'contrail::params::uuid: "%s"\n' %(
-                cluster_params.get('uuid', ""))
+
+        #Upgrade Kernel
+        if 'kernel_upgrade' in provision_params and \
+            'kernel_version' in provision_params and \
+            provision_params['kernel_version'] != '' :
+            data += 'contrail::params::kernel_upgrade: "%s"\n' %(
+                provision_params.get('kernel_upgrade', DEFAULT_KERNEL_UPGRADE))
+            data += 'contrail::params::kernel_version: "%s"\n' %(
+                provision_params.get('kernel_version', DEFAULT_KERNEL_VERSION))
+
         role_ips = {}
         role_ids = {}
         role_passwd = {}
@@ -1826,15 +1890,32 @@ $__contrail_quantum_servers__
             data += 'contrail::params::%s_user_list: %s\n' %(
                 role, str(role_users[role]))
 
-        if "internal_vip" in cluster_params:
-            data += 'contrail::params::internal_vip: "%s"\n' %(
-                cluster_params.get('internal_vip', ""))
-        if "contrail_internal_vip" in cluster_params:
-            data += 'contrail::params::contrail_internal_vip: "%s"\n' %(
-                cluster_params.get('contrail_internal_vip', ""))
-        if "external_vip" in cluster_params:
-            data += 'contrail::params::external_vip: "%s"\n' %(
-                cluster_params.get('external_vip', ""))
+        # Retrieve and add all the cluster parameters specified.
+        data += self.add_cluster_parameters(cluster_params)
+        # Handle any other additional parameters to be added to yaml file.
+        # openstack_mgmt_ip_list
+        openstack_mgmt_ip_list = [x["ip_address"].encode('ascii') \
+                for x in cluster_servers if "openstack" in set(eval(x['roles']))]
+        data += 'contrail::params::openstack_mgmt_ip_list: %s\n' %(
+            str(openstack_mgmt_ip_list))
+        # host_non_mgmt_ip
+        server_mgmt_ip = server.get("ip_address", "").encode('ascii')
+        server_control_ip = self.get_control_ip(
+            provision_params, server_mgmt_ip)
+        if (server_control_ip != server_mgmt_ip):
+            data += 'contrail::params::host_non_mgmt_ip: "%s"\n' %(
+                server_control_ip)
+            # host_non_mgmt_gateway
+            control_intf_dict = provision_params.get("control_net", "")
+            if control_intf_dict:
+                server_control_intf = eval(control_intf_dict.get(server_mgmt_ip, ""))
+                if server_control_intf:
+                    intf_name, intf_details = server_control_intf.popitem()
+                    data += 'contrail::params::host_non_mgmt_gateway: "%s"\n' %(
+                        intf_details.get("gateway", ""))
+                # end if server_control_intf
+            # end if control_intf_dict
+        # enf if server_control_ip...
 
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
@@ -1849,26 +1930,17 @@ $__contrail_quantum_servers__
             data += 'contrail::params::storage_enabled: "%s"\n' %(provision_params['contrail-storage-enabled'])
             data += 'contrail::params::live_migration_storage_scope: "%s"\n' %(provision_params['live_migration_storage_scope'])
             data += 'contrail::params::live_migration_host: "%s"\n' %(provision_params['live_migration_host'])
-            storage_mon_hosts = [ x.encode('ascii') for x in provision_params['storage_monitor_hosts']]
-            data += 'contrail::params::storage_monitor_hosts: %s\n' %(str(storage_mon_hosts))
+            #storage_mon_hosts = [ x.encode('ascii') for x in provision_params['storage_monitor_hosts']]
+            storage_mon_hosts = ''
+            for key in provision_params['storage_monitor_hosts']:
+                storage_mon_hosts += '''%s, ''' % key
+            #storage_mon_hosts += storage_mon_hosts+[:len(storage_mon_hosts+)-1]+'''\"'''
+            data += 'contrail::params::storage_monitor_hosts: "%s"\n' %(str(storage_mon_hosts))
             if 'storage_server_disks' in provision_params:
                 storage_disks = [  x.encode('ascii') for x in provision_params['storage_server_disks']]
                 data += 'contrail::params::storage_osd_disks: %s\n' %(str(storage_disks))
-        else:
-            data += 'contrail::params::host_roles: []\n'
-            data += 'contrail::params::storage_num_osd: ""\n'
-            data += 'contrail::params::storage_fsid: ""\n'
-            data += 'contrail::params::storage_num_hosts: 0\n'
-            data += 'contrail::params::storage_virsh_uuid: ""\n'
-            data += 'contrail::params::storage_monitor_secret: ""\n'
-            data += 'contrail::params::storage_admin_key: ""\n'
-            data += 'contrail::params::osd_bootstrap_key: ""\n'
-            data += 'contrail::params::storage_enabled: ""\n'
-            data += 'contrail::params::live_migration_storage_scope: ""\n'
-            data += 'contrail::params::live_migration_host: ""\n'
-            data += 'contrail::params::storage_monitor_hosts: []\n'
-            data += 'contrail::params::storage_osd_disks: []\n'
-            
+            else:
+                data += 'contrail::params::storage_osd_disks: []\n' 
 
         with open(hiera_filename, "w") as site_fh:
             site_fh.write(data)
@@ -1901,10 +1973,8 @@ $__contrail_quantum_servers__
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
         mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
-        mysql_service_password = cluster_params.get("mysql_service_password", "c0ntrail123")
-        keystone_admin_token = cluster_params.get("service_token", "c0ntrail123")
+        keystone_admin_token = cluster_params.get("service_token", "contrail123")
         keystone_admin_password = cluster_params.get("keystone_password", "contrail123")
-        openstack_password = cluster_params.get("openstack_passwd", "contrail123")
         subnet_address = str(IPNetwork(
             openstack_ip + "/" + subnet_mask).network)
         subnet_octets = subnet_address.split(".")
@@ -1919,11 +1989,11 @@ $__contrail_quantum_servers__
             '__openstack_ip__': openstack_ip,
             '__subnet_mask__': subnet_mask,
             '__mysql_root_password__': mysql_root_password,
-            '__mysql_service_password__': mysql_service_password,
+            '__mysql_service_password__': mysql_root_password,
             '__keystone_admin_token__': keystone_admin_token,
             '__keystone_admin_password__': keystone_admin_password,
             '__mysql_allowed_hosts__': (', '.join("'" + item + "'" for item in mysql_allowed_hosts)),
-            '__openstack_password__': openstack_password
+            '__openstack_password__': keystone_admin_password
         }
         data = openstack_hieradata.template.safe_substitute(template_vals)
         outfile = open(hiera_filename, 'w')
@@ -1968,28 +2038,12 @@ $__contrail_quantum_servers__
         # Now add a new node entry
         self.add_node_entry(
             site_file, provision_params, server, cluster, cluster_servers)
+
         # Add entry for the server to environment mapping in 
         # node_mapping.json file.
-	try:
-            node_env_dict = {}
-            try:
-		with open(
-		    self.smgr_base_dir+self._node_env_map_file,
-		    "r") as env_file:
-		    node_env_dict = json.load(env_file)
-		# end with
-            except:
-                pass
-            node_env_dict[server_fqdn] = env_name
-	    with open(
-                self.smgr_base_dir+self._node_env_map_file,
-                "w") as env_file:
-		json.dump(
-                    node_env_dict, env_file,
-                    sort_keys = True, indent = 4)
-            # end with
-	except:
-	    pass
+        self.update_node_map_file(provision_params['server_id'],
+                                  provision_params['domain'],
+                                  env_name)
     # end def new_provision_server
 
     # Function to remove puppet files and entries created when provisioning the server. This is called
@@ -1998,26 +2052,7 @@ $__contrail_quantum_servers__
         server_fqdn = server_id + "." + server_domain
         # Remove node to environment mapping from node_mapping.json file.
 	node_env_dict = {}
-        env_name = None
-	try:
-	    with open(
-		self.smgr_base_dir+self._node_env_map_file,
-		"r") as env_file:
-		node_env_dict = json.load(env_file)
-	    # end with
-	    env_name = node_env_dict.pop(server_fqdn, None)
-	    try:
-		with open(
-		    self.smgr_base_dir+self._node_env_map_file,
-		    "w") as env_file:
-		    json.dump(
-			node_env_dict, env_file,
-			sort_keys = True, indent = 4)
-		# end with
-	    except:
-		pass
-	except:
-	    pass
+        env_name = self.update_node_map_file(server_id, server_domain, None)
         if env_name is None:
             return
         # Remove server node entry from site.pp.
@@ -2036,6 +2071,52 @@ $__contrail_quantum_servers__
 	except:
 	    pass
     # end new_unprovision_server()
+
+
+    # env_name empty string or None is to remove the entry from the map file.
+    # env_name value specified will be updated to the map file.
+    # env_name could be valid one or invalid manifest.
+    #        invalid valid manifest is used to turn off the agent puppet run
+    # server_id and domain are required for both update and delete of an entry
+    def update_node_map_file(self, server_id, server_domain, env_name):
+        if not server_id or not server_domain:
+            return None
+
+        server_fqdn = server_id + "." + server_domain
+        node_env_map_file = self.smgr_base_dir+self._node_env_map_file
+        
+        try:
+            with open(node_env_map_file, "r") as env_file:
+                node_env_dict = json.load(env_file)
+            # end with
+        except:
+            msg = "Not able open environment map file %s" % (node_env_map_file)
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            return None
+
+        if env_name:
+            node_env_dict[server_fqdn] = env_name
+            msg = "Add/Modify map file with env_name %s for server %s" % (env_name, server_fqdn)
+            self._smgr_log.log(self._smgr_log.DEBUG, msg)
+        else:
+            env_name = node_env_dict.pop(server_fqdn, None)
+            msg = "Remove server from map file for server %s" % (server_fqdn)
+            self._smgr_log.log(self._smgr_log.DEBUG, msg)
+            if not env_name:
+                return env_name
+
+        try:
+            with open(node_env_map_file, "w") as env_file:
+                json.dump(node_env_dict, env_file, sort_keys = True,
+                          indent = 4)
+            # end with
+        except:
+            msg = "Not able open environment map file %s for update" % (node_env_map_file)
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            return None
+        return env_name
+    # end update_node_map_file
+
 
     def provision_server(
         self, provision_params, server, cluster, cluster_servers):

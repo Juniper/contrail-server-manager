@@ -297,13 +297,23 @@ class VncServerManager():
             print "Error connecting to cobbler"
             exit()
 
+        # Create an instance of puppet interface class.
+        try:
+            # TBD - Puppet parameters to be added.
+            self._smgr_puppet = ServerMgrPuppet(self._args.server_manager_base_dir,
+                                                self._args.puppet_dir)
+        except:
+            self._smgr_log.log(self._smgr_log.ERROR, "Error creating instance of puppet object")
+            exit()
+
+
         try:
             # needed for testing...
             status_thread_config = {}
             status_thread_config['listen_ip'] = self._args.listen_ip_addr
             status_thread_config['listen_port'] = '9002'
             status_thread_config['base_obj'] = self._monitoring_base_plugin_obj
-
+            status_thread_config['smgr_puppet'] = self._smgr_puppet
             status_thread = ServerMgrStatusThread(
                             None, "Status-Thread", status_thread_config)
             # Make the thread as daemon
@@ -312,15 +322,6 @@ class VncServerManager():
         except:
             self._smgr_log.log(self._smgr_log.ERROR,
                      "Error starting the status thread")
-            exit()
-
-        # Create an instance of puppet interface class.
-        try:
-            # TBD - Puppet parameters to be added.
-            self._smgr_puppet = ServerMgrPuppet(self._args.server_manager_base_dir,
-                                                self._args.puppet_dir)
-        except:
-            self._smgr_log.log(self._smgr_log.ERROR, "Error creating instance of puppet object")
             exit()
 
         # Read the JSON file, validate for correctness and add the entries to
@@ -1437,6 +1438,17 @@ class VncServerManager():
                     cur_cluster["parameters"].update({"uuid": str_uuid})
                     cur_cluster["parameters"].update({"storage_fsid": storage_fsid})
                     cur_cluster["parameters"].update({"storage_virsh_uuid": storage_virsh_uuid})
+                    service_token = cur_cluster["parameters"].get(
+                        "service_token", "")
+                    if not service_token:
+                        try:
+                            service_token = (subprocess.Popen(
+                                ["openssl", "rand", "-hex", "10"],
+                                stdout=subprocess.PIPE).communicate()[0]).rstrip()
+                        except:
+                            service_token = "contrail123"
+                    cur_cluster["parameters"].update(
+                        {"service_token": service_token})
                     self._smgr_log.log(self._smgr_log.INFO, "Cluster Data %s" % cur_cluster)
                     self._serverDb.add_cluster(cur_cluster)
         except ServerMgrException as e:
@@ -2817,11 +2829,16 @@ class VncServerManager():
 		control_data_intf = contrail_dict.get('control_data_interface', "")
 		interface_list = self.get_interfaces(server)
 		intf_dict = {}
-		control_ip = interface_list[control_data_intf] ['ip']
-		control_mask = interface_list[control_data_intf] ['mask']
+
+		control_ip = interface_list[control_data_intf] ['ip']	
+		control_mask = interface_list[control_data_intf] ['mask']	
+		control_gway = interface_list[control_data_intf].get('d_gw', "")
  		ip_prefix = "%s/%s" %(control_ip, control_mask)
 		ip_obj = IPNetwork(ip_prefix)
-		intf_dict[control_data_intf] = {"ip_address":str(ip_obj)}
+		intf_dict[control_data_intf] = {
+                    "ip_address" : str(ip_obj),
+                    "gateway" : str(control_gway)
+                }
 	        server_control_list[server['ip_address']] = str(intf_dict)
             else:
                 intf_control = server['intf_control']
