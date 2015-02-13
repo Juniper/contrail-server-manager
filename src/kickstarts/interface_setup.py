@@ -63,6 +63,31 @@ class BaseInterface(object):
         self.bond_opts_str = ''
         self.mac_list = {}
         self.tempfile = NamedTemporaryFile(delete=False)
+        self.intf_mac_mapping = self.gen_intf_mac_mapping()
+        self.populate_device()
+
+    def gen_intf_mac_mapping(self):
+        sys_dir = '/sys/class/net/'
+        mac_map = {}
+        for device in os.listdir(sys_dir):
+            mac = os.popen('cat %s/%s/address'%(sys_dir, device)).read()
+            mac_map[mac.strip()] = device
+        return mac_map
+
+    def populate_device(self):
+        if self.is_valid_mac(self.device):
+            log.info("mac address is %s", self.device)
+            self.device = self.intf_mac_mapping.get(self.device, '')
+            if not self.device:
+                log.warn("mac address is not present in the system")
+                return
+        members = []
+        for i in xrange(len(self.members)):
+            if self.is_valid_mac(self.members[i]):
+                log.info("mac address is %s", self.members[i])
+                self.members[i] = self.intf_mac_mapping.get(self.members[i], '')
+                if not self.members[i]:
+                    log.warn("mac address is not present in the system")
 
     def validate_bond_opts(self):
         for key in list(self.bond_opts):
@@ -406,12 +431,12 @@ def parse_cli(args):
     parser.add_argument('--device', 
                         action='store', 
                         required=True,
-                        help='Interface Name')
+                        help='Interface Name or Mac address')
     parser.add_argument('--members', 
                         action='store',
                         default=[],
                         nargs='+',
-                        help='Name of Member interfaces')
+                        help='Name of Member interfaces or Mac addresses')
     parser.add_argument('--ip', 
                         action='store',
                         help='IP address of the new Interface')
