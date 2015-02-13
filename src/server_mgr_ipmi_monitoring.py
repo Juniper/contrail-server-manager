@@ -10,6 +10,9 @@ monkey.patch_all(thread=not 'unittest' in sys.modules)
 import gevent
 import cStringIO
 import re
+from StringIO import StringIO
+import pycurl
+import json
 import socket
 import pdb
 import paramiko
@@ -32,11 +35,13 @@ from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 # Server Manager opens a Sandesh Connection to the Analytics node that hosts the
 # Database to which the monitor pushes device environment information.
 class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
-    def __init__(self, val, frequency, collectors_ip=None):
+    def __init__(self, val, frequency, smgr_ip=None, smgr_port=None, collectors_ip=None):
         ''' Constructor '''
         ServerMgrMonBasePlugin.__init__(self)
         self.base_obj = ServerMgrMonBasePlugin()
         self.val = val
+        self.smgr_ip = smgr_ip
+        self.smgr_port = smgr_port
         self.freq = float(frequency)
         self._serverDb = None
         self._collectors_ip = collectors_ip
@@ -62,6 +67,22 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
+    # Packages and sends a REST API call to the ServerManager node
+    def send_run_inventory_request(self, ip, port, payload):
+        try:
+            response = StringIO()
+            headers = ["Content-Type:application/json"]
+            url = "http://%s:%s/run_inventory" % (ip, port)
+            conn = pycurl.Curl()
+            conn.setopt(pycurl.URL, url)
+            conn.setopt(pycurl.HTTPHEADER, headers)
+            conn.setopt(pycurl.POST, 1)
+            conn.setopt(pycurl.POSTFIELDS, '%s' % json.dumps(payload))
+            conn.setopt(pycurl.WRITEFUNCTION, response.write)
+            conn.perform()
+            return response.getvalue()
+        except Exception as e:
+            return None
 
     def return_collector_ip(self):
         return self._collectors_ip
@@ -100,9 +121,12 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                                 ipmi_data.append(ipmidata)
             except ValueError:
                 pass
+            self.send_ipmi_stats(ipmi_data, hostname, "ipmi_data")
+            return True
         else:
             self.base_obj.log("info", "IPMI Polling failed for " + str(ip))
-        self.send_ipmi_stats(ipmi_data, hostname, "ipmi_data")
+            return False
+
 
 
     def fetch_and_process_chassis(self, hostname, ip, username, password):
@@ -183,13 +207,17 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.call_send(ipmi_stats_trace)
 
     def gevent_runner_func(self, hostname, ip, username, password, supported_sensors, sel_log_dict):
+        return_dict = dict()
         self.base_obj.log("info", "Gevent Thread created for %s" % ip)
-        self.fetch_and_process_monitoring(hostname, ip, username, password, supported_sensors)
+        return_dict["ipmi_status"] = \
+            self.fetch_and_process_monitoring(hostname, ip, username, password, supported_sensors)
         self.fetch_and_process_chassis(hostname, ip, username, password)
         if str(hostname) in sel_log_dict:
-            return self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_log_dict[str(hostname)])
+            return_dict["sel_log"] = \
+                self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_log_dict[str(hostname)])
         else:
-            return self.fetch_and_process_sel_logs(hostname, ip, username, password, [])
+            return_dict["sel_log"] = self.fetch_and_process_sel_logs(hostname, ip, username, password, [])
+        return return_dict
 
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
     # It then calls other functions to send the information to the correct analytics server.
@@ -203,6 +231,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         server_ip_list = list()
         ipmi_username_list = list()
         ipmi_password_list = list()
+        ipmi_state = dict()
         supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
         while True:
             servers = self._serverDb.get_server(
@@ -227,7 +256,14 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     zip(ipmi_list, hostname_list, ipmi_username_list, ipmi_password_list):
                 thread = gevent.spawn(
                     self.gevent_runner_func, hostname, ip, username, password, supported_sensors, sel_log_dict)
-                sel_log_dict[str(hostname)] = thread.value
+                return_dict = dict(thread.value)
+                if str(hostname) in ipmi_state and not ipmi_state[str(hostname)] and return_dict["ipmi_status"]:
+                    #Trigger REST API CALL to inventory for Server Hostname
+                    payload = dict()
+                    payload["id"] = str(hostname)
+                    self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
+                ipmi_state[str(hostname)] = return_dict["ipmi_status"]
+                sel_log_dict[str(hostname)] = return_dict["sel_log"]
                 gevent_threads.append(thread)
             #gevent.joinall(gevent_threads)
             self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
