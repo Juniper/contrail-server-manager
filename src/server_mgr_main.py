@@ -2510,14 +2510,11 @@ class VncServerManager():
             device_str = "#!/bin/bash\n"
             for intf in interface_list:
                 i += 1
-                if 'mac_address' in intf:
-                    name = intf['mac_address']
-                else:
-                    name = intf['name']
+                name = intf['name']
                 ip_addr = intf.get('ip_address', None)
                 if ip_addr is None:
                     continue
-                if intf['name'].lower() == mgmt_intf.lower():
+                if name.lower() == mgmt_intf.lower():
                     continue
 
                 ip = IPNetwork(ip_addr)
@@ -2538,6 +2535,8 @@ class VncServerManager():
 			            json.dumps(bond_opts), ip_addr)
                     execute_script = True
                 else:
+                    if 'mac_address' in intf:
+                        name = intf['mac_address']
                     if dhcp:
                         device_str+= ("python interface_setup.py --device %s --dhcp\n") % \
                             (name)
