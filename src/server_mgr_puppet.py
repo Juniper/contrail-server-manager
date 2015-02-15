@@ -2015,7 +2015,7 @@ $__contrail_quantum_servers__
 
         if openstack_ip != None and openstack_ip != "":
             mysql_allowed_hosts.append(openstack_ip)
-        mysql_allowed_hosts = mysql_allowed_hosts + list(set(os_ip_list + config_ip_list ))
+        mysql_allowed_hosts = mysql_allowed_hosts + list(set(os_ip_list + config_ip_list + role_ips_dict['config'] + role_ips_dict['openstack'] ))
 
         if openstack_ip is None or openstack_ip == '':
             if self_ip in role_ips_dict['openstack']:
