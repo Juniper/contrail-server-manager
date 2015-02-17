@@ -1355,8 +1355,8 @@ class VncServerManager():
                 server_parameters = server['parameters']
             else:
                 server_parameters = {}
-                server['parameters'] = server_parameters
             server_parameters['interface_name'] = mgmt_intf_name
+            server['parameters'] = server_parameters
 
         else:
             print 'check'
@@ -1376,24 +1376,32 @@ class VncServerManager():
             for server in servers:
                 self.plug_mgmt_intf_details(server)
                 self.validate_server_mgr_tags(server)
-                server['status'] = "server_added"
-                server['discovered'] = "false"
-                if self._serverDb.check_obj(
-                    "server", {"id" : server['id']},
-                    raise_exception=False) or self._serverDb.check_obj(
-                    "server", {"mac_address" : server['mac_address']},
-                    raise_exception=False) :
+                # Add server_added status and discovered after validation
+                db_servers = self._serverDb.get_server(
+                    {"id" : server['id']},
+                    None, True)
+                if not db_servers:
+                    db_servers = self._serverDb.get_server(
+                        {"mac_address" : server['mac_address']}, 
+                        None, True)
+                if db_servers:
                     #TODO - Revisit this logic
                     # Do we need mac to be primary MAC
                     server_fields['primary_keys'] = "['id']"
                     self.validate_smgr_request("SERVER", "PUT", bottle.request,
-                                                             server, True)
+                                               server, True)
+                    status = db_servers[0]['status']
+                    if not status or status == "server_discovered":
+                        server['status'] = "server_added"
+                        server['discovered'] = "false"
                     self._serverDb.modify_server(server)
                     server_fields['primary_keys'] = "['id', 'mac_address']"
                 else:
-                    self.validate_smgr_request("SERVER", "PUT", bottle.request,
-                                                                        server)
+                    self.validate_smgr_request("SERVER", "PUT", 
+                                               bottle.request, server)
                     self._serverDb.add_server(server)
+                    server['status'] = "server_added"
+                    server['discovered'] = "false"
                 server_data = {}
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
