@@ -571,6 +571,7 @@ class ServerMgrDb:
                         {"mac_address": mac_address}, {})
                     return
                 # Adding network and contrail blocks
+                entity['parameters'] = "{}"
                 entity['network'] = "{}"
                 entity['contrail'] = "{}"
                 entity['discovered'] = "true"
