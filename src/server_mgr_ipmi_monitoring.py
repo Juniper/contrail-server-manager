@@ -256,14 +256,14 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     zip(ipmi_list, hostname_list, ipmi_username_list, ipmi_password_list):
                 thread = gevent.spawn(
                     self.gevent_runner_func, hostname, ip, username, password, supported_sensors, sel_log_dict)
-                return_dict = dict(thread.value)
-                if str(hostname) in ipmi_state and not ipmi_state[str(hostname)] and return_dict["ipmi_status"]:
+                #return_dict = dict(thread.value)
+                #if str(hostname) in ipmi_state and not ipmi_state[str(hostname)] and return_dict["ipmi_status"]:
                     #Trigger REST API CALL to inventory for Server Hostname
-                    payload = dict()
-                    payload["id"] = str(hostname)
-                    self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
-                ipmi_state[str(hostname)] = return_dict["ipmi_status"]
-                sel_log_dict[str(hostname)] = return_dict["sel_log"]
+                    #payload = dict()
+                    #payload["id"] = str(hostname)
+                    #self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
+                #ipmi_state[str(hostname)] = return_dict["ipmi_status"]
+                #sel_log_dict[str(hostname)] = return_dict["sel_log"]
                 gevent_threads.append(thread)
             #gevent.joinall(gevent_threads)
             self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
