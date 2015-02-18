@@ -1501,8 +1501,8 @@ class VncServerManager():
                 server_parameters = server['parameters']
             else:
                 server_parameters = {}
-                server['parameters'] = server_parameters
             server_parameters['interface_name'] = mgmt_intf_name
+            server['parameters'] = server_parameters
 
         else:
             print 'check'
@@ -1528,18 +1528,24 @@ class VncServerManager():
             for server in servers:
                 self.plug_mgmt_intf_details(server)
                 self.validate_server_mgr_tags(server)
-                server['status'] = "server_added"
-                server['discovered'] = "false"
-                if self._serverDb.check_obj(
-                    "server", {"id" : server['id']},
-                    raise_exception=False) or self._serverDb.check_obj(
-                    "server", {"mac_address" : server['mac_address']},
-                    raise_exception=False) :
+                # Add server_added status and discovered after validation
+                db_servers = self._serverDb.get_server(
+                    {"id" : server['id']},
+                    None, True)
+                if not db_servers:
+                    db_servers = self._serverDb.get_server(
+                        {"mac_address" : server['mac_address']}, 
+                        None, True)
+                if db_servers:
                     #TODO - Revisit this logic
                     # Do we need mac to be primary MAC
                     server_fields['primary_keys'] = "['id']"
                     self.validate_smgr_request("SERVER", "PUT", bottle.request,
-                                                             server, True)
+                                               server, True)
+                    status = db_servers[0]['status']
+                    if not status or status == "server_discovered":
+                        server['status'] = "server_added"
+                        server['discovered'] = "false"
                     self._serverDb.modify_server(server)
                     server_fields['primary_keys'] = "['id', 'mac_address']"
                 else:
@@ -1552,6 +1558,8 @@ class VncServerManager():
                     server_ip_list.append(str(server['ip_address']))
                     server_root_pw_list.append(str(server['password']))
                     self._serverDb.add_server(server)
+                    server['status'] = "server_added"
+                    server['discovered'] = "false"
                 server_data = {}
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
@@ -2660,6 +2668,22 @@ class VncServerManager():
         return reimage_status
     # end reimage_server
 
+    def get_member_interfaces(self, network_dict, member_intfs):
+        new_member_list = []
+        if not member_intfs:
+            return new_member_list
+        interface_list = network_dict["interfaces"]
+        for intf in interface_list:
+            name = intf.get('name', '')
+            if name and name in member_intfs:
+                mac_address = intf.get('mac_address', '')
+                if mac_address:
+                    new_member_list.append(mac_address)
+                else:
+                    new_member_list.append(name)
+        return new_member_list
+            
+    # end get_member_interfaces
 
     def build_server_cfg(self, server):
         #Fetch network realted data and push to reimage
@@ -2684,11 +2708,13 @@ class VncServerManager():
                 d_gw = intf.get('default_gateway', None)
                 dhcp = intf.get('dhcp', None)
                 type = intf.get('type', None)
-                bond_opts = intf.get('bond_options', None)
-                mem_intfs = intf.get('member_interfaces', None)
-
                 #form string
                 if type and type.lower() == 'bond':
+                    bond_opts = intf.get('bond_options', {})
+                    member_intfs = intf.get('member_interfaces', [])
+                    if member_intfs:
+                        mem_intfs = self.get_member_interfaces(network_dict,
+                                                               member_intfs)
                     device_str+= ("python interface_setup.py \
 --device %s --members %s --bond-opts \"%s\" --ip %s\n") % \
                         (name,
@@ -2696,6 +2722,8 @@ class VncServerManager():
 			            json.dumps(bond_opts), ip_addr)
                     execute_script = True
                 else:
+                    if 'mac_address' in intf:
+                        name = intf['mac_address']
                     if dhcp:
                         device_str+= ("python interface_setup.py --device %s --dhcp\n") % \
                             (name)

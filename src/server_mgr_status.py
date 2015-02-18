@@ -83,7 +83,7 @@ class ServerMgrStatusThread(threading.Thread):
         server_data['id'] = server_id
         server_data['status'] = server_state
         try:
-            time_str = strftime(" %Y-%m-%d %H:%M:%S", gmtime())
+            time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
             message = server_id + ' ' + server_state + time_str
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
             servers = self._status_serverDb.modify_server(
@@ -104,7 +104,7 @@ class ServerMgrStatusThread(threading.Thread):
                                                         ipmi_username_list, ipmi_password_list, root_pwd_list)
             if server_state == "provision_completed":
                 domain = self._status_serverDb.get_server_domain(server_id)
-                environment_name = 'TurningOffPuppetAgent:' + time_str
+                environment_name = 'TurningOffPuppetAgent__' + time_str
                 if domain:
                     self._smgr_puppet.update_node_map_file(server_id,
                                                        domain, environment_name)
