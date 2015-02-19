@@ -1399,9 +1399,9 @@ class VncServerManager():
                 else:
                     self.validate_smgr_request("SERVER", "PUT", 
                                                bottle.request, server)
-                    self._serverDb.add_server(server)
                     server['status'] = "server_added"
                     server['discovered'] = "false"
+                    self._serverDb.add_server(server)
                 server_data = {}
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
