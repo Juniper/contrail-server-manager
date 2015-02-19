@@ -228,14 +228,21 @@ class ServerMgrMonBasePlugin(Thread):
 
     def get_fru_info(self, hostname, ip, username, password):
         cmd = 'ipmitool -H %s -U %s -P %s fru' % (ip, username, password)
-        result = self.call_subprocess(cmd)
+        try:
+            result = self.call_subprocess(cmd)
+        except Exception as e:
+            self.log(self.ERROR, "Could not get the FRU info for IP " + str(ip) + " Error: %s" + str(e))
+            inventory_info_obj = ServerInventoryInfo()
+            inventory_info_obj.name = hostname
+            inventory_info_obj.fru_infos = None
+            self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
+            return None
         if result:
             inventory_info_obj = ServerInventoryInfo()
             inventory_info_obj.name = hostname
             fileoutput = cStringIO.StringIO(result)
             fru_obj_list = list()
             fru_dict = dict()
-            self.log(self.INFO, "Got the FRU info for IP: %s" % ip)
             for line in fileoutput:
                 if ":" in line:
                     reading = line.split(":")
@@ -303,6 +310,7 @@ class ServerMgrMonBasePlugin(Thread):
                     rc = self._serverDb.add_inventory(fru_dict)
                     if rc != 0:
                         self.log(self.ERROR, "ERROR REPORTED BY INVENTORY ADD: %s" % rc)
+            self.log(self.INFO, "Got the FRU info for IP: %s" % ip)
             inventory_info_obj.fru_infos = fru_obj_list
         else:
             self.log(self.INFO, "Could not get the FRU info for IP: %s" % ip)
@@ -340,10 +348,14 @@ class ServerMgrMonBasePlugin(Thread):
         # Get the other inventory information from the facter tool
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ip, username='root', key_filename="/root/.ssh/server_mgr_rsa", timeout=3)
-        stdin, stdout, stderr = ssh.exec_command('facter')
-        filestr = stdout.read()
-        fileoutput = cStringIO.StringIO(filestr)
+        try:
+            ssh.connect(ip, username='root', key_filename="/root/.ssh/server_mgr_rsa", timeout=3)
+            stdin, stdout, stderr = ssh.exec_command('facter')
+            filestr = stdout.read()
+            fileoutput = cStringIO.StringIO(filestr)
+        except Exception as e:
+            self.log(self.ERROR, "Could not get the Facter info for IP " + str(ip) + " Error: %s" + str(e))
+            return
         if fileoutput is not None:
             self.log(self.INFO, "Got the Facter info for IP: %s" % ip)
             interface_dict = {}
@@ -397,7 +409,7 @@ class ServerMgrMonBasePlugin(Thread):
             server_inventory_info.interface_infos = intinfo_list
             self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
         else:
-            self.log(self.INFO, "Could not get the Facter info for IP: %s" % ip)
+            self.log(self.ERROR, "Could not get the Facter info for IP: %s" % ip)
 
     def get_field_value(self, ip, root_pwd, cmd):
         times = datetime.datetime.now()
@@ -436,6 +448,7 @@ class ServerMgrMonBasePlugin(Thread):
         server_inventory_info.cpu_info_state.num_of_threads = int(
             self.get_field_value(ip, root_pwd, 'lscpu | grep "Thread"')) if self.get_field_value(ip, root_pwd,
                                                                                                  'lscpu | grep "Thread"') else 0
+        self.log(self.INFO, "Got the CPU info for IP: %s" % ip)
         self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
 
     def get_ethernet_info(self, hostname, ip, root_pwd):
@@ -461,6 +474,7 @@ class ServerMgrMonBasePlugin(Thread):
             server_inventory_info.eth_controller_state.model = self.get_field_value(ip, root_pwd,
                                                                                     'ethtool -i eth0 | grep driver') if self.get_field_value(
                 ip, root_pwd, 'ethtool -i eth0 | grep driver') else " "
+            self.log(self.INFO, "Got the Ethtool info for IP: %s" % ip)
         self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
 
     def get_memory_info(self, hostname, ip, root_pwd):
@@ -483,6 +497,7 @@ class ServerMgrMonBasePlugin(Thread):
         server_inventory_info.mem_state.swap_size = self.get_field_value(ip, root_pwd,
                                                                          'facter | egrep -w swapsize') if self.get_field_value(
             ip, root_pwd, 'facter | egrep -w swapsize') else " "
+        self.log(self.INFO, "Got the Memory info for IP: %s" % ip)
         self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
 
     def add_inventory(self):

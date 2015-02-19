@@ -2922,6 +2922,15 @@ class VncServerManager():
                 server_hostname_list.append(str(server['id']))
                 server_ip_list.append(str(server['ip_address']))
                 server_root_pw_list.append(str(server['password']))
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                               "Running inventory on following servers: " + str(server_hostname_list))
+            gevent_threads = []
+            for hostname, ip, ipmi, username, password, root_pwd in \
+                    zip(server_hostname_list, server_ip_list, server_ipmi_list,
+                        server_ipmi_un_list, server_ipmi_pw_list, server_root_pw_list):
+                thread = gevent.spawn(self._monitoring_base_plugin_obj.gevent_runner_function,
+                                      "add", hostname, ip, ipmi, username, password, root_pwd)
+                gevent_threads.append(thread)
         except ServerMgrException as e:
             resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
             abort(404, resp_msg)
@@ -2930,10 +2939,6 @@ class VncServerManager():
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                  None)
             abort(404, resp_msg)
-        self._smgr_log.log(self._smgr_log.DEBUG, "Running inventory on following servers: " + str(server_hostname_list))
-        self._monitoring_base_plugin_obj.handle_inventory_trigger("add", server_hostname_list, server_ip_list,
-                                                                  server_ipmi_list, server_ipmi_un_list,
-                                                                  server_ipmi_pw_list, server_root_pw_list)
         inventory_status = dict()
         inventory_status['return_message'] = "server(s) run_inventory issued"
         return inventory_status

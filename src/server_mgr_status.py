@@ -22,6 +22,8 @@ from server_mgr_db import ServerMgrDb as db
 from time import gmtime, strftime, localtime
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from send_mail import send_mail
+import requests
+import json
 from server_mgr_defaults import *
 
 class ServerMgrStatusThread(threading.Thread):
@@ -71,6 +73,19 @@ class ServerMgrStatusThread(threading.Thread):
             # cleanup gracefully
             exit()
 
+    # Packages and sends a REST API call to the ServerManager node
+
+    def send_run_inventory_request(self, ip, port, payload):
+        try:
+            url = "http://%s:%s/run_inventory" % (ip, port)
+            payload = json.dumps(payload)
+            headers = {'content-type': 'application/json'}
+            resp = requests.post(url, headers=headers, timeout=5, data=payload)
+            return resp.text
+        except Exception as e:
+            self._smgr_log.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
+            return None
+
     def put_server_status(self):
         print "put-status"
         #query_args = parse_qs(urlparse(bottle.request.url).query,
@@ -88,20 +103,11 @@ class ServerMgrStatusThread(threading.Thread):
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
             servers = self._status_serverDb.modify_server(
                                                     server_data)
-            if servers:
-                hostname_list = list()
-                ipmi_list = list()
-                ipmi_password_list = list()
-                ipmi_username_list = list()
-                server_ip_list = list()
-                root_pwd_list = list()
-                if server_state == "reimage_completed":
-                    self._base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list,
-                                                              server_ip_list,
-                                                              ipmi_username_list,
-                                                              ipmi_password_list, root_pwd_list)
-                    self._base_obj.handle_inventory_trigger("add", hostname_list, server_ip_list, ipmi_list,
-                                                        ipmi_username_list, ipmi_password_list, root_pwd_list)
+            if server_state == "reimage_completed":
+                payload = dict()
+                payload["id"] = server_id
+                self.send_run_inventory_request(self._status_thread_config["listen_ip"],
+                                                self._status_thread_config["listen_port"], payload)
             if server_state == "provision_completed":
                 domain = self._status_serverDb.get_server_domain(server_id)
                 environment_name = 'TurningOffPuppetAgent__' + time_str

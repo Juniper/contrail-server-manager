@@ -12,8 +12,7 @@
 import argparse
 import pdb
 import sys
-import pycurl
-from StringIO import StringIO
+import requests
 import json
 
 try:
@@ -55,24 +54,21 @@ def parse_arguments(args_str=None):
                               "default = do not bypass"))
     args = parser.parse_args(args_str)
     return args
-
 # End get_provision_params
 
-def send_REST_request(ip, port, payload):
+
+def send_REST_request(self, ip, port, payload):
     try:
-        response = StringIO()
-        headers = ["Content-Type:application/json"]
-        url = "http://%s:%s/run_inventory" % (
-            ip, port)
-        conn = pycurl.Curl()
-        conn.setopt(pycurl.URL, url)
-        conn.setopt(pycurl.HTTPHEADER, headers)
-        conn.setopt(pycurl.POST, 1)
-        conn.setopt(pycurl.POSTFIELDS, '%s' % json.dumps(payload))
-        conn.setopt(pycurl.WRITEFUNCTION, response.write)
-        conn.perform()
-        return response.getvalue()
-    except:
+        url = "http://%s:%s/run_inventory" % (ip, port)
+        payload = json.dumps(payload)
+        headers = {'content-type': 'application/json'}
+        resp = requests.post(url, headers=headers, timeout=5, data=payload)
+        self.base_obj.log("info", "URL for Run Inv: " + str(url))
+        self.base_obj.log("info", "Payload for Run Inv: " + str(payload))
+        self.base_obj.log("info", "Got immediate reply: " + str(resp.text))
+        return resp.text
+    except Exception as e:
+        self.base_obj.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
         return None
 
 
