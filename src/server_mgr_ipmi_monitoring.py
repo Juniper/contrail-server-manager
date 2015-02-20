@@ -237,7 +237,6 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         ipmi_username_list = list()
         ipmi_password_list = list()
         ipmi_state = dict()
-        fake_ipi_state = dict()
         supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
         while True:
             servers = self._serverDb.get_server(
@@ -263,24 +262,19 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 thread = gevent.spawn(
                     self.gevent_runner_func, hostname, ip, username, password, supported_sensors, sel_log_dict)
                 gevent_threads[str(hostname)] = thread
-            time.sleep(seconds=10)
+            self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
+            time.sleep(self.freq)
+            self.base_obj.log("info", "Monitoring thread woke up")
             for hostname in gevent_threads:
                 thread = gevent_threads[str(hostname)]
                 if thread.successful():
                     return_dict = dict(thread.value)
+                    if hostname in ipmi_state and not ipmi_state[str(hostname)] and return_dict["ipmi_status"]:
+                        # Trigger REST API CALL to inventory for Server Hostname
+                        payload = dict()
+                        payload["id"] = str(hostname)
+                        self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
                     ipmi_state[str(hostname)] = return_dict["ipmi_status"]
                     sel_log_dict[str(hostname)] = return_dict["sel_log"]
                 else:
                     self.base_obj.log("error", "Greenlet returned error: " + thread.get())
-            for hostname in hostname_list:
-                if hostname in fake_ipi_state and not fake_ipi_state[str(hostname)] and hostname \
-                        in ipmi_state and ipmi_state[str(hostname)]:
-                    # Trigger REST API CALL to inventory for Server Hostname
-                    payload = dict()
-                    payload["id"] = str(hostname)
-                    self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
-            for hostname in hostname_list:
-                fake_ipi_state[str(hostname)] = False
-            self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
-            time.sleep(self.freq)
-            self.base_obj.log("info", "Monitoring thread woke up")
