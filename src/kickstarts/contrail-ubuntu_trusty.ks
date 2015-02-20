@@ -49,14 +49,19 @@ service ssh restart
 
 mv /etc/apt/sources.list /etc/apt/sources.list.orig
 
-echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
+#echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
+touch /etc/apt/sources.list
+cat >>/etc/apt/sources.list <<EOF
+# add repos needed for puppet and its dependencies
+deb http://$server/thirdparty_packages/ ./
+EOF
 
 apt-get update
 apt-get -y install puppet
 
-cp /etc/apt/sources.list.orig /etc/apt/sources.list
+#cp /etc/apt/sources.list.orig /etc/apt/sources.list
 
-cat >>/etc/apt/sources.list <<EOF
+cat >>/etc/apt/sources.list.save <<EOF
 # add repos needed for puppet and its dependencies
 deb http://$server/thirdparty_packages/ ./
 

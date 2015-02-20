@@ -37,8 +37,15 @@ EOF
 # Update sources.list so that ubuntu repo is available to download all
 # dependencies needed by puppet such as ruby, puppet-common etc.
 # add repos needed for puppet and its dependencies
+mv /etc/apt/sources.list /etc/apt/sources.list.bk
+touch /etc/apt/sources.list
 
 cat >>/etc/apt/sources.list <<EOF
+# add repos needed for puppet and its dependencies
+deb http://$server/thirdparty_packages/ ./
+EOF
+
+cat >>/etc/apt/sources.list.save <<EOF
 # add repos needed for puppet and its dependencies
 deb http://$server/thirdparty_packages/ ./
 
