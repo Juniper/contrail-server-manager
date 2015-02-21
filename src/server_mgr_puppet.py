@@ -1875,6 +1875,37 @@ $__contrail_quantum_servers__
         return data
     # end add cluster_parameters
 
+    def initiate_esx_contrail_vm(self, provision_params):
+        if 'esx_server' in provision_params.keys():
+            self._smgr_log.log(self._smgr_log.DEBUG, "esx_server")
+            #call scripts to provision esx
+            vm_params = {}
+            vm_params['vm'] = "ContrailVM"
+            vm_params['vmdk'] = "ContrailVM"
+            vm_params['datastore'] = provision_params['datastore']
+            vm_params['eth0_mac'] = provision_params['server_mac']
+            vm_params['eth0_ip'] = provision_params['server_ip']
+            vm_params['eth0_pg'] = provision_params['esx_fab_port_group']
+            vm_params['eth0_vswitch'] = provision_params['esx_fab_vswitch']
+            vm_params['eth0_vlan'] = None
+            vm_params['eth1_vswitch'] = provision_params['esx_vm_vswitch']
+            vm_params['eth1_pg'] = provision_params['esx_vm_port_group']
+            vm_params['eth1_vlan'] = "4095"
+            vm_params['uplink_nic'] = provision_params['esx_uplink_nic']
+            vm_params['uplink_vswitch'] = provision_params['esx_fab_vswitch']
+            vm_params['server'] = provision_params['esx_ip']
+            vm_params['username'] = provision_params['esx_username']
+            vm_params['password'] = provision_params['esx_password']
+            vm_params['thindisk'] =  provision_params['esx_vmdk']
+            vm_params['smgr_ip'] = provision_params['smgr_ip'];
+            vm_params['domain'] =  provision_params['domain']
+            vm_params['vm_password'] = provision_params['password']
+            vm_params['vm_server'] = provision_params['server_id']
+            vm_params['vm_deb'] = provision_params['vm_deb']
+            out = ContrailVM(vm_params)
+            self._smgr_log.log(self._smgr_log.DEBUG, "ContrilVM:" %(out))
+    # end initiate_esx_contrail_vm
+
     def build_contrail_hiera_file(
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
@@ -1883,6 +1914,8 @@ $__contrail_quantum_servers__
         data = ''
         package_ids = [provision_params.get('package_image_id', "").encode('ascii')]
         package_types = [provision_params.get('package_type', "").encode('ascii')]
+        if 'esx_server' in provision_params and 'compute' in provision_params['host_roles']:
+            self.initiate_esx_contrail_vm(provision_params)
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             package_ids.append(provision_params.get('storage_repo_id', "").encode('ascii'))
             package_types.append("contrail-ubuntu-storage-repo".encode('ascii'))
