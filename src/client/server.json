@@ -2,16 +2,24 @@
     "server": [
         {
             "id": "demo2-server",
-            "mac_address": "00:25:90:aa:36:32",
-            "ip_address": "10.84.51.13",
-            "parameters" : {
-                "interface_name": "eth1",
-		"partition": ""
+            "network": {
+                "interfaces": [
+                    {
+		        "default_gateway": "10.84.51.254",
+                        "dhcp": true, 
+                        "ip_address": "10.84.51.13/24",
+                        "mac_address": "00:25:90:aa:36:32",
+                        "name": "eth1", 
+                        "type": "physical"
+                    }
+                ], 
+                "management_interface": "eth1"
             },
+            "contrail": {
+                "control_data_interface": "eth1"
+            }, 
             "roles" : ["config","openstack","control","compute","collector","webui","database"],
-            "cluster_id": "demo-cluster",
-            "subnet_mask": "255.255.255.0",
-            "gateway": "10.84.51.254",
+            "cluster_id": "cluster1",
             "password": "juniper",
             "domain": "demo.juniper.net",
             "ipmi_address": "10.84.6.63",
@@ -21,9 +29,7 @@
                  "hall" : "demo-hall",
                  "rack" : "demo-rack",
                  "user_tag"  : "demo-user"
-             },
-            "base_image_id": "",
-            "package_image_id": ""
+             }
         }
     ]
 }
