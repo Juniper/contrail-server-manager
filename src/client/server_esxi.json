@@ -1,0 +1,70 @@
+{
+    "server": [
+        {
+            "id": "a3s14", 
+            "cluster_id": "cluster2",
+            "password": "c0ntrail123", 
+            "ipmi_address": "10.84.6.214",  
+            "domain": "contrail.juniper.net", 
+            "contrail": {
+                "control_data_interface": "eth1"
+            }, 
+            "network": {
+                "interfaces": [
+                    {
+                        "default_gateway": "10.84.17.254", 
+                        "dhcp": true, 
+                        "ip_address": "10.84.17.1/24", 
+                        "mac_address": "00:25:90:a1:1a:38", 
+                        "name": "eth1", 
+                        "type": "physical"
+                    }
+                ], 
+                "management_interface": "eth1"
+            },
+            "parameters": {
+                "esx_nicname": "vmnic0", 
+                "interface_name": "eth1", 
+                "server_license": ""
+            },  
+            "roles": []
+        },
+        {
+            "id": "contrailvm",
+            "host_name": "contrailvm",
+            "password": "c0ntrail123",  
+            "domain": "contrail.juniper.net", 
+            "cluster_id": "cluster2", 
+            "contrail": {
+                "control_data_interface": "eth1"
+            },
+            "network": {
+                "interfaces": [
+                    {
+                        "default_gateway": "10.84.17.254", 
+                        "dhcp": true, 
+                        "ip_address": "10.84.17.10/24", 
+                        "mac_address": "00:50:56:01:BA:BA", 
+                        "name": "eth1"
+                    }
+                ], 
+                "management_interface": "eth1", 
+                "provisioning": "kickstart"
+            }, 
+            "parameters": {
+                "esx_fab_port_group": "contrail-fab-pg", 
+                "esx_fab_vswitch": "vSwitch0", 
+                "esx_server": "a3s14", 
+                "esx_uplink_nic": "vmnic0", 
+                "esx_vm_port_group": "contrail-vm-pg", 
+                "esx_vm_vswitch": "vSwitch1", 
+                "esx_vmdk": "/root/ContrailVM-disk1.vmdk", 
+                "interface_name": "eth1", 
+                "vm_deb": "/root/b35.deb"
+            }, 
+            "roles": [
+                "compute"
+            ] 
+        }
+    ]
+}
