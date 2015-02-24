@@ -104,8 +104,9 @@ echo "    pluginsync = true" >> /etc/puppet/puppet.conf
 echo "    ignorecache = true" >> /etc/puppet/puppet.conf
 echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
 echo "    listen = true" >> /etc/puppet/puppet.conf
+echo "    ordering = manifest" >> /etc/puppet/puppet.conf
 echo "[main]" >> /etc/puppet/puppet.conf
-echo "runinterval=180" >> /etc/puppet/puppet.conf
+echo "runinterval=60" >> /etc/puppet/puppet.conf
 cat >/tmp/puppet-auth.conf <<EOF
 # Allow puppet kick access
 path    /run
@@ -125,9 +126,6 @@ cd /opt/contrail/contrail_packages
 ./setup.sh
 echo "exec-contrail-setup-sh" >> exec-contrail-setup-sh.out
 #end if
-## generate puppet certificates and trigger a signing request, but
-## don't wait for signing to complete
-/usr/sbin/puppetd --test --waitforcert 0
 ## turn puppet service on for reboot
 /sbin/chkconfig puppet on
 #end if
