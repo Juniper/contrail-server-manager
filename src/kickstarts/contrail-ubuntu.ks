@@ -37,8 +37,6 @@ EOF
 # Update sources.list so that ubuntu repo is available to download all
 # dependencies needed by puppet such as ruby, puppet-common etc.
 # add repos needed for puppet and its dependencies
-mv /etc/apt/sources.list /etc/apt/sources.list.bk
-touch /etc/apt/sources.list
 
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
@@ -120,7 +118,7 @@ EOF
 apt-get update
 apt-get -y install puppet
 apt-get -y install python-netaddr
-apt-get -y install ifenslave
+apt-get -y install ifenslave-2.6=1.1.0-19ubuntu5
 
 wget http://$server/kickstarts/interface_setup.py
 wget http://$server/contrail/config_file/$system_name.sh
