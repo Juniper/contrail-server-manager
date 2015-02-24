@@ -47,10 +47,8 @@ service ssh restart
 #Install puppet 2.7 against 3.x which is got from trusty repo.
 #Need to revisit this logic to use preferences.
 
-mv /etc/apt/sources.list /etc/apt/sources.list.orig
 
 #echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
-touch /etc/apt/sources.list
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
 deb http://$server/thirdparty_packages/ ./
