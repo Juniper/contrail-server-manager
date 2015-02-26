@@ -38,6 +38,7 @@ class ServerMgrStatusThread(threading.Thread):
         threading.Thread.__init__(self)
         self._status_thread_config = status_thread_config
         self._smgr_puppet = status_thread_config['smgr_puppet']
+        self._status_serverDb = status_thread_config['server_db']
 
     def run(self):
         #create the logger
@@ -45,16 +46,6 @@ class ServerMgrStatusThread(threading.Thread):
             self._smgr_log = ServerMgrlogger()
         except:
             print "Error Creating logger object"
-
-        # Connect to the cluster-servers database
-        try:
-            self._status_serverDb = db(
-                "/etc/contrail_smgr/smgr_data.db")
-        except:
-            self._smgr_log.log(self._smgr_log.DEBUG,
-                     "Error Connecting to Server Database %s"
-                    % (self._args.smgr_base_dir+self._args.db_name))
-            exit()
 
         #set the status related handlers
         status_bottle_app = Bottle()
