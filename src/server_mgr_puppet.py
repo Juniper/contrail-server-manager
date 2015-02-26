@@ -20,6 +20,7 @@ import openstack_hieradata
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
+from contrail_defaults import *
 
 
 class ServerMgrPuppet:
@@ -1928,10 +1929,15 @@ $__contrail_quantum_servers__
         if 'kernel_upgrade' in provision_params and \
             'kernel_version' in provision_params and \
             provision_params['kernel_version'] != '' :
+
             data += 'contrail::params::kernel_upgrade: "%s"\n' %(
                 provision_params.get('kernel_upgrade', DEFAULT_KERNEL_UPGRADE))
             data += 'contrail::params::kernel_version: "%s"\n' %(
                 provision_params.get('kernel_version', DEFAULT_KERNEL_VERSION))
+
+        if "uuid" in cluster_params:
+            data += 'contrail::params::uuid: "%s"\n' %(
+                cluster_params.get('uuid', ""))
 
         role_ips = {}
         role_ids = {}
@@ -1984,6 +1990,18 @@ $__contrail_quantum_servers__
                 # end if server_control_intf
             # end if control_intf_dict
         # enf if server_control_ip...
+
+
+        if "internal_vip" in cluster_params:
+            data += 'contrail::params::internal_vip: "%s"\n' %(
+                cluster_params.get('internal_vip', ""))
+        if "contrail_internal_vip" in cluster_params:
+            data += 'contrail::params::contrail_internal_vip: "%s"\n' %(
+                cluster_params.get('contrail_internal_vip', ""))
+        if "external_vip" in cluster_params:
+            data += 'contrail::params::external_vip: "%s"\n' %(
+                cluster_params.get('external_vip', ""))
+>>>>>>> 77b2dc0... Partial-Bug: #1397496 Server Manager changes to make use of new
 
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
