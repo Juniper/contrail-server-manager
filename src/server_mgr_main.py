@@ -3048,23 +3048,18 @@ class VncServerManager():
                     else:
                         pass
     
-                for role_server in role_servers['storage-master']:
-                    server_params_master = eval(role_server['parameters'])
-                    if 'live_migration' in server_params_master and server_params_master['live_migration'] == "enable":
-                      if 'live_migration_nfs_vm_host' in server_params_master and len(server_params_master['live_migration_nfs_vm_host']) > 0 :
-                          live_migration = "enable"
-                          live_migration_host = server_params_master['live_migration_nfs_vm_host']
-                      else:
-                          live_migration = "disable"
-                          live_migration_host = ""
+                if 'live_migration' in cluster_params.keys() and cluster_params['live_migration'] == "enable":
+                  if 'live_migration_nfs_vm_host' in cluster_params.keys() and cluster_params['live_migration_nfs_vm_host'] and len(cluster_params['live_migration_nfs_vm_host']) > 0 :
+                      live_migration = "enable"
+                      live_migration_host = cluster_params['live_migration_nfs_vm_host']
+                  else:
+                      live_migration = "disable"
+                      live_migration_host = ""
 
-                      if 'live_migration_storage_scope' in server_params_master :
-                          live_migration_storage_scope = server_params_master['live_migration_storage_scope']
-		      else:
-			  pass
-
-                    else:
-                        pass
+                  if 'live_migration_storage_scope' in cluster_params.keys() and cluster_params['live_migration_storage_scope']:
+                      live_migration_storage_scope = cluster_params['live_migration_storage_scope']
+		  else:
+		      pass
 
 		if live_migration_storage_scope == "local" or live_migration_storage_scope == "global":
 		    pass
