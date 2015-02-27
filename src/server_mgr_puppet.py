@@ -1927,9 +1927,7 @@ $__contrail_quantum_servers__
 
         #Upgrade Kernel
         if 'kernel_upgrade' in provision_params and \
-            'kernel_version' in provision_params and \
-            provision_params['kernel_version'] != '' :
-
+            'kernel_version' in provision_params :
             data += 'contrail::params::kernel_upgrade: "%s"\n' %(
                 provision_params.get('kernel_upgrade', DEFAULT_KERNEL_UPGRADE))
             data += 'contrail::params::kernel_version: "%s"\n' %(
