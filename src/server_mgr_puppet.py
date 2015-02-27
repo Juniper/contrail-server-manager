@@ -2003,6 +2003,7 @@ $__contrail_quantum_servers__
         # enf if server_control_ip...
 
 
+<<<<<<< HEAD
         if "internal_vip" in cluster_params:
             data += 'contrail::params::internal_vip: "%s"\n' %(
                 cluster_params.get('internal_vip', ""))
@@ -2013,6 +2014,8 @@ $__contrail_quantum_servers__
             data += 'contrail::params::external_vip: "%s"\n' %(
                 cluster_params.get('external_vip', ""))
 
+=======
+>>>>>>> 4a8aea3... Closes-Bug : #1426235
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
             data += 'contrail::params::host_roles: %s\n' %(str(provision_params['host_roles']))
