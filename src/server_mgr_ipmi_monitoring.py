@@ -281,18 +281,24 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
             self.call_send(ipmi_stats_trace)
 
-    def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, sel_log_dict):
+    def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, ipmi_state,
+                           sel_event_log_list):
         return_dict = dict()
         self.base_obj.log("info", "Gevent Thread created for %s" % ip)
         self.fetch_and_process_disk_info(hostname, ip)
         return_dict["ipmi_status"] = \
             self.fetch_and_process_monitoring(hostname, ipmi, ip, username, password, supported_sensors)
         self.fetch_and_process_chassis(hostname, ipmi, username, password)
-        if str(hostname) in sel_log_dict:
+        if sel_event_log_list:
             return_dict["sel_log"] = \
-                self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_log_dict[str(hostname)])
+                self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_event_log_list)
         else:
             return_dict["sel_log"] = self.fetch_and_process_sel_logs(hostname, ip, username, password, [])
+        if not ipmi_state and return_dict["ipmi_status"]:
+            # Trigger REST API CALL to inventory for Server Hostname
+            payload = dict()
+            payload["id"] = str(hostname)
+            self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
         return return_dict
 
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
@@ -330,8 +336,12 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             gevent_threads = dict()
             for ipmi, ip, hostname, username, password in \
                     zip(ipmi_list, server_ip_list, hostname_list, ipmi_username_list, ipmi_password_list):
+                if hostname not in ipmi_state and hostname not in sel_log_dict:
+                    ipmi_state[str(hostname)] = True
+                    sel_log_dict[str(hostname)] = None
                 thread = gevent.spawn(
-                    self.gevent_runner_func, hostname, ipmi, ip, username, password, supported_sensors, sel_log_dict)
+                    self.gevent_runner_func, hostname, ipmi, ip, username, password,
+                    supported_sensors, ipmi_state[str(hostname)], sel_log_dict[str(hostname)])
                 gevent_threads[str(hostname)] = thread
             self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
@@ -340,13 +350,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 thread = gevent_threads[str(hostname)]
                 if thread.successful():
                     return_dict = dict(thread.value)
-                    if hostname in ipmi_state and not ipmi_state[str(hostname)] and return_dict["ipmi_status"]:
-                        # Trigger REST API CALL to inventory for Server Hostname
-                        payload = dict()
-                        payload["id"] = str(hostname)
-                        self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
                     ipmi_state[str(hostname)] = return_dict["ipmi_status"]
                     sel_log_dict[str(hostname)] = return_dict["sel_log"]
                 else:
-                    self.base_obj.log("error", "Greenlet returned error: " + thread.get())
+                    self.base_obj.log("error", "Greenlet for server " + str(hostname) + " didn't return successfully: "
+                                      + thread.get())
 
