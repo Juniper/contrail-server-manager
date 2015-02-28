@@ -44,14 +44,16 @@ cluster_fields = {
     "parameters": """{
                 'router_asn': '64512',
                 'database_dir': '/home/cassandra',
-                'database_token': '0',
+                'database_token': '',
                 'openstack_mgmt_ip': '',
                 'use_certificates': 'False',
                 'multi_tenancy': 'True',
                 'encapsulation_priority': 'MPLSoUDP,MPLSoGRE,VXLAN',
+                'service_token': 'c0ntrail123',
                 'keystone_username': 'admin',
                 'keystone_password': 'c0ntrail123',
                 'keystone_tenant': 'admin',
+                'openstack_passwd': 'c0ntrail123',
                 'analytics_data_ttl': '168',
                 'haproxy': 'disable',
                 'subnet_mask': '255.255.255.0',
@@ -75,6 +77,21 @@ image_fields = {
                 "kickstart": "",
                 "kickseed":""
                 }"""
+}
+
+fru_fields = {
+    "id": "",
+    "fru_description": "",
+    "board_serial_number": "",
+    "chassis_type": "",
+    "chassis_serial_number": "",
+    "board_mfg_date": "",
+    "board_manufacturer": "",
+    "board_product_name": "",
+    "board_part_number": "",
+    "product_manfacturer": "",
+    "product_name": "",
+    "product_part_number": ""
 }
 
 email_events = ["reimage_started", "reimage_completed", "provision_started", "provision_completed"]

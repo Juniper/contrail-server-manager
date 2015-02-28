@@ -17,45 +17,32 @@ import json
 # the device environment information of the servers stored in its DB. The information is gathered through
 # REST API calls to the Server Mgr Analytics Node that hosts the relevant DB.
 class ServerMgrIPMIQuerying():
-    _query_engine_port = 8106
+    _query_engine_port = 8107
 
     def __init__(self):
         ''' Constructor '''
 
-    # Calls the IPMI tool command as a subprocess
-    def call_subprocess(self, cmd):
-        try:
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-            return p.stdout.read()
-        except Exception as e:
-            return "Error Querying Server Env: IPMI Polling command failed -> " + str(e)
-
-    # Packages and sends a REST API call to the Analytics node
+    # Packages and sends a REST API call to the Server Manager node
     def send_REST_request(self, server_ip, port):
         try:
             response = StringIO()
-            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=SMIpmiInfo" % (str(server_ip), port)
             headers = ["Content-Type:application/json"]
+            url = "http://%s:%s/%s" % (server_ip, port, 'MonitorInfo')
+            args_str = ''
             conn = pycurl.Curl()
-            conn.setopt(pycurl.TIMEOUT, 5)
-            conn.setopt(pycurl.URL, str(url))
+            conn.setopt(pycurl.TIMEOUT, 3)
+            conn.setopt(pycurl.URL, url)
             conn.setopt(pycurl.HTTPHEADER, headers)
-            conn.setopt(conn.WRITEFUNCTION, response.write)
             conn.setopt(pycurl.HTTPGET, 1)
+            conn.setopt(pycurl.WRITEFUNCTION, response.write)
             conn.perform()
-            xml_data = response.getvalue()
-            import xmltodict
-            data = xmltodict.parse(str(xml_data))
-            json_obj = json.dumps(data, sort_keys=True, indent=4)
-            data_dict = dict(json.loads(json_obj))
+            data_dict = response.getvalue()
+            data_dict = dict(json.loads(data_dict))
             data_list = list(data_dict["__SMIpmiInfoTrace_list"]["SMIpmiInfoTrace"])
             return data_list
         except Exception as e:
-            msg = "Error Querying Server Env: REST request to Collector IP " \
-                  + str(server_ip) + " failed - > " + str(e)
-            sys.stderr.write(msg)
+            print "Error is: " + str(e)
             return None
-
     # end def send_REST_request
 
     # Filters the data returned from REST API call for requested information
@@ -210,22 +197,20 @@ class ServerMgrIPMIQuerying():
         rest_api_params['monitoring_value'] = None
         return rest_api_params
 
-    def handle_smgr_response(self, resp, ip_add=None, query_engine_port=None, rest_api_params=None):
-        if query_engine_port:
-            self._query_engine_port = query_engine_port
+    def handle_smgr_response(self, resp, ip_add=None, smgr_port=None, rest_api_params=None):
         data = json.loads(resp)
         server_list = list(data["server"])
         data = ""
         try:
             detail_type = dict(rest_api_params).get('monitoring_value')
             if detail_type == 'Env':
-                env_details_dict = self.get_env_details(ip_add, server_list)
+                env_details_dict = self.get_env_details(ip_add, smgr_port, server_list)
             elif detail_type == 'Temp':
-                env_details_dict = self.get_temp_details(ip_add, server_list)
+                env_details_dict = self.get_temp_details(ip_add, smgr_port, server_list)
             elif detail_type == 'Fan':
-                env_details_dict = self.get_fan_details(ip_add, server_list)
+                env_details_dict = self.get_fan_details(ip_add, smgr_port, server_list)
             elif detail_type == 'Pwr':
-                env_details_dict = self.get_pwr_consumption(ip_add, server_list)
+                env_details_dict = self.get_pwr_consumption(ip_add, smgr_port, server_list)
             else:
                 return "No Environment Detail of that Type"
 
@@ -250,9 +235,9 @@ class ServerMgrIPMIQuerying():
             return msg
 
     # Function to get environment info of all types (TEMP, FAN, PWR) from a set of server addressses
-    def get_env_details(self, server_ip, server_list=None):
+    def get_env_details(self, server_ip, smgr_port, server_list=None):
         key = "all"
-        data_list = self.send_REST_request(server_ip, self._query_engine_port)
+        data_list = self.send_REST_request(server_ip, smgr_port)
         if data_list:
             return_data = self.filter_sensor_results(data_list, key, server_list)
             return return_data
@@ -260,9 +245,9 @@ class ServerMgrIPMIQuerying():
             return None
 
     # Function to get FAN info from a set of server addressses
-    def get_fan_details(self, server_ip, server_list=None):
+    def get_fan_details(self, server_ip, smgr_port, server_list=None):
         key = "fan"
-        data_list = self.send_REST_request(server_ip, self._query_engine_port)
+        data_list = self.send_REST_request(server_ip, smgr_port)
         if data_list:
             return_data = self.filter_sensor_results(data_list, key, server_list)
             return return_data
@@ -270,9 +255,9 @@ class ServerMgrIPMIQuerying():
             return None
 
     # Function to get TEMP info from a set of server addressses
-    def get_temp_details(self, server_ip, server_list=None):
+    def get_temp_details(self, server_ip, smgr_port, server_list=None):
         key = "temperature"
-        data_list = self.send_REST_request(server_ip, self._query_engine_port)
+        data_list = self.send_REST_request(server_ip, smgr_port)
         if data_list:
             return_data = self.filter_sensor_results(data_list, key, server_list)
             return return_data
@@ -280,9 +265,9 @@ class ServerMgrIPMIQuerying():
             return None
 
     # Function to get PWR info from a set of server addressses
-    def get_pwr_consumption(self, server_ip, server_list=None):
+    def get_pwr_consumption(self, server_ip, smgr_port, server_list=None):
         key = "power"
-        data_list = self.send_REST_request(server_ip, self._query_engine_port)
+        data_list = self.send_REST_request(server_ip, smgr_port)
         if data_list:
             return_data = self.filter_sensor_results(data_list, key, server_list)
             return return_data
