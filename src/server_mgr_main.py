@@ -1175,7 +1175,7 @@ class VncServerManager():
         data_dict = None
         self._smgr_log.log(self._smgr_log.DEBUG, "get_monitoring_info")
         try:
-            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=SMIpmiInfo" % (str(self._args.listen_ip_addr),
+            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerMonitoringInfo" % (str(self._args.listen_ip_addr),
                                                                         self._args.http_introspect_port)
             headers = {'content-type': 'application/json'}
             resp = requests.get(url, timeout=5, headers=headers)

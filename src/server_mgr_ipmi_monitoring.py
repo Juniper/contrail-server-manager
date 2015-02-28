@@ -54,17 +54,44 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
     # send_ipmi_stats function packages and sends the IPMI info gathered from server polling
     # to the analytics node
-    def send_ipmi_stats(self, ipmi_data, hostname, data_type):
+    def send_ipmi_stats(self, ip, ipmi_data, hostname, data_type):
         sm_ipmi_info = SMIpmiInfo()
         sm_ipmi_info.name = str(hostname)
+        cmd = 'mpstat'
+        fileoutput = self.ssh_execute_cmd(ip, cmd)
+        if fileoutput is not None:
+            for line in fileoutput:
+                res = re.sub('\s+', ' ', line).strip()
+                arr = res.split()
+                if len(arr) == 12:
+                    if "%idle" in arr:
+                        continue
+                    else:
+                        sm_ipmi_info.cpu_usage = 100.0 - float(arr[11])
+        cmd = 'vmstat -s | grep "used memory"'
+        fileoutput = self.ssh_execute_cmd(ip, cmd)
+        if fileoutput is not None:
+            for line in fileoutput:
+                arr = line.split()
+                sm_ipmi_info.mem_usage = int(arr[0])
         if data_type == "ipmi_data":
             sm_ipmi_info.sensor_stats = []
             sm_ipmi_info.sensor_state = []
             for ipmidata in ipmi_data:
                 sm_ipmi_info.sensor_stats.append(ipmidata)
                 sm_ipmi_info.sensor_state.append(ipmidata)
+            self.base_obj.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+            self.base_obj.log("info", "UVE Info = " + str(sm_ipmi_info))
         elif data_type == "ipmi_chassis_data":
             sm_ipmi_info.chassis_state = ipmi_data
+        elif data_type == "disk_list":
+            sm_ipmi_info.disk_usage_stats = []
+            sm_ipmi_info.disk_usage_state = []
+            for data in ipmi_data:
+                sm_ipmi_info.disk_usage_stats.append(data)
+                sm_ipmi_info.disk_usage_state.append(data)
+            self.base_obj.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+            self.base_obj.log("info", "UVE Info = " + str(sm_ipmi_info))
         ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
@@ -86,9 +113,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
     def return_collector_ip(self):
         return self._collectors_ip
 
-    def fetch_and_process_monitoring(self, hostname, ip, username, password, supported_sensors):
+    def fetch_and_process_monitoring(self, hostname, ipmi, ip, username, password, supported_sensors):
         ipmi_data = []
-        cmd = 'ipmitool -H %s -U %s -P %s sdr list all' % (ip, username, password)
+        cmd = 'ipmitool -H %s -U %s -P %s sdr list all' % (ipmi, username, password)
         result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
         if result is not None and "|" in result:
             fileoutput = cStringIO.StringIO(result)
@@ -121,7 +148,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             except Exception as e:
                 self.base_obj.log("error", "Error getting dev env data for " + str(hostname) + " : " + str(e.message))
                 return False
-            self.send_ipmi_stats(ipmi_data, hostname, "ipmi_data")
+            self.send_ipmi_stats(ip, ipmi_data, hostname, "ipmi_data")
             return True
         else:
             self.base_obj.log("error", "IPMI Polling failed for " + str(ip))
@@ -162,10 +189,49 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     elif chassis_value:
                         ipmichassisdata.cooling_fan_fault = bool(chassis_value)
                 ipmi_chassis_data = ipmichassisdata
-            self.send_ipmi_stats(ipmi_chassis_data, hostname, "ipmi_chassis_data")
+            self.send_ipmi_stats(ip, ipmi_chassis_data, hostname, "ipmi_chassis_data")
         except Exception as e:
             self.base_obj.log("error", "Error getting chassis data for " + str(hostname) + " : " + str(e.message))
+    
+    def ssh_execute_cmd(self, ip, cmd):
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(ip, username='root', key_filename="/root/.ssh/server_mgr_rsa", timeout=3)
+            stdin, stdout, stderr = ssh.exec_command(cmd)
+            if stdout is None:
+                return None
+            filestr = stdout.read()
+            fileoutput = cStringIO.StringIO(filestr)
+            return fileoutput
+        except Exception as e:
+            self.base_obj.log("error", "Error in SSH getting disk info for " + str(ip) + " : " + str(e))
 
+    def fetch_and_process_disk_info(self, hostname, ip):
+        disk_list = []
+        cmd = 'iostat -m'
+        try:
+            fileoutput = self.ssh_execute_cmd(ip, cmd)
+            if fileoutput is not None:
+                for line in fileoutput:
+                    if line is not None:
+                        if line.find('sd') != -1 or line.find('dm') != -1:
+                            self.base_obj.log("info", "LINE: " + line)
+                            disk_data = Disk()
+                            res = re.sub('\s+', ' ', line).strip()
+                            arr = res.split()
+                            disk_data.disk_name = arr[0]
+                            disk_data.read_MB = int(arr[4])
+                            disk_data.write_MB = int(arr[5])
+                            disk_list.append(disk_data)
+                if disk_list:
+                    self.send_ipmi_stats(ip, disk_list, hostname, "disk_list")
+                    return True
+                else:
+                    return False
+        except Exception as e:
+            self.base_obj.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
+            return False
 
     def fetch_and_process_sel_logs(self, hostname, ip, username, password, sel_event_log_list):
         sel_cmd = 'ipmitool -H %s -U %s -P %s sel elist' % (ip, username, password)
@@ -203,20 +269,25 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
     def delete_monitoring_info(self, hostname_list):
         for hostname in hostname_list:
-            sm_ipmi_info = SMIpmiInfo()
+            sm_ipmi_info = ServerMonitoringInfo()
             sm_ipmi_info.name = str(hostname)
             sm_ipmi_info.deleted = True
             sm_ipmi_info.sensor_state = None
             sm_ipmi_info.sensor_stats = None
-            ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
+            sm_ipmi_info.disk_usage_stats = None
+            sm_ipmi_info.disk_usage_state = None
+            sm_ipmi_info.cpu_usage = None
+            sm_ipmi_info.mem_usage = None
+            ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
             self.call_send(ipmi_stats_trace)
 
-    def gevent_runner_func(self, hostname, ip, username, password, supported_sensors, sel_log_dict):
+    def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, sel_log_dict):
         return_dict = dict()
         self.base_obj.log("info", "Gevent Thread created for %s" % ip)
+        self.fetch_and_process_disk_info(hostname, ip)
         return_dict["ipmi_status"] = \
-            self.fetch_and_process_monitoring(hostname, ip, username, password, supported_sensors)
-        self.fetch_and_process_chassis(hostname, ip, username, password)
+            self.fetch_and_process_monitoring(hostname, ipmi, ip, username, password, supported_sensors)
+        self.fetch_and_process_chassis(hostname, ipmi, username, password)
         if str(hostname) in sel_log_dict:
             return_dict["sel_log"] = \
                 self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_log_dict[str(hostname)])
@@ -257,10 +328,10 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 self.delete_monitoring_info(list(deleted_servers))
             self.base_obj.log("info", "Started IPMI Polling")
             gevent_threads = dict()
-            for ip, hostname, username, password in \
-                    zip(ipmi_list, hostname_list, ipmi_username_list, ipmi_password_list):
+            for ipmi, ip, hostname, username, password in \
+                    zip(ipmi_list, server_ip_list, hostname_list, ipmi_username_list, ipmi_password_list):
                 thread = gevent.spawn(
-                    self.gevent_runner_func, hostname, ip, username, password, supported_sensors, sel_log_dict)
+                    self.gevent_runner_func, hostname, ipmi, ip, username, password, supported_sensors, sel_log_dict)
                 gevent_threads[str(hostname)] = thread
             self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
@@ -278,3 +349,4 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     sel_log_dict[str(hostname)] = return_dict["sel_log"]
                 else:
                     self.base_obj.log("error", "Greenlet returned error: " + thread.get())
+

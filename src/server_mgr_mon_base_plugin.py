@@ -40,6 +40,7 @@ _DEF_SMGR_BASE_DIR = '/opt/contrail/server_manager/'
 _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
 _DEF_INTROSPECT_PORT = 8107
 
+#JUST CHECKING
 # Class ServerMgrDevEnvMonitoring provides a base class that can be inherited by
 # any implementation of a plugabble monitoring API that interacts with the
 # analytics node

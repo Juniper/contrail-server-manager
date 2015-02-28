@@ -38,7 +38,7 @@ class ServerMgrIPMIQuerying():
             conn.perform()
             data_dict = response.getvalue()
             data_dict = dict(json.loads(data_dict))
-            data_list = list(data_dict["__SMIpmiInfoTrace_list"]["SMIpmiInfoTrace"])
+            data_list = list(data_dict["__ServerMonitoringInfoTrace_list"]["ServerMonitoringInfoTrace"])
             return data_list
         except Exception as e:
             print "Error is: " + str(e)
@@ -56,10 +56,10 @@ class ServerMgrIPMIQuerying():
                 server_hostname_list.append(server['id'])
             for server in data_list:
                 server = dict(server)
-                server_hostname = server["data"]["SMIpmiInfo"]["name"]["#text"]
+                server_hostname = server["data"]["ServerMonitoringInfo"]["name"]["#text"]
                 if server_hostname in server_hostname_list:
                     server_sensor_info_dict[str(server_hostname)] = dict()
-                    server_sensor_list = list(server["data"]["SMIpmiInfo"]["sensor_state"]["list"]["IpmiSensor"])
+                    server_sensor_list = list(server["data"]["ServerMonitoringInfo"]["sensor_state"]["list"]["IpmiSensor"])
                     for sensor in server_sensor_list:
                         sensor = dict(sensor)
                         sensor_name = sensor["sensor"]["#text"]
