@@ -305,7 +305,6 @@ class VncServerManager():
             status_thread_config = {}
             status_thread_config['listen_ip'] = self._args.listen_ip_addr
             status_thread_config['listen_port'] = '9002'
-            status_thread_config['server_db'] = self._serverDb
             status_thread_config['smgr_puppet'] = self._smgr_puppet
             status_thread = ServerMgrStatusThread(
                             None, "Status-Thread", status_thread_config)
