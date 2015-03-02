@@ -324,8 +324,19 @@ class UbuntuInterface(BaseInterface):
             fd.flush()
         os.system('sudo cp -f %s %s'%(self.tempfile.name, filename))
 
+    def biosdevname_mapping(self, name):
+        try:
+            name = os.popen('biosdevname -i %s'%(name)).read()
+        except: 
+            pass
+        return name.strip()
+
     def pre_conf(self):
         '''Execute commands before interface configuration for Ubuntu'''
+        self.device = self.biosdevname_mapping(self.device) 
+        for i in xrange(len(self.members)):
+            self.members[i] = self.biosdevname_mapping(self.members[i])
+            
         filename = os.path.join(os.path.sep, 'etc', 'network', 'interfaces')
         ifaces = [self.device] + self.members
         if self.vlan:
@@ -356,7 +367,6 @@ class UbuntuInterface(BaseInterface):
     def create_interface(self):
         '''Create interface config for normal interface for Ubuntu'''
         log.info('Creating Interface: %s' % self.device)
-        mac = self.get_mac_addr(self.device)
         if not self.vlan:
             cfg = ['auto %s' %self.device,
                    'iface %s inet static' %self.device,
@@ -376,7 +386,6 @@ class UbuntuInterface(BaseInterface):
         '''Create interface config for each bond members for Ubuntu'''
         for each in self.members:
             log.info('Create Bond Members: %s' %each)
-            mac = self.get_mac_addr(each)
             cfg = ['auto %s' %each,
                    'iface %s inet manual' %each,
                    'down ip addr flush dev %s' %each,
