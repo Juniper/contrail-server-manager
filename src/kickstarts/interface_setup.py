@@ -333,9 +333,10 @@ class UbuntuInterface(BaseInterface):
 
     def pre_conf(self):
         '''Execute commands before interface configuration for Ubuntu'''
-        self.device = self.biosdevname_mapping(self.device) 
-        for i in xrange(len(self.members)):
-            self.members[i] = self.biosdevname_mapping(self.members[i])
+        if LooseVersion(VERSION) >= LooseVersion("14.04"):
+            self.device = self.biosdevname_mapping(self.device) 
+            for i in xrange(len(self.members)):
+                self.members[i] = self.biosdevname_mapping(self.members[i])
             
         filename = os.path.join(os.path.sep, 'etc', 'network', 'interfaces')
         ifaces = [self.device] + self.members
