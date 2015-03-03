@@ -2041,7 +2041,8 @@ $__contrail_quantum_servers__
                 storage_chassis_config = ''
                 for key in provision_params['storage_chassis_config']:
                     storage_chassis_config += '''"%s", ''' % key
-                data += 'contrail::params::storage_chassis_config: \'[%s]\'\n' %(str(storage_chassis_config))
+                if len(str(storage_chassis_config)) != 0:
+                    data += 'contrail::params::storage_chassis_config: \'[%s]\'\n' %(str(storage_chassis_config))
     
             if 'storage_server_disks' in provision_params:
                 storage_disks = [  x.encode('ascii') for x in provision_params['storage_server_disks']]
