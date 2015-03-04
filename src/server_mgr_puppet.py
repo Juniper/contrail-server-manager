@@ -20,6 +20,7 @@ import openstack_hieradata
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
+from contrail_defaults import *
 
 
 class ServerMgrPuppet:
@@ -116,6 +117,41 @@ class ServerMgrPuppet:
                 return provision_params['server_ip']
         return mgmt_ip
     # end get_control_ip
+
+    def storage_get_control_network_mask(self, provision_params,
+        server, cluster):
+        role_ips_dict = provision_params['roles']
+        cluster_params = eval(cluster['parameters'])
+        server_params = eval(server['parameters'])
+        openstack_ip = cluster_params.get("internal_vip", None)
+        self_ip = server.get("ip_address", "")
+        if openstack_ip is None or openstack_ip == '':
+            if self_ip in role_ips_dict['openstack']:
+                openstack_ip = self_ip
+            else:
+                openstack_ip = role_ips_dict['openstack'][0]
+
+        subnet_mask = server.get("subnet_mask", "")
+        if not subnet_mask:
+            subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
+
+        subnet_address = str(IPNetwork(
+            openstack_ip + "/" + subnet_mask).network)
+
+        self._smgr_log.log(self._smgr_log.DEBUG, "control-net : %s" % str( provision_params['control_net']))
+        if provision_params['control_net'] [openstack_ip]:
+            intf_control = eval(provision_params['control_net'] [openstack_ip])
+            self._smgr_log.log(self._smgr_log.DEBUG, "openstack-control-net : %s" % str(intf_control ))
+
+        for intf,values in intf_control.items():
+            if intf:
+                self._smgr_log.log(self._smgr_log.DEBUG, "ip_address : %s" % values['ip_address'])
+                return '"' + str(IPNetwork(values['ip_address']).network) + '/'+ str(IPNetwork(values['ip_address']).prefixlen) + '"'
+            else:
+                self._smgr_log.log(self._smgr_log.DEBUG, "server_ip : %s" % values['server_ip'])
+                return '"' + str(IPNetwork(provision_params['server_ip']).network) + '/'+ str(IPNetwork(provision_params['server_ip']).prefixlen) + '"'
+
+        return '"' + str(IPNetwork(subnet_address).network) + '/'+ str(IPNetwork(subnet_address).prefixlen) + '"'
 
     ## return 1.1.1.0/24 format network and mask
     def get_control_network_mask(self, provision_params, mgmt_ip_str):
@@ -1839,6 +1875,37 @@ $__contrail_quantum_servers__
         return data
     # end add cluster_parameters
 
+    def initiate_esx_contrail_vm(self, provision_params):
+        if 'esx_server' in provision_params.keys():
+            self._smgr_log.log(self._smgr_log.DEBUG, "esx_server")
+            #call scripts to provision esx
+            vm_params = {}
+            vm_params['vm'] = "ContrailVM"
+            vm_params['vmdk'] = "ContrailVM"
+            vm_params['datastore'] = provision_params['datastore']
+            vm_params['eth0_mac'] = provision_params['server_mac']
+            vm_params['eth0_ip'] = provision_params['server_ip']
+            vm_params['eth0_pg'] = provision_params['esx_fab_port_group']
+            vm_params['eth0_vswitch'] = provision_params['esx_fab_vswitch']
+            vm_params['eth0_vlan'] = None
+            vm_params['eth1_vswitch'] = provision_params['esx_vm_vswitch']
+            vm_params['eth1_pg'] = provision_params['esx_vm_port_group']
+            vm_params['eth1_vlan'] = "4095"
+            vm_params['uplink_nic'] = provision_params['esx_uplink_nic']
+            vm_params['uplink_vswitch'] = provision_params['esx_fab_vswitch']
+            vm_params['server'] = provision_params['esx_ip']
+            vm_params['username'] = provision_params['esx_username']
+            vm_params['password'] = provision_params['esx_password']
+            vm_params['thindisk'] =  provision_params['esx_vmdk']
+            vm_params['smgr_ip'] = provision_params['smgr_ip'];
+            vm_params['domain'] =  provision_params['domain']
+            vm_params['vm_password'] = provision_params['password']
+            vm_params['vm_server'] = provision_params['server_id']
+            vm_params['vm_deb'] = provision_params['vm_deb']
+            out = ContrailVM(vm_params)
+            self._smgr_log.log(self._smgr_log.DEBUG, "ContrilVM:" %(out))
+    # end initiate_esx_contrail_vm
+
     def build_contrail_hiera_file(
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
@@ -1847,6 +1914,8 @@ $__contrail_quantum_servers__
         data = ''
         package_ids = [provision_params.get('package_image_id', "").encode('ascii')]
         package_types = [provision_params.get('package_type', "").encode('ascii')]
+        if 'esx_server' in provision_params and 'compute' in provision_params['host_roles']:
+            self.initiate_esx_contrail_vm(provision_params)
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             package_ids.append(provision_params.get('storage_repo_id', "").encode('ascii'))
             package_types.append("contrail-ubuntu-storage-repo".encode('ascii'))
@@ -1860,10 +1929,18 @@ $__contrail_quantum_servers__
         if 'kernel_upgrade' in provision_params and \
             'kernel_version' in provision_params and \
             provision_params['kernel_version'] != '' :
+
             data += 'contrail::params::kernel_upgrade: "%s"\n' %(
                 provision_params.get('kernel_upgrade', DEFAULT_KERNEL_UPGRADE))
             data += 'contrail::params::kernel_version: "%s"\n' %(
                 provision_params.get('kernel_version', DEFAULT_KERNEL_VERSION))
+        if 'external_bgp' in provision_params and \
+            provision_params['external_bgp'] :
+            data += 'contrail::params::external_bgp: "%s"\n' %(
+                provision_params.get('external_bgp', ""))
+        if "uuid" in cluster_params:
+            data += 'contrail::params::uuid: "%s"\n' %(
+                cluster_params.get('uuid', ""))
 
         role_ips = {}
         role_ids = {}
@@ -1889,6 +1966,14 @@ $__contrail_quantum_servers__
                 "root".encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
             data += 'contrail::params::%s_user_list: %s\n' %(
                 role, str(role_users[role]))
+
+        if (server['id'] == role_ids['openstack'][0]) :
+           data += 'contrail::params::sync_db: %s\n' %(
+               "True")
+        else:
+           data += 'contrail::params::sync_db: %s\n' %(
+               "False")
+ 
 
         # Retrieve and add all the cluster parameters specified.
         data += self.add_cluster_parameters(cluster_params)
@@ -1917,6 +2002,18 @@ $__contrail_quantum_servers__
             # end if control_intf_dict
         # enf if server_control_ip...
 
+
+        if "internal_vip" in cluster_params:
+            data += 'contrail::params::internal_vip: "%s"\n' %(
+                cluster_params.get('internal_vip', ""))
+        if "contrail_internal_vip" in cluster_params:
+            data += 'contrail::params::contrail_internal_vip: "%s"\n' %(
+                cluster_params.get('contrail_internal_vip', ""))
+        if "external_vip" in cluster_params:
+            data += 'contrail::params::external_vip: "%s"\n' %(
+                cluster_params.get('external_vip', ""))
+>>>>>>> 77b2dc0... Partial-Bug: #1397496 Server Manager changes to make use of new
+
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
             data += 'contrail::params::host_roles: %s\n' %(str(provision_params['host_roles']))
@@ -1941,6 +2038,9 @@ $__contrail_quantum_servers__
                 data += 'contrail::params::storage_osd_disks: %s\n' %(str(storage_disks))
             else:
                 data += 'contrail::params::storage_osd_disks: []\n' 
+            control_network = self.storage_get_control_network_mask(provision_params, server, cluster)
+            self._smgr_log.log(self._smgr_log.DEBUG, "control-net : %s" %(control_network))
+            data += 'contrail::params::storage_cluster_network: %s\n' %(control_network) 
 
         with open(hiera_filename, "w") as site_fh:
             site_fh.write(data)
@@ -1958,10 +2058,27 @@ $__contrail_quantum_servers__
         # Get all values needed to fill he template.
         self_ip = server.get("ip_address", "")
         openstack_ip = cluster_params.get("internal_vip", None)
+        contrail_internal_vip = cluster_params.get("contrail_internal_vip", None)
+        contrail_external_vip = cluster_params.get("contrail_external_vip", None)
+        external_vip = cluster_params.get("external_vip", None)
+
+        if contrail_internal_vip != None and contrail_internal_vip != "":
+            mysql_allowed_hosts.append(contrail_internal_vip)
+        if contrail_external_vip != None and contrail_external_vip != "":
+            mysql_allowed_hosts.append(contrail_external_vip)
+        if external_vip != None and external_vip != "":
+            mysql_allowed_hosts.append(external_vip)
+
+
+        os_ip_list =  [self.get_control_ip(provision_params, x["ip_address"].encode('ascii')) \
+                    for x in cluster_servers if 'openstack' in set(eval(x['roles']))]
+
+        config_ip_list =  [self.get_control_ip(provision_params, x["ip_address"].encode('ascii')) \
+                    for x in cluster_servers if 'config' in set(eval(x['roles']))]
+
         if openstack_ip != None and openstack_ip != "":
             mysql_allowed_hosts.append(openstack_ip)
-        mysql_allowed_hosts = mysql_allowed_hosts + list(set(role_ips_dict['openstack'] + role_ips_dict['config']))
-
+        mysql_allowed_hosts = mysql_allowed_hosts + list(set(os_ip_list + config_ip_list + role_ips_dict['config'] + role_ips_dict['openstack'] ))
 
         if openstack_ip is None or openstack_ip == '':
             if self_ip in role_ips_dict['openstack']:

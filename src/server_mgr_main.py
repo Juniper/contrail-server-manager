@@ -1557,9 +1557,9 @@ class VncServerManager():
                     server_hostname_list.append(str(server['id']))
                     server_ip_list.append(str(server['ip_address']))
                     server_root_pw_list.append(str(server['password']))
-                    self._serverDb.add_server(server)
                     server['status'] = "server_added"
                     server['discovered'] = "false"
+                    self._serverDb.add_server(server)
                 server_data = {}
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
@@ -3273,25 +3273,19 @@ class VncServerManager():
                         num_storage_hosts += 1
                     else:
                         pass
+    
+                if 'live_migration' in cluster_params.keys() and cluster_params['live_migration'] == "enable":
+                  if 'live_migration_nfs_vm_host' in cluster_params.keys() and cluster_params['live_migration_nfs_vm_host'] and len(cluster_params['live_migration_nfs_vm_host']) > 0 :
+                      live_migration = "enable"
+                      live_migration_host = cluster_params['live_migration_nfs_vm_host']
+                  else:
+                      live_migration = "disable"
+                      live_migration_host = ""
 
-                for role_server in role_servers['storage-master']:
-                    server_params_master = eval(role_server['parameters'])
-                    if 'live_migration' in server_params_master and server_params_master['live_migration'] == "enable":
-                        if 'live_migration_nfs_vm_host' in server_params_master and len(
-                                server_params_master['live_migration_nfs_vm_host']) > 0:
-                            live_migration = "enable"
-                            live_migration_host = server_params_master['live_migration_nfs_vm_host']
-                        else:
-                            live_migration = "disable"
-                            live_migration_host = ""
-
-                        if 'live_migration_storage_scope' in server_params_master:
-                            live_migration_storage_scope = server_params_master['live_migration_storage_scope']
-                        else:
-                            pass
-
-                    else:
-                        pass
+                  if 'live_migration_storage_scope' in cluster_params.keys() and cluster_params['live_migration_storage_scope']:
+                      live_migration_storage_scope = cluster_params['live_migration_storage_scope']
+		  else:
+		      pass
 
                 if live_migration_storage_scope == "local" or live_migration_storage_scope == "global":
                     pass
@@ -3312,7 +3306,7 @@ class VncServerManager():
                     if len(role_servers['storage-master']) == 0:
                         msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
                         raise ServerMgrException(msg)
-                    if 'storage_mon_secret' in cluster_params.keys():
+                    if 'storage_mon_secret' in cluster_params.keys() and cluster_params['storage_mon_secret']:
                         if len(cluster_params['storage_mon_secret']) == 40:
                             provision_params['storage_mon_secret'] = cluster_params['storage_mon_secret']
                         else:
@@ -3320,7 +3314,7 @@ class VncServerManager():
                             raise ServerMgrException(msg)
                     else:
                         provision_params['storage_mon_secret'] = ""
-                    if 'osd_bootstrap_key' in cluster_params.keys():
+                    if 'osd_bootstrap_key' in cluster_params.keys() and cluster_params['osd_bootstrap_key']:
                         if len(cluster_params['osd_bootstrap_key']) == 40:
                             provision_params['osd_bootstrap_key'] = cluster_params['osd_bootstrap_key']
                         else:
@@ -3328,7 +3322,7 @@ class VncServerManager():
                             raise ServerMgrException(msg)
                     else:
                         provision_params['osd_bootstrap_key'] = ""
-                    if 'admin_key' in cluster_params.keys():
+                    if 'admin_key' in cluster_params.keys() and cluster_params['admin_key']:
                         if len(cluster_params['admin_key']) == 40:
                             provision_params['admin_key'] = cluster_params['admin_key']
                         else:
@@ -3336,7 +3330,7 @@ class VncServerManager():
                             raise ServerMgrException(msg)
                     else:
                         provision_params['admin_key'] = ""
-                    if 'disks' in server_params and total_osd > 0:
+                    if 'disks' in server_params and server_params['disks'] and total_osd > 0:
                         provision_params['storage_server_disks'] = []
                         provision_params['storage_server_disks'].extend(server_params['disks'])
 
@@ -3349,7 +3343,7 @@ class VncServerManager():
                 provision_params['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
 
                 # Multiple Repo support
-                if 'storage_repo_id' in server_params.keys():
+                if 'storage_repo_id' in server_params.keys() and server_params['storage_repo_id']:
                     images = self.get_image()
                     image_ids = dict()
                     for image in images['image']:

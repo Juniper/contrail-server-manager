@@ -41,6 +41,11 @@ EOF
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
 deb http://$server/thirdparty_packages/ ./
+EOF
+
+cat >>/etc/apt/sources.list.save <<EOF
+# add repos needed for puppet and its dependencies
+deb http://$server/thirdparty_packages/ ./
 
 # deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ dists/precise/main/binary-i386/
 # deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ dists/precise/restricted/binary-i386/
@@ -113,7 +118,7 @@ EOF
 apt-get update
 apt-get -y install puppet
 apt-get -y install python-netaddr
-apt-get -y install ifenslave
+apt-get -y install ifenslave-2.6=1.1.0-19ubuntu5
 # Packages required for inventory
 apt-get -y install sysstat
 apt-get -y install ethtool
@@ -149,7 +154,7 @@ echo "    ignorecache = true" >> /etc/puppet/puppet.conf
 echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
 echo "    listen = true" >> /etc/puppet/puppet.conf
 echo "[main]" >> /etc/puppet/puppet.conf
-echo "runinterval=180" >> /etc/puppet/puppet.conf
+echo "runinterval=60" >> /etc/puppet/puppet.conf
 
 cat >/tmp/puppet-auth.conf <<EOF
 # Allow puppet kick access
@@ -167,9 +172,8 @@ cp -f /tmp/puppet-auth.conf /etc/puppet/auth.conf
 # could be removed once puppet issue is resolved. Abhay
 sed -i "s/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :ignore)/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :use)/g" /usr/lib/ruby/vendor_ruby/puppet/configurer/downloader.rb
 #--------------------------------------------------------------------------
-# Enable to start puppet agent on boot & Run Puppet agent
+# Enable to start puppet agent on boot
 sed -i 's/START=.*$/START=yes/' /etc/default/puppet
-puppet agent --waitforcert 60 --test
 if [ "$contrail_repo_name" != "" ];
 then
     cd /etc/apt

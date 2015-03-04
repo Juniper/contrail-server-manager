@@ -47,16 +47,19 @@ service ssh restart
 #Install puppet 2.7 against 3.x which is got from trusty repo.
 #Need to revisit this logic to use preferences.
 
-mv /etc/apt/sources.list /etc/apt/sources.list.orig
 
-echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
+#echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
+cat >>/etc/apt/sources.list <<EOF
+# add repos needed for puppet and its dependencies
+deb http://$server/thirdparty_packages/ ./
+EOF
 
 apt-get update
 apt-get -y install puppet
 
-cp /etc/apt/sources.list.orig /etc/apt/sources.list
+#cp /etc/apt/sources.list.orig /etc/apt/sources.list
 
-cat >>/etc/apt/sources.list <<EOF
+cat >>/etc/apt/sources.list.save <<EOF
 # add repos needed for puppet and its dependencies
 deb http://$server/thirdparty_packages/ ./
 
@@ -128,7 +131,7 @@ EOF
 apt-get update
 apt-get -y install biosdevname
 apt-get -y install python-netaddr
-apt-get -y install ifenslave
+apt-get -y install ifenslave=2.4ubuntu1
 # Packages required for inventory
 apt-get -y install sysstat
 apt-get -y install ethtool
@@ -165,7 +168,7 @@ echo "    ignorecache = true" >> /etc/puppet/puppet.conf
 echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
 echo "    listen = true" >> /etc/puppet/puppet.conf
 echo "[main]" >> /etc/puppet/puppet.conf
-echo "runinterval=180" >> /etc/puppet/puppet.conf
+echo "runinterval=60" >> /etc/puppet/puppet.conf
 
 cat >/tmp/puppet-auth.conf <<EOF
 # Allow puppet kick access
@@ -183,9 +186,8 @@ cp -f /tmp/puppet-auth.conf /etc/puppet/auth.conf
 # could be removed once puppet issue is resolved. Abhay
 sed -i "s/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :ignore)/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :use)/g" /usr/lib/ruby/vendor_ruby/puppet/configurer/downloader.rb
 #--------------------------------------------------------------------------
-# Enable to start puppet agent on boot & Run Puppet agent
+# Enable to start puppet agent on boot
 sed -i 's/START=.*$/START=yes/' /etc/default/puppet
-puppet agent --waitforcert 60 --test
 if [ "$contrail_repo_name" != "" ];
 then
     cd /etc/apt
