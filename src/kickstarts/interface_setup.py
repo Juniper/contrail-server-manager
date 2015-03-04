@@ -20,12 +20,13 @@ import json
 import subprocess
 from netaddr import IPNetwork
 from tempfile import NamedTemporaryFile
+from distutils.version import LooseVersion
 
 logging.basicConfig(format='%(asctime)-15s:: %(funcName)s:%(levelname)s::\
                             %(message)s',
                     level=logging.INFO)
 log = logging.getLogger(__name__)
-PLATFORM = platform.dist()[0]
+(PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
 
 bond_opts_dict  = {'arp_interval' : 'int',
                    'arp_ip_target': 'ipaddr_list',
@@ -52,7 +53,6 @@ class BaseInterface(object):
         self.ip         = kwargs.get('ip', None)
         self.gw         = kwargs.get('gw', None)
         self.vlan       = kwargs.get('vlan', None)
-        self.dhcp       = kwargs.get('dhcp', None)
         self.bond_opts  = {'miimon': '100', 'mode': '802.3ad',
                            'xmit_hash_policy': 'layer3+4'}
         try:
@@ -113,9 +113,9 @@ class BaseInterface(object):
           try:
             if (not isinstance(value, int) and value in compare_dict[key]) or\
                ('int' in compare_dict[key] and int(value)) or\
-               ('macaddr' in compare_dict[key] and self.isvalid_mac(value)) or\
+               ('macaddr' in compare_dict[key] and self.is_valid_mac(value)) or\
                ('ipaddr_list' in compare_dict[key] and
-                                 self.isvalid_ipaddr_list(value)) or\
+                                 self.is_valid_ipaddr_list(value)) or\
                ('string' in compare_dict[key] and isinstance(value,basestring)):
                 return True
           except:
@@ -154,7 +154,7 @@ class BaseInterface(object):
                                   struct.pack('256s', iface[:15]))
             macaddr = ''.join(['%02x:' % ord(each) for each in macinfo[18:24]])[:-1]
         except IOError, err:
-            log.warn('Seems there is no such interface (%s)' %iface)
+            raise Exception('Unable to fetch MAC address of interface (%s)' %iface)
         return macaddr
 
     def create_vlan_interface(self):
@@ -233,12 +233,9 @@ class BaseInterface(object):
                'NM_CONTROLLED' : 'no',
                'HWADDR'        : mac}
         if not self.vlan:
-            if self.dhcp:
-                cfg.update({'BOOTPROTO': 'dhcp'})
-            else:
-                cfg.update({'NETMASK'       : self.netmask,
-                            'IPADDR'        : self.ipaddr
-                            })
+            cfg.update({'NETMASK'       : self.netmask,
+                        'IPADDR'        : self.ipaddr
+                       })
             if self.gw:
                 cfg['GATEWAY'] = self.gw
         else:
@@ -269,7 +266,7 @@ class BaseInterface(object):
             ip = IPNetwork(self.ip)
             self.ipaddr = str(ip.ip)
             self.netmask = str(ip.netmask)
-        elif not self.dhcp:
+        else:
             raise Exception("IP address/mask is not specified")
         if 'bond' in self.device.lower():
             self.create_bonding_interface()
@@ -282,8 +279,11 @@ class UbuntuInterface(BaseInterface):
     def restart_service(self):
         '''Restart network service for Ubuntu'''
         log.info('Restarting Network Services...')
-        os.system('sudo /etc/init.d/networking restart')
-        time.sleep(5)
+        if LooseVersion(VERSION) < LooseVersion("14.04"):
+            subprocess.call('sudo /etc/init.d/networking restart', shell=True)
+        else:
+            subprocess.call('sudo ifdown -a && sudo ifup -a', shell=True)
+        time.sleep(20)
 
     def remove_lines(self, ifaces, filename):
         '''Remove existing config related to given interface if the same
@@ -324,8 +324,19 @@ class UbuntuInterface(BaseInterface):
             fd.flush()
         os.system('sudo cp -f %s %s'%(self.tempfile.name, filename))
 
+    def biosdevname_mapping(self, name):
+        try:
+            name = os.popen('biosdevname -i %s'%(name)).read()
+        except: 
+            pass
+        return name.strip()
+
     def pre_conf(self):
         '''Execute commands before interface configuration for Ubuntu'''
+        self.device = self.biosdevname_mapping(self.device) 
+        for i in xrange(len(self.members)):
+            self.members[i] = self.biosdevname_mapping(self.members[i])
+            
         filename = os.path.join(os.path.sep, 'etc', 'network', 'interfaces')
         ifaces = [self.device] + self.members
         if self.vlan:
@@ -356,23 +367,17 @@ class UbuntuInterface(BaseInterface):
     def create_interface(self):
         '''Create interface config for normal interface for Ubuntu'''
         log.info('Creating Interface: %s' % self.device)
-        mac = self.get_mac_addr(self.device)
         if not self.vlan:
-            if self.dhcp:
-                cfg = ['auto %s' %self.device,
-                       'iface %s inet dhcp' %self.device]
-            else:
-                cfg = ['auto %s' %self.device,
-                       'iface %s inet static' %self.device,
-                       'hwaddress ether %s' %mac,
-                       'address %s' %self.ipaddr,
-                       'netmask  %s' %self.netmask]
+            cfg = ['auto %s' %self.device,
+                   'iface %s inet static' %self.device,
+                   'address %s' %self.ipaddr,
+                   'netmask  %s' %self.netmask]
             if self.gw:
                 cfg.append('gateway %s' %self.gw)
         else:
             cfg = ['auto %s' %self.device,
                    'iface %s inet manual' %self.device,
-                   'hwaddress ether %s' %mac]
+                   'down ip addr flush dev %s' %self.device]
         self.write_network_script(cfg)
         if self.vlan:
             self.create_vlan_interface()
@@ -381,10 +386,8 @@ class UbuntuInterface(BaseInterface):
         '''Create interface config for each bond members for Ubuntu'''
         for each in self.members:
             log.info('Create Bond Members: %s' %each)
-            mac = self.get_mac_addr(each)
             cfg = ['auto %s' %each,
                    'iface %s inet manual' %each,
-                   'hwaddress ether %s' %mac,
                    'down ip addr flush dev %s' %each,
                    'bond-master %s' %self.device]
             self.write_network_script(cfg)
@@ -415,7 +418,8 @@ class UbuntuInterface(BaseInterface):
                 cfg.append('gateway %s' %self.gw)
         else:
             cfg = ['auto %s' %self.device,
-                   'iface %s inet manual' %self.device]
+                   'iface %s inet manual' %self.device,
+                   'down ip addr flush dev %s' %self.device]
         cfg += self.bond_opts_str.split("\n")
         self.write_network_script(cfg)
         if self.vlan:
@@ -439,10 +443,8 @@ def parse_cli(args):
                         help='Name of Member interfaces or Mac addresses')
     parser.add_argument('--ip', 
                         action='store',
+                        required=True,
                         help='IP address of the new Interface')
-    parser.add_argument('--dhcp',
-                        action='store_true',
-                        help='DHCP True/False')
     parser.add_argument('--gw', 
                         action='store',
                         help='Gateway Address of the Interface')
