@@ -156,7 +156,7 @@ class ServerMgrMonBasePlugin(Thread):
                 self.log("info", "Collector IPs from config: " + str(collectors_ip_list))
                 monitoring = True
                 try:
-                    __import__('contrail_sm_monitoring.ipmi')
+                    __import__('contrail_sm_monitoring.monitoring')
                 except ImportError:
                     monitoring = False
                     pass
@@ -169,7 +169,7 @@ class ServerMgrMonBasePlugin(Thread):
                         collectors_ip_list,
                         module_name,
                         HttpPortInventorymgr,
-                        ['inventory_daemon.server_inventory', 'contrail_sm_monitoring.ipmi'])
+                        ['inventory_daemon.server_inventory', 'contrail_sm_monitoring.monitoring'])
                 else:
                     sandesh_global.init_generator(
                         module_name,

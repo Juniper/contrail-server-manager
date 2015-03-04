@@ -17,11 +17,12 @@ import json
 import socket
 import pdb
 import paramiko
+import paramiko.channel
 import math
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from threading import Thread
-from contrail_sm_monitoring.ipmi.ttypes import *
+from contrail_sm_monitoring.monitoring.ttypes import *
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
@@ -55,25 +56,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
     # send_ipmi_stats function packages and sends the IPMI info gathered from server polling
     # to the analytics node
     def send_ipmi_stats(self, ip, ipmi_data, hostname, data_type):
-        sm_ipmi_info = SMIpmiInfo()
+        sm_ipmi_info = ServerMonitoringInfo()
         sm_ipmi_info.name = str(hostname)
-        cmd = 'mpstat'
-        fileoutput = self.ssh_execute_cmd(ip, cmd)
-        if fileoutput is not None:
-            for line in fileoutput:
-                res = re.sub('\s+', ' ', line).strip()
-                arr = res.split()
-                if len(arr) == 12:
-                    if "%idle" in arr:
-                        continue
-                    else:
-                        sm_ipmi_info.cpu_usage = 100.0 - float(arr[11])
-        cmd = 'vmstat -s | grep "used memory"'
-        fileoutput = self.ssh_execute_cmd(ip, cmd)
-        if fileoutput is not None:
-            for line in fileoutput:
-                arr = line.split()
-                sm_ipmi_info.mem_usage = int(arr[0])
         if data_type == "ipmi_data":
             sm_ipmi_info.sensor_stats = []
             sm_ipmi_info.sensor_state = []
@@ -92,7 +76,10 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 sm_ipmi_info.disk_usage_state.append(data)
             self.base_obj.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
             self.base_obj.log("info", "UVE Info = " + str(sm_ipmi_info))
-        ipmi_stats_trace = SMIpmiInfoTrace(data=sm_ipmi_info)
+        elif data_type == "cpu_mem":
+            sm_ipmi_info.cpu_usage = float(ipmi_data[0])
+            sm_ipmi_info.mem_usage = int(ipmi_data[1])
+        ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
     # Packages and sends a REST API call to the ServerManager node
@@ -154,9 +141,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.base_obj.log("error", "IPMI Polling failed for " + str(ip))
             return False
 
-    def fetch_and_process_chassis(self, hostname, ip, username, password):
+    def fetch_and_process_chassis(self, hostname, ipmi, ip, username, password):
         ipmi_chassis_data = IpmiChassis_status_info()
-        cmd = 'ipmitool -H %s -U %s -P %s chassis status' % (ip, username, password)
+        cmd = 'ipmitool -H %s -U %s -P %s chassis status' % (ipmi, username, password)
         try:
             result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
             if result is not None:
@@ -199,39 +186,84 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(ip, username='root', key_filename="/root/.ssh/server_mgr_rsa", timeout=3)
             stdin, stdout, stderr = ssh.exec_command(cmd)
-            if stdout is None:
+            if stdout.channel.recv_exit_status() is 1 or stdout.channel.recv_exit_status() is 127:
                 return None
             filestr = stdout.read()
             fileoutput = cStringIO.StringIO(filestr)
-            return fileoutput
+            if not fileoutput:
+                return None
+            else:
+                return fileoutput
         except Exception as e:
-            self.base_obj.log("error", "Error in SSH getting disk info for " + str(ip) + " : " + str(e))
+            self.base_obj.log("error", "Error in SSH getting disk info for " + str(ip) + " : " + str(e) + "cmd = " + cmd)
 
     def fetch_and_process_disk_info(self, hostname, ip):
         disk_list = []
         cmd = 'iostat -m'
+        is_sysstat = self.ssh_execute_cmd(ip,'which sysstat')
+        if not is_sysstat:
+            self.base_obj.log("info", "sysstat package not installed on " + str(ip))
+            disk_data = Disk()
+            disk_data.disk_name = " "
+            disk_data.read_MB = int(0) 
+            disk_data.write_MB = int(0)
+            disk_list.append(disk_data)
+            self.send_ipmi_stats(ip, disk_list, hostname, "disk_list")
+        else:
+            try:
+                fileoutput = self.ssh_execute_cmd(ip, cmd)
+                if fileoutput is not None:
+                    for line in fileoutput:
+                        if line is not None:
+                            if line.find('sd') != -1 or line.find('dm') != -1:
+                                disk_data = Disk()
+                                res = re.sub('\s+', ' ', line).strip()
+                                arr = res.split()
+                                disk_data.disk_name = arr[0]
+                                disk_data.read_MB = int(arr[4])
+                                disk_data.write_MB = int(arr[5])
+                                disk_list.append(disk_data)
+                    if disk_list:
+                        self.send_ipmi_stats(ip, disk_list, hostname, "disk_list")
+                        return True
+                    else:
+                        return False
+            except Exception as e:
+                self.base_obj.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
+                return False
+
+    def fetch_and_process_cpu_mem(self, hostname, ip):
         try:
-            fileoutput = self.ssh_execute_cmd(ip, cmd)
-            if fileoutput is not None:
-                for line in fileoutput:
-                    if line is not None:
-                        if line.find('sd') != -1 or line.find('dm') != -1:
-                            self.base_obj.log("info", "LINE: " + line)
-                            disk_data = Disk()
-                            res = re.sub('\s+', ' ', line).strip()
-                            arr = res.split()
-                            disk_data.disk_name = arr[0]
-                            disk_data.read_MB = int(arr[4])
-                            disk_data.write_MB = int(arr[5])
-                            disk_list.append(disk_data)
-                if disk_list:
-                    self.send_ipmi_stats(ip, disk_list, hostname, "disk_list")
-                    return True
-                else:
-                    return False
+            cpu_mem = []
+            is_mpstat = self.ssh_execute_cmd(ip, 'which mpstat')
+            if not is_mpstat:
+                cpu_mem.append(0.0)
+            else:
+                cmd = 'mpstat'
+                fileoutput = self.ssh_execute_cmd(ip, cmd)
+                if fileoutput is not None:
+                    for line in fileoutput:
+                        res = re.sub('\s+', ' ', line).strip()
+                        arr = res.split()
+                        if len(arr) == 12:
+                            if "%idle" in arr:
+                                continue
+                            else:
+                                cpu_mem.append(100.0 - float(arr[11]))
+            is_vmstat = self.ssh_execute_cmd(ip, 'which vmstat')
+            if not is_vmstat:
+                cpu_mem.append(0)
+            else:
+                cmd = 'vmstat -s | grep "used memory"'
+                fileoutput = self.ssh_execute_cmd(ip, cmd)
+                if fileoutput is not None:
+                    for line in fileoutput:
+                        arr = line.split()
+                        cpu_mem.append(int(arr[0]))
+            self.send_ipmi_stats(ip, cpu_mem, hostname, "cpu_mem")
         except Exception as e:
-            self.base_obj.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
-            return False
+            self.base_obj.log("error", "Error in getting cpu and memory info for  " + str(hostname) + str(e))
+
 
     def fetch_and_process_sel_logs(self, hostname, ip, username, password, sel_event_log_list):
         sel_cmd = 'ipmitool -H %s -U %s -P %s sel elist' % (ip, username, password)
@@ -281,18 +313,25 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
             self.call_send(ipmi_stats_trace)
 
-    def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, sel_log_dict):
+    def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, ipmi_state,
+                           sel_event_log_list):
         return_dict = dict()
         self.base_obj.log("info", "Gevent Thread created for %s" % ip)
         self.fetch_and_process_disk_info(hostname, ip)
+        self.fetch_and_process_cpu_mem(hostname, ip)
         return_dict["ipmi_status"] = \
             self.fetch_and_process_monitoring(hostname, ipmi, ip, username, password, supported_sensors)
-        self.fetch_and_process_chassis(hostname, ipmi, username, password)
-        if str(hostname) in sel_log_dict:
+        self.fetch_and_process_chassis(hostname, ipmi, ip, username, password)
+        if sel_event_log_list:
             return_dict["sel_log"] = \
-                self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_log_dict[str(hostname)])
+                self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_event_log_list)
         else:
             return_dict["sel_log"] = self.fetch_and_process_sel_logs(hostname, ip, username, password, [])
+        if not ipmi_state and return_dict["ipmi_status"]:
+            # Trigger REST API CALL to inventory for Server Hostname
+            payload = dict()
+            payload["id"] = str(hostname)
+            self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
         return return_dict
 
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
@@ -330,8 +369,12 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             gevent_threads = dict()
             for ipmi, ip, hostname, username, password in \
                     zip(ipmi_list, server_ip_list, hostname_list, ipmi_username_list, ipmi_password_list):
+                if hostname not in ipmi_state and hostname not in sel_log_dict:
+                    ipmi_state[str(hostname)] = True
+                    sel_log_dict[str(hostname)] = None
                 thread = gevent.spawn(
-                    self.gevent_runner_func, hostname, ipmi, ip, username, password, supported_sensors, sel_log_dict)
+                    self.gevent_runner_func, hostname, ipmi, ip, username, password,
+                    supported_sensors, ipmi_state[str(hostname)], sel_log_dict[str(hostname)])
                 gevent_threads[str(hostname)] = thread
             self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
@@ -340,13 +383,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 thread = gevent_threads[str(hostname)]
                 if thread.successful():
                     return_dict = dict(thread.value)
-                    if hostname in ipmi_state and not ipmi_state[str(hostname)] and return_dict["ipmi_status"]:
-                        # Trigger REST API CALL to inventory for Server Hostname
-                        payload = dict()
-                        payload["id"] = str(hostname)
-                        self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
                     ipmi_state[str(hostname)] = return_dict["ipmi_status"]
                     sel_log_dict[str(hostname)] = return_dict["sel_log"]
                 else:
-                    self.base_obj.log("error", "Greenlet returned error: " + thread.get())
+                    self.base_obj.log("error", "Greenlet for server " + str(hostname) + " didn't return successfully: "
+                                      + thread.get())
 

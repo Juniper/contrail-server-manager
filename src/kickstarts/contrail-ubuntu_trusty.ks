@@ -129,6 +129,9 @@ apt-get update
 apt-get -y install biosdevname
 apt-get -y install python-netaddr
 apt-get -y install ifenslave
+# Packages required for inventory
+apt-get -y install sysstat
+apt-get -y install ethtool
 
 wget http://$server/kickstarts/interface_setup.py
 wget http://$server/contrail/config_file/$system_name.sh
