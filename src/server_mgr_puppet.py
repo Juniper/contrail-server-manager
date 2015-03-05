@@ -2012,7 +2012,6 @@ $__contrail_quantum_servers__
         if "external_vip" in cluster_params:
             data += 'contrail::params::external_vip: "%s"\n' %(
                 cluster_params.get('external_vip', ""))
->>>>>>> 77b2dc0... Partial-Bug: #1397496 Server Manager changes to make use of new
 
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
