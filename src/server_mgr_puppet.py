@@ -1863,9 +1863,6 @@ $__contrail_quantum_servers__
         # Go thru all the keys above and if present, add to parameter list
         for k,v in cluster_params_mapping.items():
             if k in cluster_params:
-                # temp - disregard service token if set for now - Abhay
-                if (k == "service_token"):
-                    continue;
                 # if value is text, add with quotes, else without the quotes.
                 if v[1].lower() == "string":
                     data += 'contrail::params::' + v[0] + ': "' + \
@@ -1875,10 +1872,6 @@ $__contrail_quantum_servers__
                         cluster_params.get(k, "") + '\n'
                 # end if-else
         # end for
-        # temp - Set keystone_service_token to keystone_password if it is specified.
-        if "keystone_password" in cluster_params:
-            data += 'contrail::params::keystone_service_token: "' + \
-                cluster_params.get("keystone_password", "") + '"\n'
         return data
     # end add cluster_parameters
 
