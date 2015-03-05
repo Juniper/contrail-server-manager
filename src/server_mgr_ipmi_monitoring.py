@@ -18,10 +18,14 @@ import socket
 import pdb
 import paramiko
 import paramiko.channel
+import inspect
 import math
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from threading import Thread
+import logging
+import logging.config
+import logging.handlers
 from contrail_sm_monitoring.monitoring.ttypes import *
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -41,6 +45,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         ''' Constructor '''
         ServerMgrMonBasePlugin.__init__(self)
         self.base_obj = ServerMgrMonBasePlugin()
+        logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
+        # create logger
+        self._monitoring_log = logging.getLogger('MONITORING')
         self.val = val
         self.smgr_ip = smgr_ip
         self.smgr_port = smgr_port
@@ -48,9 +55,32 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         self._serverDb = None
         self._collectors_ip = collectors_ip
 
+    def log(self, level, msg):
+        frame, filename, line_number, function_name, lines, index = inspect.stack()[1]
+        log_dict = dict()
+        log_dict['log_frame'] = frame
+        log_dict['log_filename'] = os.path.basename(filename)
+        log_dict['log_line_number'] = line_number
+        log_dict['log_function_name'] = function_name
+        log_dict['log_line'] = lines
+        log_dict['log_index'] = index
+        try:
+            if level == self.DEBUG:
+                self._monitoring_log.debug(msg, extra=log_dict)
+            elif level == self.INFO:
+                self._monitoring_log.info(msg, extra=log_dict)
+            elif level == self.WARN:
+                self._monitoring_log.warn(msg, extra=log_dict)
+            elif level == self.ERROR:
+                self._monitoring_log.error(msg, extra=log_dict)
+            elif level == self.CRITICAL:
+                self._monitoring_log.critical(msg, extra=log_dict)
+        except Exception as e:
+            print "Error logging msg in Mon" + e.message
+
     # call_send function is the sending function of the sandesh object (send_inst)
     def call_send(self, send_inst):
-        self.base_obj.log("info", "Sending UVE Info over Sandesh")
+        self.log("info", "Sending UVE Info over Sandesh")
         send_inst.send()
 
     # send_ipmi_stats function packages and sends the IPMI info gathered from server polling
@@ -64,8 +94,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             for ipmidata in ipmi_data:
                 sm_ipmi_info.sensor_stats.append(ipmidata)
                 sm_ipmi_info.sensor_state.append(ipmidata)
-            self.base_obj.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
-            self.base_obj.log("info", "UVE Info = " + str(sm_ipmi_info))
+            self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+            self.log("info", "UVE Info = " + str(sm_ipmi_info))
         elif data_type == "ipmi_chassis_data":
             sm_ipmi_info.chassis_state = ipmi_data
         elif data_type == "disk_list":
@@ -74,8 +104,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             for data in ipmi_data:
                 sm_ipmi_info.disk_usage_stats.append(data)
                 sm_ipmi_info.disk_usage_state.append(data)
-            self.base_obj.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
-            self.base_obj.log("info", "UVE Info = " + str(sm_ipmi_info))
+            self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+            self.log("info", "UVE Info = " + str(sm_ipmi_info))
         elif data_type == "cpu_mem":
             sm_ipmi_info.cpu_usage = float(ipmi_data[0])
             sm_ipmi_info.mem_usage = int(ipmi_data[1])
@@ -89,12 +119,12 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             payload = json.dumps(payload)
             headers = {'content-type': 'application/json'}
             resp = requests.post(url, headers=headers, timeout=5, data=payload)
-            self.base_obj.log("info", "URL for Run Inv: " + str(url))
-            self.base_obj.log("info", "Payload for Run Inv: " + str(payload))
-            self.base_obj.log("info", "Got immediate reply: " + str(resp.text))
+            self.log("info", "URL for Run Inv: " + str(url))
+            self.log("info", "Payload for Run Inv: " + str(payload))
+            self.log("info", "Got immediate reply: " + str(resp.text))
             return resp.text
         except Exception as e:
-            self.base_obj.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
+            self.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
             return None
 
     def return_collector_ip(self):
@@ -133,12 +163,12 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                                 ipmidata.sensor_type = sensor_type
                                 ipmi_data.append(ipmidata)
             except Exception as e:
-                self.base_obj.log("error", "Error getting dev env data for " + str(hostname) + " : " + str(e.message))
+                self.log("error", "Error getting dev env data for " + str(hostname) + " : " + str(e.message))
                 return False
             self.send_ipmi_stats(ip, ipmi_data, hostname, "ipmi_data")
             return True
         else:
-            self.base_obj.log("error", "IPMI Polling failed for " + str(ip))
+            self.log("error", "IPMI Polling failed for " + str(ip))
             return False
 
     def fetch_and_process_chassis(self, hostname, ipmi, ip, username, password):
@@ -178,7 +208,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 ipmi_chassis_data = ipmichassisdata
             self.send_ipmi_stats(ip, ipmi_chassis_data, hostname, "ipmi_chassis_data")
         except Exception as e:
-            self.base_obj.log("error", "Error getting chassis data for " + str(hostname) + " : " + str(e.message))
+            self.log("error", "Error getting chassis data for " + str(hostname) + " : " + str(e.message))
     
     def ssh_execute_cmd(self, ip, cmd):
         try:
@@ -195,14 +225,14 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             else:
                 return fileoutput
         except Exception as e:
-            self.base_obj.log("error", "Error in SSH getting disk info for " + str(ip) + " : " + str(e) + "cmd = " + cmd)
+            self.log("error", "Error in SSH getting disk info for " + str(ip) + " : " + str(e) + "cmd = " + cmd)
 
     def fetch_and_process_disk_info(self, hostname, ip):
         disk_list = []
         cmd = 'iostat -m'
         is_sysstat = self.ssh_execute_cmd(ip,'which sysstat')
         if not is_sysstat:
-            self.base_obj.log("info", "sysstat package not installed on " + str(ip))
+            self.log("info", "sysstat package not installed on " + str(ip))
             disk_data = Disk()
             disk_data.disk_name = " "
             disk_data.read_MB = int(0) 
@@ -229,7 +259,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     else:
                         return False
             except Exception as e:
-                self.base_obj.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
+                self.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
                 return False
 
     def fetch_and_process_cpu_mem(self, hostname, ip):
@@ -262,8 +292,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                         cpu_mem.append(int(arr[0]))
             self.send_ipmi_stats(ip, cpu_mem, hostname, "cpu_mem")
         except Exception as e:
-            self.base_obj.log("error", "Error in getting cpu and memory info for  " + str(hostname) + str(e))
-
+            self.log("error", "Error in getting cpu and memory info for  " + str(hostname) + str(e))
 
     def fetch_and_process_sel_logs(self, hostname, ip, username, password, sel_event_log_list):
         sel_cmd = 'ipmitool -H %s -U %s -P %s sel elist' % (ip, username, password)
@@ -290,14 +319,14 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                         sellog.ipmi_message = str(col[4])
                         if len(col) >= 6:
                             sellog.ipmi_message += " " + str(col[5])
-                        # self.base_obj.log("info", "Sending UVE: " + str(sellog))
+                        # self.log("info", "Sending UVE: " + str(sellog))
                         sellog.send()
                     else:
-                        self.base_obj.log("info", "Log already sent for host " +
+                        self.log("info", "Log already sent for host " +
                                           str(hostname) + " and event " + str(event_id))
             return sel_event_log_list
         except Exception as e:
-            self.base_obj.log("error", "Error getting SEL Logs for " + str(hostname) + " : " + str(e.message))
+            self.log("error", "Error getting SEL Logs for " + str(hostname) + " : " + str(e.message))
 
     def delete_monitoring_info(self, hostname_list):
         for hostname in hostname_list:
@@ -316,7 +345,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
     def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, ipmi_state,
                            sel_event_log_list):
         return_dict = dict()
-        self.base_obj.log("info", "Gevent Thread created for %s" % ip)
+        self.log("info", "Gevent Thread created for %s" % ip)
         self.fetch_and_process_disk_info(hostname, ip)
         self.fetch_and_process_cpu_mem(hostname, ip)
         return_dict["ipmi_status"] = \
@@ -338,7 +367,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
     # It then calls other functions to send the information to the correct analytics server.
     def run(self):
         print "Starting monitoring thread"
-        self.base_obj.log("info", "Starting monitoring thread")
+        self.log("info", "Starting monitoring thread")
         ipmi_data = []
         sel_log_dict = dict()
         ipmi_list = list()
@@ -362,10 +391,10 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             new_server_set = set(hostname_list)
             deleted_servers = set(old_server_set.difference(new_server_set))
             if len(deleted_servers) > 0:
-                self.base_obj.log("info", "Deleting monitoring info of certain servers that have been removed")
-                self.base_obj.log("info", "Deleted servers: " + str(list(deleted_servers)))
+                self.log("info", "Deleting monitoring info of certain servers that have been removed")
+                self.log("info", "Deleted servers: " + str(list(deleted_servers)))
                 self.delete_monitoring_info(list(deleted_servers))
-            self.base_obj.log("info", "Started IPMI Polling")
+            self.log("info", "Started IPMI Polling")
             gevent_threads = dict()
             for ipmi, ip, hostname, username, password in \
                     zip(ipmi_list, server_ip_list, hostname_list, ipmi_username_list, ipmi_password_list):
@@ -376,9 +405,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     self.gevent_runner_func, hostname, ipmi, ip, username, password,
                     supported_sensors, ipmi_state[str(hostname)], sel_log_dict[str(hostname)])
                 gevent_threads[str(hostname)] = thread
-            self.base_obj.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
+            self.log("info", "Monitoring thread is sleeping for " + str(self.freq) + " seconds")
             time.sleep(self.freq)
-            self.base_obj.log("info", "Monitoring thread woke up")
+            self.log("info", "Monitoring thread woke up")
             for hostname in gevent_threads:
                 thread = gevent_threads[str(hostname)]
                 if thread.successful():
@@ -386,6 +415,6 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     ipmi_state[str(hostname)] = return_dict["ipmi_status"]
                     sel_log_dict[str(hostname)] = return_dict["sel_log"]
                 else:
-                    self.base_obj.log("error", "Greenlet for server " + str(hostname) + " didn't return successfully: "
+                    self.log("error", "Greenlet for server " + str(hostname) + " didn't return successfully: "
                                       + thread.get())
 
