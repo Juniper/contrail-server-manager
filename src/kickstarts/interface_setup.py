@@ -325,17 +325,23 @@ class UbuntuInterface(BaseInterface):
         os.system('sudo cp -f %s %s'%(self.tempfile.name, filename))
 
     def biosdevname_mapping(self, name):
+        biosdev_name = ''
         try:
-            name = os.popen('biosdevname -i %s'%(name)).read()
+            biosdev_name = os.popen('biosdevname -i %s'%(name)).read()
         except: 
             pass
-        return name.strip()
+        biosdev_name = biosdev_name.strip()
+        if biosdev_name:
+            return biosdev_name
+        else:
+            return name
 
     def pre_conf(self):
         '''Execute commands before interface configuration for Ubuntu'''
-        self.device = self.biosdevname_mapping(self.device) 
-        for i in xrange(len(self.members)):
-            self.members[i] = self.biosdevname_mapping(self.members[i])
+        if LooseVersion(VERSION) >= LooseVersion("14.04"):
+            self.device = self.biosdevname_mapping(self.device) 
+            for i in xrange(len(self.members)):
+                self.members[i] = self.biosdevname_mapping(self.members[i])
             
         filename = os.path.join(os.path.sep, 'etc', 'network', 'interfaces')
         ifaces = [self.device] + self.members

@@ -12,7 +12,7 @@ import cStringIO
 import pycurl
 import json
 import xmltodict
-
+import pdb
 
 # Class ServerMgrInventory describes the API layer exposed to ServerManager to allow it to query
 # the device inventory information of the servers stored in its DB. The information is gathered through
@@ -60,61 +60,50 @@ class ServerMgrInventory():
                 if server_hostname in server_hostname_list:
                     server_inventory_info_dict[str(server_hostname)] = dict()
                     server_inventory_info_dict[str(server_hostname)]["name"] = server_hostname
-                    server_inventory_info_dict[str(server_hostname)]["hardware_model"] = \
-                        server["data"]["ServerInventoryInfo"]["hardware_model"]["#text"]
-                    server_inventory_info_dict[str(server_hostname)]["physical_processor_count"] = \
-                        server["data"]["ServerInventoryInfo"]["physical_processor_count"]["#text"]
-                    server_inventory_info_dict[str(server_hostname)]["cpu_cores_count"] = \
-                        server["data"]["ServerInventoryInfo"]["cpu_cores_count"]["#text"]
-                    server_inventory_info_dict[str(server_hostname)]["virtual_machine"] = \
-                        server["data"]["ServerInventoryInfo"]["virtual_machine"]["#text"]
-                    server_inventory_info_dict[str(server_hostname)]["total_numof_disks"] = \
-                        server["data"]["ServerInventoryInfo"]["total_numof_disks"]["#text"]
-                    server_inventory_info_dict[str(server_hostname)]["os"] = \
-                        server["data"]["ServerInventoryInfo"]["os"]["#text"]
-                    server_inventory_info_dict[str(server_hostname)]["os_version"] = \
-                        server["data"]["ServerInventoryInfo"]["os_version"]["#text"]
-                    server_inventory_info_dict[str(server_hostname)]["os_family"] = \
-                        server["data"]["ServerInventoryInfo"]["os_family"]["#text"]
-                    server_inventory_info_dict[str(server_hostname)]["kernel_version"] = \
-                        server["data"]["ServerInventoryInfo"]["kernel_version"]["#text"]
-                    server_inventory_info_dict[str(server_hostname)]["uptime_seconds"] = \
-                        server["data"]["ServerInventoryInfo"]["uptime_seconds"]["#text"]
-                    """
-                    server_fru_list = list(server["data"]["ServerInventoryInfo"]["fru_infos"]["list"]["fru_info"])
-                    fru_dict_list = list()
-                    for fru in server_fru_list:
-                        fru = dict(fru)
-                        server_fru_info_dict = dict()
-                        server_fru_info_dict["fru_description"] = fru["fru_description"]["#text"]
-                        server_fru_info_dict["chassis_type"] = fru["chassis_type"]["#text"]
-                        server_fru_info_dict["chassis_serial_number"] = fru["chassis_serial_number"]["#text"]
-                        server_fru_info_dict["board_mfg_date"] = fru["board_mfg_date"]["#text"]
-                        server_fru_info_dict["board_manufacturer"] = fru["board_manufacturer"]["#text"]
-                        server_fru_info_dict["board_product_name"] = fru["board_product_name"]["#text"]
-                        server_fru_info_dict["board_serial_number"] = fru["board_serial_number"]["#text"]
-                        server_fru_info_dict["board_part_number"] = fru["board_part_number"]["#text"]
-                        server_fru_info_dict["product_manfacturer"] = fru["product_manfacturer"]["#text"]
-                        server_fru_info_dict["product_name"] = fru["product_name"]["#text"]
-                        server_fru_info_dict["product_part_number"] = fru["product_part_number"]["#text"]
-                        fru_dict_list.append(server_fru_info_dict)
-                    server_inventory_info_dict[str(server_hostname)]["fru_infos"] = fru_dict_list
-                    server_interface_list = \
-                        list(server["data"]["ServerInventoryInfo"]["interface_infos"]["list"]["interface_info"])
-                    interface_dict_list = list()
-                    for interface in server_interface_list:
-                        interface = dict(interface)
-                        server_interface_info_dict = dict()
-                        server_interface_info_dict["interface_name"] = interface["interface_name"]["#text"]
-                        if "macaddress" in interface:
-                            server_interface_info_dict["macaddress"] = interface["macaddress"]["#text"]
-                        if "ip_addr" in interface:
-                            server_interface_info_dict["ip_addr"] = interface["ip_addr"]["#text"]
-                        if "netmask" in interface:
-                            server_interface_info_dict["netmask"] = interface["netmask"]["#text"]
-                        interface_dict_list.append(server_interface_info_dict)
-                    server_inventory_info_dict[str(server_hostname)]["interface_infos"] = interface_dict_list
-                    """
+                    server_inv_info_fields = dict(server["data"]["ServerInventoryInfo"])
+                    for field in server_inv_info_fields:
+                        if field == "mem_state":
+                            server_mem_info_dict = server["data"]["ServerInventoryInfo"][field]["memory_info"]
+                            mem_info_dict = dict()
+                            for mem_field in server_mem_info_dict:
+                                mem_info_dict[mem_field] = server_mem_info_dict[mem_field]["#text"]
+                            server_inventory_info_dict[str(server_hostname)][field] = mem_info_dict
+                        elif field == "interface_infos":
+                            server_interface_list = \
+                                list(server["data"]["ServerInventoryInfo"][field]["list"]["interface_info"])
+                            interface_dict_list = list()
+                            for interface in server_interface_list:
+                                #interface = dict(interface)
+                                server_interface_info_dict = dict()
+                                for intf_field in interface:
+                                        server_interface_info_dict[intf_field] = interface[intf_field]["#text"]
+                                interface_dict_list.append(server_interface_info_dict)
+                                server_inventory_info_dict[str(server_hostname)][field] = interface_dict_list
+                        elif field == "fru_infos":
+                            server_fru_list = list(server["data"]["ServerInventoryInfo"][field]["list"]["fru_info"])
+                            fru_dict_list = list()
+                            for fru in server_fru_list:
+                                #fru = dict(fru)
+                                server_fru_info_dict = dict()
+                                for fru_field in fru:
+                                    server_fru_info_dict[fru_field] = fru[fru_field]["#text"]
+                                fru_dict_list.append(server_fru_info_dict)
+                            server_inventory_info_dict[str(server_hostname)][field] = fru_dict_list
+                        elif field == "cpu_info_state":
+                            server_cpu_info_dict = server["data"]["ServerInventoryInfo"][field]["cpu_info"]
+                            cpu_info_dict = dict()
+                            for cpu_field in server_cpu_info_dict:
+                                cpu_info_dict[cpu_field] = server_cpu_info_dict[cpu_field]["#text"]
+                            server_inventory_info_dict[str(server_hostname)][field] = cpu_info_dict
+                        elif field == "eth_controller_state":
+                            server_eth_info_dict = server["data"]["ServerInventoryInfo"][field]["ethernet_controller"]
+                            eth_info_dict = dict()
+                            for eth_field in server_eth_info_dict:
+                                eth_info_dict[eth_field] = server_eth_info_dict[eth_field]["#text"]
+                            server_inventory_info_dict[str(server_hostname)][field] = eth_info_dict
+                        else:
+                            server_inventory_info_dict[str(server_hostname)][field] = \
+                                server_inv_info_fields[field]["#text"]
         else:
             server_inventory_info_dict = None
         return server_inventory_info_dict
@@ -166,7 +155,44 @@ class ServerMgrInventory():
                     data += "\n\n{0}{1}{2}\n\n".format("Hostname", " " * (25 - len("Hostname")), str(hostname))
                     inventory_info = dict(inv_details_dict[str(hostname)])
                     for key in inventory_info.keys():
-                        data += "{0}{1}{2}\n".format(str(key), " " * (25 - len(str(key))), str(inventory_info[key]))
+                        if key == "mem_state":
+                            data += "\n{0}{1}{2}\n".format("Mem_Key", " " * (25 - len("Mem_Key")), "Value")
+                            mem_state_dict = dict(inventory_info[key])
+                            for mem_key in mem_state_dict:
+                                data += "{0}{1}{2}\n".format(str(mem_key), " " * (25 - len(str(mem_key))),
+                                                             str(mem_state_dict[mem_key]))
+                        elif key == "cpu_info_state":
+                            data += "\n{0}{1}{2}\n".format("CPU_Key", " " * (25 - len("CPU_Key")), "Value")
+                            cpu_state_dict = dict(inventory_info[key])
+                            for cpu_key in cpu_state_dict:
+                                data += "{0}{1}{2}\n".format(str(cpu_key), " " * (25 - len(str(cpu_key))),
+                                                             str(cpu_state_dict[cpu_key]))
+                        elif key == "eth_controller_state":
+                            data += "\n{0}{1}{2}\n".format("Eth_Key", " " * (25 - len("Eth_Key")), "Value")
+                            eth_state_dict = dict(inventory_info[key])
+                            for eth_key in eth_state_dict:
+                                data += "{0}{1}{2}\n".format(str(eth_key), " " * (25 - len(str(eth_key))),
+                                                             str(eth_state_dict[eth_key]))
+                        elif key == "fru_infos":
+                            fru_dict_list = list(inventory_info[key])
+                            data += "\n{0}{1}{2}\n".format("FRU_Key", " " * (25 - len("FRU_Key")), "Value")
+                            for index, fru_dict in enumerate(fru_dict_list):
+                                data += "{0}\n".format("FRU " + str(int(index+1)))
+                                fru_dict = dict(fru_dict)
+                                for fru_key in fru_dict:
+                                    data += "{0}{1}{2}\n".format(str(fru_key), " " * (25 - len(str(fru_key))),
+                                                                 str(fru_dict[fru_key]))
+                        elif key == "interface_infos":
+                            intf_dict_list = list(inventory_info[key])
+                            data += "\n{0}{1}{2}\n".format("Inft_Key", " " * (25 - len("FRU_Key")), "Value")
+                            for index, intf_dict in enumerate(intf_dict_list):
+                                data += "{0}\n".format("FRU " + str(int(index + 1)))
+                                intf_dict = dict(intf_dict)
+                                for intf_key in intf_dict:
+                                    data += "{0}{1}{2}\n".format(str(intf_key), " " * (25 - len(str(intf_key))),
+                                                                 str(intf_dict[intf_key]))
+                        else:
+                            data += "\n{0}{1}{2}\n".format(str(key), " " * (25 - len(str(key))), str(inventory_info[key]))
             return data
         except Exception as e:
             msg = "Exception while handling the Server Manager Response: " + str(e)
