@@ -121,26 +121,26 @@ class ServerMgrInventory():
                     fru_info_obj.fru_description = reading_value
                     fru_dict['fru_description'] = str(hostname) + " " + reading_value
                     fru_dict['id'] = hostname
-                    fru_info_obj.chassis_type = " "
-                    fru_dict['chassis_type'] = " "
-                    fru_info_obj.chassis_serial_number = " "
-                    fru_dict['chassis_serial_number'] = " "
-                    fru_info_obj.board_mfg_date = " "
-                    fru_dict['board_mfg_date'] = " "
-                    fru_info_obj.board_manufacturer = " "
-                    fru_dict['board_manufacturer'] = " "
-                    fru_info_obj.board_product_name = " "
-                    fru_dict['board_product_name'] = " "
-                    fru_info_obj.board_serial_number = " "
-                    fru_dict['board_serial_number'] = " "
-                    fru_info_obj.board_part_number = " "
-                    fru_dict['board_part_number'] = " "
-                    fru_info_obj.product_manfacturer = " "
-                    fru_dict['product_manfacturer'] = " "
-                    fru_info_obj.product_name = " "
-                    fru_dict['product_name'] = " "
-                    fru_info_obj.product_part_number = " "
-                    fru_dict['product_part_number'] = " "
+                    fru_info_obj.chassis_type = "dummy"
+                    fru_dict['chassis_type'] = "dummy"
+                    fru_info_obj.chassis_serial_number = "dummy"
+                    fru_dict['chassis_serial_number'] = "dummy"
+                    fru_info_obj.board_mfg_date = "dummy"
+                    fru_dict['board_mfg_date'] = "dummy"
+                    fru_info_obj.board_manufacturer = "dummy"
+                    fru_dict['board_manufacturer'] = "dummy"
+                    fru_info_obj.board_product_name = "dummy"
+                    fru_dict['board_product_name'] = "dummy"
+                    fru_info_obj.board_serial_number = "dummy"
+                    fru_dict['board_serial_number'] = "dummy"
+                    fru_info_obj.board_part_number = "dummy"
+                    fru_dict['board_part_number'] = "dummy"
+                    fru_info_obj.product_manfacturer = "dummy"
+                    fru_dict['product_manfacturer'] = "dummy"
+                    fru_info_obj.product_name = "dummy"
+                    fru_dict['product_name'] = "dummy"
+                    fru_info_obj.product_part_number = "dummy"
+                    fru_dict['product_part_number'] = "dummy"
                 elif sensor == "Chassis Type":
                     fru_info_obj.chassis_type = reading_value
                     fru_dict['chassis_type'] = reading_value
@@ -211,6 +211,14 @@ class ServerMgrInventory():
         # Get the total number of disks
         numdisks = self._base_obj.call_subprocess('lsblk | grep disk | wc -l')
         server_inventory_info.total_numof_disks = int(numdisks)
+        tx_bytes = self._base_obj.call_subprocess('cat /sys/class/net/eth0/statistics/tx_bytes')
+        server_inventory_info.tx_bytes = int(tx_bytes)
+        tx_packets = self._base_obj.call_subprocess('cat /sys/class/net/eth0/statistics/tx_packets')
+        server_inventory_info.tx_packets = int(tx_packets)
+        rx_bytes = self._base_obj.call_subprocess('cat /sys/class/net/eth0/statistics/rx_bytes')
+        server_inventory_info.rx_bytes = int(rx_bytes)
+        rx_packets = self._base_obj.call_subprocess('cat /sys/class/net/eth0/statistics/rx_packets')
+        server_inventory_info.rx_packets = int(rx_packets)
         # Get the other inventory information from the facter tool
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -253,11 +261,11 @@ class ServerMgrInventory():
                                 value = actualkey[1].strip()
                                 setattr(intinfo, objkey, value)
                             if not getattr(intinfo, 'macaddress'):
-                                setattr(intinfo, 'macaddress', " ")
+                                setattr(intinfo, 'macaddress', "dummy")
                             if not getattr(intinfo, 'ip_addr'):
-                                setattr(intinfo, 'ip_addr', " ")
+                                setattr(intinfo, 'ip_addr', "dummy")
                             if not getattr(intinfo, 'netmask'):
-                                setattr(intinfo, 'netmask', " ")
+                                setattr(intinfo, 'netmask', "dummy")
                             intinfo_list.append(intinfo)
                     else:
                         objkey = self.inventory_lookup(key)
@@ -304,13 +312,13 @@ class ServerMgrInventory():
         server_inventory_info.cpu_info_state = cpu_info()
         server_inventory_info.cpu_info_state.model = self.get_field_value(ip, root_pwd,
                                                                           'cat /proc/cpuinfo | grep "model name" | head -n 1') if self.get_field_value(
-            ip, root_pwd, 'cat /proc/cpuinfo | grep "model name" | head -n 1') else " "
+            ip, root_pwd, 'cat /proc/cpuinfo | grep "model name" | head -n 1') else "dummy"
         server_inventory_info.cpu_info_state.core_count = int(self.get_field_value(ip, root_pwd,
                                                                                    'cat /proc/cpuinfo | grep "cpu cores" | head -n 1')) if self.get_field_value(
             ip, root_pwd, 'cat /proc/cpuinfo | grep "cpu cores" | head -n 1') else 0
         server_inventory_info.cpu_info_state.clock_speed = self.get_field_value(ip, root_pwd,
                                                                                 'cat /proc/cpuinfo | grep "cpu MHz" | head -n 1') + " MHz" if self.get_field_value(
-            ip, root_pwd, 'cat /proc/cpuinfo | grep "cpu MHz" | head -n 1') else " "
+            ip, root_pwd, 'cat /proc/cpuinfo | grep "cpu MHz" | head -n 1') else "dummy"
         server_inventory_info.cpu_info_state.num_of_threads = int(
             self.get_field_value(ip, root_pwd, 'lscpu | grep "Thread"')) if self.get_field_value(ip, root_pwd,
                                                                                                  'lscpu | grep "Thread"') else 0
@@ -323,9 +331,9 @@ class ServerMgrInventory():
             server_inventory_info = ServerInventoryInfo()
             server_inventory_info.name = str(hostname)
             server_inventory_info.eth_controller_state = ethernet_controller()
-            server_inventory_info.eth_controller_state.speed = " "
-            server_inventory_info.eth_controller_state.num_of_ports = " "
-            server_inventory_info.eth_controller_state.model = " "
+            server_inventory_info.eth_controller_state.speed = "dummy"
+            server_inventory_info.eth_controller_state.num_of_ports = "dummy"
+            server_inventory_info.eth_controller_state.model = "dummy"
             self.log(self.DEBUG, "ethtool not installed on host : %s" % ip)
         else:
             server_inventory_info = ServerInventoryInfo()
@@ -333,15 +341,15 @@ class ServerMgrInventory():
             server_inventory_info.eth_controller_state = ethernet_controller()
             server_inventory_info.eth_controller_state.speed = self.get_field_value(ip, root_pwd
                                                                                     , 'ethtool eth0 | grep Speed') if self. \
-                get_field_value(ip, root_pwd, 'ethtool eth0 | grep Speed') else " "
+                get_field_value(ip, root_pwd, 'ethtool eth0 | grep Speed') else "dummy"
             temp_var = re.findall('\d+|\D+', server_inventory_info.eth_controller_state.speed)
             server_inventory_info.eth_controller_state.speed = temp_var[0] + " " + temp_var[1]
             server_inventory_info.eth_controller_state.num_of_ports = self.get_field_value(ip, root_pwd,
                                                                                            'ethtool eth0 | grep "Supported ports"') if self.get_field_value(
-                ip, root_pwd, 'ethtool eth0 | grep "Supported ports"') else " "
+                ip, root_pwd, 'ethtool eth0 | grep "Supported ports"') else "dummy"
             server_inventory_info.eth_controller_state.model = self.get_field_value(ip, root_pwd,
                                                                                     'ethtool -i eth0 | grep driver') if self.get_field_value(
-                ip, root_pwd, 'ethtool -i eth0 | grep driver') else " "
+                ip, root_pwd, 'ethtool -i eth0 | grep driver') else "dummy"
             self.log(self.INFO, "Got the Ethtool info for IP: %s" % ip)
         self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
 
@@ -351,20 +359,20 @@ class ServerMgrInventory():
         server_inventory_info.mem_state = memory_info()
         server_inventory_info.mem_state.mem_type = self.get_field_value(ip, root_pwd,
                                                                         'dmidecode -t memory | grep -m2 "Type" | tail -n1') if self.get_field_value(
-            ip, root_pwd, 'dmidecode -t memory | grep -m2 "Type" | tail -n1') else " "
+            ip, root_pwd, 'dmidecode -t memory | grep -m2 "Type" | tail -n1') else "dummy"
         server_inventory_info.mem_state.mem_speed = self.get_field_value(ip, root_pwd,
                                                                          'dmidecode -t memory | grep "Speed" | head -n1') if self.get_field_value(
-            ip, root_pwd, 'dmidecode -t memory | grep "Speed" | head -n1') else " "
+            ip, root_pwd, 'dmidecode -t memory | grep "Speed" | head -n1') else "dummy"
         server_inventory_info.mem_state.dimm_size = self.get_field_value(ip, root_pwd,
                                                                          'dmidecode -t memory | grep "Size" | head -n1') if self.get_field_value(
-            ip, root_pwd, 'dmidecode -t memory | grep "Size" | head -n1') else " "
+            ip, root_pwd, 'dmidecode -t memory | grep "Size" | head -n1') else "dummy"
         server_inventory_info.mem_state.num_of_dimms = int(
             self.get_field_value(ip, root_pwd, 'dmidecode -t memory | grep "Size" | wc -l')) if self.get_field_value(ip,
                                                                                                                      root_pwd,
                                                                                                                      'dmidecode -t memory | grep "Size" | wc -l') else 0
         server_inventory_info.mem_state.swap_size = self.get_field_value(ip, root_pwd,
                                                                          'facter | egrep -w swapsize') if self.get_field_value(
-            ip, root_pwd, 'facter | egrep -w swapsize') else " "
+            ip, root_pwd, 'facter | egrep -w swapsize') else "dummy"
         self.log(self.INFO, "Got the Memory info for IP: %s" % ip)
         self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
 

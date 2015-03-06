@@ -234,7 +234,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         if not is_sysstat:
             self.log("info", "sysstat package not installed on " + str(ip))
             disk_data = Disk()
-            disk_data.disk_name = " "
+            disk_data.disk_name = "dummy"
             disk_data.read_MB = int(0) 
             disk_data.write_MB = int(0)
             disk_list.append(disk_data)
