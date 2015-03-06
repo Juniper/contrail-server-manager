@@ -325,6 +325,8 @@ class UbuntuInterface(BaseInterface):
         os.system('sudo cp -f %s %s'%(self.tempfile.name, filename))
 
     def biosdevname_mapping(self, name):
+        if not name.startswith('rename'):
+            return name
         biosdev_name = ''
         try:
             biosdev_name = os.popen('biosdevname -i %s'%(name)).read()
