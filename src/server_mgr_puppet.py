@@ -1759,6 +1759,86 @@ $__contrail_quantum_servers__
         os.remove(temp_file)
     # end def delete_node_entry
 
+    def add_node_entry_2(
+        self, site_file, provision_params,
+        server, cluster, cluster_servers):
+        server_fqdn = provision_params['server_id'] + "." + \
+            provision_params['domain']
+        data = ''
+        data += "node \'%s\' {\n" %server_fqdn
+        # Add Stage relationships
+        data += '    stage{ \'first\': }\n'
+        data += '    stage{ \'last\': }\n'
+        data += '    stage{ \'compute\': }\n'
+        data += '    stage{ \'pre\': }\n'
+        data += '    stage{ \'post\': }\n'
+        data += '    stage{ \'database\': }\n'
+        data += '    stage{ \'webui\': }\n'
+        data += '    stage{ \'openstack\': }\n'
+        data += '    stage{ \'config\': }\n'
+        data += '    stage{ \'controller\': }\n'
+        data += '    stage{ \'collector\': }\n'
+        data += '    stage{ \'ha_config\': }\n'
+        data += '    stage{ \'haproxy\': }\n'
+
+	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+            data += '    stage{ \'storage\': }\n'
+        data += '    Stage[\'pre\']->Stage[\'first\']->Stage[\'database\']->Stage[\'webui\']->Stage[\'haproxy\']->Stage[\'ha_config\']->Stage[\'openstack\']->Stage[\'config\']->Stage[\'controller\']->Stage[\'collector\']->Stage[\'main\']->Stage[\'last\']->Stage[\'compute\']->'
+	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+            data += 'Stage[\'storage\']->'
+        data += 'Stage[\'post\']\n'
+
+        # Add pre role
+        data += '    class { \'::contrail::provision_start\' : state => \'provision_started\', stage => \'pre\' }\n'
+        # Add common role
+        data += '    class { \'::contrail::profile::common\' : stage => \'first\' }\n'
+        # Add keepalived (This class is no-op if vip is not configured.)
+#        if 'config' in server['roles']:
+#            data += '    include ::contrail::profile::keepalived\n'
+        # Add haproxy (for config node)
+        if 'config' in server['roles']:
+            data += '    class { \'::contrail::profile::haproxy\' : stage => \'haproxy\' }\n'
+        # Add database role.
+        if 'database' in server['roles']:
+            data += '    class { \'::contrail::profile::database\' : stage => \'database\' }\n'
+        # Add webui role.
+        if 'webui' in server['roles']:
+            data += '    class { \'::contrail::profile::webui\' : stage => \'webui\' }\n'
+        # Add ha-config role.
+        if 'openstack' in server['roles'] or 'config' in server['roles']:
+            data += '    class { \'::contrail::ha_config\' : stage => \'ha_config\' }\n'
+        # Add openstack role.
+        if 'openstack' in server['roles']:
+            data += '    class { \'::contrail::contrail_openstack\' : stage => \'openstack\' }\n'
+        # Add config role.
+        if 'config' in server['roles']:
+            data += '    class { \'::contrail::profile::config\' : stage => \'config\' }\n'
+        # Add controller role.
+        if 'control' in server['roles']:
+            data += '    class { \'::contrail::profile::controller\' : stage => \'controller\' }\n'
+        # Add collector role.
+        if 'collector' in server['roles']:
+            data += '    class { \'::contrail::profile::collector\' : stage => \'collector\' }\n'
+        # Add config provision role.
+        if 'config' in server['roles']:
+            data += '    class { \'::contrail::profile::provision\' : stage => \'last\' }\n'
+        # Add compute role
+        if 'compute' in server['roles']:
+            data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
+        # Add Storage Role
+	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+            data += '    class { \'::contrail::profile::storage\' :  stage => \'storage\' }\n'
+        # Add post role
+        data += '    class { \'::contrail::provision_complete\' : state => \'provision_completed\', stage => \'post\' }\n'
+
+        data += "}\n"
+        with open(site_file, "a") as site_fh:
+            site_fh.write(data)
+        os.chmod(site_file, 0644)
+        # end with
+    # end def add_node_entry
+
+
     def add_node_entry(
         self, site_file, provision_params,
         server, cluster, cluster_servers):
@@ -1976,6 +2056,12 @@ $__contrail_quantum_servers__
                 for x in cluster_servers if "openstack" in set(eval(x['roles']))]
         data += 'contrail::params::openstack_mgmt_ip_list: %s\n' %(
             str(openstack_mgmt_ip_list))
+        # config_mgmt_ip_list
+        config_mgmt_ip_list = [x["ip_address"].encode('ascii') \
+                for x in cluster_servers if "config" in set(eval(x['roles']))]
+        data += 'contrail::params::config_mgmt_ip_list: %s\n' %(
+            str(config_mgmt_ip_list))
+
         # host_non_mgmt_ip
         server_mgmt_ip = server.get("ip_address", "").encode('ascii')
         server_control_ip = self.get_control_ip(
@@ -2145,7 +2231,7 @@ $__contrail_quantum_servers__
         # First, delete any existing entry and then add a new one.
         self.delete_node_entry(site_file, server_fqdn)
         # Now add a new node entry
-        self.add_node_entry(
+        self.add_node_entry_2(
             site_file, provision_params, server, cluster, cluster_servers)
 
         # Add entry for the server to environment mapping in 
