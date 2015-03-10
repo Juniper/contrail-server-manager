@@ -1855,7 +1855,8 @@ $__contrail_quantum_servers__
             "encapsulation_priority" : ["encap_priority", "string"],
             "router_asn" : ["router_asn", "string"],
             "external_bgp" : ["external_bgp", "string"],
-            "use_certificates" : ["use_certs", "boolean"]
+            "use_certificates" : ["use_certs", "boolean"],
+            "contrail_logoutput" : ["contrail_logoutput", "boolean"]
         }
 
         data = ''
