@@ -107,8 +107,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
             self.log("info", "UVE Info = " + str(sm_ipmi_info))
         elif data_type == "cpu_mem":
-            sm_ipmi_info.cpu_usage = float(ipmi_data[0])
-            sm_ipmi_info.mem_usage = int(ipmi_data[1])
+            sm_ipmi_info.cpu_usage_percentage = float(ipmi_data[0])
+            sm_ipmi_info.mem_usage_mb = int(ipmi_data[1])
         ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
@@ -230,7 +230,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
     def fetch_and_process_disk_info(self, hostname, ip):
         disk_list = []
         cmd = 'iostat -m'
-        is_sysstat = self.ssh_execute_cmd(ip,'which sysstat')
+        is_sysstat = self.ssh_execute_cmd(ip,'which iostat')
         if not is_sysstat:
             self.log("info", "sysstat package not installed on " + str(ip))
             disk_data = Disk()
@@ -337,8 +337,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             sm_ipmi_info.sensor_stats = None
             sm_ipmi_info.disk_usage_stats = None
             sm_ipmi_info.disk_usage_state = None
-            sm_ipmi_info.cpu_usage = None
-            sm_ipmi_info.mem_usage = None
+            sm_ipmi_info.cpu_usage_percentage = None
+            sm_ipmi_info.mem_usage_mb = None
             ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
             self.call_send(ipmi_stats_trace)
 

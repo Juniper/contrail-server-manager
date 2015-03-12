@@ -206,30 +206,15 @@ class ServerMgrInventory():
             'macaddress'			: 'macaddress'
         }[key]
 
+
     def get_facter_info(self, hostname, ip, root_pwd):
         server_inventory_info = ServerInventoryInfo()
-        # Get the total number of disks
-        numdisks = self._base_obj.call_subprocess('lsblk | grep disk | wc -l')
+        #Get the total number of disks
+        numdisks = self.get_field_value(ip, root_pwd, 'lsblk | grep disk | wc -l')
         server_inventory_info.total_numof_disks = int(numdisks)
-        tx_bytes = self._base_obj.call_subprocess('cat /sys/class/net/eth0/statistics/tx_bytes')
-        server_inventory_info.tx_bytes = int(tx_bytes)
-        tx_packets = self._base_obj.call_subprocess('cat /sys/class/net/eth0/statistics/tx_packets')
-        server_inventory_info.tx_packets = int(tx_packets)
-        rx_bytes = self._base_obj.call_subprocess('cat /sys/class/net/eth0/statistics/rx_bytes')
-        server_inventory_info.rx_bytes = int(rx_bytes)
-        rx_packets = self._base_obj.call_subprocess('cat /sys/class/net/eth0/statistics/rx_packets')
-        server_inventory_info.rx_packets = int(rx_packets)
         # Get the other inventory information from the facter tool
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        try:
-            ssh.connect(ip, username='root', key_filename="/root/.ssh/server_mgr_rsa", timeout=3)
-            stdin, stdout, stderr = ssh.exec_command('facter')
-            filestr = stdout.read()
-            fileoutput = cStringIO.StringIO(filestr)
-        except Exception as e:
-            self.log(self.ERROR, "Could not get the Facter info for IP " + str(ip) + " Error: %s" + str(e))
-            return
+        filestr = self.get_field_value(ip, root_pwd, 'facter')
+        fileoutput = cStringIO.StringIO(filestr)
         if fileoutput is not None:
             self.log(self.INFO, "Got the Facter info for IP: %s" % ip)
             interface_dict = {}
@@ -266,6 +251,18 @@ class ServerMgrInventory():
                                 setattr(intinfo, 'ip_addr', "dummy")
                             if not getattr(intinfo, 'netmask'):
                                 setattr(intinfo, 'netmask', "dummy")
+                            cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/tx_bytes"
+                            tx_bytes = self.get_field_value(ip, root_pwd, cmd)
+                            cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/tx_packets"
+                            tx_packets = self.get_field_value(ip, root_pwd, cmd)
+                            cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/rx_bytes"
+                            rx_bytes = self.get_field_value(ip, root_pwd, cmd)
+                            cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/rx_packets"
+                            rx_packets = self.get_field_value(ip, root_pwd, cmd)
+                            intinfo.tx_bytes = int(tx_bytes)
+                            intinfo.tx_packets = int(tx_packets)
+                            intinfo.rx_bytes = int(rx_bytes)
+                            intinfo.rx_packets = int(rx_packets)
                             intinfo_list.append(intinfo)
                     else:
                         objkey = self.inventory_lookup(key)
@@ -294,16 +291,19 @@ class ServerMgrInventory():
         if stdout is None:
             return None
         filestr = stdout.read()
-        fileoutput = cStringIO.StringIO(filestr)
-        if fileoutput is not None:
-            for line in fileoutput:
-                if "=>" in line:
-                    value = line.rstrip("\n").split("=>")[1].lstrip()
+        if cmd.find("lsblk") == 0 or cmd.find("statistics") == 0 or cmd.find("interfaces") == 0 or cmd.find("facter") == 0:
+            return filestr
+        else:
+            fileoutput = cStringIO.StringIO(filestr)
+            if fileoutput is not None:
+                for line in fileoutput:
+                    if "=>" in line:
+                        value = line.rstrip("\n").split("=>")[1].lstrip()
+                        return value
+                    elif ":" not in line:
+                        return line
+                    value = line.rstrip("\n").split(":")[1].lstrip()
                     return value
-                elif ":" not in line:
-                    return line
-                value = line.rstrip("\n").split(":")[1].lstrip()
-                return value
 
     def get_cpu_info(self, hostname, ip, root_pwd):
         server_inventory_info = ServerInventoryInfo()
