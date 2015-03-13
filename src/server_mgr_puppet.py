@@ -1762,6 +1762,7 @@ $__contrail_quantum_servers__
     def add_node_entry(
         self, site_file, provision_params,
         server, cluster, cluster_servers):
+        cluster_params = eval(cluster['parameters'])
         server_fqdn = provision_params['server_id'] + "." + \
             provision_params['domain']
         data = ''
@@ -1797,7 +1798,11 @@ $__contrail_quantum_servers__
             data += '    include ::contrail::profile::webui\n'
         # Add openstack role.
         if 'openstack' in server['roles']:
-            data += '    include ::contrail::profile::openstack_controller\n'
+            if cluster_params.get("internal_vip", "") != "" :
+                data += '    class { \'::contrail::profile::openstack_controller\': } ->\n'
+                data += '    class { \'::contrail::ha_config\': }\n'
+            else:
+                data += '    include ::contrail::profile::openstack_controller\n'
         # Add config role.
         if 'config' in server['roles']:
             data += '    include ::contrail::profile::config\n'
