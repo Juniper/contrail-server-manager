@@ -138,6 +138,8 @@ class ServerMgrDb:
                 self._add_table_column(cursor, server_table, "provisioned_id", "TEXT")
                 self._add_table_column(cursor, server_table, "network", "TEXT")
                 self._add_table_column(cursor, server_table, "contrail", "TEXT")
+                self._add_table_column(cursor, server_table, "ssh_public_key", "TEXT")
+                self._add_table_column(cursor, server_table, "ssh_private_key", "TEXT")
 
             self._get_table_columns()
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
@@ -828,6 +830,12 @@ class ServerMgrDb:
                 rev_tags_dict = dict((v,k) for k,v in tags_dict.iteritems())
                 for k,v in server_tags.iteritems():
                     server_data[rev_tags_dict[k]] = v
+
+            if "ssh_private_key" and "ssh_public_key" in server_data:
+                private_key = str(server_data.pop("ssh_private_key", None))
+                public_key = str(server_data.pop("ssh_public_key", None))
+                server_data["ssh_private_key"] = private_key
+                server_data["ssh_public_key"] = public_key
             # Store server_params dictionary as a text field
             server_params = server_data.pop("parameters", None)
             #if server_params is not None:

@@ -20,6 +20,7 @@ import pdb
 import re
 import ast
 from gevent import monkey
+
 monkey.patch_all(thread=not 'unittest' in sys.modules)
 import gevent
 import math
@@ -28,6 +29,7 @@ from inventory_daemon.server_inventory.ttypes import *
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.constants import *
 from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
+from server_mgr_ssh_client import ServerMgrSSHClient
 
 _DEF_COLLECTORS_IP = None
 _DEF_MON_FREQ = 300
@@ -59,6 +61,7 @@ class ServerMgrInventory():
 
     def set_serverdb(self, server_db):
         self._serverDb = server_db
+        self._base_obj.set_serverdb(server_db=server_db)
 
     def set_ipmi_defaults(self, ipmi_username, ipmi_password):
         self._default_ipmi_username = ipmi_username
@@ -90,6 +93,7 @@ class ServerMgrInventory():
     # call_send function is the sending function of the sandesh object (send_inst)
     def call_send(self, send_inst):
         self.log(self.INFO, "Sending UVE Info over Sandesh")
+        self.log("info", "UVE Info = " + str(send_inst.data))
         send_inst.send()
 
     def get_fru_info(self, hostname, ip, username, password):
@@ -195,13 +199,13 @@ class ServerMgrInventory():
             'hardwaremodel': 'hardware_model',
             'interfaces': 'interface_name', 'physicalprocessorcount': 'physical_processor_count',
             'processorcount': 'cpu_cores_count',
-            'virtual'	: 'virtual_machine',
-            'memorytotal'			: 'total_memory_mb',
+            'virtual': 'virtual_machine',
+            'memorytotal'		: 'total_memory_mb',
             'operatingsystem'		: 'os','operatingsystemrelease'	: 'os_version',
             'osfamily':'os_family',
-            'kernelversion'		:'kernel_version',
-            'uptime_seconds'		:'uptime_seconds',
-            'ipaddress'			:'ip_addr',
+            'kernelversion':'kernel_version',
+            'uptime_seconds':'uptime_seconds',
+            'ipaddress'		:'ip_addr',
             'netmask'			:'netmask',
             'macaddress'			: 'macaddress'
         }
@@ -210,14 +214,19 @@ class ServerMgrInventory():
         else:
             return None
 
-    def get_facter_info(self, hostname, ip, root_pwd):
+
+    def get_facter_info(self, hostname, ip, sshclient):
         server_inventory_info = ServerInventoryInfo()
-        #Get the total number of disks
-        numdisks = self.get_field_value(ip, root_pwd, 'lsblk | grep disk | wc -l')
+        # Get the total number of disks
+        numdisks = self.get_field_value(sshclient, ip, 'lsblk | grep disk | wc -l')
         server_inventory_info.total_numof_disks = int(numdisks)
         # Get the other inventory information from the facter tool
-        filestr = self.get_field_value(ip, root_pwd, 'facter')
-        fileoutput = cStringIO.StringIO(filestr)
+        try:
+            filestr = sshclient.exec_command('facter')
+            fileoutput = cStringIO.StringIO(filestr)
+        except Exception as e:
+            self.log(self.ERROR, "Could not get the Facter info for IP " + str(ip) + " Error: %s" + str(e))
+            return
         if fileoutput is not None:
             self.log(self.INFO, "Got the Facter info for IP: %s" % ip)
             interface_dict = {}
@@ -253,14 +262,14 @@ class ServerMgrInventory():
                             if not getattr(intinfo, 'netmask'):
                                 setattr(intinfo, 'netmask', "dummy")
                             cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/tx_bytes"
-                            tx_bytes = self.get_field_value(ip, root_pwd, cmd)
+                            tx_bytes = self.get_field_value(sshclient, ip, cmd)
                             cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/tx_packets"
-                            tx_packets = self.get_field_value(ip, root_pwd, cmd)
+                            tx_packets = self.get_field_value(sshclient, ip, cmd)
                             cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/rx_bytes"
-                            rx_bytes = self.get_field_value(ip, root_pwd, cmd)
+                            rx_bytes = self.get_field_value(sshclient, ip, cmd)
                             cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/rx_packets"
-                            rx_packets = self.get_field_value(ip, root_pwd, cmd)
-                            #pdb.set_trace()
+
+                            rx_packets = self.get_field_value(sshclient, ip, cmd)
                             intinfo.tx_bytes = int(tx_bytes.rstrip())
                             intinfo.tx_packets = int(tx_packets.rstrip())
                             intinfo.rx_bytes = int(rx_bytes.rstrip())
@@ -286,15 +295,11 @@ class ServerMgrInventory():
         else:
             self.log(self.ERROR, "Could not get the Facter info for IP: %s" % ip)
 
-    def get_field_value(self, ip, root_pwd, cmd):
+    def get_field_value(self, sshclient, ip, cmd):
         times = datetime.datetime.now()
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ip, username='root', key_filename="/root/.ssh/server_mgr_rsa", timeout=3)
-        stdin, stdout, stderr = ssh.exec_command(cmd)
-        if stdout is None:
+        filestr = sshclient.exec_command(cmd)
+        if not filestr:
             return None
-        filestr = stdout.read()
         if cmd == "lsblk" or cmd == "facter" or "statistics" in cmd:
             return filestr
         else:
@@ -309,74 +314,86 @@ class ServerMgrInventory():
                     value = line.rstrip("\n").split(":")[1].lstrip()
                     return value
 
-    def get_cpu_info(self, hostname, ip, root_pwd):
+    def get_cpu_info(self, hostname, ip, sshclient):
+        # Get the CPU information from server
         server_inventory_info = ServerInventoryInfo()
-        # Get the other inventory information from the facter tool
         server_inventory_info.name = str(hostname)
         server_inventory_info.cpu_info_state = cpu_info()
-        server_inventory_info.cpu_info_state.model = self.get_field_value(ip, root_pwd,
-                                                                          'cat /proc/cpuinfo | grep "model name" | head -n 1') if self.get_field_value(
-            ip, root_pwd, 'cat /proc/cpuinfo | grep "model name" | head -n 1') else "dummy"
-        server_inventory_info.cpu_info_state.core_count = int(self.get_field_value(ip, root_pwd,
-                                                                                   'cat /proc/cpuinfo | grep "cpu cores" | head -n 1')) if self.get_field_value(
-            ip, root_pwd, 'cat /proc/cpuinfo | grep "cpu cores" | head -n 1') else 0
-        server_inventory_info.cpu_info_state.clock_speed_MHz = float(self.get_field_value(ip, root_pwd, 'cat /proc/cpuinfo | grep "cpu MHz" | head -n 1')) if self.get_field_value(ip, root_pwd, 'cat /proc/cpuinfo | grep "cpu MHz" | head -n 1') else 0.0
-        server_inventory_info.cpu_info_state.num_of_threads = int(
-            self.get_field_value(ip, root_pwd, 'lscpu | grep "Thread"')) if self.get_field_value(ip, root_pwd,
-                                                                                                 'lscpu | grep "Thread"') else 0
-        self.log(self.INFO, "Got the CPU info for IP: %s" % ip)
+        check_cmd = 'cat /proc/cpuinfo'
+        lscpu__cmd = 'which lscpu'
+        server_inventory_info.cpu_info_state.model = "dummy"
+        server_inventory_info.cpu_info_state.core_count = 0
+        server_inventory_info.cpu_info_state.clock_speed_MHz = 0.0
+        server_inventory_info.cpu_info_state.num_of_threads = 0
+        if self.get_field_value(sshclient, ip, check_cmd) and self.get_field_value(sshclient, ip, lscpu__cmd):
+            model_cmd = 'cat /proc/cpuinfo | grep "model name" | head -n 1'
+            core_cmd = 'cat /proc/cpuinfo | grep "cpu cores" | head -n 1'
+            clock_cmd = 'cat /proc/cpuinfo | grep "cpu MHz" | head -n 1'
+            thread_cmd = 'lscpu | grep "Thread"'
+            server_inventory_info.cpu_info_state.model = self.get_field_value(sshclient, ip, model_cmd)
+            server_inventory_info.cpu_info_state.core_count = int(self.get_field_value(sshclient, ip, core_cmd))
+            server_inventory_info.cpu_info_state.clock_speed_MHz = float(self.get_field_value(sshclient, ip, clock_cmd))
+            server_inventory_info.cpu_info_state.num_of_threads = int(self.get_field_value(sshclient, ip, thread_cmd))
+            self.log(self.INFO, "Got the CPU info for IP: %s" % ip)
+        else:
+            self.log(self.DEBUG, "lscpu not installed on host : %s" % ip)
         self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
 
-    def get_ethernet_info(self, hostname, ip, root_pwd):
-        is_ethtool = self.get_field_value(ip, root_pwd, 'which ethtool')
+    def get_ethernet_info(self, hostname, ip, sshclient):
+        # Get the Ethernet information from server
+        is_ethtool = sshclient.exec_command('which ethtool')
+        server_inventory_info = ServerInventoryInfo()
+        server_inventory_info.name = str(hostname)
+        server_inventory_info.eth_controller_state = ethernet_controller()
+        server_inventory_info.eth_controller_state.speed_Mb_per_sec = 0
+        server_inventory_info.eth_controller_state.num_of_ports = 0
+        server_inventory_info.eth_controller_state.model = "dummy"
         if not is_ethtool:
-            server_inventory_info = ServerInventoryInfo()
-            server_inventory_info.name = str(hostname)
-            server_inventory_info.eth_controller_state = ethernet_controller()
-            server_inventory_info.eth_controller_state.speed = "dummy"
-            server_inventory_info.eth_controller_state.num_of_ports = 0
-            server_inventory_info.eth_controller_state.model = "dummy"
             self.log(self.DEBUG, "ethtool not installed on host : %s" % ip)
         else:
-            server_inventory_info = ServerInventoryInfo()
-            server_inventory_info.name = str(hostname)
-            server_inventory_info.eth_controller_state = ethernet_controller()
-            server_inventory_info.eth_controller_state.speed_Mb_per_sec = self.get_field_value(ip, root_pwd
-                                                                                    , 'ethtool eth0 | grep Speed') if self. \
-                get_field_value(ip, root_pwd, 'ethtool eth0 | grep Speed') else "dummy"
+            eth_cmd = 'ethtool eth0 | grep Speed'
+            port_cmd = 'ethtool eth0 | grep "Supported ports"'
+            driver_cmd = 'ethtool -i eth0 | grep driver'
+            server_inventory_info.eth_controller_state.speed_Mb_per_sec = self.get_field_value(sshclient, ip, eth_cmd)
             temp_var = re.findall('\d+|\D+', server_inventory_info.eth_controller_state.speed_Mb_per_sec)
             server_inventory_info.eth_controller_state.speed_Mb_per_sec = int(temp_var[0])
-            #server_inventory_info.eth_controller_state.num_of_ports = int(self.get_field_value(ip, root_pwd, 'ethtool eth0 | grep "Supported ports"')) if self.get_field_value(ip, root_pwd, 'ethtool eth0 | grep "Supported ports"') else 0
             server_inventory_info.eth_controller_state.num_of_ports = 0
-            server_inventory_info.eth_controller_state.model = self.get_field_value(ip, root_pwd,
-                                                                                    'ethtool -i eth0 | grep driver') if self.get_field_value(
-                ip, root_pwd, 'ethtool -i eth0 | grep driver') else "dummy"
+            server_inventory_info.eth_controller_state.model = self.get_field_value(sshclient, ip, driver_cmd)
             self.log(self.INFO, "Got the Ethtool info for IP: %s" % ip)
         self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
 
-    def get_memory_info(self, hostname, ip, root_pwd):
+    def get_memory_info(self, hostname, ip, sshclient):
         server_inventory_info = ServerInventoryInfo()
         server_inventory_info.name = str(hostname)
         server_inventory_info.mem_state = memory_info()
-        server_inventory_info.mem_state.mem_type = self.get_field_value(ip, root_pwd, 'dmidecode -t memory | grep -m2 "Type" | tail -n1') if self.get_field_value(
-            ip, root_pwd, 'dmidecode -t memory | grep -m2 "Type" | tail -n1') else "dummy"
-        mem_speed = self.get_field_value(ip, root_pwd, 'dmidecode -t memory | grep "Speed" | head -n1') if self.get_field_value(ip, root_pwd, 'dmidecode -t memory | grep "Speed" | head -n1') else 0
-        unit = mem_speed.split(" ")[1]
-        if unit == "MHz":
-            server_inventory_info.mem_state.mem_speed_MHz = int(mem_speed.split(" ")[0])
-        dimm_size = self.get_field_value(ip, root_pwd, 'dmidecode -t memory | grep "Size" | head -n1') if self.get_field_value(ip, root_pwd, 'dmidecode -t memory | grep "Size" | head -n1') else 0
-        unit = dimm_size.split(" ")[1]
-        if unit == "MB":
-            server_inventory_info.mem_state.dimm_size_mb = int(dimm_size.split(" ")[0])
-        server_inventory_info.mem_state.num_of_dimms = int(
-            self.get_field_value(ip, root_pwd, 'dmidecode -t memory | grep "Size" | wc -l')) if self.get_field_value(ip,
-                                                                                                                     root_pwd,
-                                                                                                                     'dmidecode -t memory | grep "Size" | wc -l') else 0
-        swap_size = self.get_field_value(ip, root_pwd, 'facter | egrep -w swapsize') if self.get_field_value(ip, root_pwd, 'facter | egrep -w swapsize') else 0
-        unit = swap_size.split(" ")[1]
-        if unit == "GB":
-            server_inventory_info.mem_state.swap_size_gb = float(swap_size.split(" ")[0])
-        self.log(self.INFO, "Got the Memory info for IP: %s" % ip)
+        server_inventory_info.mem_state.mem_type = "dummy"
+        server_inventory_info.mem_state.mem_speed_MHz = 0
+        server_inventory_info.mem_state.num_of_dimms = 0
+        server_inventory_info.mem_state.dimm_size_mb = 0
+        server_inventory_info.mem_state.swap_size_gb = 0.0
+        dmi_cmd = 'which dmidecode'
+        if self.get_field_value(sshclient, ip, dmi_cmd):
+            type_cmd = 'dmidecode -t memory | grep -m2 "Type" | tail -n1'
+            mem_cmd = 'dmidecode -t memory | grep "Speed" | head -n1'
+            dimm_cmd = 'dmidecode -t memory | grep "Size" | head -n1'
+            num_cmd = 'dmidecode -t memory | grep "Size" | wc -l'
+            swap_cmd = 'facter | egrep -w swapsize'
+            server_inventory_info.mem_state.mem_type = self.get_field_value(sshclient, ip, type_cmd)
+            mem_speed = self.get_field_value(sshclient, ip, mem_cmd)
+            unit = mem_speed.split(" ")[1]
+            if unit == "MHz":
+                server_inventory_info.mem_state.mem_speed_MHz = int(mem_speed.split(" ")[0])
+            dimm_size = self.get_field_value(sshclient, ip, dimm_cmd)
+            if unit == "MB":
+                server_inventory_info.mem_state.dimm_size_mb = int(dimm_size.split(" ")[0])
+            server_inventory_info.mem_state.num_of_dimms = int(self.get_field_value(sshclient, ip, num_cmd))
+            swap_size = self.get_field_value(sshclient, ip, swap_cmd)
+            unit = swap_size.split(" ")[1]
+            if unit == "GB":
+                server_inventory_info.mem_state.swap_size_gb = float(swap_size.split(" ")[0])
+            self.log(self.INFO, "Got the Memory info for IP: %s" % ip)
+        else:
+            self.log(self.INFO, "Couldn't get the Memory info for IP: %s" % ip)
         self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
 
     def add_inventory(self):
@@ -385,12 +402,11 @@ class ServerMgrInventory():
         server_ip_list = list()
         ipmi_username_list = list()
         ipmi_password_list = list()
-        root_pwd_list = list()
         servers = self._serverDb.get_server(None, detail=True)
         self._base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list, ipmi_username_list,
-                                                  ipmi_password_list, root_pwd_list)
+                                                  ipmi_password_list)
         self.handle_inventory_trigger("add", hostname_list, server_ip_list, ipmi_list, ipmi_username_list,
-                                      ipmi_password_list, root_pwd_list)
+                                      ipmi_password_list)
 
     def delete_inventory_info(self, hostname):
         inventory_info_obj = ServerInventoryInfo()
@@ -398,25 +414,31 @@ class ServerMgrInventory():
         inventory_info_obj.deleted = True
         self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
 
-    def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, root_pw):
+    def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, option="key"):
         if action == "add":
-            self.get_fru_info(hostname, ipmi, username, password)
-            self.get_facter_info(hostname, ip, root_pw)
-            self.get_cpu_info(hostname, ip, root_pw)
-            self.get_ethernet_info(hostname, ip, root_pw)
-            self.get_memory_info(hostname, ip, root_pw)
+            try:
+                sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
+                sshclient.connect(ip, option)
+                self.get_fru_info(hostname, ipmi, username, password)
+                self.get_facter_info(hostname, ip, sshclient)
+                self.get_cpu_info(hostname, ip, sshclient)
+                self.get_ethernet_info(hostname, ip, sshclient)
+                self.get_memory_info(hostname, ip, sshclient)
+                sshclient.close()
+            except Exception as e:
+                self.log(self.ERROR, "Gevent SSH Connect Execption: " + e.message)
+                pass
         elif action == "delete":
             self.log(self.INFO, "Deleted info of server: %s" % hostname)
             self.delete_inventory_info(hostname)
 
-    def handle_inventory_trigger(self, action, hostname_list, ip_list, ipmi_list, ipmi_un_list, ipmi_pw_list,
-                                 root_pw_list):
+    def handle_inventory_trigger(self, action, hostname_list, ip_list, ipmi_list, ipmi_un_list, ipmi_pw_list):
         gevent_threads = []
         if ipmi_list and len(ipmi_list) >= 1:
-            for hostname, ip, ipmi, username, password, root_pwd in zip(hostname_list, ip_list, ipmi_list, ipmi_un_list,
-                                                                        ipmi_pw_list, root_pw_list):
+            for hostname, ip, ipmi, username, password in zip(hostname_list, ip_list, ipmi_list, ipmi_un_list,
+                                                              ipmi_pw_list):
                 thread = gevent.spawn(self.gevent_runner_function,
-                                      action, hostname, ip, ipmi, username, password, root_pwd)
+                                      action, hostname, ip, ipmi, username, password)
                 gevent_threads.append(thread)
-                #gevent.joinall(gevent_threads)
+                # gevent.joinall(gevent_threads)
 

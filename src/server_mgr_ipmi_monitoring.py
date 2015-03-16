@@ -22,6 +22,7 @@ import inspect
 import math
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_exception import ServerMgrException as ServerMgrException
+from server_mgr_ssh_client import ServerMgrSSHClient
 from threading import Thread
 import logging
 import logging.config
@@ -52,7 +53,6 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         self.smgr_ip = smgr_ip
         self.smgr_port = smgr_port
         self.freq = float(frequency)
-        self._serverDb = None
         self._collectors_ip = collectors_ip
 
     def log(self, level, msg):
@@ -209,28 +209,12 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.send_ipmi_stats(ip, ipmi_chassis_data, hostname, "ipmi_chassis_data")
         except Exception as e:
             self.log("error", "Error getting chassis data for " + str(hostname) + " : " + str(e.message))
-    
-    def ssh_execute_cmd(self, ip, cmd):
-        try:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(ip, username='root', key_filename="/root/.ssh/server_mgr_rsa", timeout=3)
-            stdin, stdout, stderr = ssh.exec_command(cmd)
-            if stdout.channel.recv_exit_status() is 1 or stdout.channel.recv_exit_status() is 127:
-                return None
-            filestr = stdout.read()
-            fileoutput = cStringIO.StringIO(filestr)
-            if not fileoutput:
-                return None
-            else:
-                return fileoutput
-        except Exception as e:
-            self.log("error", "Error in SSH getting disk info for " + str(ip) + " : " + str(e) + "cmd = " + cmd)
 
-    def fetch_and_process_disk_info(self, hostname, ip):
+    def fetch_and_process_disk_info(self, hostname, ip, sshclient):
         disk_list = []
         cmd = 'iostat -m'
-        is_sysstat = self.ssh_execute_cmd(ip,'which iostat')
+
+        is_sysstat = sshclient.exec_command('which iostat')
         if not is_sysstat:
             self.log("info", "sysstat package not installed on " + str(ip))
             disk_data = Disk()
@@ -241,7 +225,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.send_ipmi_stats(ip, disk_list, hostname, "disk_list")
         else:
             try:
-                fileoutput = self.ssh_execute_cmd(ip, cmd)
+                filestr = sshclient.exec_command(cmd=cmd)
+                fileoutput = cStringIO.StringIO(filestr)
                 if fileoutput is not None:
                     for line in fileoutput:
                         if line is not None:
@@ -262,15 +247,16 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 self.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
                 return False
 
-    def fetch_and_process_cpu_mem(self, hostname, ip):
+    def fetch_and_process_cpu_mem(self, hostname, ip, sshclient):
         try:
             cpu_mem = []
-            is_mpstat = self.ssh_execute_cmd(ip, 'which mpstat')
+            is_mpstat = sshclient.exec_command('which mpstat')
             if not is_mpstat:
                 cpu_mem.append(0.0)
             else:
                 cmd = 'mpstat'
-                fileoutput = self.ssh_execute_cmd(ip, cmd)
+                filestr = sshclient.exec_command(cmd=cmd)
+                fileoutput = cStringIO.StringIO(filestr)
                 if fileoutput is not None:
                     for line in fileoutput:
                         res = re.sub('\s+', ' ', line).strip()
@@ -280,12 +266,13 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                                 continue
                             else:
                                 cpu_mem.append(100.0 - float(arr[11]))
-            is_vmstat = self.ssh_execute_cmd(ip, 'which vmstat')
+            is_vmstat = sshclient.exec_command('which vmstat')
             if not is_vmstat:
                 cpu_mem.append(0)
             else:
                 cmd = 'vmstat -s | grep "used memory"'
-                fileoutput = self.ssh_execute_cmd(ip, cmd)
+                filestr = sshclient.exec_command(cmd=cmd)
+                fileoutput = cStringIO.StringIO(filestr)
                 if fileoutput is not None:
                     for line in fileoutput:
                         arr = line.split()
@@ -343,25 +330,32 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.call_send(ipmi_stats_trace)
 
     def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, ipmi_state,
-                           sel_event_log_list):
+                           sel_event_log_list, option="key"):
         return_dict = dict()
         self.log("info", "Gevent Thread created for %s" % ip)
-        self.fetch_and_process_disk_info(hostname, ip)
-        self.fetch_and_process_cpu_mem(hostname, ip)
-        return_dict["ipmi_status"] = \
-            self.fetch_and_process_monitoring(hostname, ipmi, ip, username, password, supported_sensors)
-        self.fetch_and_process_chassis(hostname, ipmi, ip, username, password)
-        if sel_event_log_list:
-            return_dict["sel_log"] = \
-                self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_event_log_list)
-        else:
-            return_dict["sel_log"] = self.fetch_and_process_sel_logs(hostname, ip, username, password, [])
-        if not ipmi_state and return_dict["ipmi_status"]:
-            # Trigger REST API CALL to inventory for Server Hostname
-            payload = dict()
-            payload["id"] = str(hostname)
-            self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
-        return return_dict
+        try:
+            sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
+            sshclient.connect(ip, option)
+            self.fetch_and_process_disk_info(hostname, ip, sshclient)
+            self.fetch_and_process_cpu_mem(hostname, ip, sshclient)
+            return_dict["ipmi_status"] = \
+                self.fetch_and_process_monitoring(hostname, ipmi, ip, username, password, supported_sensors)
+            self.fetch_and_process_chassis(hostname, ipmi, ip, username, password)
+            if sel_event_log_list:
+                return_dict["sel_log"] = \
+                    self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_event_log_list)
+            else:
+                return_dict["sel_log"] = self.fetch_and_process_sel_logs(hostname, ip, username, password, [])
+            if not ipmi_state and return_dict["ipmi_status"]:
+                # Trigger REST API CALL to inventory for Server Hostname
+                payload = dict()
+                payload["id"] = str(hostname)
+                self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
+            sshclient.close()
+            return return_dict
+        except Exception as e:
+            self.log("error", "Gevent SSH Connect Execption: " + e.message)
+            return None
 
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
     # It then calls other functions to send the information to the correct analytics server.
@@ -376,6 +370,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         ipmi_username_list = list()
         ipmi_password_list = list()
         ipmi_state = dict()
+        pw_list = list()
         supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
         while True:
             servers = self._serverDb.get_server(
@@ -386,8 +381,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             del server_ip_list[:]
             del ipmi_username_list[:]
             del ipmi_password_list[:]
-            self.base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list,
-                                                     ipmi_username_list, ipmi_password_list, [])
+            self.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list,
+                                            ipmi_username_list, ipmi_password_list)
             new_server_set = set(hostname_list)
             deleted_servers = set(old_server_set.difference(new_server_set))
             if len(deleted_servers) > 0:

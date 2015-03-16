@@ -362,6 +362,7 @@ class VncServerManager():
         self._server_monitoring_obj.set_ipmi_defaults(self._args.ipmi_username, self._args.ipmi_password)
         self._server_monitoring_obj.daemon = True
         self._monitoring_base_plugin_obj.sandesh_init(self._args.collectors)
+        self._monitoring_base_plugin_obj.set_serverdb(self._serverDb)
         self._server_monitoring_obj.start()
 
         if self._inventory_config_set:
@@ -1568,6 +1569,10 @@ class VncServerManager():
                     server['status'] = "server_added"
                     server['discovered'] = "false"
                     self._serverDb.add_server(server)
+                    if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server:
+                        self._monitoring_base_plugin_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+                    elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
+                        self._monitoring_base_plugin_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
                 server_data = {}
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
@@ -1591,7 +1596,7 @@ class VncServerManager():
         if self._inventory_config_set:
             self._server_inventory_obj.handle_inventory_trigger("add", server_hostname_list, server_ip_list,
                                                                 server_ipmi_list, server_ipmi_un_list,
-                                                                server_ipmi_pw_list, server_root_pw_list)
+                                                                server_ipmi_pw_list)
         else:
             self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
         resp_msg = self.form_operartion_data(msg, 0, entity)
@@ -2249,6 +2254,11 @@ class VncServerManager():
                 server_hostname_list.append(str(server['id']))
                 server_ip_list.append(str(server['ip_address']))
                 server_root_pw_list.append(str(server['password']))
+                if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server:
+                    self._monitoring_base_plugin_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+                elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
+                    self._monitoring_base_plugin_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+
             self._serverDb.delete_server(match_dict)
             # delete the system entries from cobbler
             for server in servers:
@@ -2279,7 +2289,7 @@ class VncServerManager():
         if self._inventory_config_set:
             self._server_inventory_obj.handle_inventory_trigger("delete", server_hostname_list, server_ip_list,
                                                                 server_ipmi_list, server_ipmi_un_list,
-                                                                server_ipmi_pw_list, server_root_pw_list)
+                                                                server_ipmi_pw_list)
         else:
             self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
 
