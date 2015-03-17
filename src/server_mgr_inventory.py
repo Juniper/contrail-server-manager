@@ -370,14 +370,14 @@ class ServerMgrInventory():
         server_inventory_info.mem_state.mem_speed_MHz = 0
         server_inventory_info.mem_state.num_of_dimms = 0
         server_inventory_info.mem_state.dimm_size_mb = 0
-        server_inventory_info.mem_state.swap_size_gb = 0.0
+        server_inventory_info.mem_state.swap_size_mb = 0.0
         dmi_cmd = 'which dmidecode'
         if self.get_field_value(sshclient, ip, dmi_cmd):
             type_cmd = 'dmidecode -t memory | grep -m2 "Type" | tail -n1'
             mem_cmd = 'dmidecode -t memory | grep "Speed" | head -n1'
             dimm_cmd = 'dmidecode -t memory | grep "Size" | head -n1'
             num_cmd = 'dmidecode -t memory | grep "Size" | wc -l'
-            swap_cmd = 'facter | egrep -w swapsize'
+            swap_cmd = 'facter | egrep -w swapsize_mb'
             server_inventory_info.mem_state.mem_type = self.get_field_value(sshclient, ip, type_cmd)
             mem_speed = self.get_field_value(sshclient, ip, mem_cmd)
             unit = mem_speed.split(" ")[1]
@@ -388,9 +388,7 @@ class ServerMgrInventory():
                 server_inventory_info.mem_state.dimm_size_mb = int(dimm_size.split(" ")[0])
             server_inventory_info.mem_state.num_of_dimms = int(self.get_field_value(sshclient, ip, num_cmd))
             swap_size = self.get_field_value(sshclient, ip, swap_cmd)
-            unit = swap_size.split(" ")[1]
-            if unit == "GB":
-                server_inventory_info.mem_state.swap_size_gb = float(swap_size.split(" ")[0])
+            server_inventory_info.mem_state.swap_size_mb = float(swap_size.split(" ")[0])
             self.log(self.INFO, "Got the Memory info for IP: %s" % ip)
         else:
             self.log(self.INFO, "Couldn't get the Memory info for IP: %s" % ip)
