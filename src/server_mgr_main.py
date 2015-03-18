@@ -3155,8 +3155,12 @@ class VncServerManager():
                 # Storage manager restrictions
                 if len(role_servers['storage-master']):
                     if len(role_servers['storage-master']) > 1:
-                        msg = "There can only be only one node with the role 'storage-master'"
-                        raise ServerMgrException(msg)
+                        # if HA is configured, there may be more than 1 storage-master
+                        if cluster_params.get("internal_vip", "") == "" :
+                            msg = "There can only be only one node with the role 'storage-master'"
+                            raise ServerMgrException(msg)
+                        else:
+                            pass
                     elif len(role_servers['storage-compute']) == 0:
                         msg = "Storage manager node needs Storage nodes to also be provisioned"
                         raise ServerMgrException(msg)
