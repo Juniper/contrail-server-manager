@@ -1800,12 +1800,19 @@ $__contrail_quantum_servers__
         if 'openstack' in server['roles']:
             if cluster_params.get("internal_vip", "") != "" :
                 data += '    class { \'::contrail::profile::openstack_controller\': } ->\n'
-                data += '    class { \'::contrail::ha_config\': }\n'
+                if 'config' in server['roles']:
+                    data += '    class { \'::contrail::ha_config\': } ->\n'
+                else:
+                    data += '    class { \'::contrail::ha_config\': }\n'
             else:
                 data += '    include ::contrail::profile::openstack_controller\n'
         # Add config role.
         if 'config' in server['roles']:
-            data += '    include ::contrail::profile::config\n'
+            if cluster_params.get("internal_vip", "") != "" :
+                data += '    class { \'::contrail::profile::config\': }\n'
+            else:
+                data += '    include ::contrail::profile::config\n'
+
         # Add controller role.
         if 'control' in server['roles']:
             data += '    include ::contrail::profile::controller\n'
