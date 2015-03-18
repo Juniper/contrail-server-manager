@@ -3583,7 +3583,7 @@ class VncServerManager():
         try:
             if dict(config.items("MONITORING")).keys():
                 # Handle parsing for monitoring
-                monitoring_args = self._monitoring_base_plugin_obj.parse_args(args_str)
+                monitoring_args = self._monitoring_base_plugin_obj.parse_args(args_str, "MONITORING")
                 if monitoring_args:
                     self._smgr_log.log(self._smgr_log.DEBUG, "Monitoring arguments read from config.")
                     self._monitoring_args = monitoring_args
@@ -3627,7 +3627,7 @@ class VncServerManager():
         try:
             if dict(config.items("INVENTORY")).keys():
                 # Handle parsing for monitoring
-                inventory_args = self._monitoring_base_plugin_obj.parse_args(args_str)
+                inventory_args = self._monitoring_base_plugin_obj.parse_args(args_str, "INVENTORY")
                 if inventory_args:
                     self._smgr_log.log(self._smgr_log.DEBUG, "Inventory arguments read from config.")
                     self._inventory_args = inventory_args

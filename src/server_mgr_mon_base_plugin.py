@@ -67,7 +67,6 @@ class ServerMgrMonBasePlugin(Thread):
         ''' Constructor '''
         Thread.__init__(self)
         self.MonitoringCfg = {
-            'collectors': _DEF_COLLECTORS_IP,
             'monitoring_frequency': _DEF_MON_FREQ,
             'monitoring_plugin': _DEF_MONITORING_PLUGIN
         }
@@ -83,7 +82,7 @@ class ServerMgrMonBasePlugin(Thread):
         self._default_ipmi_username = ipmi_username
         self._default_ipmi_password = ipmi_password
 
-    def parse_args(self, args_str):
+    def parse_args(self, args_str, section):
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help=False)
@@ -100,18 +99,6 @@ class ServerMgrMonBasePlugin(Thread):
             config_file = _DEF_SMGR_CFG_FILE
         config = ConfigParser.SafeConfigParser()
         config.read([config_file])
-        for key in dict(config.items("MONITORING")).keys():
-            if key in self.MonitoringCfg.keys():
-                self.MonitoringCfg[key] = dict(config.items("MONITORING"))[key]
-            else:
-                self._smgr_log.log(self._smgr_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
-        self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form monitoring config file %s" % self.MonitoringCfg)
-        for key in dict(config.items("INVENTORY")).keys():
-            if key in self.InventoryCfg.keys():
-                self.InventoryCfg[key] = dict(config.items("INVENTORY"))[key]
-            else:
-                self._smgr_log.log(self._smgr_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
-        self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form monitoring config file %s" % self.InventoryCfg)
         parser = argparse.ArgumentParser(
             # Inherit options from config_parser
             # parents=[conf_parser],
@@ -120,10 +107,24 @@ class ServerMgrMonBasePlugin(Thread):
             # Don't mess with format of description
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
-        parser.set_defaults(**self.MonitoringCfg)
-        parser.set_defaults(**self.InventoryCfg)
-        _args = parser.parse_args(remaining_argv)
-        self._collectors_ip = _args.collectors
+        if section == "MONITORING":
+            for key in dict(config.items("MONITORING")).keys():
+                if key in self.MonitoringCfg.keys():
+                    self.MonitoringCfg[key] = dict(config.items("MONITORING"))[key]
+                else:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                               "Arguments read from monitoring config file %s" % self.MonitoringCfg)
+            parser.set_defaults(**self.MonitoringCfg)
+        elif section == "INVENTORY":
+            for key in dict(config.items("INVENTORY")).keys():
+                if key in self.InventoryCfg.keys():
+                    self.InventoryCfg[key] = dict(config.items("INVENTORY"))[key]
+                else:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                               "Arguments read from inventory config file %s" % self.InventoryCfg)
+            parser.set_defaults(**self.InventoryCfg)
         return parser.parse_args(remaining_argv)
 
     def sandesh_init(self, collectors_ip_list=None):
