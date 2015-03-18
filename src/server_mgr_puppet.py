@@ -1855,7 +1855,8 @@ $__contrail_quantum_servers__
             "encapsulation_priority" : ["encap_priority", "string"],
             "router_asn" : ["router_asn", "string"],
             "external_bgp" : ["external_bgp", "string"],
-            "use_certificates" : ["use_certs", "boolean"]
+            "use_certificates" : ["use_certs", "boolean"],
+            "contrail_logoutput" : ["contrail_logoutput", "boolean"]
         }
 
         data = ''
@@ -1927,11 +1928,11 @@ $__contrail_quantum_servers__
 
         #Upgrade Kernel
         if 'kernel_upgrade' in provision_params and \
-            'kernel_version' in provision_params and \
-            provision_params['kernel_version'] != '' :
-
+            provision_params['kernel_upgrade'] != DEFAULT_KERNEL_UPGRADE :
             data += 'contrail::params::kernel_upgrade: "%s"\n' %(
                 provision_params.get('kernel_upgrade', DEFAULT_KERNEL_UPGRADE))
+        if 'kernel_version' in provision_params and \
+            provision_params['kernel_version'] != DEFAULT_KERNEL_VERSION :
             data += 'contrail::params::kernel_version: "%s"\n' %(
                 provision_params.get('kernel_version', DEFAULT_KERNEL_VERSION))
         if 'external_bgp' in provision_params and \
@@ -2003,16 +2004,6 @@ $__contrail_quantum_servers__
         # enf if server_control_ip...
 
 
-        if "internal_vip" in cluster_params:
-            data += 'contrail::params::internal_vip: "%s"\n' %(
-                cluster_params.get('internal_vip', ""))
-        if "contrail_internal_vip" in cluster_params:
-            data += 'contrail::params::contrail_internal_vip: "%s"\n' %(
-                cluster_params.get('contrail_internal_vip', ""))
-        if "external_vip" in cluster_params:
-            data += 'contrail::params::external_vip: "%s"\n' %(
-                cluster_params.get('external_vip', ""))
-
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
             data += 'contrail::params::host_roles: %s\n' %(str(provision_params['host_roles']))
@@ -2026,12 +2017,23 @@ $__contrail_quantum_servers__
             data += 'contrail::params::storage_enabled: "%s"\n' %(provision_params['contrail-storage-enabled'])
             data += 'contrail::params::live_migration_storage_scope: "%s"\n' %(provision_params['live_migration_storage_scope'])
             data += 'contrail::params::live_migration_host: "%s"\n' %(provision_params['live_migration_host'])
-            #storage_mon_hosts = [ x.encode('ascii') for x in provision_params['storage_monitor_hosts']]
             storage_mon_hosts = ''
             for key in provision_params['storage_monitor_hosts']:
                 storage_mon_hosts += '''%s, ''' % key
-            #storage_mon_hosts += storage_mon_hosts+[:len(storage_mon_hosts+)-1]+'''\"'''
             data += 'contrail::params::storage_monitor_hosts: "%s"\n' %(str(storage_mon_hosts))
+
+            storage_hostnames = ''
+            for key in provision_params['storage_hostnames']:
+                storage_hostnames += '''"%s", ''' % key
+            data += 'contrail::params::storage_hostnames: \'[%s]\'\n' %(str(storage_hostnames))
+
+            if 'storage-master' in provision_params['host_roles']:
+                storage_chassis_config = ''
+                for key in provision_params['storage_chassis_config']:
+                    storage_chassis_config += '''"%s", ''' % key
+                if len(str(storage_chassis_config)) != 0:
+                    data += 'contrail::params::storage_chassis_config: \'[%s]\'\n' %(str(storage_chassis_config))
+    
             if 'storage_server_disks' in provision_params:
                 storage_disks = [  x.encode('ascii') for x in provision_params['storage_server_disks']]
                 data += 'contrail::params::storage_osd_disks: %s\n' %(str(storage_disks))
