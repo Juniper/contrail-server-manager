@@ -1526,7 +1526,6 @@ class VncServerManager():
         server_ipmi_pw_list = list()
         server_ipmi_un_list = list()
         server_ip_list = list()
-        server_root_pw_list = list()
         if (not entity):
             msg = 'Server MAC or server_id not specified'
             resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
@@ -1565,7 +1564,6 @@ class VncServerManager():
                     server_ipmi_pw_list.append(str(server['ipmi_password']))
                     server_hostname_list.append(str(server['id']))
                     server_ip_list.append(str(server['ip_address']))
-                    server_root_pw_list.append(str(server['password']))
                     server['status'] = "server_added"
                     server['discovered'] = "false"
                     self._serverDb.add_server(server)
@@ -2231,7 +2229,6 @@ class VncServerManager():
         server_ipmi_pw_list = list()
         server_hostname_list = list()
         server_ip_list = list()
-        server_root_pw_list = list()
         try:
             ret_data = self.validate_smgr_request("SERVER", "DELETE",
                                                          bottle.request)
@@ -2253,7 +2250,6 @@ class VncServerManager():
                 server_ipmi_pw_list.append(str(server['ipmi_password']))
                 server_hostname_list.append(str(server['id']))
                 server_ip_list.append(str(server['ip_address']))
-                server_root_pw_list.append(str(server['password']))
                 if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server:
                     self._monitoring_base_plugin_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
                 elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
@@ -2927,7 +2923,6 @@ class VncServerManager():
         server_ipmi_pw_list = list()
         server_ipmi_un_list = list()
         server_ip_list = list()
-        server_root_pw_list = list()
         self._smgr_log.log(self._smgr_log.DEBUG, "run_inventory")
         if self._inventory_config_set:
             try:
@@ -2947,15 +2942,14 @@ class VncServerManager():
                     server_ipmi_pw_list.append(str(server['ipmi_password']))
                     server_hostname_list.append(str(server['id']))
                     server_ip_list.append(str(server['ip_address']))
-                    server_root_pw_list.append(str(server['password']))
                 self._smgr_log.log(self._smgr_log.DEBUG,
                                    "Running inventory on following servers: " + str(server_hostname_list))
                 gevent_threads = []
-                for hostname, ip, ipmi, username, password, root_pwd in \
+                for hostname, ip, ipmi, username, password in \
                         zip(server_hostname_list, server_ip_list, server_ipmi_list,
-                            server_ipmi_un_list, server_ipmi_pw_list, server_root_pw_list):
+                            server_ipmi_un_list, server_ipmi_pw_list):
                     thread = gevent.spawn(self._server_inventory_obj.gevent_runner_function,
-                                          "add", hostname, ip, ipmi, username, password, root_pwd)
+                                          "add", hostname, ip, ipmi, username, password)
                     gevent_threads.append(thread)
             except ServerMgrException as e:
                 resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)

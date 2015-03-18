@@ -227,8 +227,10 @@ class ServerMgrMonBasePlugin(Thread):
             ssh.connect(server_ip, option="password")
             source_file = "/opt/contrail/server_manager/" + str(server_id) + ".pub"
             dest_file = "/root/.ssh/authorized_keys"
+            ssh.exec_command("mkdir -p /root/.ssh/")
+            ssh.exec_command("touch /root/.ssh/authorized_keys")
             ssh.copy(source_file, dest_file)
-            #os.remove(source_file)
+            os.remove(source_file)
 
             # Update Server table with ssh public and private keys
             update = {'id': server_id,
