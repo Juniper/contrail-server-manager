@@ -57,18 +57,14 @@ def parse_arguments(args_str=None):
 # End get_provision_params
 
 
-def send_REST_request(self, ip, port, payload):
+def send_REST_request(ip, port, payload):
     try:
         url = "http://%s:%s/run_inventory" % (ip, port)
         payload = json.dumps(payload)
         headers = {'content-type': 'application/json'}
         resp = requests.post(url, headers=headers, timeout=5, data=payload)
-        self.base_obj.log("info", "URL for Run Inv: " + str(url))
-        self.base_obj.log("info", "Payload for Run Inv: " + str(payload))
-        self.base_obj.log("info", "Got immediate reply: " + str(resp.text))
         return resp.text
     except Exception as e:
-        self.base_obj.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
         return None
 
 
@@ -121,8 +117,7 @@ def run_inventory(args_str=None):
             sys.exit()
     # end if
 
-    resp = send_REST_request(smgr_ip, smgr_port,
-                             payload)
+    resp = send_REST_request(smgr_ip, smgr_port, payload)
     smgr_client_def.print_rest_response(resp)
 
 # End of run_inventory
