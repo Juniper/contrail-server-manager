@@ -48,6 +48,11 @@ from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 from send_mail import send_mail
+import pycurl
+import json
+import xmltodict
+from StringIO import StringIO
+import requests
 import tempfile
 from contrail_defaults import *
 
@@ -72,6 +77,8 @@ _DEF_IPMI_USERNAME = 'ADMIN'
 _DEF_IPMI_PASSWORD = 'ADMIN'
 _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
+_DEF_COLLECTORS_IP = ['127.0.0.1:8086']
+_DEF_INTROSPECT_PORT = 8107
 
 # Temporary variable added to disable use of new puppet framework. This should be removed/enabled
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
@@ -130,10 +137,12 @@ class VncServerManager():
     _image_category_list = ["image", "package"]
     _tags_dict = {}
     _rev_tags_dict = {}
-    _dev_env_monitoring_obj = None
+    _server_monitoring_obj = None
+    _server_inventory_obj = None
     _monitoring_base_plugin_obj = None
-    _config_set = False
-    #dict to hold cfg defaults
+    _monitoring_config_set = False
+    _inventory_config_set = False
+    # dict to hold cfg defaults
     _cfg_defaults_dict = {}
     #dict to hold code defaults
     _code_defaults_dict = {}
@@ -204,7 +213,7 @@ class VncServerManager():
     def _prepare_code_defaults(self):
         code_defaults_dict = {}
         obj_list = {"server" : server_fields, "cluster": cluster_fields,
-                                            "image": image_fields} 
+                                            "image": image_fields}
         for obj_name, obj in obj_list.items():
             obj_cpy = obj.copy()
             pop_items = ["match_keys", "obj_name", "primary_keys"]
@@ -214,8 +223,8 @@ class VncServerManager():
             parameters = eval(obj_cpy.get("parameters", {}))
             obj_cpy["parameters"] = parameters
             code_defaults_dict[obj_name] = obj_cpy
-        return code_defaults_dict 
-        
+        return code_defaults_dict
+
     def __init__(self, args_str=None):
         self._args = None
         #Create an instance of logger
@@ -305,6 +314,7 @@ class VncServerManager():
             status_thread_config = {}
             status_thread_config['listen_ip'] = self._args.listen_ip_addr
             status_thread_config['listen_port'] = '9002'
+            status_thread_config['base_obj'] = self._monitoring_base_plugin_obj
             status_thread_config['smgr_puppet'] = self._smgr_puppet
             status_thread = ServerMgrStatusThread(
                             None, "Status-Thread", status_thread_config)
@@ -348,10 +358,20 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
-        self._dev_env_monitoring_obj.set_serverdb(self._serverDb)
-        self._dev_env_monitoring_obj.set_ipmi_defaults(self._args.ipmi_username, self._args.ipmi_password)
-        self._dev_env_monitoring_obj.daemon = True
-        self._dev_env_monitoring_obj.start()
+        self._server_monitoring_obj.set_serverdb(self._serverDb)
+        self._server_monitoring_obj.set_ipmi_defaults(self._args.ipmi_username, self._args.ipmi_password)
+        self._server_monitoring_obj.daemon = True
+        self._monitoring_base_plugin_obj.sandesh_init(self._args.collectors)
+        self._monitoring_base_plugin_obj.set_serverdb(self._serverDb)
+        self._server_monitoring_obj.start()
+
+        if self._inventory_config_set:
+            self._server_inventory_obj.set_serverdb(self._serverDb)
+            self._server_inventory_obj.set_ipmi_defaults(self._args.ipmi_username, self._args.ipmi_password)
+            self._server_inventory_obj.add_inventory()
+        else:
+            self._smgr_log.log(self._smgr_log.ERROR, "Inventory configuration not set. "
+                                                     "You will be unable to get Inventory information from servers.")
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -366,7 +386,9 @@ class VncServerManager():
         bottle.route('/status', 'GET', self.get_status)
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/tag', 'GET', self.get_server_tags)
-        bottle.route('/Monitor', 'GET', self.get_mon_details)
+        bottle.route('/MonitorConf', 'GET', self.get_mon_conf_details)
+        bottle.route('/MonitorInfo', 'GET', self.get_monitoring_info)
+        bottle.route('/InventoryInfo', 'GET', self.get_inventory_info)
         bottle.route('/defaults', 'GET', self.get_defaults)
 
 
@@ -392,6 +414,7 @@ class VncServerManager():
         bottle.route('/server/restart', 'POST', self.restart_server)
         bottle.route('/dhcp_event', 'POST', self.process_dhcp_event)
         bottle.route('/interface_created', 'POST', self.interface_created)
+        bottle.route('/run_inventory', 'POST', self.run_inventory)
 
     def get_pipe_start_app(self):
         return self._pipe_start_app
@@ -535,11 +558,11 @@ class VncServerManager():
         elif len(query_args) >= 1:
             match_keys_str = validation_data['match_keys']
             match_keys = eval(match_keys_str)
-            match_values = []	
+            match_values = []
             matches = self.validate_smgr_keys(query_args, match_keys)
-            self._smgr_log.log(self._smgr_log.DEBUG, 
+            self._smgr_log.log(self._smgr_log.DEBUG,
                                "match key returned: %s" % (matches))
-            self._smgr_log.log(self._smgr_log.DEBUG, 
+            self._smgr_log.log(self._smgr_log.DEBUG,
                                "select keys: %s" %(select_clause))
             match_key, match_values = matches.popitem()
             #TODO, Do we need this ?
@@ -557,6 +580,62 @@ class VncServerManager():
             ret_data["detail"] = detail
         # end elif
         ret_data['select'] = select_clause
+        return ret_data
+
+    def validate_smgr_mon(self, request, data=None):
+        ret_data = {}
+        ret_data['status'] = 1
+        query_args = parse_qs(urlparse(request.url).query,
+                              keep_blank_values=True)
+
+        if len(query_args) == 0:
+            match_key = None
+            match_value = None
+            ret_data["status"] = 0
+            ret_data["match_key"] = match_key
+            ret_data["match_value"] = match_value
+        elif len(query_args) == 1:
+            match_key, match_value = query_args.popitem()
+            match_keys = list()
+            match_keys.append('id')
+            match_keys.append('cluster_id')
+            match_keys.append('tag')
+            match_keys.append('discovered')
+            if match_key not in match_keys:
+                raise ServerMgrException("Match Key not present")
+            if match_value is None or match_value[0] == '':
+                raise ServerMgrException("Match Value not Specified")
+            ret_data["status"] = 0
+            ret_data["match_key"] = str(match_key)
+            ret_data["match_value"] = str(match_value[0])
+        return ret_data
+
+    def validate_smgr_inv(self, request, data=None):
+        ret_data = {}
+        ret_data['status'] = 1
+        query_args = parse_qs(urlparse(request.url).query,
+                              keep_blank_values=True)
+
+        if len(query_args) == 0:
+            match_key = None
+            match_value = None
+            ret_data["status"] = 0
+            ret_data["match_key"] = match_key
+            ret_data["match_value"] = match_value
+        elif len(query_args) == 1:
+            match_key, match_value = query_args.popitem()
+            match_keys = list()
+            match_keys.append('id')
+            match_keys.append('cluster_id')
+            match_keys.append('tag')
+            match_keys.append('discovered')
+            if match_key not in match_keys:
+                raise ServerMgrException("Match Key not present")
+            if match_value is None or match_value[0] == '':
+                raise ServerMgrException("Match Value not Specified")
+            ret_data["status"] = 0
+            ret_data["match_key"] = str(match_key)
+            ret_data["match_value"] = str(match_value[0])
         return ret_data
 
     def validate_smgr_put(self, validation_data, request, data=None,
@@ -603,7 +682,7 @@ class VncServerManager():
         for k, v in data.iteritems():
             #If json data name is not present in list of
             #allowable fields silently ignore them.
-            
+
             if k not in validation_data:
 #                data.pop(k, None)
                 remove_list.append(k)
@@ -861,14 +940,14 @@ class VncServerManager():
         return select_clause
     # end get_select_clause
 
-    def validate_smgr_keys(self, entity, 
+    def validate_smgr_keys(self, entity,
                    keys = ["id", "mac_address","tag","cluster_id", "where"]):
         found = False
         for key in keys:
 	    if key in entity:
 	        found = True
 	        match_key = key
-	        match_value = entity[key]		
+	        match_value = entity[key]
         if found == False:
 	    msg = "Match key not present"
 	    self.log_and_raise_exception(msg)
@@ -887,6 +966,8 @@ class VncServerManager():
             validation_data = cluster_fields
         elif type == "IMAGE":
             validation_data = image_fields
+        elif type == "INVENTORY":
+            validation_data = fru_fields
         else:
             validation_data = None
 
@@ -948,7 +1029,7 @@ class VncServerManager():
                     match_dict[match_key] = match_value
                 detail = False
                 if not select_clause:
-                    select_clause = ["id", "mac_address", "ip_address", "status"] 
+                    select_clause = ["id", "mac_address", "ip_address", "status"]
                 servers = self._serverDb.get_server(
                     match_dict, detail=detail, field_list=select_clause)
         except ServerMgrException as e:
@@ -1010,7 +1091,7 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(servers)))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
-	
+
 
         # Convert some of the fields in server entry to match what is accepted for put
         for x in servers:
@@ -1047,6 +1128,80 @@ class VncServerManager():
         return {"server": servers}
     # end get_server
 
+    # This call returns information about a provided server. If no server
+    # if provided, information about all the servers in server manager
+    # configuration is returned.
+
+    def get_FRU_info(self):
+        ret_data = None
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_FRU_info")
+        frus = []
+        try:
+            ret_data = self.validate_smgr_inv(bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                match_dict = dict()
+                match_dict[match_key] = match_value
+                self._smgr_log.log(self._smgr_log.DEBUG, match_key + " " + match_value)
+                frus = self._serverDb.get_inventory(match_dict)
+        except ServerMgrException as e:
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+        self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(frus)))
+        return {"frus": frus}
+        # end get_inventory
+
+    def get_inventory_info(self):
+        data_dict = None
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_inventory_info")
+        try:
+            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerInventoryInfo" % (
+                str(self._args.listen_ip_addr), self._args.http_introspect_port)
+            headers = {'content-type': 'application/json'}
+            resp = requests.get(url, timeout=5, headers=headers)
+            xml_data = resp.text
+            data = xmltodict.parse(str(xml_data))
+            json_obj = json.dumps(data, sort_keys=True, indent=4)
+            data_dict = dict(json.loads(json_obj))
+        except ServerMgrException as e:
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+        return data_dict
+        # end get_inventory_info
+
+    def get_monitoring_info(self):
+        data_dict = None
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_monitoring_info")
+        try:
+            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerMonitoringInfo" % (str(self._args.listen_ip_addr),
+                                                                                  self._args.http_introspect_port)
+            headers = {'content-type': 'application/json'}
+            resp = requests.get(url, timeout=5, headers=headers)
+            xml_data = resp.text
+            data = xmltodict.parse(str(xml_data))
+            json_obj = json.dumps(data, sort_keys=True, indent=4)
+            data_dict = dict(json.loads(json_obj))
+        except ServerMgrException as e:
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+        return data_dict
+
     # API Call to list images
     def get_image(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "get_image")
@@ -1062,7 +1217,7 @@ class VncServerManager():
                     match_dict[match_key] = match_value
                 detail = ret_data["detail"]
             images = self._serverDb.get_image(match_dict,
-                                              detail=detail, 
+                                              detail=detail,
                                               field_list=select_clause)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -1319,7 +1474,7 @@ class VncServerManager():
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
-            
+
 
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER)
@@ -1342,7 +1497,7 @@ class VncServerManager():
 
     def plug_mgmt_intf_details(self, server):
         if 'network' in server and server['network']:
-            intf_dict = self.get_interfaces(server)        
+            intf_dict = self.get_interfaces(server)
             network_dict = server['network']
             mgmt_intf_name = network_dict['management_interface']
             mgmt_intf_obj = intf_dict[mgmt_intf_name]
@@ -1350,8 +1505,8 @@ class VncServerManager():
             server['mac_address'] = mgmt_intf_obj['mac_address']
             server['ip_address'] = mgmt_intf_obj['ip']
             server['subnet_mask'] = mgmt_intf_obj['mask']
-            server['gateway'] = mgmt_intf_obj['d_gw']   
-            if 'parameters' in server: 
+            server['gateway'] = mgmt_intf_obj['d_gw']
+            if 'parameters' in server:
                 server_parameters = server['parameters']
             else:
                 server_parameters = {}
@@ -1366,6 +1521,11 @@ class VncServerManager():
     def put_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "add_server")
         entity = bottle.request.json
+        server_hostname_list = list()
+        server_ipmi_list = list()
+        server_ipmi_pw_list = list()
+        server_ipmi_un_list = list()
+        server_ip_list = list()
         if (not entity):
             msg = 'Server MAC or server_id not specified'
             resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
@@ -1382,7 +1542,7 @@ class VncServerManager():
                     None, True)
                 if not db_servers:
                     db_servers = self._serverDb.get_server(
-                        {"mac_address" : server['mac_address']}, 
+                        {"mac_address" : server['mac_address']},
                         None, True)
                 if db_servers:
                     #TODO - Revisit this logic
@@ -1397,11 +1557,20 @@ class VncServerManager():
                     self._serverDb.modify_server(server)
                     server_fields['primary_keys'] = "['id', 'mac_address']"
                 else:
-                    self.validate_smgr_request("SERVER", "PUT", 
-                                               bottle.request, server)
+                    self.validate_smgr_request("SERVER", "PUT", bottle.request,
+                                               server)
+                    server_ipmi_list.append(str(server['ipmi_address']))
+                    server_ipmi_un_list.append(str(server['ipmi_username']))
+                    server_ipmi_pw_list.append(str(server['ipmi_password']))
+                    server_hostname_list.append(str(server['id']))
+                    server_ip_list.append(str(server['ip_address']))
                     server['status'] = "server_added"
                     server['discovered'] = "false"
                     self._serverDb.add_server(server)
+                    if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server:
+                        self._monitoring_base_plugin_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+                    elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
+                        self._monitoring_base_plugin_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
                 server_data = {}
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
@@ -1419,8 +1588,15 @@ class VncServerManager():
                                                                             None)
             abort(404, resp_msg)
         self._smgr_trans_log.log(bottle.request,
-            self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
-        msg = "Server add/Modify Success" 
+                                 self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
+        msg = "Server add/Modify Success"
+        # Trigger to collect monitoring info
+        if self._inventory_config_set:
+            self._server_inventory_obj.handle_inventory_trigger("add", server_hostname_list, server_ip_list,
+                                                                server_ipmi_list, server_ipmi_un_list,
+                                                                server_ipmi_pw_list)
+        else:
+            self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
         resp_msg = self.form_operartion_data(msg, 0, entity)
         return resp_msg
 
@@ -1485,7 +1661,7 @@ class VncServerManager():
 
         self._smgr_trans_log.log(bottle.request,
             self._smgr_trans_log.PUT_SMGR_CFG_TAG)
-        msg = "Tags add/Modify Success" 
+        msg = "Tags add/Modify Success"
         resp_msg = self.form_operartion_data(msg, 0, self._tags_dict)
         return resp_msg
     # end put_server_tags
@@ -1496,11 +1672,11 @@ class VncServerManager():
         return_data['return_code'] = ret_code
         return_data['return_msg'] = msg
         return_data['return_data'] = data
-        
+
         return_data_str = print_rest_response(return_data)
-        
+
         return return_data_str
-       
+
     def validate_package_id(self, package_id):
         #ID shouldn't have only apha-numerice and "_"
         #id can be none or empty, if server is discovered
@@ -1511,7 +1687,7 @@ class VncServerManager():
         if len(is_id_allowed) == 0:
             return False
         return True
-    
+
 
     # API Call to add image file to server manager (file is copied at
     # <default_base_path>/images/filename.iso and distro, profile
@@ -1526,13 +1702,13 @@ class VncServerManager():
         if (image_type not in [
                 "centos", "fedora", "ubuntu",
                 "contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]):
-            msg = "Invalid Image type for %s" % (image_id) 
+            msg = "Invalid Image type for %s" % (image_id)
             resp_msg = self.form_operartion_data(msg, ERR_IMG_TYPE_INVALID, None)
             abort(404, resp_msg)
         db_images = self._serverDb.get_image(
             {'id' : image_id}, detail=False)
         if db_images:
-            msg = "image %s already exists" %(image_id) 
+            msg = "image %s already exists" %(image_id)
             resp_msg = self.form_operartion_data(msg, ERR_IMG_EXISTS, None)
             abort(404, resp_msg)
 
@@ -1555,7 +1731,7 @@ class VncServerManager():
                 if not self.validate_package_id(image_id):
                     msg =  ("Id given %s, Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
                     self.log_and_raise_exception(msg)
- 
+
                 puppet_manifest_version = self._create_repo(
                     image_id, image_type, image_version, dest)
                 image_params['puppet_manifest_version'] = \
@@ -1639,7 +1815,7 @@ class VncServerManager():
             subprocess.check_call(cmd, shell=True)
             # If the untarred file list has environment directory, copy it's
             # contents to /etc/puppet/environments. This is where the new
-            # restructured contrail puppet labs modules are going to be 
+            # restructured contrail puppet labs modules are going to be
             # maintained. The old logic is being maintained for safety till
             # the new refactored code is well tested and confirmed to be working.
             # not environment directory can't contain "-". replace with "_".
@@ -2048,6 +2224,11 @@ class VncServerManager():
     # API call to delete a server from the configuration.
     def delete_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "delete_server")
+        server_ipmi_list = list()
+        server_ipmi_un_list = list()
+        server_ipmi_pw_list = list()
+        server_hostname_list = list()
+        server_ip_list = list()
         try:
             ret_data = self.validate_smgr_request("SERVER", "DELETE",
                                                          bottle.request)
@@ -2062,7 +2243,18 @@ class VncServerManager():
                     match_dict[match_key] = match_value
 
             servers = self._serverDb.get_server(
-                match_dict, detail= False)
+                match_dict, detail=True)
+            for server in servers:
+                server_ipmi_list.append(str(server['ipmi_address']))
+                server_ipmi_un_list.append(str(server['ipmi_username']))
+                server_ipmi_pw_list.append(str(server['ipmi_password']))
+                server_hostname_list.append(str(server['id']))
+                server_ip_list.append(str(server['ip_address']))
+                if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server:
+                    self._monitoring_base_plugin_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+                elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
+                    self._monitoring_base_plugin_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+
             self._serverDb.delete_server(match_dict)
             # delete the system entries from cobbler
             for server in servers:
@@ -2089,6 +2281,14 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_SERVER)
         msg = "Server deleted"
+        # Handle Inventory Trigger here
+        if self._inventory_config_set:
+            self._server_inventory_obj.handle_inventory_trigger("delete", server_hostname_list, server_ip_list,
+                                                                server_ipmi_list, server_ipmi_un_list,
+                                                                server_ipmi_pw_list)
+        else:
+            self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
+
         resp_msg = self.form_operartion_data(msg, 0, None)
         return resp_msg
     # end delete_server
@@ -2219,8 +2419,8 @@ class VncServerManager():
 
     def log_and_raise_exception(self, msg, err_code = ERR_OPR_ERROR):
          self._smgr_log.log(self._smgr_log.ERROR, msg)
-         raise ServerMgrException(msg, err_code)         
- 
+         raise ServerMgrException(msg, err_code)
+
 
     def get_package_image(self, package_image_id):
         package_image = {}
@@ -2383,7 +2583,7 @@ class VncServerManager():
                     msg = "Missing ip for " + server_id
                     server['ip_address'] = ''
 
- 
+
 
                 reimage_parameters = {}
                 if ((image['type'] == 'esxi5.1') or
@@ -2716,6 +2916,56 @@ class VncServerManager():
         print "Interface Created"
         self.provision_server()
 
+    def run_inventory(self):
+        server_hostname_list = list()
+        server_ipmi_list = list()
+        server_ipmi_pw_list = list()
+        server_ipmi_un_list = list()
+        server_ip_list = list()
+        self._smgr_log.log(self._smgr_log.DEBUG, "run_inventory")
+        if self._inventory_config_set:
+            try:
+                entity = bottle.request.json
+                matches = self.validate_smgr_keys(entity)
+                match_key, match_value = matches.popitem()
+                match_dict = {}
+                if match_key == "tag":
+                    match_dict = self._process_server_tags(match_value)
+                elif match_key:
+                    match_dict[match_key] = match_value
+                servers = self._serverDb.get_server(
+                    match_dict, detail=True)
+                for server in servers:
+                    server_ipmi_list.append(str(server['ipmi_address']))
+                    server_ipmi_un_list.append(str(server['ipmi_username']))
+                    server_ipmi_pw_list.append(str(server['ipmi_password']))
+                    server_hostname_list.append(str(server['id']))
+                    server_ip_list.append(str(server['ip_address']))
+                self._smgr_log.log(self._smgr_log.DEBUG,
+                                   "Running inventory on following servers: " + str(server_hostname_list))
+                gevent_threads = []
+                for hostname, ip, ipmi, username, password in \
+                        zip(server_hostname_list, server_ip_list, server_ipmi_list,
+                            server_ipmi_un_list, server_ipmi_pw_list):
+                    thread = gevent.spawn(self._server_inventory_obj.gevent_runner_function,
+                                          "add", hostname, ip, ipmi, username, password)
+                    gevent_threads.append(thread)
+            except ServerMgrException as e:
+                resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+                abort(404, resp_msg)
+            except Exception as e:
+                self.log_trace()
+                resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                     None)
+                abort(404, resp_msg)
+            inventory_status = dict()
+            inventory_status['return_message'] = "server(s) run_inventory issued"
+        else:
+            inventory_status = dict()
+            inventory_status['return_message'] = "Inventory was not configured for Server Manager, " \
+                                                 "run_inventory not issued"
+        return inventory_status
+
     def log_trace(self):
         exc_type, exc_value, exc_traceback = sys.exc_info()
         if not exc_type or not exc_value or not exc_traceback:
@@ -2811,13 +3061,13 @@ class VncServerManager():
 
 
     # Function to decide which type of monitoring info to fetch
-    def get_mon_details(self):
+    def get_mon_conf_details(self):
         try:
-            if self._config_set:
+            if self._monitoring_config_set:
                 return "Configuration for Monitoring set correctly."
             elif self._monitoring_args:
                 return_data = ""
-                if self._monitoring_args.collectors is None:
+                if self._args.collectors is None:
                     return_data += "The collectors IP parameter hasn't been correctly configured.\n"
                 elif self._monitoring_args.monitoring_plugin is None:
                     return_data += "The Monitoring Plugin parameter hasn't been correctly configured.\n"
@@ -2826,6 +3076,24 @@ class VncServerManager():
                 return return_data
             else:
                 return "Monitoring Parameters haven't been configured.\n" \
+                       "Reset the configuration correctly and restart Server Manager.\n"
+        except Exception as e:
+            abort(404, e.message)
+
+    # Function to decide which type of monitoring info to fetch
+    def get_inv_conf_details(self):
+        try:
+            if self._inventory_config_set:
+                return "Configuration for Inventory set correctly."
+            elif self._inventory_args:
+                return_data = ""
+                if self._inventory_args.inventory_plugin is None:
+                    return_data += "The Inventory Plugin parameter hasn't been correctly configured.\n"
+
+                return_data += "\nReset the configuration correctly and restart Server Manager.\n"
+                return return_data
+            else:
+                return "Inventory Parameters haven't been configured.\n" \
                        "Reset the configuration correctly and restart Server Manager.\n"
         except Exception as e:
             abort(404, e.message)
@@ -3046,7 +3314,7 @@ class VncServerManager():
                         num_storage_hosts += 1
                     else:
                         pass
-    
+
                 if 'live_migration' in cluster_params.keys() and cluster_params['live_migration'] == "enable":
                   if 'live_migration_nfs_vm_host' in cluster_params.keys() and cluster_params['live_migration_nfs_vm_host'] and len(cluster_params['live_migration_nfs_vm_host']) > 0 :
                       live_migration = "enable"
@@ -3066,7 +3334,7 @@ class VncServerManager():
                     msg = "Invalid Live Migration Storage Scope (local/global are valid)"
                     raise ServerMgrException(msg)
 
-		    
+
 		provision_params['live_migration_storage_scope'] = live_migration_storage_scope
 		provision_params['contrail-storage-enabled'] = storage_status
 		provision_params['subnet-mask'] = subnet_mask
@@ -3236,19 +3504,21 @@ class VncServerManager():
         args, remaining_argv = conf_parser.parse_known_args(args_str)
 
         serverMgrCfg = {
-            'listen_ip_addr'             : _WEB_HOST,
-            'listen_port'                : _WEB_PORT,
-            'database_name'              : _DEF_CFG_DB,
-            'server_manager_base_dir'    : _DEF_SMGR_BASE_DIR,
-            'html_root_dir'              : _DEF_HTML_ROOT_DIR,
-            'cobbler_ip_address'         : _DEF_COBBLER_IP,
-            'cobbler_port'               : _DEF_COBBLER_PORT,
-            'cobbler_username'           : _DEF_COBBLER_USERNAME,
-            'cobbler_password'           : _DEF_COBBLER_PASSWORD,
-            'ipmi_username'             : _DEF_IPMI_USERNAME,
-            'ipmi_password'             : _DEF_IPMI_PASSWORD,
-            'ipmi_type'                 : _DEF_IPMI_TYPE,
-            'puppet_dir'                 : _DEF_PUPPET_DIR
+            'listen_ip_addr': _WEB_HOST,
+            'listen_port': _WEB_PORT,
+            'database_name': _DEF_CFG_DB,
+            'server_manager_base_dir': _DEF_SMGR_BASE_DIR,
+            'html_root_dir': _DEF_HTML_ROOT_DIR,
+            'cobbler_ip_address': _DEF_COBBLER_IP,
+            'cobbler_port': _DEF_COBBLER_PORT,
+            'cobbler_username': _DEF_COBBLER_USERNAME,
+            'cobbler_password': _DEF_COBBLER_PASSWORD,
+            'ipmi_username': _DEF_IPMI_USERNAME,
+            'ipmi_password': _DEF_IPMI_PASSWORD,
+            'ipmi_type': _DEF_IPMI_TYPE,
+            'puppet_dir': _DEF_PUPPET_DIR,
+            'collectors': _DEF_COLLECTORS_IP,
+            'http_introspect_port': _DEF_INTROSPECT_PORT
         }
 
         if args.config_file:
@@ -3270,6 +3540,7 @@ class VncServerManager():
             msg = "Server Manager doesn't have a configuration set."
             self.log_and_raise_exception(msg)
 
+        self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read from config file %s" % serverMgrCfg)
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -3298,8 +3569,9 @@ class VncServerManager():
             help=(
                 "Name of JSON file containing list of cluster and servers,"
                 " default None"))
-        self._parse_monitoring_args(args_str, args)
         self._args = parser.parse_args(remaining_argv)
+        self._parse_monitoring_args(args_str, args)
+        self._parse_inventory_args(args_str, args)
         self._args.config_file = args.config_file
     # end _parse_args
 
@@ -3307,10 +3579,11 @@ class VncServerManager():
         config = ConfigParser.SafeConfigParser()
         config.read([args.config_file])
         self._monitoring_args = None
+        self._monitoring_config_set = False
         try:
             if dict(config.items("MONITORING")).keys():
                 # Handle parsing for monitoring
-                monitoring_args = self._monitoring_base_plugin_obj.parse_args(args_str)
+                monitoring_args = self._monitoring_base_plugin_obj.parse_args(args_str, "MONITORING")
                 if monitoring_args:
                     self._smgr_log.log(self._smgr_log.DEBUG, "Monitoring arguments read from config.")
                     self._monitoring_args = monitoring_args
@@ -3329,19 +3602,65 @@ class VncServerManager():
                     module_components = str(self._monitoring_args.monitoring_plugin).split('.')
                     monitoring_module = __import__(str(module_components[0]))
                     monitoring_class = getattr(monitoring_module, module_components[1])
-                    if self._monitoring_args.collectors:
-                        self._dev_env_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_frequency,
-                                                                        self._monitoring_args.collectors)
-                        self._dev_env_monitoring_obj.sandesh_init(self._monitoring_args.collectors)
-                        self._config_set = True
+                    if self._args.collectors:
+                        self._server_monitoring_obj = monitoring_class(1, self._monitoring_args.monitoring_frequency,
+                                                                       self._args.listen_ip_addr,
+                                                                       self._args.listen_port, self._args.collectors)
+                        self._monitoring_config_set = True
                 else:
-                    self._smgr_log.log(self._smgr_log.ERROR, "Analytics IP and Monitoring API misconfigured, monitoring aborted")
-                    self._dev_env_monitoring_obj = self._monitoring_base_plugin_obj
-            except ImportError:
-                    self._smgr_log.log(self._smgr_log.ERROR, "Configured modules are missing. Server Manager will quit now.")
-                    raise ImportError
+                    self._smgr_log.log(self._smgr_log.ERROR,
+                                       "Analytics IP and Monitoring API misconfigured, monitoring aborted")
+                    self._server_monitoring_obj = self._monitoring_base_plugin_obj
+            except ImportError as ie:
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                   "Configured modules are missing. Server Manager will quit now.")
+                self._smgr_log.log(self._smgr_log.ERROR, "Error: " + str(ie))
+                raise ImportError
         else:
-            self._dev_env_monitoring_obj = self._monitoring_base_plugin_obj
+            self._server_monitoring_obj = self._monitoring_base_plugin_obj
+
+    def _parse_inventory_args(self, args_str, args):
+        config = ConfigParser.SafeConfigParser()
+        config.read([args.config_file])
+        self._inventory_args = None
+        self._inventory_config_set = False
+        try:
+            if dict(config.items("INVENTORY")).keys():
+                # Handle parsing for monitoring
+                inventory_args = self._monitoring_base_plugin_obj.parse_args(args_str, "INVENTORY")
+                if inventory_args:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "Inventory arguments read from config.")
+                    self._inventory_args = inventory_args
+                else:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "No inventory configuration set.")
+                    self._inventory_args = None
+            else:
+                self._smgr_log.log(self._smgr_log.DEBUG, "No inventory configuration set.")
+                self._inventory_args = None
+        except ConfigParser.NoSectionError:
+            self._smgr_log.log(self._smgr_log.DEBUG, "No inventory configuration set.")
+            self._inventory_args = None
+
+        if self._inventory_args:
+            try:
+                if self._inventory_args.inventory_plugin:
+                    module_components = str(self._inventory_args.inventory_plugin).split('.')
+                    inventory_module = __import__(str(module_components[0]))
+                    inventory_class = getattr(inventory_module, module_components[1])
+                    if self._args.collectors:
+                        self._server_inventory_obj = inventory_class()
+                        self._inventory_config_set = True
+                else:
+                    self._smgr_log.log(self._smgr_log.ERROR,
+                                       "Iventory API misconfigured, inventory aborted")
+                    self._server_inventory_obj = None
+            except ImportError:
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                   "Configured modules are missing. Server Manager will quit now.")
+                raise ImportError
+        else:
+            self._server_inventory_obj = None
+
     # TBD : Any semantic rules to be added when creating configuration
     # objects would be included here. e.g. checking IP address format
     # for the server etc.

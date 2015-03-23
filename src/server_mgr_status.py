@@ -22,12 +22,24 @@ from server_mgr_db import ServerMgrDb as db
 from time import gmtime, strftime, localtime
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from send_mail import send_mail
+import requests
+import json
 from server_mgr_defaults import *
+from paramiko import *
+import os
+import sys
+from server_mgr_ssh_client import ServerMgrSSHClient
+from gevent import monkey
+monkey.patch_all(thread=not 'unittest' in sys.modules)
+import gevent
+import subprocess
+
 
 class ServerMgrStatusThread(threading.Thread):
 
     _smgr_log = None
     _status_serverDb = None
+    _base_obj = None
     _smgr_puppet = None
 
 
@@ -60,6 +72,7 @@ class ServerMgrStatusThread(threading.Thread):
         status_bottle_app = Bottle()
         status_bottle_app.route('/server_status', 'POST', self.put_server_status)
         status_bottle_app.route('/server_status', 'PUT', self.put_server_status)
+        self._base_obj = self._status_thread_config['base_obj']
 
         try:
             bottle.run(status_bottle_app,
@@ -68,6 +81,58 @@ class ServerMgrStatusThread(threading.Thread):
         except Exception as e:
             # cleanup gracefully
             exit()
+
+    # Packages and sends a REST API call to the ServerManager node
+
+    def reimage_run_inventory(self, ip, port, payload):
+            success = False
+            sshclient = ServerMgrSSHClient(serverdb=self._status_serverDb)
+            tries = 0
+            while not success:
+                try:
+                    tries += 1
+                    server = self._status_serverDb.get_server({"id": str(payload["id"])}, detail=True)
+                    if server and len(server) == 1:
+                        server = server[0]
+                        subprocess.call(['ssh-keygen', '-f', '/root/.ssh/known_hosts', '-R', str(server["ip_address"])])
+                        sshclient.connect(str(server["ip_address"]), "password")
+                        match_dict = dict()
+                        match_dict["id"] = str(payload["id"])
+                        self._smgr_log.log(self._smgr_log.DEBUG, "Running inventory on " + str(payload["id"]) +
+                                           ", try " + str(tries))
+                        ssh_public_ket_str = str(server["ssh_public_key"])
+                        with open("/opt/contrail/server_manager/" + str(payload["id"]) + ".pub", 'w+') as content_file:
+                            content_file.write(ssh_public_ket_str)
+                            content_file.close()
+                        source_file = "/opt/contrail/server_manager/" + str(payload["id"]) + ".pub"
+                        dest_file = "/root/.ssh/authorized_keys"
+                        sshclient.exec_command('mkdir -p /root/.ssh/')
+                        sshclient.exec_command('touch /root/.ssh/authorized_keys')
+                        sshclient.copy(source_file, dest_file)
+                        sshclient.close()
+                        self._smgr_log.log(self._smgr_log.DEBUG, "SSH Keys copied on  " + str(payload["id"]) +
+                                           ", try " + str(tries))
+                        os.remove(source_file)
+                        success = True
+                    else:
+                        self._smgr_log.log(self._smgr_log.ERROR, "SSH Key copy failed on  " + str(payload["id"]) +
+                                           ", try " + str(tries))
+                        sshclient.close()
+                        success = False
+                except Exception as e:
+                    self._smgr_log.log(self._smgr_log.ERROR, "Error running inventory on  " + str(payload) +
+                                       ", try " + str(tries)
+                                       + "failed : " + str(e))
+                    gevent.sleep(30)
+            try:
+                url = "http://%s:%s/run_inventory" % (ip, port)
+                payload = json.dumps(payload)
+                headers = {'content-type': 'application/json'}
+                resp = requests.post(url, headers=headers, timeout=5, data=payload)
+                return resp.text
+            except Exception as e:
+                self._smgr_log.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
+                return None
 
     def put_server_status(self):
         print "put-status"
@@ -86,6 +151,12 @@ class ServerMgrStatusThread(threading.Thread):
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
             servers = self._status_serverDb.modify_server(
                                                     server_data)
+            if server_state == "reimage_completed":
+                payload = dict()
+                payload["id"] = server_id
+                self._smgr_log.log(self._smgr_log.DEBUG, "Spawning Gevent for Id: %s" % payload["id"])
+                gevent.spawn(self.reimage_run_inventory, self._status_thread_config["listen_ip"],
+                             self._status_thread_config["listen_port"], payload)
             if server_state == "provision_completed":
                 domain = self._status_serverDb.get_server_domain(server_id)
                 environment_name = 'TurningOffPuppetAgent__' + time_str
@@ -143,4 +214,5 @@ class ServerMgrStatusThread(threading.Thread):
         self._smgr_log.log(self._smgr_log.DEBUG, msg)
     # send_status_mail
         
+
 
