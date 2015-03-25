@@ -163,6 +163,7 @@ echo "    pluginsync = true" >> /etc/puppet/puppet.conf
 echo "    ignorecache = true" >> /etc/puppet/puppet.conf
 echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
 echo "    listen = true" >> /etc/puppet/puppet.conf
+echo "    ordering = manifest"  >> /etc/puppet/puppet.conf
 echo "[main]" >> /etc/puppet/puppet.conf
 echo "runinterval=60" >> /etc/puppet/puppet.conf
 
