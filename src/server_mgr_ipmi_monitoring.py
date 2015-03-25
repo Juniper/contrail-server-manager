@@ -109,6 +109,14 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         elif data_type == "cpu_mem":
             sm_ipmi_info.cpu_usage_percentage = float(ipmi_data[0])
             sm_ipmi_info.mem_usage_mb = int(ipmi_data[1])
+        elif data_type == "interface_info":
+            sm_ipmi_info.interface_info_stats = []
+            sm_ipmi_info.interface_info_state = []
+            for data in ipmi_data:
+                sm_ipmi_info.interface_info_stats.append(data)
+                sm_ipmi_info.interface_info_state.append(data)
+            self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+            self.log("info", "UVE Interface Info = " + str(sm_ipmi_info))
         ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
@@ -219,7 +227,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.log("info", "sysstat package not installed on " + str(ip))
             disk_data = Disk()
             disk_data.disk_name = "dummy"
-            disk_data.read_MB = int(0) 
+            disk_data.read_MB = int(0)
             disk_data.write_MB = int(0)
             disk_list.append(disk_data)
             self.send_ipmi_stats(ip, disk_list, hostname, "disk_list")
@@ -281,6 +289,35 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         except Exception as e:
             self.log("error", "Error in getting cpu and memory info for  " + str(hostname) + str(e))
 
+    def fetch_and_process_interface_info(self, hostname, ip, sshclient):
+        try:
+            result = sshclient.exec_command("ls /sys/class/net/")
+            if result:
+                output = cStringIO.StringIO(result)
+                intinfo_list = []
+                for line in output:
+                    intinfo = interface_info() 
+                    if "lo" in line:
+                        continue
+                    else:
+                        cmd = "cat /sys/class/net/" + line.rstrip() + "/statistics/tx_bytes"
+                        tx_bytes = sshclient.exec_command(cmd=cmd)
+                        cmd = "cat /sys/class/net/" + line.rstrip() + "/statistics/tx_packets"
+                        tx_packets = sshclient.exec_command(cmd=cmd)
+                        cmd = "cat /sys/class/net/" + line.rstrip() + "/statistics/rx_bytes"
+                        rx_bytes = sshclient.exec_command(cmd=cmd)
+                        cmd = "cat /sys/class/net/" + line.rstrip() + "/statistics/rx_packets"
+                        rx_packets = sshclient.exec_command(cmd=cmd)
+                        intinfo.interface_name = line.rstrip()
+                        intinfo.tx_bytes = int(tx_bytes.rstrip())
+                        intinfo.tx_packets = int(tx_packets.rstrip())
+                        intinfo.rx_bytes = int(rx_bytes.rstrip())
+                        intinfo.rx_packets = int(rx_packets.rstrip())
+                        intinfo_list.append(intinfo)
+            self.send_ipmi_stats(ip, intinfo_list, hostname, "interface_info")
+        except Exception as e:
+            self.log("error", "Error in getting interface info for " + str(hostname) + str(e))
+
     def fetch_and_process_sel_logs(self, hostname, ip, username, password, sel_event_log_list):
         sel_cmd = 'ipmitool -H %s -U %s -P %s sel elist' % (ip, username, password)
         sel_result = super(ServerMgrIPMIMonitoring, self).call_subprocess(sel_cmd)
@@ -336,6 +373,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         try:
             sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
             sshclient.connect(ip, option)
+            self.fetch_and_process_interface_info(hostname, ip, sshclient)
             self.fetch_and_process_disk_info(hostname, ip, sshclient)
             self.fetch_and_process_cpu_mem(hostname, ip, sshclient)
             return_dict["ipmi_status"] = \

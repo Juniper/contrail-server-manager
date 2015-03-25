@@ -261,19 +261,6 @@ class ServerMgrInventory():
                                 setattr(intinfo, 'ip_addr', "dummy")
                             if not getattr(intinfo, 'netmask'):
                                 setattr(intinfo, 'netmask', "dummy")
-                            cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/tx_bytes"
-                            tx_bytes = self.get_field_value(sshclient, ip, cmd)
-                            cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/tx_packets"
-                            tx_packets = self.get_field_value(sshclient, ip, cmd)
-                            cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/rx_bytes"
-                            rx_bytes = self.get_field_value(sshclient, ip, cmd)
-                            cmd = "cat /sys/class/net/" + intinfo.interface_name + "/statistics/rx_packets"
-
-                            rx_packets = self.get_field_value(sshclient, ip, cmd)
-                            intinfo.tx_bytes = int(tx_bytes.rstrip())
-                            intinfo.tx_packets = int(tx_packets.rstrip())
-                            intinfo.rx_bytes = int(rx_bytes.rstrip())
-                            intinfo.rx_packets = int(rx_packets.rstrip())
                             intinfo_list.append(intinfo)
                     else:
                         objkey = self.inventory_lookup(key)
