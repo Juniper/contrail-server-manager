@@ -365,6 +365,7 @@ class VncServerManager():
         bottle.route('/image', 'GET', self.get_image)
         bottle.route('/status', 'GET', self.get_status)
         bottle.route('/server_status', 'GET', self.get_server_status)
+        bottle.route('/chassis-id', 'GET', self.get_server_chassis_id)
         bottle.route('/tag', 'GET', self.get_server_tags)
         bottle.route('/Monitor', 'GET', self.get_mon_details)
         bottle.route('/defaults', 'GET', self.get_defaults)
@@ -927,6 +928,46 @@ class VncServerManager():
             # end else
         return match_dict
     # end _process_server_tags
+
+    # This function gets storage_chassis_id of all servers configured in
+    # the server-manager. If chassis_id is not configured, it returns "[]"
+    # empty array. This api helps SM-UI to get all chassis-id configured
+    # in the system abd let admin select any of existing chassis-id or 
+    # provide a new one.
+    def get_server_chassis_id(self):
+        try:
+            servers = self._serverDb.get_server(None, detail=True)
+            all_chassis_id_set = set()
+            for server in servers:
+                server_parameters = server.get('parameters', {})
+                if not server_parameters:
+                    server_parameters = "{}"
+                server_params = eval(server_parameters)
+                storage_chassis_id = server_params.get('storage_chassis_id', "")
+                if storage_chassis_id and storage_chassis_id != "":
+                    all_chassis_id_set.add(storage_chassis_id)
+
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_CHASSIS_ID, False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_CHASSIS_ID, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER)
+        # Convert some of the fields in server entry to match what is accepted for put
+        self._smgr_log.log(self._smgr_log.DEBUG, "JSON response:%s" % (all_chassis_id_set))
+
+        return {"chassis_id": list(all_chassis_id_set)}
+
+    # End get_server_chassis_id
 
     # This call returns status information about a provided server. If no server
     # if provided, information about all the servers in server manager
