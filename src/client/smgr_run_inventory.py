@@ -3,11 +3,8 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 """
    Name : smgr_run_inventory.py
-   Author : Abhay Joshi
-   Description : This program is a simple cli interface that
-   provides provisioning a server for the roles configured. The
-   SM prepares puppet manifests that define the role(s) being
-   configured on receiving this REST API request.
+   Author : Nitish Krishna
+   Description : TBD
 """
 import argparse
 import pdb

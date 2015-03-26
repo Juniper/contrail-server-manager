@@ -1,3 +1,12 @@
+#!/usr/bin/python
+
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
+"""
+   Name : server_mgr_ipmi_monitoring.py
+   Author : Nitish Krishna
+   Description : TBD
+"""
+
 import os
 import time
 import signal
@@ -18,6 +27,7 @@ import socket
 import pdb
 import paramiko
 import paramiko.channel
+import xmltodict
 import inspect
 import math
 from server_mgr_db import ServerMgrDb as db
@@ -42,7 +52,7 @@ from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 # Server Manager opens a Sandesh Connection to the Analytics node that hosts the
 # Database to which the monitor pushes device environment information.
 class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
-    def __init__(self, val, frequency, smgr_ip=None, smgr_port=None, collectors_ip=None):
+    def __init__(self, val, frequency, smgr_ip=None, smgr_port=None, collectors_ip=None, introspect_port=None):
         ''' Constructor '''
         ServerMgrMonBasePlugin.__init__(self)
         self.base_obj = ServerMgrMonBasePlugin()
@@ -52,6 +62,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         self.val = val
         self.smgr_ip = smgr_ip
         self.smgr_port = smgr_port
+        self.introspect_port = introspect_port
         self.freq = float(frequency)
         self._collectors_ip = collectors_ip
 
@@ -151,13 +162,13 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     reading_value = reading[1].strip()
                     status = reading[2].strip()
                     for i in supported_sensors:
-                        if re.search(i, sensor) is not None:
+                        if re.search(i, sensor, re.IGNORECASE) is not None:
                             sensor_type = 'unknown'
-                            if 'FAN' in sensor:
+                            if 'FAN' in sensor or 'fan' in sensor or 'Fan' in sensor:
                                 sensor_type = 'fan'
                             elif 'PWR' in sensor or 'Power' in sensor:
                                 sensor_type = 'power'
-                            elif 'Temp' in sensor:
+                            elif 'Temp' in sensor or 'TEMP' in sensor or 'temp' in sensor:
                                 sensor_type = 'temperature'
                             value = reading_value.split()
                             ipmidata = IpmiSensor()
@@ -165,7 +176,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                             ipmidata.status = status
                             if status == "ns":
                                 pass
-                            elif status == "ok":
+                            elif status == "ok" and value[len(value) - 1].strip() != '0x00':
                                 ipmidata.reading = long(value[0].strip())
                                 ipmidata.unit = value[len(value) - 1].strip()
                                 ipmidata.sensor_type = sensor_type
@@ -393,7 +404,30 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             return return_dict
         except Exception as e:
             self.log("error", "Gevent SSH Connect Execption: " + e.message)
-            return None
+            raise e
+
+    def get_mon_conf_details(self):
+        return "Configuration for Monitoring set correctly."
+
+    def get_monitoring_info(self):
+        data_dict = None
+        self.log("debug", "get_monitoring_info")
+        try:
+            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerMonitoringInfo" % (str(self.smgr_ip),
+                                                                                  self.introspect_port)
+            headers = {'content-type': 'application/json'}
+            resp = requests.get(url, timeout=5, headers=headers)
+            xml_data = resp.text
+            data = xmltodict.parse(str(xml_data))
+            json_obj = json.dumps(data, sort_keys=True, indent=4)
+            data_dict = dict(json.loads(json_obj))
+        except ServerMgrException as e:
+            self.log("error", "Get Monitoring Info Execption: " + e.message)
+            raise e
+        except Exception as e:
+            self.log("error", "Get Monitoring Info Execption: " + e.message)
+            raise e
+        return data_dict
 
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
     # It then calls other functions to send the information to the correct analytics server.
@@ -409,7 +443,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         ipmi_password_list = list()
         ipmi_state = dict()
         pw_list = list()
-        supported_sensors = ['FAN|.*_FAN', '^PWR', 'CPU[0-9][" "].*', '.*_Temp', '.*_Power']
+        supported_sensors = ['FAN|.*_FAN', '^PWR', '.*Temp', '.*_Power']
         while True:
             servers = self._serverDb.get_server(
                 None, detail=True)
@@ -443,7 +477,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.log("info", "Monitoring thread woke up")
             for hostname in gevent_threads:
                 thread = gevent_threads[str(hostname)]
-                if thread.successful():
+                if thread.successful() and thread.value:
                     return_dict = dict(thread.value)
                     ipmi_state[str(hostname)] = return_dict["ipmi_status"]
                     sel_log_dict[str(hostname)] = return_dict["sel_log"]

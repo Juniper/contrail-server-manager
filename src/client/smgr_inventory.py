@@ -1,3 +1,12 @@
+#!/usr/bin/python
+
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
+"""
+   Name : smgr_inventory.py
+   Author : Nitish Krishna
+   Description : TBD
+"""
+
 import os
 import syslog
 import time
