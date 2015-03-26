@@ -15,7 +15,7 @@ import server_mgr_db
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from threading import Thread
-from contrail_sm_monitoring.ipmi.ttypes import *
+from contrail_sm_monitoring.monitoring.ttypes import *
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
