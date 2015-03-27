@@ -238,7 +238,9 @@ class ServerMgrMonBasePlugin(Thread):
                                    "Choose one of the following types (if empty, all types sent): " + \
                                    str(types_list).strip('[]')
         elif len(query_args) >= 1:
-            select_value = query_args.get("select", None)[0]
+            select_value = None
+            if "select" in query_args:
+                select_value = query_args.get("select", None)[0]
             if select_value:
                 if select_value in types_list:
                     ret_data["type"] = select_value

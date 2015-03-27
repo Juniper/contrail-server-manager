@@ -421,7 +421,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             for sensor in server_sensor_list:
                 res_sensor = dict()
                 sensor = dict(sensor)
-                if key == "all" or key == sensor["sensor_type"]["#text"]:
+                if key == "all" or key == "sensor" or key == sensor["sensor_type"]["#text"]:
                     for field in sensor:
                         res_sensor[field] = dict(sensor[field])["#text"]
                     return_sensor_list.append(res_sensor)
@@ -506,7 +506,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 for server_hostname in server_hostname_list:
                     return_dict[str(server_hostname)] = dict()
                     return_dict[str(server_hostname)]["ServerMonitoringInfo"] = dict()
-                    if ret_data["type"] in ["all", "fan", "temperature", "power"]:
+                    if ret_data["type"] in ["all", "sensor", "fan", "temperature", "power"]:
                         return_dict[str(server_hostname)]["ServerMonitoringInfo"]["sensor_state"] = \
                             self.filter_sensor_results(pruned_data_dict[str(server_hostname)], ret_data["type"])
                     if ret_data["type"] in ["all", "chassis"]:
