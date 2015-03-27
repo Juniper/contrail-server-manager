@@ -144,7 +144,7 @@ class ServerMgrMonBasePlugin(Thread):
             parser.set_defaults(**self.InventoryCfg)
         return parser.parse_args(remaining_argv)
 
-    def parse_monitoring_args(self, args_str, args, sm_args):
+    def parse_monitoring_args(self, args_str, args, sm_args, _rev_tags_dict):
         config = ConfigParser.SafeConfigParser()
         config.read([args.config_file])
         try:
@@ -170,7 +170,7 @@ class ServerMgrMonBasePlugin(Thread):
                         self.server_monitoring_obj = monitoring_class(1, self.monitoring_args.monitoring_frequency,
                                                                       sm_args.listen_ip_addr,
                                                                       sm_args.listen_port, sm_args.collectors,
-                                                                      sm_args.http_introspect_port)
+                                                                      sm_args.http_introspect_port, _rev_tags_dict)
                         self.monitoring_config_set = True
                 else:
                     self._smgr_log.log(self._smgr_log.ERROR,
@@ -184,7 +184,7 @@ class ServerMgrMonBasePlugin(Thread):
         else:
             self.server_monitoring_obj = None
 
-    def parse_inventory_args(self, args_str, args, sm_args):
+    def parse_inventory_args(self, args_str, args, sm_args, _rev_tags_dict):
         config = ConfigParser.SafeConfigParser()
         config.read([args.config_file])
         try:
@@ -209,7 +209,7 @@ class ServerMgrMonBasePlugin(Thread):
                     inventory_class = getattr(inventory_module, module_components[1])
                     if sm_args.collectors:
                         self.server_inventory_obj = inventory_class(sm_args.listen_ip_addr, sm_args.listen_port,
-                                                                    sm_args.http_introspect_port)
+                                                                    sm_args.http_introspect_port, _rev_tags_dict)
                         self.inventory_config_set = True
                 else:
                     self._smgr_log.log(self._smgr_log.ERROR,
@@ -222,30 +222,66 @@ class ServerMgrMonBasePlugin(Thread):
         else:
             self.server_inventory_obj = None
 
-    def validate_rest_api_args(self, request, data=None):
-        ret_data = {}
+    def validate_rest_api_args(self, request, rev_tags_dict, types_list):
+        ret_data = {"msg": None, "type_msg": None}
+        match_keys = list(['id', 'cluster_id', 'tag', 'where'])
         self._smgr_log.log(self._smgr_log.DEBUG,
                            "Validating bottle arguments.")
         ret_data['status'] = 1
         query_args = parse_qs(urlparse(request.url).query,
                               keep_blank_values=True)
         if len(query_args) == 0:
-            match_key = None
-            match_value = None
-            ret_data["status"] = 0
-            ret_data["match_key"] = match_key
-            ret_data["match_value"] = match_value
-        elif len(query_args) == 1:
+            ret_data["status"] = False
+            ret_data["msg"] = "No Match Key Specified. " + "Choose one of the following keys: " + \
+                              str(['--{0}'.format(key) for key in match_keys]).strip('[]')
+            ret_data["type_msg"] = "No type selected. " + \
+                                   "Choose one of the following types (if empty, all types sent): " + \
+                                   str(types_list).strip('[]')
+        elif len(query_args) >= 1:
+            select_value = query_args.get("select", None)[0]
+            if select_value:
+                if select_value in types_list:
+                    ret_data["type"] = select_value
+                else:
+                    ret_data["status"] = False
+                    ret_data["type_msg"] = "Selected type not available. " + \
+                                           "Choose one of the following types (if empty, all types sent): " + \
+                                           str(types_list).strip('[]')
+                    return ret_data
+            else:
+                ret_data["type"] = "all"
             match_key, match_value = query_args.popitem()
-            match_keys = list(['id', 'cluster_id', 'tag', 'where'])
-            if match_key not in match_keys:
-                raise ServerMgrException("Match Key not present")
-            if match_value is None or match_value[0] == '':
-                raise ServerMgrException("Match Value not Specified")
-            ret_data["status"] = 0
-            ret_data["match_key"] = str(match_key)
-            ret_data["match_value"] = str(match_value[0])
+            if match_key is None or match_key not in match_keys:
+                ret_data["status"] = False
+                ret_data["msg"] = "Wrong Match Key Specified. " + "Choose one of the following keys: " + \
+                                  str(['--{0}'.format(key) for key in match_keys]).strip('[]')
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                   "Wrong Match Key")
+            elif match_value is None or match_value[0] == '':
+                ret_data["status"] = False
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                   "No macth value given")
+                ret_data["msg"] = "No Match Value Specified.\n"
+            else:
+                ret_data["status"] = True
+                ret_data["match_key"] = str(match_key)
+                ret_data["match_value"] = str(match_value[0])
         return ret_data
+
+    def process_server_tags(self, rev_tags_dict, match_value):
+        if not match_value:
+            return {}
+        match_dict = {}
+        tag_list = match_value.split(',')
+        for x in tag_list:
+            tag = x.strip().split('=')
+            if tag[0] in rev_tags_dict:
+                match_dict[rev_tags_dict[tag[0]]] = tag[1]
+            else:
+                self._smgr_log.log(self._smgr_log.ERROR, "Wrong tag specified in rest api request.")
+                return {}
+        return match_dict
+
 
     def sandesh_init(self, collectors_ip_list=None):
         # Inventory node module initialization part

@@ -52,6 +52,7 @@ _DEF_INTROSPECT_PORT = 8107
 
 
 class ServerMgrInventory():
+    types_list = ["fru", "interface", "cpu", "ethernet", "memory"]
     _serverDb = None
     _inventory_log = None
     _collectors_ip = None
@@ -64,7 +65,7 @@ class ServerMgrInventory():
     ERROR = "error"
     CRITICAL = "critical"
 
-    def __init__(self, smgr_ip, smgr_port, introspect_port):
+    def __init__(self, smgr_ip, smgr_port, introspect_port, rev_tags_dict):
         ''' Constructor '''
         self._base_obj = ServerMgrMonBasePlugin()
         logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
@@ -73,6 +74,7 @@ class ServerMgrInventory():
         self.smgr_ip = smgr_ip
         self.smgr_port = smgr_port
         self.introspect_port = introspect_port
+        self.rev_tags_dict = rev_tags_dict
 
     def set_serverdb(self, server_db):
         self._serverDb = server_db
@@ -424,113 +426,142 @@ class ServerMgrInventory():
             self.log(self.INFO, "Deleted info of server: %s" % hostname)
             self.delete_inventory_info(hostname)
 
+    ######## INVENTORY GET INFO SECTION ###########
+    def filter_inventory_results(self, xml_dict):
+        return_dict = {}
+        server_inv_info_fields = dict(xml_dict["data"]["ServerInventoryInfo"])
+        for field in server_inv_info_fields:
+            if field == "mem_state":
+                server_mem_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["memory_info"]
+                mem_info_dict = dict()
+                for mem_field in server_mem_info_dict:
+                    mem_info_dict[mem_field] = server_mem_info_dict[mem_field]["#text"]
+                return_dict[field] = mem_info_dict
+            elif field == "interface_infos":
+                server_interface_list = \
+                    list(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["interface_info"])
+                interface_dict_list = list()
+                for interface in server_interface_list:
+                    # interface = dict(interface)
+                    server_interface_info_dict = dict()
+                    for intf_field in interface:
+                        server_interface_info_dict[intf_field] = interface[intf_field]["#text"]
+                    interface_dict_list.append(server_interface_info_dict)
+                    return_dict[field] = interface_dict_list
+            elif field == "fru_infos":
+                server_fru_list = list(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"])
+                fru_dict_list = list()
+                for fru in server_fru_list:
+                    # fru = dict(fru)
+                    server_fru_info_dict = dict()
+                    for fru_field in fru:
+                        server_fru_info_dict[fru_field] = fru[fru_field]["#text"]
+                    fru_dict_list.append(server_fru_info_dict)
+                return_dict[field] = fru_dict_list
+            elif field == "cpu_info_state":
+                server_cpu_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["cpu_info"]
+                cpu_info_dict = dict()
+                for cpu_field in server_cpu_info_dict:
+                    cpu_info_dict[cpu_field] = server_cpu_info_dict[cpu_field]["#text"]
+                return_dict[field] = cpu_info_dict
+            elif field == "eth_controller_state":
+                server_eth_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["ethernet_controller"]
+                eth_info_dict = dict()
+                for eth_field in server_eth_info_dict:
+                    eth_info_dict[eth_field] = server_eth_info_dict[eth_field]["#text"]
+                return_dict[field] = eth_info_dict
+            else:
+                return_dict[field] = \
+                    server_inv_info_fields[field]["#text"]
+        return return_dict
+
     @staticmethod
     def get_inv_conf_details(self):
         return "Configuration for Inventory set correctly."
 
-    def get_FRU_info(self):
-        ret_data = None
-        self.log(self.DEBUG, "get_FRU_info")
-        frus = []
-        try:
-            ret_data = self.validate_smgr_inv(bottle.request)
-            if ret_data["status"] == 0:
-                match_key = ret_data["match_key"]
-                match_value = ret_data["match_value"]
-                match_dict = dict()
-                match_dict[match_key] = match_value
-                self._smgr_log.log(self._smgr_log.DEBUG, match_key + " " + match_value)
-                frus = self._serverDb.get_inventory(match_dict)
-        except ServerMgrException as e:
-            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
-            abort(404, resp_msg)
-        except Exception as e:
-            self.log_trace()
-            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
-                                                 None)
-            abort(404, resp_msg)
-        self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(frus)))
-        return {"frus": frus}
-        # end get_inventory
-
     def get_inventory_info(self):
-        data_dict = None
+        return_dict = dict()
+        match_dict = dict()
+        server_hostname_list = list()
         self.log(self.DEBUG, "get_inventory_info")
         try:
-            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerInventoryInfo" % (
-                str(self.smgr_ip), self.introspect_port)
+            entity = bottle.request
+            ret_data = self._base_obj.validate_rest_api_args(entity, self.rev_tags_dict, self.types_list)
+            if ret_data["status"]:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+            else:
+                return {"msg": ret_data["msg"], "type_msg": ret_data["type_msg"]}
+            if match_key == "tag":
+                match_dict = self._base_obj.process_server_tags(self.rev_tags_dict, match_value)
+            elif match_key:
+                match_dict[match_key] = match_value
+            servers = self._serverDb.get_server(
+                match_dict, detail=True)
+            for server in servers:
+                server_hostname_list.append(str(server['id']))
+            self.log(self.DEBUG, "Getting inventory info of following servers: " + str(server_hostname_list))
+            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerInventoryInfo" % \
+                  (str(self.smgr_ip), self.introspect_port)
             headers = {'content-type': 'application/json'}
             resp = requests.get(url, timeout=5, headers=headers)
             xml_data = resp.text
             data = xmltodict.parse(str(xml_data))
             json_obj = json.dumps(data, sort_keys=True, indent=4)
             data_dict = dict(json.loads(json_obj))
+            if "msg" in data_dict or "type_msg" in data_dict:
+                return data_dict
+            data_list = list(data_dict["__ServerInventoryInfoUve_list"]["ServerInventoryInfoUve"])
+            pruned_data_dict = dict()
+            if data_dict and data_list:
+                for server in data_list:
+                    server = dict(server)
+                    server_hostname = server["data"]["ServerInventoryInfo"]["name"]["#text"]
+                    if server_hostname in server_hostname_list:
+                        pruned_data_dict[str(server_hostname)] = server
+                for server_hostname in server_hostname_list:
+                    return_dict[str(server_hostname)] = dict()
+                    return_dict[str(server_hostname)]["ServerInventoryInfo"] = dict()
+                    return_dict[str(server_hostname)]["ServerInventoryInfo"] = \
+                        self.filter_inventory_results(pruned_data_dict[str(server_hostname)])
+            else:
+                return {}
         except ServerMgrException as e:
             self.log(self.ERROR, "Get Inventory Info Execption: " + e.message)
             raise e
         except Exception as e:
             self.log(self.ERROR, "Get Inventory Info Execption: " + e.message)
             raise e
-        return data_dict
+        return return_dict
         # end get_inventory_info
 
-    def _process_server_tags(self, match_value):
-        if not match_value:
-            return {}
-        match_dict = {}
-        tag_list = match_value.split(',')
-        for x in tag_list:
-            tag = x.strip().split('=')
-            if tag[0] in self._rev_tags_dict:
-                match_dict[self._rev_tags_dict[tag[0]]] = tag[1]
-            else:
-                msg = ("Unknown tag %s specified" % (
-                    tag[0]))
-                self.log_and_raise_exception(msg)
-                # end else
-        return match_dict
-
     def run_inventory(self):
+        return_dict = dict()
+        match_dict = dict()
         server_hostname_list = list()
-        server_ipmi_list = list()
-        server_ipmi_pw_list = list()
-        server_ipmi_un_list = list()
-        server_ip_list = list()
         self.log(self.DEBUG, "run_inventory")
         try:
             entity = bottle.request.json
-            matches = self._base_obj.validate_rest_api_args(entity)
-            match_key, match_value = matches.popitem()
-            match_dict = {}
+            ret_data = self._base_obj.validate_rest_api_args(entity, self.rev_tags_dict, self.types_list)
+            if ret_data["status"]:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+            else:
+                return {"msg": ret_data["msg"], "type_msg": ret_data["type_msg"]}
             if match_key == "tag":
-                match_dict = self._process_server_tags(match_value)
+                match_dict = self._base_obj.process_server_tags(self.rev_tags_dict, match_value)
             elif match_key:
                 match_dict[match_key] = match_value
             servers = self._serverDb.get_server(
                 match_dict, detail=True)
-            for server in servers:
-                server_ipmi_list.append(str(server['ipmi_address']))
-                server_ipmi_un_list.append(str(server['ipmi_username']))
-                server_ipmi_pw_list.append(str(server['ipmi_password']))
-                server_hostname_list.append(str(server['id']))
-                server_ip_list.append(str(server['ip_address']))
-            self._smgr_log.log(self._smgr_log.DEBUG,
-                               "Running inventory on following servers: " + str(server_hostname_list))
-            gevent_threads = []
-            for hostname, ip, ipmi, username, password in \
-                    zip(server_hostname_list, server_ip_list, server_ipmi_list,
-                        server_ipmi_un_list, server_ipmi_pw_list):
-                thread = gevent.spawn(self._server_inventory_obj.gevent_runner_function,
-                                      "add", hostname, ip, ipmi, username, password)
-                gevent_threads.append(thread)
+            self.log(self.DEBUG, "Running inventory for following servers: " + str(server_hostname_list))
+            self.handle_inventory_trigger("add", servers)
         except ServerMgrException as e:
-            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
-            abort(404, resp_msg)
+            self.log(self.ERROR, "Run Inventory Execption: " + e.message)
+            raise e
         except Exception as e:
-            self.log_trace()
-            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
-                                                 None)
-            abort(404, resp_msg)
+            self.log(self.ERROR, "Run Inventory Execption: " + e.message)
+            raise e
         inventory_status = dict()
         inventory_status['return_message'] = "server(s) run_inventory issued"
         return inventory_status

@@ -3331,13 +3331,13 @@ class VncServerManager():
                 "Name of JSON file containing list of cluster and servers,"
                 " default None"))
         self._args = parser.parse_args(remaining_argv)
-        self._monitoring_base_plugin_obj.parse_monitoring_args(args_str, args, self._args)
+        self._monitoring_base_plugin_obj.parse_monitoring_args(args_str, args, self._args, self._rev_tags_dict)
         if self._monitoring_base_plugin_obj.monitoring_config_set:
             self._monitoring_config_set = True
             self._server_monitoring_obj = self._monitoring_base_plugin_obj.server_monitoring_obj
         else:
             self._server_monitoring_obj = self._monitoring_base_plugin_obj
-        self._monitoring_base_plugin_obj.parse_inventory_args(args_str, args, self._args)
+        self._monitoring_base_plugin_obj.parse_inventory_args(args_str, args, self._args, self._rev_tags_dict)
         if self._monitoring_base_plugin_obj.inventory_config_set:
             self._inventory_config_set = True
             self._server_inventory_obj = self._monitoring_base_plugin_obj.server_inventory_obj

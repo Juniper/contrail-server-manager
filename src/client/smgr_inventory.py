@@ -55,72 +55,11 @@ class ServerMgrInventory():
     # end def send_REST_request
 
     # Filters the data returned from REST API call for requested information
-    def filter_inventory_results(self, data_list, server_list):
-        data_list = list(data_list)
-        server_inventory_info_dict = dict()
-        server_hostname_list = list()
-        if data_list and server_list and len(data_list) >= 1 and len(server_list) >= 1:
-            for server in server_list:
-                server = dict(server)
-                server_hostname_list.append(server['id'])
-            for server in data_list:
-                server = dict(server)
-                server_hostname = server["data"]["ServerInventoryInfo"]["name"]["#text"]
-                if server_hostname in server_hostname_list:
-                    server_inventory_info_dict[str(server_hostname)] = dict()
-                    server_inventory_info_dict[str(server_hostname)]["name"] = server_hostname
-                    server_inv_info_fields = dict(server["data"]["ServerInventoryInfo"])
-                    for field in server_inv_info_fields:
-                        if field == "mem_state":
-                            server_mem_info_dict = server["data"]["ServerInventoryInfo"][field]["memory_info"]
-                            mem_info_dict = dict()
-                            for mem_field in server_mem_info_dict:
-                                mem_info_dict[mem_field] = server_mem_info_dict[mem_field]["#text"]
-                            server_inventory_info_dict[str(server_hostname)][field] = mem_info_dict
-                        elif field == "interface_infos":
-                            server_interface_list = \
-                                list(server["data"]["ServerInventoryInfo"][field]["list"]["interface_info"])
-                            interface_dict_list = list()
-                            for interface in server_interface_list:
-                                #interface = dict(interface)
-                                server_interface_info_dict = dict()
-                                for intf_field in interface:
-                                        server_interface_info_dict[intf_field] = interface[intf_field]["#text"]
-                                interface_dict_list.append(server_interface_info_dict)
-                                server_inventory_info_dict[str(server_hostname)][field] = interface_dict_list
-                        elif field == "fru_infos":
-                            server_fru_list = list(server["data"]["ServerInventoryInfo"][field]["list"]["fru_info"])
-                            fru_dict_list = list()
-                            for fru in server_fru_list:
-                                #fru = dict(fru)
-                                server_fru_info_dict = dict()
-                                for fru_field in fru:
-                                    server_fru_info_dict[fru_field] = fru[fru_field]["#text"]
-                                fru_dict_list.append(server_fru_info_dict)
-                            server_inventory_info_dict[str(server_hostname)][field] = fru_dict_list
-                        elif field == "cpu_info_state":
-                            server_cpu_info_dict = server["data"]["ServerInventoryInfo"][field]["cpu_info"]
-                            cpu_info_dict = dict()
-                            for cpu_field in server_cpu_info_dict:
-                                cpu_info_dict[cpu_field] = server_cpu_info_dict[cpu_field]["#text"]
-                            server_inventory_info_dict[str(server_hostname)][field] = cpu_info_dict
-                        elif field == "eth_controller_state":
-                            server_eth_info_dict = server["data"]["ServerInventoryInfo"][field]["ethernet_controller"]
-                            eth_info_dict = dict()
-                            for eth_field in server_eth_info_dict:
-                                eth_info_dict[eth_field] = server_eth_info_dict[eth_field]["#text"]
-                            server_inventory_info_dict[str(server_hostname)][field] = eth_info_dict
-                        else:
-                            server_inventory_info_dict[str(server_hostname)][field] = \
-                                server_inv_info_fields[field]["#text"]
-        else:
-            server_inventory_info_dict = None
-        return server_inventory_info_dict
 
-    def show_inventory(self, args):
+
+    def show_inv_details(self, args):
         rest_api_params = {}
-        rest_api_params['object'] = 'Inventory'
-        rest_api_params['select'] = None
+        rest_api_params['object'] = 'InventoryInfo'
         if args.server_id:
             rest_api_params['match_key'] = 'id'
             rest_api_params['match_value'] = args.server_id
@@ -136,9 +75,15 @@ class ServerMgrInventory():
         else:
             rest_api_params['match_key'] = None
             rest_api_params['match_value'] = None
+        if args.type:
+            rest_api_params['select'] = args.type
+            if args.type == "status":
+                rest_api_params['object'] = 'InventoryConf'
+        else:
+            rest_api_params['select'] = None
         return rest_api_params
-
-    # end def show_fan_details
+    # end def show_inv_details
+""""
 
     def get_wrapper_call_params(self, rest_api_params):
         rest_api_params['object'] = 'server'
@@ -215,3 +160,4 @@ class ServerMgrInventory():
             return return_data
         else:
             return None
+"""

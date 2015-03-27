@@ -52,7 +52,10 @@ from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 # Server Manager opens a Sandesh Connection to the Analytics node that hosts the
 # Database to which the monitor pushes device environment information.
 class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
-    def __init__(self, val, frequency, smgr_ip=None, smgr_port=None, collectors_ip=None, introspect_port=None):
+    types_list = ["sensor", "fan", "temperature", "power", "chassis", "disk", "nw_info", "resource_info"]
+
+    def __init__(self, val, frequency, smgr_ip=None, smgr_port=None, collectors_ip=None, introspect_port=None,
+                 rev_tags_dict=None):
         ''' Constructor '''
         ServerMgrMonBasePlugin.__init__(self)
         self.base_obj = ServerMgrMonBasePlugin()
@@ -65,6 +68,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         self.introspect_port = introspect_port
         self.freq = float(frequency)
         self._collectors_ip = collectors_ip
+        self.rev_tags_dict = rev_tags_dict
 
     def log(self, level, msg):
         frame, filename, line_number, function_name, lines, index = inspect.stack()[1]
@@ -406,13 +410,81 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.log("error", "Gevent SSH Connect Execption: " + e.message)
             raise e
 
+    ######## MONITORING GET INFO SECTION ###########
+
+    # Filters the data returned from REST API call for requested information
+    def filter_sensor_results(self, xml_dict, key):
+        return_sensor_list = []
+        server_sensor_list = \
+            xml_dict["data"]["ServerMonitoringInfo"]["sensor_state"]["list"]["IpmiSensor"]
+        if isinstance(server_sensor_list, list):
+            for sensor in server_sensor_list:
+                res_sensor = dict()
+                sensor = dict(sensor)
+                if key == "all" or key == sensor["sensor_type"]["#text"]:
+                    for field in sensor:
+                        res_sensor[field] = dict(sensor[field])["#text"]
+                    return_sensor_list.append(res_sensor)
+        elif isinstance(server_sensor_list, dict):
+            res_sensor = dict()
+            sensor = server_sensor_list
+            for field in sensor:
+                res_sensor[field] = dict(sensor[field])["#text"]
+            return_sensor_list.append(res_sensor)
+        return return_sensor_list
+
+    def filter_chassis_results(self, xml_dict):
+        server_chassis_info_dict = dict()
+        server_chassis_info_xml = \
+            dict(xml_dict["data"]["ServerMonitoringInfo"]["chassis_state"]["IpmiChassis_status_info"])
+        for chassis_key in server_chassis_info_xml:
+            server_chassis_info_dict[chassis_key] = dict(server_chassis_info_xml[chassis_key])["#text"]
+        return server_chassis_info_dict
+
+    def filter_disk_results(self, xml_dict):
+        return_disk_list = []
+        server_disk_list = \
+            xml_dict["data"]["ServerMonitoringInfo"]["disk_usage_state"]["list"]["Disk"]
+        if isinstance(server_disk_list, list):
+            for disk in server_disk_list:
+                res_disk = dict()
+                sensor = dict(disk)
+                for key in sensor:
+                    res_disk[key] = dict(sensor[key])["#text"]
+                return_disk_list.append(res_disk)
+        elif isinstance(server_disk_list, dict):
+            res_disk = dict()
+            disk = server_disk_list
+            for key in disk:
+                res_disk[key] = dict(disk[key])["#text"]
+            return_disk_list.append(res_disk)
+        return return_disk_list
+
     def get_mon_conf_details(self):
         return "Configuration for Monitoring set correctly."
 
     def get_monitoring_info(self):
-        data_dict = None
+        return_dict = dict()
+        match_dict = dict()
+        server_hostname_list = list()
         self.log("debug", "get_monitoring_info")
         try:
+            entity = bottle.request
+            ret_data = self.base_obj.validate_rest_api_args(entity, self.rev_tags_dict, self.types_list)
+            if ret_data["status"]:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+            else:
+                return {"msg": ret_data["msg"], "type_msg": ret_data["type_msg"]}
+            if match_key == "tag":
+                match_dict = self.base_obj.process_server_tags(self.rev_tags_dict, match_value)
+            elif match_key:
+                match_dict[match_key] = match_value
+            servers = self._serverDb.get_server(
+                match_dict, detail=True)
+            for server in servers:
+                server_hostname_list.append(str(server['id']))
+            self.log("debug", "Getting monitoring info of following servers: " + str(server_hostname_list))
             url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerMonitoringInfo" % (str(self.smgr_ip),
                                                                                   self.introspect_port)
             headers = {'content-type': 'application/json'}
@@ -421,13 +493,37 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             data = xmltodict.parse(str(xml_data))
             json_obj = json.dumps(data, sort_keys=True, indent=4)
             data_dict = dict(json.loads(json_obj))
+            if "msg" in data_dict or "type_msg" in data_dict:
+                return data_dict
+            data_list = list(data_dict["__ServerMonitoringInfoTrace_list"]["ServerMonitoringInfoTrace"])
+            pruned_data_dict = dict()
+            if data_dict and data_list:
+                for server in data_list:
+                    server = dict(server)
+                    server_hostname = server["data"]["ServerMonitoringInfo"]["name"]["#text"]
+                    if server_hostname in server_hostname_list:
+                        pruned_data_dict[str(server_hostname)] = server
+                for server_hostname in server_hostname_list:
+                    return_dict[str(server_hostname)] = dict()
+                    return_dict[str(server_hostname)]["ServerMonitoringInfo"] = dict()
+                    if ret_data["type"] in ["all", "fan", "temperature", "power"]:
+                        return_dict[str(server_hostname)]["ServerMonitoringInfo"]["sensor_state"] = \
+                            self.filter_sensor_results(pruned_data_dict[str(server_hostname)], ret_data["type"])
+                    if ret_data["type"] in ["all", "chassis"]:
+                        return_dict[str(server_hostname)]["ServerMonitoringInfo"]["chassis_state"] = \
+                            self.filter_chassis_results(pruned_data_dict[str(server_hostname)])
+                    if ret_data["type"] in ["all", "disk"]:
+                        return_dict[str(server_hostname)]["ServerMonitoringInfo"]["disk_usage_state"] = \
+                            self.filter_disk_results(pruned_data_dict[str(server_hostname)])
+            else:
+                return {}
         except ServerMgrException as e:
             self.log("error", "Get Monitoring Info Execption: " + e.message)
             raise e
         except Exception as e:
             self.log("error", "Get Monitoring Info Execption: " + e.message)
             raise e
-        return data_dict
+        return return_dict
 
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
     # It then calls other functions to send the information to the correct analytics server.

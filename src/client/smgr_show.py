@@ -85,7 +85,10 @@ def parse_arguments():
                                           "in t1=v1,t2=v2,... format"))
     inv_group.add_argument("--where",
                            help=("sql where statement in quotation marks"))
-    parser_inventory.set_defaults(func=inv_querying_obj.show_inventory)
+    inve_type_group = parser_inventory.add_mutually_exclusive_group()
+    inve_type_group.add_argument("--type",
+                                help=("to select the type of info needed"))
+    parser_inventory.set_defaults(func=inv_querying_obj.show_inv_details)
 
     # Subparser for cluster show
     parser_cluster = subparsers.add_parser(
@@ -132,65 +135,22 @@ def parse_arguments():
         "tag", help='Show list of server tags')
     parser_tag.set_defaults(func=show_tag)
 
-    # Common subparser for Monitoring
-    monitoring_parser = subparsers.add_parser("monitoring", help="Show all monitoring information options")
-    monitoring_subparser = monitoring_parser.add_subparsers()
-
-    # Monitoring Server Fan Speed
-    fan_subparser = monitoring_subparser.add_parser("fan", help="Show fan speed")
-    fan_options = fan_subparser.add_mutually_exclusive_group()
-    fan_options.add_argument("--server_id",
-                                    help=("server id for server"))
-    fan_options.add_argument("--cluster_id",
-                                help=("cluster id for cluster"))
-    fan_options.add_argument("--tag", help=("tag values for the server"
-                                               "in t1=v1,t2=v2,... format"))
-    fan_options.add_argument("--where",
-                                help=("sql where statement in quotation marks"))
-    fan_subparser.set_defaults(func=mon_querying_obj.show_fan_details)
-
-    # Monitoring Server CPU Temperature
-    temp_subparser = monitoring_subparser.add_parser("temperature", help="Show server CPU Temperature")
-    temp_options = temp_subparser.add_mutually_exclusive_group()
-    temp_options.add_argument("--server_id",
-                             help=("server id for server"))
-    temp_options.add_argument("--cluster_id",
-                             help=("cluster id for cluster"))
-    temp_options.add_argument("--tag", help=("tag values for the server"
-                                            "in t1=v1,t2=v2,... format"))
-    temp_options.add_argument("--where",
-                             help=("sql where statement in quotation marks"))
-    temp_subparser.set_defaults(func=mon_querying_obj.show_temp_details)
-
-    # Monitoring Server Power Consumption
-    power_subparser = monitoring_subparser.add_parser("power", help="Show server power consumption")
-    power_options = power_subparser.add_mutually_exclusive_group()
-    power_options.add_argument("--server_id",
-                             help=("server id for server"))
-    power_options.add_argument("--cluster_id",
-                             help=("cluster id for cluster"))
-    power_options.add_argument("--tag", help=("tag values for the server"
-                                            "in t1=v1,t2=v2,... format"))
-    power_options.add_argument("--where",
-                             help=("sql where statement in quotation marks"))
-    power_subparser.set_defaults(func=mon_querying_obj.show_pwr_details)
-
-    # Monitoring all Server Environment details
-    mon_all_subparser = monitoring_subparser.add_parser("all", help="Show all server environment sensor values")
-    mon_all_options = mon_all_subparser.add_mutually_exclusive_group()
-    mon_all_options.add_argument("--server_id",
-                             help=("server id for server"))
-    mon_all_options.add_argument("--cluster_id",
-                             help=("cluster id for cluster"))
-    mon_all_options.add_argument("--tag", help=("tag values for the server"
-                                            "in t1=v1,t2=v2,... format"))
-    mon_all_options.add_argument("--where",
-                             help=("sql where statement in quotation marks"))
-    mon_all_subparser.set_defaults(func=mon_querying_obj.show_env_details)
-
-    # Monitoring Configuration status
-    mon_status_subparser = monitoring_subparser.add_parser("status", help="Show server monitoring status")
-    mon_status_subparser.set_defaults(func=mon_querying_obj.show_mon_status)
+    # Subparser for monitoring show
+    parser_monitoring = subparsers.add_parser(
+        "monitoring", help='Show server inventory')
+    mon_group = parser_monitoring.add_mutually_exclusive_group()
+    mon_group.add_argument("--server_id",
+                           help=("server id for server"))
+    mon_group.add_argument("--cluster_id",
+                           help=("cluster id for server"))
+    mon_group.add_argument("--tag", help=("tag values for the server"
+                                          "in t1=v1,t2=v2,... format"))
+    mon_group.add_argument("--where",
+                           help=("sql where statement in quotation marks"))
+    mon_type_group = parser_monitoring.add_mutually_exclusive_group()
+    mon_type_group.add_argument("--type",
+                                     help=("to select the type of info needed"))
+    parser_monitoring.set_defaults(func=mon_querying_obj.show_mon_details)
 
     return parser
 # end def parse_arguments
@@ -341,22 +301,6 @@ def show_config(args_str=None):
         sys.exit("Exception: %s : Error reading config file %s" %(e.message, config_file))
     # end except
     rest_api_params = args.func(args)
-    if rest_api_params["object"] == "Monitor" and smgr_ip and smgr_port:
-        if rest_api_params['monitoring_value'] != "Status":
-            mon_query = True
-            mon_rest_api_params = dict(rest_api_params)
-            rest_api_params = mon_querying_obj.get_wrapper_call_params(rest_api_params)
-        else:
-            mon_query = False
-    else:
-        mon_query = False
-
-    if rest_api_params['object'] == "Inventory" and smgr_ip and smgr_port:
-        inv_query = True
-        inv_rest_api_params = dict(rest_api_params)
-        rest_api_params = inv_querying_obj.get_wrapper_call_params(rest_api_params)
-    else:
-        inv_query = False
 
     resp = send_REST_request(smgr_ip, smgr_port,
                       rest_api_params['object'],
@@ -364,15 +308,6 @@ def show_config(args_str=None):
                       rest_api_params['match_value'],
                       rest_api_params['select'],
                       detail)
-    if mon_query and mon_rest_api_params['match_key'] and mon_rest_api_params['match_value']:
-        resp = mon_querying_obj.handle_smgr_response(resp, smgr_ip, smgr_port, mon_rest_api_params)
-    elif mon_query:
-        resp = "server-manager show monitoring: error: no arguments specified - choose Cluster/Server/Tag/Select Clause"
-
-    if inv_query and inv_rest_api_params['match_key'] and inv_rest_api_params['match_value']:
-        resp = inv_querying_obj.handle_smgr_response(resp, smgr_ip, smgr_port, inv_rest_api_params)
-    elif inv_query:
-        resp = "server-manager show inventory: error: no arguments specified - choose Cluster/Server/Tag/Select Clause"
     smgr_client_def.print_rest_response(resp)
 # End of show_config
 
