@@ -52,7 +52,7 @@ _DEF_INTROSPECT_PORT = 8107
 
 
 class ServerMgrInventory():
-    types_list = ["fru", "interface", "cpu", "ethernet", "memory"]
+    types_list = ["fru_infos", "interface_infos", "cpu_info_state", "eth_controller_state", "mem_state"]
     _serverDb = None
     _inventory_log = None
     _collectors_ip = None
@@ -427,17 +427,17 @@ class ServerMgrInventory():
             self.delete_inventory_info(hostname)
 
     ######## INVENTORY GET INFO SECTION ###########
-    def filter_inventory_results(self, xml_dict):
+    def filter_inventory_results(self, xml_dict, type_list):
         return_dict = {}
         server_inv_info_fields = dict(xml_dict["data"]["ServerInventoryInfo"])
         for field in server_inv_info_fields:
-            if field == "mem_state":
+            if field == "mem_state" and (field in type_list or "all" in type_list):
                 server_mem_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["memory_info"]
                 mem_info_dict = dict()
                 for mem_field in server_mem_info_dict:
                     mem_info_dict[mem_field] = server_mem_info_dict[mem_field]["#text"]
                 return_dict[field] = mem_info_dict
-            elif field == "interface_infos":
+            elif field == "interface_infos" and (field in type_list or "all" in type_list):
                 server_interface_list = \
                     list(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["interface_info"])
                 interface_dict_list = list()
@@ -448,7 +448,7 @@ class ServerMgrInventory():
                         server_interface_info_dict[intf_field] = interface[intf_field]["#text"]
                     interface_dict_list.append(server_interface_info_dict)
                     return_dict[field] = interface_dict_list
-            elif field == "fru_infos":
+            elif field == "fru_infos" and (field in type_list or "all" in type_list):
                 server_fru_list = list(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"])
                 fru_dict_list = list()
                 for fru in server_fru_list:
@@ -458,19 +458,19 @@ class ServerMgrInventory():
                         server_fru_info_dict[fru_field] = fru[fru_field]["#text"]
                     fru_dict_list.append(server_fru_info_dict)
                 return_dict[field] = fru_dict_list
-            elif field == "cpu_info_state":
+            elif field == "cpu_info_state" and (field in type_list or "all" in type_list):
                 server_cpu_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["cpu_info"]
                 cpu_info_dict = dict()
                 for cpu_field in server_cpu_info_dict:
                     cpu_info_dict[cpu_field] = server_cpu_info_dict[cpu_field]["#text"]
                 return_dict[field] = cpu_info_dict
-            elif field == "eth_controller_state":
+            elif field == "eth_controller_state" and (field in type_list or "all" in type_list):
                 server_eth_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["ethernet_controller"]
                 eth_info_dict = dict()
                 for eth_field in server_eth_info_dict:
                     eth_info_dict[eth_field] = server_eth_info_dict[eth_field]["#text"]
                 return_dict[field] = eth_info_dict
-            else:
+            elif "all" in type_list:
                 return_dict[field] = \
                     server_inv_info_fields[field]["#text"]
         return return_dict
@@ -480,9 +480,12 @@ class ServerMgrInventory():
         return "Configuration for Inventory set correctly."
 
     def get_inventory_info(self):
+        list_return_dict = list()
         return_dict = dict()
         match_dict = dict()
         server_hostname_list = list()
+        server_cluster_list = list()
+        server_tag_dict_list = list()
         self.log(self.DEBUG, "get_inventory_info")
         try:
             entity = bottle.request
@@ -500,6 +503,11 @@ class ServerMgrInventory():
                 match_dict, detail=True)
             for server in servers:
                 server_hostname_list.append(str(server['id']))
+                server_cluster_list.append(str(server['cluster_id']))
+                tags_dict = dict()
+                for tag_name in self.rev_tags_dict:
+                    tags_dict[tag_name] = str(server[self.rev_tags_dict[tag_name]])
+                server_tag_dict_list.append(dict(tags_dict))
             self.log(self.DEBUG, "Getting inventory info of following servers: " + str(server_hostname_list))
             url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerInventoryInfo" % \
                   (str(self.smgr_ip), self.introspect_port)
@@ -519,11 +527,16 @@ class ServerMgrInventory():
                     server_hostname = server["data"]["ServerInventoryInfo"]["name"]["#text"]
                     if server_hostname in server_hostname_list:
                         pruned_data_dict[str(server_hostname)] = server
-                for server_hostname in server_hostname_list:
-                    return_dict[str(server_hostname)] = dict()
-                    return_dict[str(server_hostname)]["ServerInventoryInfo"] = dict()
-                    return_dict[str(server_hostname)]["ServerInventoryInfo"] = \
-                        self.filter_inventory_results(pruned_data_dict[str(server_hostname)])
+                for server_hostname, server_cluster, server_tag_dict in \
+                        zip(server_hostname_list, server_cluster_list, server_tag_dict_list):
+                    return_dict = dict()
+                    return_dict["name"] = str(server_hostname)
+                    return_dict["cluster_id"] = str(server_cluster)
+                    return_dict["tag"] = dict(server_tag_dict)
+                    return_dict["ServerInventoryInfo"] = dict()
+                    return_dict["ServerInventoryInfo"] = \
+                        self.filter_inventory_results(pruned_data_dict[str(server_hostname)], ret_data["type"])
+                    list_return_dict.append(return_dict)
             else:
                 return {}
         except ServerMgrException as e:
@@ -532,7 +545,7 @@ class ServerMgrInventory():
         except Exception as e:
             self.log(self.ERROR, "Get Inventory Info Execption: " + e.message)
             raise e
-        return return_dict
+        return json.dumps(list_return_dict)
         # end get_inventory_info
 
     def run_inventory(self):

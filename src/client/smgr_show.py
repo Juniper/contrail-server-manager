@@ -150,28 +150,36 @@ def parse_arguments():
     mon_type_group = parser_monitoring.add_mutually_exclusive_group()
     mon_type_group.add_argument("--type",
                                      help=("to select the type of info needed"))
+    mon_sub_type_group = parser_monitoring.add_mutually_exclusive_group()
+    mon_sub_type_group.add_argument("--sensor",
+                                    help=("particular sensor type whose info you want"))
+    mon_sub_type_group.add_argument("--name",
+                                    help=("particular disk name whose info you want"))
     parser_monitoring.set_defaults(func=mon_querying_obj.show_mon_details)
 
     return parser
 # end def parse_arguments
 
-def send_REST_request(ip, port, object, match_key,
-                      match_value, select, detail):
+def send_REST_request(ip, port, rest_api_params, detail):
     try:
         response = StringIO()
         headers = ["Content-Type:application/json"]
-        url = "http://%s:%s/%s" % (ip, port, object)
+        url = "http://%s:%s/%s" % (ip, port, rest_api_params['object'])
         args_str = ''
-        if select:
+        if rest_api_params["select"]:
             args_str += "select" + "=" \
-                + urllib.quote_plus(select) + "&"
-        if match_key:
-            args_str += urllib.quote_plus(match_key) + "=" \
-                + urllib.quote_plus(match_value)
+                + urllib.quote_plus(rest_api_params["select"]) + "&"
+        if "sub_type" in rest_api_params and rest_api_params["sub_type"]:
+            args_str += "type" + "=" \
+                + urllib.quote_plus(rest_api_params["sub_type"]) + "&"
+        if rest_api_params["match_key"]:
+            args_str += urllib.quote_plus(rest_api_params["match_key"]) + "=" \
+                + urllib.quote_plus(rest_api_params["match_value"])
         if detail:
             args_str += "&detail"
         if args_str != '':
             url += "?" + args_str
+        print url
         conn = pycurl.Curl()
         conn.setopt(pycurl.TIMEOUT, 3)
         conn.setopt(pycurl.URL, url)
@@ -275,8 +283,6 @@ def show_tag(args):
 
 
 def show_config(args_str=None):
-    mon_rest_api_params = None
-    inv_rest_api_params = None
     parser = parse_arguments()
     args = parser.parse_args(args_str)
     if args.config_file:
@@ -301,13 +307,7 @@ def show_config(args_str=None):
         sys.exit("Exception: %s : Error reading config file %s" %(e.message, config_file))
     # end except
     rest_api_params = args.func(args)
-
-    resp = send_REST_request(smgr_ip, smgr_port,
-                      rest_api_params['object'],
-                      rest_api_params['match_key'],
-                      rest_api_params['match_value'],
-                      rest_api_params['select'],
-                      detail)
+    resp = send_REST_request(smgr_ip, smgr_port, rest_api_params, detail)
     smgr_client_def.print_rest_response(resp)
 # End of show_config
 

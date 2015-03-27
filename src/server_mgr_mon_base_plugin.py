@@ -222,9 +222,10 @@ class ServerMgrMonBasePlugin(Thread):
         else:
             self.server_inventory_obj = None
 
-    def validate_rest_api_args(self, request, rev_tags_dict, types_list):
+    def validate_rest_api_args(self, request, rev_tags_dict, types_list, sub_types_list=None):
         ret_data = {"msg": None, "type_msg": None}
         match_keys = list(['id', 'cluster_id', 'tag', 'where'])
+        print_match_keys = list(['server_id', 'cluster_id', 'tag', 'where'])
         self._smgr_log.log(self._smgr_log.DEBUG,
                            "Validating bottle arguments.")
         ret_data['status'] = 1
@@ -233,17 +234,33 @@ class ServerMgrMonBasePlugin(Thread):
         if len(query_args) == 0:
             ret_data["status"] = False
             ret_data["msg"] = "No Match Key Specified. " + "Choose one of the following keys: " + \
-                              str(['--{0}'.format(key) for key in match_keys]).strip('[]')
+                              str(['--{0}'.format(key) for key in print_match_keys]).strip('[]')
             ret_data["type_msg"] = "No type selected. " + \
                                    "Choose one of the following types (if empty, all types sent): " + \
                                    str(types_list).strip('[]')
         elif len(query_args) >= 1:
-            select_value = None
+            select_value_list = None
+            sub_type_value = None
             if "select" in query_args:
-                select_value = query_args.get("select", None)[0]
-            if select_value:
-                if select_value in types_list:
-                    ret_data["type"] = select_value
+                select_value_list = query_args.get("select", None)[0]
+                select_value_list = str(select_value_list).split(',')
+                self._smgr_log.log(self._smgr_log.DEBUG,
+                                   "Select value list=" + str(select_value_list))
+            if "type" in query_args:
+                sub_type_value = query_args.get("type", None)[0]
+            if select_value_list:
+                if set(select_value_list) < set(types_list):
+                    ret_data["type"] = select_value_list
+                    if sub_type_value:
+                        if sub_type_value in sub_types_list:
+                            ret_data["sub_type"] = sub_type_value
+                        else:
+                            ret_data["status"] = False
+                            ret_data["type_msg"] = "Selected sub type not available. " + \
+                                                   "Choose one of the following sub types " \
+                                                   "(if empty, all sub types sent): " + str(sub_types_list).strip('[]')
+                    else:
+                        ret_data["sub_type"] = "all"
                 else:
                     ret_data["status"] = False
                     ret_data["type_msg"] = "Selected type not available. " + \
@@ -251,12 +268,13 @@ class ServerMgrMonBasePlugin(Thread):
                                            str(types_list).strip('[]')
                     return ret_data
             else:
-                ret_data["type"] = "all"
+                ret_data["type"] = ["all"]
+                ret_data["sub_type"] = "all"
             match_key, match_value = query_args.popitem()
             if match_key is None or match_key not in match_keys:
                 ret_data["status"] = False
                 ret_data["msg"] = "Wrong Match Key Specified. " + "Choose one of the following keys: " + \
-                                  str(['--{0}'.format(key) for key in match_keys]).strip('[]')
+                                  str(['--{0}'.format(key) for key in print_match_keys]).strip('[]')
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    "Wrong Match Key")
             elif match_value is None or match_value[0] == '':
