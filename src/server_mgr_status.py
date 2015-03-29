@@ -22,12 +22,24 @@ from server_mgr_db import ServerMgrDb as db
 from time import gmtime, strftime, localtime
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from send_mail import send_mail
+import requests
+import json
 from server_mgr_defaults import *
+from paramiko import *
+import os
+import sys
+from server_mgr_ssh_client import ServerMgrSSHClient
+from gevent import monkey
+monkey.patch_all(thread=not 'unittest' in sys.modules)
+import gevent
+import subprocess
+
 
 class ServerMgrStatusThread(threading.Thread):
 
     _smgr_log = None
     _status_serverDb = None
+    _base_obj = None
     _smgr_puppet = None
 
 
@@ -60,6 +72,7 @@ class ServerMgrStatusThread(threading.Thread):
         status_bottle_app = Bottle()
         status_bottle_app.route('/server_status', 'POST', self.put_server_status)
         status_bottle_app.route('/server_status', 'PUT', self.put_server_status)
+        self._base_obj = self._status_thread_config['base_obj']
 
         try:
             bottle.run(status_bottle_app,
@@ -86,6 +99,12 @@ class ServerMgrStatusThread(threading.Thread):
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
             servers = self._status_serverDb.modify_server(
                                                     server_data)
+            if server_state == "reimage_completed":
+                payload = dict()
+                payload["id"] = server_id
+                self._smgr_log.log(self._smgr_log.DEBUG, "Spawning Gevent for Id: %s" % payload["id"])
+                gevent.spawn(self._base_obj.reimage_run_inventory, self._status_thread_config["listen_ip"],
+                             self._status_thread_config["listen_port"], payload)
             if server_state == "provision_completed":
                 domain = self._status_serverDb.get_server_domain(server_id)
                 environment_name = 'TurningOffPuppetAgent__' + time_str
@@ -143,4 +162,5 @@ class ServerMgrStatusThread(threading.Thread):
         self._smgr_log.log(self._smgr_log.DEBUG, msg)
     # send_status_mail
         
+
 

@@ -11,7 +11,7 @@ server_fields = {
     "ip_address": "",
     "parameters": """{
                     'interface_name': '',
-                    'partition': '',
+                    'partition': ''
                     }""",
     "roles": [],
     "cluster_id": "",
@@ -77,4 +77,20 @@ image_fields = {
                 }"""
 }
 
+fru_fields = {
+    "id": "",
+    "fru_description": "",
+    "board_serial_number": "",
+    "chassis_type": "",
+    "chassis_serial_number": "",
+    "board_mfg_date": "",
+    "board_manufacturer": "",
+    "board_product_name": "",
+    "board_part_number": "",
+    "product_manfacturer": "",
+    "product_name": "",
+    "product_part_number": ""
+}
+
 email_events = ["reimage_started", "reimage_completed", "provision_started", "provision_completed"]
+
