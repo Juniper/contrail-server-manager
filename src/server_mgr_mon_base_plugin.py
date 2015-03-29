@@ -232,12 +232,11 @@ class ServerMgrMonBasePlugin(Thread):
         query_args = parse_qs(urlparse(request.url).query,
                               keep_blank_values=True)
         if len(query_args) == 0:
-            ret_data["status"] = False
-            ret_data["msg"] = "No Match Key Specified. " + "Choose one of the following keys: " + \
-                              str(['--{0}'.format(key) for key in print_match_keys]).strip('[]')
-            ret_data["type_msg"] = "No type selected. " + \
-                                   "Choose one of the following types (if empty, all types sent): " + \
-                                   str(types_list).strip('[]')
+            ret_data["type"] = ["all"]
+            ret_data["sub_type"] = "all"
+            ret_data["status"] = True
+            ret_data["match_key"] = None
+            ret_data["match_value"] = None
         elif len(query_args) >= 1:
             select_value_list = None
             sub_type_value = None
@@ -271,13 +270,13 @@ class ServerMgrMonBasePlugin(Thread):
                 ret_data["type"] = ["all"]
                 ret_data["sub_type"] = "all"
             match_key, match_value = query_args.popitem()
-            if match_key is None or match_key not in match_keys:
+            if match_key and match_key not in match_keys:
                 ret_data["status"] = False
                 ret_data["msg"] = "Wrong Match Key Specified. " + "Choose one of the following keys: " + \
                                   str(['--{0}'.format(key) for key in print_match_keys]).strip('[]')
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    "Wrong Match Key")
-            elif match_value is None or match_value[0] == '':
+            elif match_key and (match_value is None or match_value[0] == ''):
                 ret_data["status"] = False
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    "No macth value given")
@@ -285,7 +284,10 @@ class ServerMgrMonBasePlugin(Thread):
             else:
                 ret_data["status"] = True
                 ret_data["match_key"] = str(match_key)
-                ret_data["match_value"] = str(match_value[0])
+                if match_value:
+                    ret_data["match_value"] = str(match_value[0])
+                else:
+                    ret_data["match_value"] = str(match_value)
         return ret_data
 
     def process_server_tags(self, rev_tags_dict, match_value):

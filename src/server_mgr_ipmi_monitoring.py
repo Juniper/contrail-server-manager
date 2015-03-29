@@ -485,8 +485,11 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 match_dict = self.base_obj.process_server_tags(self.rev_tags_dict, match_value)
             elif match_key:
                 match_dict[match_key] = match_value
-            servers = self._serverDb.get_server(
-                match_dict, detail=True)
+            if match_dict.keys():
+                servers = self._serverDb.get_server(
+                    match_dict, detail=True)
+            else:
+                servers = self._serverDb.get_server(detail=True)
             for server in servers:
                 server_hostname_list.append(str(server['id']))
                 server_cluster_list.append(str(server['cluster_id']))

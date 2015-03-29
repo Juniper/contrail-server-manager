@@ -447,15 +447,20 @@ class ServerMgrInventory():
                     for intf_field in interface:
                         server_interface_info_dict[intf_field] = interface[intf_field]["#text"]
                     interface_dict_list.append(server_interface_info_dict)
-                    return_dict[field] = interface_dict_list
+                return_dict[field] = interface_dict_list
             elif field == "fru_infos" and (field in type_list or "all" in type_list):
-                server_fru_list = list(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"])
+                server_fru_list = []
+                if isinstance(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"], list):
+                    server_fru_list = list(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"])
+                elif isinstance(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"], dict):
+                    server_fru_list.append(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"])
                 fru_dict_list = list()
                 for fru in server_fru_list:
                     # fru = dict(fru)
                     server_fru_info_dict = dict()
                     for fru_field in fru:
-                        server_fru_info_dict[fru_field] = fru[fru_field]["#text"]
+                        if "#text" in fru[fru_field]:
+                            server_fru_info_dict[fru_field] = fru[fru_field]["#text"]
                     fru_dict_list.append(server_fru_info_dict)
                 return_dict[field] = fru_dict_list
             elif field == "cpu_info_state" and (field in type_list or "all" in type_list):
@@ -499,8 +504,11 @@ class ServerMgrInventory():
                 match_dict = self._base_obj.process_server_tags(self.rev_tags_dict, match_value)
             elif match_key:
                 match_dict[match_key] = match_value
-            servers = self._serverDb.get_server(
-                match_dict, detail=True)
+            if match_dict.keys():
+                servers = self._serverDb.get_server(
+                    match_dict, detail=True)
+            else:
+                servers = self._serverDb.get_server(detail=True)
             for server in servers:
                 server_hostname_list.append(str(server['id']))
                 server_cluster_list.append(str(server['cluster_id']))
