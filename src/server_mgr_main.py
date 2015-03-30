@@ -939,25 +939,27 @@ class VncServerManager():
             servers = self._serverDb.get_server(None, detail=True)
             all_chassis_id_set = set()
             for server in servers:
-                server_parameters = server.get('parameters', {})
+                server_parameters = server.get('parameters', "{}")
                 if not server_parameters:
                     server_parameters = "{}"
                 server_params = eval(server_parameters)
                 storage_chassis_id = server_params.get('storage_chassis_id', "")
+                # if no chassis_id is configured, just move-on. we are here to
+                # collect chassis-id only
                 if storage_chassis_id and storage_chassis_id != "":
                     all_chassis_id_set.add(storage_chassis_id)
 
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.GET_SMGR_CFG_CHASSIS_ID, False)
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
             resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
             abort(404, resp_msg)
+
         except Exception as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
-                                     self._smgr_trans_log.GET_SMGR_CFG_CHASSIS_ID, False)
-            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
-                                                                            None)
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR, None)
             abort(404, resp_msg)
 
         self._smgr_trans_log.log(bottle.request,
