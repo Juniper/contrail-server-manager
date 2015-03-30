@@ -113,6 +113,39 @@ class ServerMgrInventory():
         self.log("info", "UVE Info = " + str(send_inst.data))
         send_inst.send()
 
+    @staticmethod
+    def fru_dict_init(hostname):
+        fru_dict = dict()
+        fru_dict['id'] = hostname
+        fru_dict['fru_description'] = "N/A"
+        fru_dict['chassis_type'] = "N/A"
+        fru_dict['chassis_serial_number'] = "N/A"
+        fru_dict['board_mfg_date'] = "N/A"
+        fru_dict['board_manufacturer'] = "N/A"
+        fru_dict['board_product_name'] = "N/A"
+        fru_dict['board_serial_number'] = "N/A"
+        fru_dict['board_part_number'] = "N/A"
+        fru_dict['product_manfacturer'] = "N/A"
+        fru_dict['product_name'] = "N/A"
+        fru_dict['product_part_number'] = "N/A"
+        return fru_dict
+
+    @staticmethod
+    def fru_obj_init(hostname):
+        fru_info_obj = fru_info()
+        fru_info_obj.fru_description = "N/A"
+        fru_info_obj.chassis_type = "N/A"
+        fru_info_obj.chassis_serial_number = "N/A"
+        fru_info_obj.board_mfg_date = "N/A"
+        fru_info_obj.board_manufacturer = "N/A"
+        fru_info_obj.board_product_name = "N/A"
+        fru_info_obj.board_serial_number = "N/A"
+        fru_info_obj.board_part_number = "N/A"
+        fru_info_obj.product_manfacturer = "N/A"
+        fru_info_obj.product_name = "N/A"
+        fru_info_obj.product_part_number = "N/A"
+        return fru_info_obj
+
     def get_fru_info(self, hostname, ip, username, password):
         cmd = 'ipmitool -H %s -U %s -P %s fru' % (ip, username, password)
         try:
@@ -129,39 +162,20 @@ class ServerMgrInventory():
             inventory_info_obj.name = hostname
             fileoutput = cStringIO.StringIO(result)
             fru_obj_list = list()
-            fru_dict = dict()
+            fru_dict = self.fru_dict_init(hostname)
+            fru_info_obj = self.fru_obj_init(hostname)
             for line in fileoutput:
                 if ":" in line:
                     reading = line.split(":")
                     sensor = reading[0].strip()
                     reading_value = reading[1].strip()
+                    if reading_value == "":
+                        reading_value = "N/A"
                 else:
                     sensor = ""
                 if sensor == "FRU Device Description":
-                    fru_info_obj = fru_info()
                     fru_info_obj.fru_description = reading_value
                     fru_dict['fru_description'] = str(hostname) + " " + reading_value
-                    fru_dict['id'] = hostname
-                    fru_info_obj.chassis_type = "dummy"
-                    fru_dict['chassis_type'] = "dummy"
-                    fru_info_obj.chassis_serial_number = "dummy"
-                    fru_dict['chassis_serial_number'] = "dummy"
-                    fru_info_obj.board_mfg_date = "dummy"
-                    fru_dict['board_mfg_date'] = "dummy"
-                    fru_info_obj.board_manufacturer = "dummy"
-                    fru_dict['board_manufacturer'] = "dummy"
-                    fru_info_obj.board_product_name = "dummy"
-                    fru_dict['board_product_name'] = "dummy"
-                    fru_info_obj.board_serial_number = "dummy"
-                    fru_dict['board_serial_number'] = "dummy"
-                    fru_info_obj.board_part_number = "dummy"
-                    fru_dict['board_part_number'] = "dummy"
-                    fru_info_obj.product_manfacturer = "dummy"
-                    fru_dict['product_manfacturer'] = "dummy"
-                    fru_info_obj.product_name = "dummy"
-                    fru_dict['product_name'] = "dummy"
-                    fru_info_obj.product_part_number = "dummy"
-                    fru_dict['product_part_number'] = "dummy"
                 elif sensor == "Chassis Type":
                     fru_info_obj.chassis_type = reading_value
                     fru_dict['chassis_type'] = reading_value
@@ -273,11 +287,11 @@ class ServerMgrInventory():
                                 if objkey:
                                     setattr(intinfo, objkey, value)
                             if not getattr(intinfo, 'macaddress'):
-                                setattr(intinfo, 'macaddress', "dummy")
+                                setattr(intinfo, 'macaddress', "N/A")
                             if not getattr(intinfo, 'ip_addr'):
-                                setattr(intinfo, 'ip_addr', "dummy")
+                                setattr(intinfo, 'ip_addr', "N/A")
                             if not getattr(intinfo, 'netmask'):
-                                setattr(intinfo, 'netmask', "dummy")
+                                setattr(intinfo, 'netmask', "N/A")
                             intinfo_list.append(intinfo)
                     else:
                         objkey = self.inventory_lookup(key)
@@ -325,7 +339,7 @@ class ServerMgrInventory():
         server_inventory_info.cpu_info_state = cpu_info()
         check_cmd = 'cat /proc/cpuinfo'
         lscpu__cmd = 'which lscpu'
-        server_inventory_info.cpu_info_state.model = "dummy"
+        server_inventory_info.cpu_info_state.model = "N/A"
         server_inventory_info.cpu_info_state.core_count = 0
         server_inventory_info.cpu_info_state.clock_speed_MHz = 0.0
         server_inventory_info.cpu_info_state.num_of_threads = 0
@@ -351,7 +365,7 @@ class ServerMgrInventory():
         server_inventory_info.eth_controller_state = ethernet_controller()
         server_inventory_info.eth_controller_state.speed_Mb_per_sec = 0
         server_inventory_info.eth_controller_state.num_of_ports = 0
-        server_inventory_info.eth_controller_state.model = "dummy"
+        server_inventory_info.eth_controller_state.model = "N/A"
         if not is_ethtool:
             self.log(self.DEBUG, "ethtool not installed on host : %s" % ip)
         else:
@@ -370,7 +384,7 @@ class ServerMgrInventory():
         server_inventory_info = ServerInventoryInfo()
         server_inventory_info.name = str(hostname)
         server_inventory_info.mem_state = memory_info()
-        server_inventory_info.mem_state.mem_type = "dummy"
+        server_inventory_info.mem_state.mem_type = "N/A"
         server_inventory_info.mem_state.mem_speed_MHz = 0
         server_inventory_info.mem_state.num_of_dimms = 0
         server_inventory_info.mem_state.dimm_size_mb = 0
@@ -427,6 +441,21 @@ class ServerMgrInventory():
             self.delete_inventory_info(hostname)
 
     ######## INVENTORY GET INFO SECTION ###########
+
+    def convert_type(self, field_dict):
+        data_type = field_dict["@type"]
+        if "#text" in field_dict:
+            if data_type == "bool":
+                return json.loads(field_dict["#text"])
+            elif data_type == "double":
+                return float(field_dict["#text"])
+            elif data_type == "u64":
+                return int(field_dict["#text"])
+            else:
+                return str(field_dict["#text"])
+        else:
+            return "N/A"
+
     def filter_inventory_results(self, xml_dict, type_list):
         return_dict = {}
         server_inv_info_fields = dict(xml_dict["data"]["ServerInventoryInfo"])
@@ -435,7 +464,7 @@ class ServerMgrInventory():
                 server_mem_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["memory_info"]
                 mem_info_dict = dict()
                 for mem_field in server_mem_info_dict:
-                    mem_info_dict[mem_field] = server_mem_info_dict[mem_field]["#text"]
+                    mem_info_dict[mem_field] = self.convert_type(server_mem_info_dict[mem_field])
                 return_dict[field] = mem_info_dict
             elif field == "interface_infos" and (field in type_list or "all" in type_list):
                 server_interface_list = \
@@ -445,7 +474,7 @@ class ServerMgrInventory():
                     # interface = dict(interface)
                     server_interface_info_dict = dict()
                     for intf_field in interface:
-                        server_interface_info_dict[intf_field] = interface[intf_field]["#text"]
+                        server_interface_info_dict[intf_field] = self.convert_type(interface[intf_field])
                     interface_dict_list.append(server_interface_info_dict)
                 return_dict[field] = interface_dict_list
             elif field == "fru_infos" and (field in type_list or "all" in type_list):
@@ -459,25 +488,24 @@ class ServerMgrInventory():
                     # fru = dict(fru)
                     server_fru_info_dict = dict()
                     for fru_field in fru:
-                        if "#text" in fru[fru_field]:
-                            server_fru_info_dict[fru_field] = fru[fru_field]["#text"]
+                        server_fru_info_dict[fru_field] = self.convert_type(fru[fru_field])
                     fru_dict_list.append(server_fru_info_dict)
                 return_dict[field] = fru_dict_list
             elif field == "cpu_info_state" and (field in type_list or "all" in type_list):
                 server_cpu_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["cpu_info"]
                 cpu_info_dict = dict()
                 for cpu_field in server_cpu_info_dict:
-                    cpu_info_dict[cpu_field] = server_cpu_info_dict[cpu_field]["#text"]
+                    cpu_info_dict[cpu_field] = self.convert_type(server_cpu_info_dict[cpu_field])
                 return_dict[field] = cpu_info_dict
             elif field == "eth_controller_state" and (field in type_list or "all" in type_list):
                 server_eth_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["ethernet_controller"]
                 eth_info_dict = dict()
                 for eth_field in server_eth_info_dict:
-                    eth_info_dict[eth_field] = server_eth_info_dict[eth_field]["#text"]
+                    eth_info_dict[eth_field] = self.convert_type(server_eth_info_dict[eth_field])
                 return_dict[field] = eth_info_dict
             elif "all" in type_list:
                 return_dict[field] = \
-                    server_inv_info_fields[field]["#text"]
+                    self.convert_type(server_inv_info_fields[field])
         return return_dict
 
     @staticmethod

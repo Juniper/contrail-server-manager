@@ -245,8 +245,10 @@ class ServerMgrMonBasePlugin(Thread):
                 select_value_list = str(select_value_list).split(',')
                 self._smgr_log.log(self._smgr_log.DEBUG,
                                    "Select value list=" + str(select_value_list))
+                query_args.pop("select")
             if "type" in query_args:
                 sub_type_value = query_args.get("type", None)[0]
+                query_args.pop("type")
             if select_value_list:
                 if set(select_value_list) < set(types_list):
                     ret_data["type"] = select_value_list
@@ -269,7 +271,9 @@ class ServerMgrMonBasePlugin(Thread):
             else:
                 ret_data["type"] = ["all"]
                 ret_data["sub_type"] = "all"
-            match_key, match_value = query_args.popitem()
+            match_key = match_value = None
+            if query_args:
+                match_key, match_value = query_args.popitem()
             if match_key and match_key not in match_keys:
                 ret_data["status"] = False
                 ret_data["msg"] = "Wrong Match Key Specified. " + "Choose one of the following keys: " + \
@@ -283,11 +287,14 @@ class ServerMgrMonBasePlugin(Thread):
                 ret_data["msg"] = "No Match Value Specified.\n"
             else:
                 ret_data["status"] = True
-                ret_data["match_key"] = str(match_key)
+                if match_key:
+                    ret_data["match_key"] = str(match_key)
+                else:
+                    ret_data["match_key"] = None
                 if match_value:
                     ret_data["match_value"] = str(match_value[0])
                 else:
-                    ret_data["match_value"] = str(match_value)
+                    ret_data["match_value"] = None
         return ret_data
 
     def process_server_tags(self, rev_tags_dict, match_value):

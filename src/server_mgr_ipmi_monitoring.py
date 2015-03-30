@@ -15,6 +15,7 @@ import datetime
 import syslog
 import subprocess
 from gevent import monkey
+
 monkey.patch_all(thread=not 'unittest' in sys.modules)
 import gevent
 import cStringIO
@@ -52,7 +53,7 @@ from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 # Server Manager opens a Sandesh Connection to the Analytics node that hosts the
 # Database to which the monitor pushes device environment information.
 class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
-    types_list = ["sensor_state", "chassis_state", "disk_usage_state", "nw_info", "cpu_info"]
+    types_list = ["sensor_state", "chassis_state", "disk_usage_state", "nw_info", "cpu_info", "interface_info_state"]
     sub_types_list = ["fan", "temperature", "power"]
 
     def __init__(self, val, frequency, smgr_ip=None, smgr_port=None, collectors_ip=None, introspect_port=None,
@@ -242,7 +243,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         if not is_sysstat:
             self.log("info", "sysstat package not installed on " + str(ip))
             disk_data = Disk()
-            disk_data.disk_name = "dummy"
+            disk_data.disk_name = "N/A"
             disk_data.read_MB = int(0)
             disk_data.write_MB = int(0)
             disk_list.append(disk_data)
@@ -312,7 +313,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             if result:
                 output = cStringIO.StringIO(result)
                 for line in output:
-                    intinfo = interface_info() 
+                    intinfo = interface_info()
                     if "lo" in line:
                         continue
                     else:
@@ -363,7 +364,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                         sellog.send()
                     else:
                         self.log("info", "Log already sent for host " +
-                                          str(hostname) + " and event " + str(event_id))
+                                 str(hostname) + " and event " + str(event_id))
             return sel_event_log_list
         except Exception as e:
             self.log("error", "Error getting SEL Logs for " + str(hostname) + " : " + str(e.message))
@@ -411,7 +412,21 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.log("error", "Gevent SSH Connect Execption: " + e.message)
             raise e
 
-    ######## MONITORING GET INFO SECTION ###########
+    # ####### MONITORING GET INFO SECTION ###########
+
+    def convert_type(self, field_dict):
+        data_type = field_dict["@type"]
+        if "#text" in field_dict:
+            if data_type == "bool":
+                return json.loads(field_dict["#text"])
+            elif data_type == "double":
+                return float(field_dict["#text"])
+            elif data_type == "u64":
+                return int(field_dict["#text"])
+            else:
+                return str(field_dict["#text"])
+        else:
+            return "N/A"
 
     # Filters the data returned from REST API call for requested information
     def filter_sensor_results(self, xml_dict, key):
@@ -424,13 +439,13 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 sensor = dict(sensor)
                 if key == "all" or key == sensor["sensor_type"]["#text"]:
                     for field in sensor:
-                        res_sensor[field] = dict(sensor[field])["#text"]
+                        res_sensor[field] = self.convert_type(dict(sensor[field]))
                     return_sensor_list.append(res_sensor)
         elif isinstance(server_sensor_list, dict):
             res_sensor = dict()
             sensor = server_sensor_list
             for field in sensor:
-                res_sensor[field] = dict(sensor[field])["#text"]
+                res_sensor[field] = self.convert_type(dict(sensor[field]))
             return_sensor_list.append(res_sensor)
         return return_sensor_list
 
@@ -439,7 +454,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         server_chassis_info_xml = \
             dict(xml_dict["data"]["ServerMonitoringInfo"]["chassis_state"]["IpmiChassis_status_info"])
         for chassis_key in server_chassis_info_xml:
-            server_chassis_info_dict[chassis_key] = dict(server_chassis_info_xml[chassis_key])["#text"]
+            server_chassis_info_dict[chassis_key] = self.convert_type(dict(server_chassis_info_xml[chassis_key]))
         return server_chassis_info_dict
 
     def filter_disk_results(self, xml_dict):
@@ -449,17 +464,43 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         if isinstance(server_disk_list, list):
             for disk in server_disk_list:
                 res_disk = dict()
-                sensor = dict(disk)
-                for key in sensor:
-                    res_disk[key] = dict(sensor[key])["#text"]
+                disk = dict(disk)
+                for key in disk:
+                    res_disk[key] = self.convert_type(dict(disk[key]))
                 return_disk_list.append(res_disk)
         elif isinstance(server_disk_list, dict):
             res_disk = dict()
             disk = server_disk_list
             for key in disk:
-                res_disk[key] = dict(disk[key])["#text"]
+                res_disk[key] = self.convert_type(dict(disk[key]))
             return_disk_list.append(res_disk)
         return return_disk_list
+
+    def filter_interface_results(self, xml_dict):
+        return_intf_list = []
+        server_intf_list = xml_dict["data"]["ServerMonitoringInfo"]["interface_info_state"]["list"]["interface_info"]
+        if isinstance(server_intf_list, list):
+            for intf in server_intf_list:
+                res_intf = dict()
+                intf = dict(intf)
+                for key in intf:
+                    res_intf[key] = self.convert_type(dict(intf[key]))
+                return_intf_list.append(res_intf)
+        elif isinstance(server_intf_list, dict):
+            res_intf = dict()
+            intf = server_intf_list
+            for key in intf:
+                res_intf[key] = self.convert_type(dict(intf[key]))
+            return_intf_list.append(res_intf)
+        return return_intf_list
+
+    def filter_global_results(self, xml_dict):
+        return_dict = dict()
+        global_dict = xml_dict["data"]["ServerMonitoringInfo"]
+        for key in global_dict:
+            if key not in self.types_list:
+                return_dict[key] = self.convert_type(dict(global_dict[key]))
+        return return_dict
 
     def get_mon_conf_details(self):
         return "Configuration for Monitoring set correctly."
@@ -523,6 +564,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     return_dict["cluster_id"] = str(server_cluster)
                     return_dict["tag"] = dict(server_tag_dict)
                     return_dict["ServerMonitoringInfo"] = dict()
+                    if any(field in ["all"] for field in ret_data["type"]):
+                        return_dict["ServerMonitoringInfo"] = \
+                            self.filter_global_results(pruned_data_dict[str(server_hostname)])
                     if any(field in ["all", "sensor_state"] for field in ret_data["type"]) and "sub_type" in ret_data:
                         return_dict["ServerMonitoringInfo"]["sensor_state"] = \
                             self.filter_sensor_results(pruned_data_dict[str(server_hostname)], ret_data["sub_type"])
@@ -532,6 +576,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     if any(field in ["all", "disk_usage_state"] for field in ret_data["type"]):
                         return_dict["ServerMonitoringInfo"]["disk_usage_state"] = \
                             self.filter_disk_results(pruned_data_dict[str(server_hostname)])
+                    if any(field in ["all", "interface_info_state"] for field in ret_data["type"]):
+                        return_dict["ServerMonitoringInfo"]["interface_info_state"] = \
+                            self.filter_interface_results(pruned_data_dict[str(server_hostname)])
                     list_return_dict.append(return_dict)
             else:
                 return {}
