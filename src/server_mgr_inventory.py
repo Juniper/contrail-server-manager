@@ -622,6 +622,13 @@ class ServerMgrInventory():
         server_ip_list = list()
         ipmi_username_list = list()
         ipmi_password_list = list()
+        if action == "add":
+            for server in servers:
+                if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server:
+                    self._base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+                elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
+                    self._base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+
         self._base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list, ipmi_username_list,
                                                   ipmi_password_list)
         gevent_threads = []

@@ -387,7 +387,7 @@ class ServerMgrMonBasePlugin(Thread):
         ssh_key = paramiko.RSAKey.generate(bits=2048)
         ssh_private_key_obj = StringIO.StringIO()
         ssh_key.write_private_key(ssh_private_key_obj)
-
+        source_file = ""
         try:
             # Save Public key on Target Server
             with open("/opt/contrail/server_manager/" + str(server_id) + ".pub", 'w+') as content_file:
@@ -411,6 +411,8 @@ class ServerMgrMonBasePlugin(Thread):
             return ssh_key
         except Exception as e:
             self._smgr_log.log(self._smgr_log.ERROR, "Error Creating/Copying Keys: " + e.message)
+            if os.path.exists(source_file):
+                os.remove(source_file)
             # Update Server table with ssh public and private keys
             update = {'id': server_id,
                       'ssh_public_key': "ssh-rsa " + str(ssh_key.get_base64()),
@@ -422,10 +424,6 @@ class ServerMgrMonBasePlugin(Thread):
                                    server_ip_list, ipmi_username_list, ipmi_password_list):
         for server in servers:
             server = dict(server)
-            if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server:
-                self.create_store_copy_ssh_keys(server['id'], server['ip_address'])
-            elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
-                self.create_store_copy_ssh_keys(server['id'], server['ip_address'])
             if 'ipmi_address' in server and server['ipmi_address'] \
                     and 'id' in server and server['id'] \
                     and 'ip_address' in server and server['ip_address'] \

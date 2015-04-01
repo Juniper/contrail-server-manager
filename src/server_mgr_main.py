@@ -1437,16 +1437,16 @@ class VncServerManager():
                     server['status'] = "server_added"
                     server['discovered'] = "false"
                     self._serverDb.add_server(server)
+                    # Trigger to collect monitoring info
+                    if self._inventory_config_set:
+                        self._server_inventory_obj.handle_inventory_trigger("add", servers)
+                    else:
+                        self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
 
                 server_data = {}
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
                 self._serverDb.modify_server_to_new_interface_config(server_data)
-                # Trigger to collect monitoring info
-                if self._inventory_config_set:
-                    self._server_inventory_obj.handle_inventory_trigger("add", servers)
-                else:
-                    self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)

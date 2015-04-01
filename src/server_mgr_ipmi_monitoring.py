@@ -616,6 +616,11 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             del server_ip_list[:]
             del ipmi_username_list[:]
             del ipmi_password_list[:]
+            for server in servers:
+                if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server:
+                    self.base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+                elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
+                    self.base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
             self.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list,
                                             ipmi_username_list, ipmi_password_list)
             new_server_set = set(hostname_list)
