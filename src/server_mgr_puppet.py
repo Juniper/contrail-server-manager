@@ -123,7 +123,8 @@ class ServerMgrPuppet:
         role_ips_dict = provision_params['roles']
         cluster_params = eval(cluster['parameters'])
         server_params = eval(server['parameters'])
-        openstack_ip = cluster_params.get("internal_vip", None)
+        #openstack_ip = cluster_params.get("internal_vip", None)
+        openstack_ip = ''
         self_ip = server.get("ip_address", "")
         if openstack_ip is None or openstack_ip == '':
             if self_ip in role_ips_dict['openstack']:
