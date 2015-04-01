@@ -564,21 +564,23 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     return_dict["cluster_id"] = str(server_cluster)
                     return_dict["tag"] = dict(server_tag_dict)
                     return_dict["ServerMonitoringInfo"] = dict()
-                    if any(field in ["all"] for field in ret_data["type"]):
-                        return_dict["ServerMonitoringInfo"] = \
-                            self.filter_global_results(pruned_data_dict[str(server_hostname)])
-                    if any(field in ["all", "sensor_state"] for field in ret_data["type"]) and "sub_type" in ret_data:
-                        return_dict["ServerMonitoringInfo"]["sensor_state"] = \
-                            self.filter_sensor_results(pruned_data_dict[str(server_hostname)], ret_data["sub_type"])
-                    if any(field in ["all", "chassis_state"] for field in ret_data["type"]):
-                        return_dict["ServerMonitoringInfo"]["chassis_state"] = \
-                            self.filter_chassis_results(pruned_data_dict[str(server_hostname)])
-                    if any(field in ["all", "disk_usage_state"] for field in ret_data["type"]):
-                        return_dict["ServerMonitoringInfo"]["disk_usage_state"] = \
-                            self.filter_disk_results(pruned_data_dict[str(server_hostname)])
-                    if any(field in ["all", "interface_info_state"] for field in ret_data["type"]):
-                        return_dict["ServerMonitoringInfo"]["interface_info_state"] = \
-                            self.filter_interface_results(pruned_data_dict[str(server_hostname)])
+                    if server_hostname in pruned_data_dict:
+                        if any(field in ["all"] for field in ret_data["type"]):
+                            return_dict["ServerMonitoringInfo"] = \
+                                self.filter_global_results(pruned_data_dict[str(server_hostname)])
+                        if any(field in ["all", "sensor_state"] for field in
+                               ret_data["type"]) and "sub_type" in ret_data:
+                            return_dict["ServerMonitoringInfo"]["sensor_state"] = \
+                                self.filter_sensor_results(pruned_data_dict[str(server_hostname)], ret_data["sub_type"])
+                        if any(field in ["all", "chassis_state"] for field in ret_data["type"]):
+                            return_dict["ServerMonitoringInfo"]["chassis_state"] = \
+                                self.filter_chassis_results(pruned_data_dict[str(server_hostname)])
+                        if any(field in ["all", "disk_usage_state"] for field in ret_data["type"]):
+                            return_dict["ServerMonitoringInfo"]["disk_usage_state"] = \
+                                self.filter_disk_results(pruned_data_dict[str(server_hostname)])
+                        if any(field in ["all", "interface_info_state"] for field in ret_data["type"]):
+                            return_dict["ServerMonitoringInfo"]["interface_info_state"] = \
+                                self.filter_interface_results(pruned_data_dict[str(server_hostname)])
                     list_return_dict.append(return_dict)
             else:
                 return {}

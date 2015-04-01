@@ -410,7 +410,12 @@ class ServerMgrMonBasePlugin(Thread):
             ssh.close()
             return ssh_key
         except Exception as e:
-            self._smgr_log.log(self._smgr_log.ERROR, "Error Creating Keys: " + e.message)
+            self._smgr_log.log(self._smgr_log.ERROR, "Error Creating/Copying Keys: " + e.message)
+            # Update Server table with ssh public and private keys
+            update = {'id': server_id,
+                      'ssh_public_key': "ssh-rsa " + str(ssh_key.get_base64()),
+                      'ssh_private_key': ssh_private_key_obj.getvalue()}
+            self._serverDb.modify_server(update)
             return None
 
     def populate_server_data_lists(self, servers, ipmi_list, hostname_list,

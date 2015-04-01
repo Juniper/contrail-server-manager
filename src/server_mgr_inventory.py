@@ -570,8 +570,9 @@ class ServerMgrInventory():
                     return_dict["cluster_id"] = str(server_cluster)
                     return_dict["tag"] = dict(server_tag_dict)
                     return_dict["ServerInventoryInfo"] = dict()
-                    return_dict["ServerInventoryInfo"] = \
-                        self.filter_inventory_results(pruned_data_dict[str(server_hostname)], ret_data["type"])
+                    if server_hostname in pruned_data_dict:
+                        return_dict["ServerInventoryInfo"] = \
+                            self.filter_inventory_results(pruned_data_dict[str(server_hostname)], ret_data["type"])
                     list_return_dict.append(return_dict)
             else:
                 return {}
