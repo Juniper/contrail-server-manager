@@ -3114,8 +3114,8 @@ class VncServerManager():
                 for x in role_servers['storage-compute']:
                     storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
                     storage_mon_hostname_set.add(x['id'])
-                    if 'storage_chassis_id' in server_params.keys() and server_params['storage_chassis_id']:
-                        server_params_compute = eval(x['parameters'])
+                    server_params_compute = eval(x['parameters'])
+                    if 'storage_chassis_id' in server_params_compute.keys() and server_params_compute['storage_chassis_id']:
                         storage_chassis_id = [x['id'], ':', server_params_compute['storage_chassis_id']]
                         storage_host_chassis = ''.join(storage_chassis_id)
                         storage_chassis_config_set.add(storage_host_chassis)
