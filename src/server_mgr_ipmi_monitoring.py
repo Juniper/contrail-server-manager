@@ -152,7 +152,7 @@ class ServerMgrIPMIMonitoring():
                 sm_ipmi_info.network_info_state.append(data)
             self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
             self.log("info", "UVE Interface Info = " + str(sm_ipmi_info))
-        ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
+        ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
     # Packages and sends a REST API call to the ServerManager node
@@ -402,10 +402,11 @@ class ServerMgrIPMIMonitoring():
             sm_ipmi_info.name = str(hostname)
             sm_ipmi_info.deleted = True
             sm_ipmi_info.sensor_state = None
-            sm_ipmi_info.sensor_stats = None
-            sm_ipmi_info.disk_usage_stats = None
             sm_ipmi_info.disk_usage_state = None
-            ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
+            sm_ipmi_info.network_info_state = None
+            sm_ipmi_info.resource_info_state = None
+            sm_ipmi_info.chassis_state = None
+            ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
             self.call_send(ipmi_stats_trace)
 
     def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, ipmi_state,
@@ -454,85 +455,14 @@ class ServerMgrIPMIMonitoring():
             return "N/A"
 
     # Filters the data returned from REST API call for requested information
-    def filter_sensor_results(self, xml_dict, key):
-        return_sensor_list = []
-        server_sensor_list = \
-            xml_dict["data"]["ServerMonitoringInfo"]["sensor_state"]["list"]["IpmiSensor"]
-        if isinstance(server_sensor_list, list):
-            for sensor in server_sensor_list:
-                res_sensor = dict()
-                sensor = dict(sensor)
-                if key == "all" or key == sensor["sensor_type"]["#text"]:
-                    for field in sensor:
-                        res_sensor[field] = self.convert_type(dict(sensor[field]))
-                    return_sensor_list.append(res_sensor)
-        elif isinstance(server_sensor_list, dict):
-            res_sensor = dict()
-            sensor = server_sensor_list
-            for field in sensor:
-                res_sensor[field] = self.convert_type(dict(sensor[field]))
-            return_sensor_list.append(res_sensor)
-        return return_sensor_list
-
-    def filter_chassis_results(self, xml_dict):
-        server_chassis_info_dict = dict()
-        server_chassis_info_xml = \
-            dict(xml_dict["data"]["ServerMonitoringInfo"]["chassis_state"]["IpmiChassis_status_info"])
-        for chassis_key in server_chassis_info_xml:
-            server_chassis_info_dict[chassis_key] = self.convert_type(dict(server_chassis_info_xml[chassis_key]))
-        return server_chassis_info_dict
-
-    def filter_disk_results(self, xml_dict):
-        return_disk_list = []
-        server_disk_list = \
-            xml_dict["data"]["ServerMonitoringInfo"]["disk_usage_state"]["list"]["Disk"]
-        if isinstance(server_disk_list, list):
-            for disk in server_disk_list:
-                res_disk = dict()
-                disk = dict(disk)
-                for key in disk:
-                    res_disk[key] = self.convert_type(dict(disk[key]))
-                return_disk_list.append(res_disk)
-        elif isinstance(server_disk_list, dict):
-            res_disk = dict()
-            disk = server_disk_list
-            for key in disk:
-                res_disk[key] = self.convert_type(dict(disk[key]))
-            return_disk_list.append(res_disk)
-        return return_disk_list
-
-    def filter_network_info_results(self, xml_dict):
-        return_intf_list = []
-        server_intf_list = xml_dict["data"]["ServerMonitoringInfo"]["network_info_state"]["list"]["network_info"]
-        if isinstance(server_intf_list, list):
-            for intf in server_intf_list:
-                res_intf = dict()
-                intf = dict(intf)
-                for key in intf:
-                    res_intf[key] = self.convert_type(dict(intf[key]))
-                return_intf_list.append(res_intf)
-        elif isinstance(server_intf_list, dict):
-            res_intf = dict()
-            intf = server_intf_list
-            for key in intf:
-                res_intf[key] = self.convert_type(dict(intf[key]))
-            return_intf_list.append(res_intf)
-        return return_intf_list
-
-    def filter_resource_info_results(self, xml_dict):
-        server_res_info_dict = dict()
-        server_res_info_xml = \
-            dict(xml_dict["data"]["ServerMonitoringInfo"]["resource_info_state"]["resource_info"])
-        for res_key in server_res_info_xml:
-            server_res_info_dict[res_key] = self.convert_type(dict(server_res_info_xml[res_key]))
-        return server_res_info_dict
-
-    def filter_global_results(self, xml_dict):
-        return_dict = dict()
-        global_dict = xml_dict["data"]["ServerMonitoringInfo"]
-        for key in global_dict:
-            if key not in self.types_list:
-                return_dict[key] = self.convert_type(dict(global_dict[key]))
+    def filter_monitoring_results(self, xml_dict, type_list):
+        return_dict = {}
+        if "all" in type_list:
+            return_dict = dict(xml_dict)
+        else:
+            selected_fields = set(xml_dict.keys()).intersection(type_list)
+            for selected_field in selected_fields:
+                return_dict[selected_field] = xml_dict[selected_field]
         return return_dict
 
     def get_mon_conf_details(self):
@@ -546,10 +476,10 @@ class ServerMgrIPMIMonitoring():
         server_cluster_list = list()
         server_tag_dict_list = list()
         self.log("debug", "get_monitoring_info")
+        uve_name = "ServerMonitoringInfo"
         try:
             entity = bottle.request
-            ret_data = self.base_obj.validate_rest_api_args(entity, self.rev_tags_dict, self.types_list,
-                                                            self.sub_types_list)
+            ret_data = self.base_obj.validate_rest_api_args(entity, self.rev_tags_dict)
             if ret_data["status"]:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
@@ -572,51 +502,33 @@ class ServerMgrIPMIMonitoring():
                     tags_dict[tag_name] = str(server[self.rev_tags_dict[tag_name]])
                 server_tag_dict_list.append(dict(tags_dict))
             self.log("debug", "Getting monitoring info of following servers: " + str(server_hostname_list))
-            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerMonitoringInfo" % (str(self.smgr_ip),
-                                                                                  self.introspect_port)
+            url = self.base_obj.get_sandesh_url(self.smgr_ip, self.introspect_port, uve_name)
             headers = {'content-type': 'application/json'}
             resp = requests.get(url, timeout=5, headers=headers)
             xml_data = resp.text
             data = xmltodict.parse(str(xml_data))
             json_obj = json.dumps(data, sort_keys=True, indent=4)
-            data_dict = dict(json.loads(json_obj))
+            data_dict = dict(json.loads(json_obj)["__" + str(uve_name) + "Uve_list"])
             if "msg" in data_dict or "type_msg" in data_dict:
                 return data_dict
-            data_list = list(data_dict["__ServerMonitoringInfoTrace_list"]["ServerMonitoringInfoTrace"])
             pruned_data_dict = dict()
-            if data_dict and data_list:
-                for server in data_list:
+            parsed_data_list = self.base_obj.parse_sandesh_xml(data_dict, uve_name)
+            if data_dict and parsed_data_list:
+                for server in parsed_data_list:
                     server = dict(server)
-                    server_hostname = server["data"]["ServerMonitoringInfo"]["name"]["#text"]
+                    server_hostname = server["data"]["name"]
                     if server_hostname in server_hostname_list:
-                        pruned_data_dict[str(server_hostname)] = server
+                        pruned_data_dict[str(server_hostname)] = server["data"]
                 for server_hostname, server_cluster, server_tag_dict in \
                         zip(server_hostname_list, server_cluster_list, server_tag_dict_list):
                     return_dict = dict()
                     return_dict["name"] = str(server_hostname)
                     return_dict["cluster_id"] = str(server_cluster)
                     return_dict["tag"] = dict(server_tag_dict)
-                    return_dict["ServerMonitoringInfo"] = dict()
+                    return_dict[str(uve_name)] = dict()
                     if server_hostname in pruned_data_dict:
-                        if any(field in ["all"] for field in ret_data["type"]):
-                            return_dict["ServerMonitoringInfo"] = \
-                                self.filter_global_results(pruned_data_dict[str(server_hostname)])
-                        if any(field in ["all", "sensor_state"] for field in
-                               ret_data["type"]) and "sub_type" in ret_data:
-                            return_dict["ServerMonitoringInfo"]["sensor_state"] = \
-                                self.filter_sensor_results(pruned_data_dict[str(server_hostname)], ret_data["sub_type"])
-                        if any(field in ["all", "chassis_state"] for field in ret_data["type"]):
-                            return_dict["ServerMonitoringInfo"]["chassis_state"] = \
-                                self.filter_chassis_results(pruned_data_dict[str(server_hostname)])
-                        if any(field in ["all", "disk_usage_state"] for field in ret_data["type"]):
-                            return_dict["ServerMonitoringInfo"]["disk_usage_state"] = \
-                                self.filter_disk_results(pruned_data_dict[str(server_hostname)])
-                        if any(field in ["all", "network_info_state"] for field in ret_data["type"]):
-                            return_dict["ServerMonitoringInfo"]["network_info_state"] = \
-                                self.filter_network_info_results(pruned_data_dict[str(server_hostname)])
-                        if any(field in ["all", "resource_info_state"] for field in ret_data["type"]):
-                            return_dict["ServerMonitoringInfo"]["resource_info_state"] = \
-                                self.filter_resource_info_results(pruned_data_dict[str(server_hostname)])
+                        return_dict[str(uve_name)] = \
+                            self.filter_monitoring_results(pruned_data_dict[str(server_hostname)], ret_data["type"])
                     list_return_dict.append(return_dict)
             else:
                 return {}

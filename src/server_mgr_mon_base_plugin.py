@@ -28,12 +28,12 @@ import socket
 import pdb
 import re
 import ast
+from gevent import monkey
+monkey.patch_all(thread=not 'unittest' in sys.modules)
 from threading import Thread
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_ssh_client import ServerMgrSSHClient
-from gevent import monkey
-monkey.patch_all(thread=not 'unittest' in sys.modules)
 import json
 import requests
 import gevent
@@ -221,7 +221,7 @@ class ServerMgrMonBasePlugin():
         else:
             self.server_inventory_obj = None
 
-    def validate_rest_api_args(self, request, rev_tags_dict, types_list, sub_types_list=None):
+    def validate_rest_api_args(self, request, rev_tags_dict):
         ret_data = {"msg": None, "type_msg": None}
         match_keys = list(['id', 'cluster_id', 'tag', 'where'])
         print_match_keys = list(['server_id', 'cluster_id', 'tag', 'where'])
@@ -232,44 +232,21 @@ class ServerMgrMonBasePlugin():
                               keep_blank_values=True)
         if len(query_args) == 0:
             ret_data["type"] = ["all"]
-            ret_data["sub_type"] = "all"
             ret_data["status"] = True
             ret_data["match_key"] = None
             ret_data["match_value"] = None
         elif len(query_args) >= 1:
             select_value_list = None
-            sub_type_value = None
             if "select" in query_args:
                 select_value_list = query_args.get("select", None)[0]
                 select_value_list = str(select_value_list).split(',')
                 self._smgr_log.log(self._smgr_log.DEBUG,
                                    "Select value list=" + str(select_value_list))
                 query_args.pop("select")
-            if "type" in query_args:
-                sub_type_value = query_args.get("type", None)[0]
-                query_args.pop("type")
-            if select_value_list:
-                if set(select_value_list) < set(types_list):
-                    ret_data["type"] = select_value_list
-                    if sub_type_value:
-                        if sub_type_value in sub_types_list:
-                            ret_data["sub_type"] = sub_type_value
-                        else:
-                            ret_data["status"] = False
-                            ret_data["type_msg"] = "Selected sub type not available. " + \
-                                                   "Choose one of the following sub types " \
-                                                   "(if empty, all sub types sent): " + str(sub_types_list).strip('[]')
-                    else:
-                        ret_data["sub_type"] = "all"
-                else:
-                    ret_data["status"] = False
-                    ret_data["type_msg"] = "Selected type not available. " + \
-                                           "Choose one of the following types (if empty, all types sent): " + \
-                                           str(types_list).strip('[]')
-                    return ret_data
-            else:
+            if not select_value_list:
                 ret_data["type"] = ["all"]
-                ret_data["sub_type"] = "all"
+            else:
+                ret_data["type"] = select_value_list
             match_key = match_value = None
             if query_args:
                 match_key, match_value = query_args.popitem()
@@ -500,6 +477,98 @@ class ServerMgrMonBasePlugin():
         except Exception as e:
             self._smgr_log.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
             return None
+
+    def get_list_name(self, lst):
+        sname = ""
+        for sattr in lst.keys():
+            if sattr[0] not in ['@']:
+                sname = sattr
+        return sname
+
+    def parse_sandesh_xml(self, inp, uve_name):
+        try:
+            sname = ""
+            # pdb.set_trace()
+            if '@type' not in inp:
+                return None
+            if inp['@type'] == 'slist':
+                sname = str(uve_name) + "Uve"
+                ret = []
+                items = inp[sname]
+                if not isinstance(items, list):
+                    items = [items]
+                lst = []
+                for elem in items:
+                    if not isinstance(elem, dict):
+                        lst.append(elem)
+                    else:
+                        lst_elem = {}
+                        for k, v in elem.items():
+                            lst_elem[k] = self.parse_sandesh_xml(v, uve_name)
+                        lst.append(lst_elem)
+                # ret[sname] = lst
+                ret = lst
+                return ret
+            elif inp['@type'] == 'sandesh':
+                sname = "data"
+                ret = {}
+                for k, v in inp[sname].items():
+                    ret[k] = self.parse_sandesh_xml(v, uve_name)
+                return ret
+            elif inp['@type'] == 'struct':
+                sname = self.get_list_name(inp)
+                if (sname == ""):
+                    self._smgr_log.log("error", "Error parsing sandesh xml dict : " + str('Struct Parse Error'))
+                    return None
+                ret = {}
+                for k, v in inp[sname].items():
+                    ret[k] = self.parse_sandesh_xml(v, uve_name)
+                return ret
+            elif (inp['@type'] == 'list'):
+                sname = self.get_list_name(inp['list'])
+                ret = []
+                if (sname == ""):
+                    return ret
+                items = inp['list'][sname]
+                if not isinstance(items, list):
+                    items = [items]
+                lst = []
+                for elem in items:
+                    if not isinstance(elem, dict):
+                        lst.append(elem)
+                    else:
+                        lst_elem = {}
+                        for k, v in elem.items():
+                            lst_elem[k] = self.parse_sandesh_xml(v, uve_name)
+                        lst.append(lst_elem)
+                # ret[sname] = lst
+                ret = lst
+                return ret
+            else:
+                if '#text' not in inp:
+                    return None
+                if inp['@type'] in ['i16', 'i32', 'i64', 'byte',
+                                    'u64', 'u32', 'u16']:
+                    return int(inp['#text'])
+                elif inp['@type'] in ['float', 'double']:
+                    return float(inp['#text'])
+                elif inp['@type'] in ['bool']:
+                    if inp['#text'] in ["false"]:
+                        return False
+                    elif inp['#text'] in ["true"]:
+                        return True
+                    else:
+                        return inp['#text']
+                else:
+                    return inp['#text']
+        except Exception as e:
+            self._smgr_log.log("error", "Error parsing sandesh xml dict : " + str(e))
+            return None
+
+    def get_sandesh_url(self, ip, introspect_port, uve_name):
+        url = "http://%s:%s/Snh_SandeshUVECacheReq?x=%s" % \
+              (str(ip), str(introspect_port), uve_name)
+        return url
 
     @staticmethod
     def get_mon_conf_details(self):
