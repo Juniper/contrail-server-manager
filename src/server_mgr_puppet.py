@@ -2022,6 +2022,7 @@ $__contrail_quantum_servers__
             data += 'contrail::params::storage_enabled: "%s"\n' %(provision_params['contrail-storage-enabled'])
             data += 'contrail::params::live_migration_storage_scope: "%s"\n' %(provision_params['live_migration_storage_scope'])
             data += 'contrail::params::live_migration_host: "%s"\n' %(provision_params['live_migration_host'])
+            data += 'contrail::params::live_migration_ip: "%s"\n' %(provision_params['live_migration_ip'])
             storage_mon_hosts = ''
             for key in provision_params['storage_monitor_hosts']:
                 storage_mon_hosts += '''%s, ''' % key
