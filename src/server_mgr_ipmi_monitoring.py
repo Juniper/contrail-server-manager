@@ -152,7 +152,7 @@ class ServerMgrIPMIMonitoring():
                 sm_ipmi_info.network_info_state.append(data)
             self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
             self.log("info", "UVE Interface Info = " + str(sm_ipmi_info))
-        ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
+        ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
         self.call_send(ipmi_stats_trace)
 
     # Packages and sends a REST API call to the ServerManager node
@@ -405,7 +405,7 @@ class ServerMgrIPMIMonitoring():
             sm_ipmi_info.sensor_stats = None
             sm_ipmi_info.disk_usage_stats = None
             sm_ipmi_info.disk_usage_state = None
-            ipmi_stats_trace = ServerMonitoringInfoTrace(data=sm_ipmi_info)
+            ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
             self.call_send(ipmi_stats_trace)
 
     def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, ipmi_state,
@@ -582,7 +582,7 @@ class ServerMgrIPMIMonitoring():
             data_dict = dict(json.loads(json_obj))
             if "msg" in data_dict or "type_msg" in data_dict:
                 return data_dict
-            data_list = list(data_dict["__ServerMonitoringInfoTrace_list"]["ServerMonitoringInfoTrace"])
+            data_list = list(data_dict["__ServerMonitoringInfoUve_list"]["ServerMonitoringInfoUve"])
             pruned_data_dict = dict()
             if data_dict and data_list:
                 for server in data_list:
