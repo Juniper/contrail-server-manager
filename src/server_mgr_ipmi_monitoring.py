@@ -15,7 +15,6 @@ import datetime
 import syslog
 import subprocess
 from gevent import monkey
-
 monkey.patch_all(thread=not 'unittest' in sys.modules)
 import gevent
 import cStringIO
@@ -52,14 +51,21 @@ from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 # that are stored in the Server Manager DB at any point. Before this polling can occur,
 # Server Manager opens a Sandesh Connection to the Analytics node that hosts the
 # Database to which the monitor pushes device environment information.
-class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
-    types_list = ["sensor_state", "chassis_state", "disk_usage_state", "nw_info", "resource_info"]
+class ServerMgrIPMIMonitoring():
+    types_list = ["sensor_state", "chassis_state", "disk_usage_state", "network_info_state", "resource_info_state"]
     sub_types_list = ["fan", "temperature", "power"]
+    _default_ipmi_username = None
+    _default_ipmi_password = None
+    DEBUG = "debug"
+    INFO = "info"
+    WARN = "warn"
+    ERROR = "error"
+    CRITICAL = "critical"
+    _serverDb = None
 
     def __init__(self, val, frequency, smgr_ip=None, smgr_port=None, collectors_ip=None, introspect_port=None,
                  rev_tags_dict=None):
         ''' Constructor '''
-        ServerMgrMonBasePlugin.__init__(self)
         self.base_obj = ServerMgrMonBasePlugin()
         logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
         # create logger
@@ -94,6 +100,15 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 self._monitoring_log.critical(msg, extra=log_dict)
         except Exception as e:
             print "Error logging msg in Mon" + e.message
+
+    def set_serverdb(self, server_db):
+        self._serverDb = server_db
+        self.base_obj.set_serverdb(server_db=server_db)
+
+    def set_ipmi_defaults(self, ipmi_username, ipmi_password):
+        self._default_ipmi_username = ipmi_username
+        self._default_ipmi_password = ipmi_password
+        self.base_obj.set_ipmi_defaults(ipmi_username, ipmi_password)
 
     # call_send function is the sending function of the sandesh object (send_inst)
     def call_send(self, send_inst):
@@ -161,7 +176,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
     def fetch_and_process_monitoring(self, hostname, ipmi, ip, username, password, supported_sensors):
         ipmi_data = []
         cmd = 'ipmitool -H %s -U %s -P %s sdr list all' % (ipmi, username, password)
-        result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
+        result = self.base_obj.call_subprocess(cmd)
         if result is not None and "|" in result:
             fileoutput = cStringIO.StringIO(result)
             try:
@@ -203,7 +218,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         ipmi_chassis_data = IpmiChassis_status_info()
         cmd = 'ipmitool -H %s -U %s -P %s chassis status' % (ipmi, username, password)
         try:
-            result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
+            result = self.base_obj.call_subprocess(cmd)
             if result is not None:
                 fileoutput = cStringIO.StringIO(result)
                 ipmichassisdata = IpmiChassis_status_info()
@@ -313,7 +328,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 if fileoutput is not None:
                     for line in fileoutput:
                         arr = line.split()
-                        resource_info1.mem_usage_percent = int((resource_info1.mem_usage_mb / float(int(arr[0])/1024)) * 100)
+                        resource_info1.mem_usage_percent = float("{0:.2f}".format(
+                            (resource_info1.mem_usage_mb/float(int(arr[0])/1024))*100))
                 resource_info_list.append(resource_info1)
             self.send_ipmi_stats(ip, resource_info_list, hostname, "resource_info_list")
             self.send_ipmi_stats(ip, resource_info1, hostname, "resource_info")
@@ -348,7 +364,7 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
 
     def fetch_and_process_sel_logs(self, hostname, ip, username, password, sel_event_log_list):
         sel_cmd = 'ipmitool -H %s -U %s -P %s sel elist' % (ip, username, password)
-        sel_result = super(ServerMgrIPMIMonitoring, self).call_subprocess(sel_cmd)
+        sel_result = self.base_obj.call_subprocess(sel_cmd)
         try:
             if sel_result is not None:
                 fileoutput = cStringIO.StringIO(sel_result)
@@ -407,9 +423,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             self.fetch_and_process_chassis(hostname, ipmi, ip, username, password)
             if sel_event_log_list:
                 return_dict["sel_log"] = \
-                    self.fetch_and_process_sel_logs(hostname, ip, username, password, sel_event_log_list)
+                    self.fetch_and_process_sel_logs(hostname, ipmi, username, password, sel_event_log_list)
             else:
-                return_dict["sel_log"] = self.fetch_and_process_sel_logs(hostname, ip, username, password, [])
+                return_dict["sel_log"] = self.fetch_and_process_sel_logs(hostname, ipmi, username, password, [])
             if not ipmi_state and return_dict["ipmi_status"]:
                 # Trigger REST API CALL to inventory for Server Hostname
                 payload = dict()
@@ -485,9 +501,9 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             return_disk_list.append(res_disk)
         return return_disk_list
 
-    def filter_interface_results(self, xml_dict):
+    def filter_network_info_results(self, xml_dict):
         return_intf_list = []
-        server_intf_list = xml_dict["data"]["ServerMonitoringInfo"]["interface_info_state"]["list"]["interface_info"]
+        server_intf_list = xml_dict["data"]["ServerMonitoringInfo"]["network_info_state"]["list"]["network_info"]
         if isinstance(server_intf_list, list):
             for intf in server_intf_list:
                 res_intf = dict()
@@ -502,6 +518,14 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 res_intf[key] = self.convert_type(dict(intf[key]))
             return_intf_list.append(res_intf)
         return return_intf_list
+
+    def filter_resource_info_results(self, xml_dict):
+        server_res_info_dict = dict()
+        server_res_info_xml = \
+            dict(xml_dict["data"]["ServerMonitoringInfo"]["resource_info_state"]["resource_info"])
+        for res_key in server_res_info_xml:
+            server_res_info_dict[res_key] = self.convert_type(dict(server_res_info_xml[res_key]))
+        return server_res_info_dict
 
     def filter_global_results(self, xml_dict):
         return_dict = dict()
@@ -587,9 +611,12 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                         if any(field in ["all", "disk_usage_state"] for field in ret_data["type"]):
                             return_dict["ServerMonitoringInfo"]["disk_usage_state"] = \
                                 self.filter_disk_results(pruned_data_dict[str(server_hostname)])
-                        if any(field in ["all", "interface_info_state"] for field in ret_data["type"]):
-                            return_dict["ServerMonitoringInfo"]["interface_info_state"] = \
-                                self.filter_interface_results(pruned_data_dict[str(server_hostname)])
+                        if any(field in ["all", "network_info_state"] for field in ret_data["type"]):
+                            return_dict["ServerMonitoringInfo"]["network_info_state"] = \
+                                self.filter_network_info_results(pruned_data_dict[str(server_hostname)])
+                        if any(field in ["all", "resource_info_state"] for field in ret_data["type"]):
+                            return_dict["ServerMonitoringInfo"]["resource_info_state"] = \
+                                self.filter_resource_info_results(pruned_data_dict[str(server_hostname)])
                     list_return_dict.append(return_dict)
             else:
                 return {}
@@ -606,7 +633,6 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
     def run(self):
         print "Starting monitoring thread"
         self.log("info", "Starting monitoring thread")
-        ipmi_data = []
         sel_log_dict = dict()
         ipmi_list = list()
         hostname_list = list()
@@ -614,7 +640,6 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
         ipmi_username_list = list()
         ipmi_password_list = list()
         ipmi_state = dict()
-        pw_list = list()
         supported_sensors = ['FAN|.*_FAN', '^PWR', '.*Temp', '.*_Power']
         while True:
             servers = self._serverDb.get_server(
@@ -630,8 +655,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     self.base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
                 elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
                     self.base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
-            self.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list,
-                                            ipmi_username_list, ipmi_password_list)
+            self.base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list,
+                                                     ipmi_username_list, ipmi_password_list)
             new_server_set = set(hostname_list)
             deleted_servers = set(old_server_set.difference(new_server_set))
             if len(deleted_servers) > 0:

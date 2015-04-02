@@ -56,7 +56,7 @@ _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
 _DEF_INTROSPECT_PORT = 8107
 
 
-class ServerMgrMonBasePlugin(Thread):
+class ServerMgrMonBasePlugin():
     val = 1
     freq = 300
     _dev_env_monitoring_obj = None
@@ -76,7 +76,6 @@ class ServerMgrMonBasePlugin(Thread):
 
     def __init__(self):
         ''' Constructor '''
-        Thread.__init__(self)
         self.MonitoringCfg = {
             'monitoring_frequency': _DEF_MON_FREQ,
             'monitoring_plugin': _DEF_MONITORING_PLUGIN

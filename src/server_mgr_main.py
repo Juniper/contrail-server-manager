@@ -143,6 +143,7 @@ class VncServerManager():
     _monitoring_base_plugin_obj = None
     _monitoring_config_set = False
     _inventory_config_set = False
+    _monitoring_gevent_thread_obj = None
     #dict to hold cfg defaults
     _cfg_defaults_dict = {}
     #dict to hold code defaults
@@ -366,8 +367,7 @@ class VncServerManager():
         if self._monitoring_config_set:
             self._server_monitoring_obj.set_serverdb(self._serverDb)
             self._server_monitoring_obj.set_ipmi_defaults(self._args.ipmi_username, self._args.ipmi_password)
-            self._server_monitoring_obj.daemon = True
-            self._server_monitoring_obj.start()
+            self._monitoring_gevent_thread_obj = gevent.spawn(self._server_monitoring_obj.run)
         else:
             self._smgr_log.log(self._smgr_log.ERROR, "Monitoring configuration not set. "
                                                      "You will be unable to get Monitor information of servers.")
@@ -3221,6 +3221,8 @@ class VncServerManager():
     # TBD
     def cleanup(self):
         print "called cleanup"
+        if self._monitoring_gevent_thread_obj:
+            self._monitoring_gevent_thread_obj.join()
     # end cleanup
 
     # Private Methods
