@@ -311,43 +311,52 @@ class ServerMgrMonBasePlugin(Thread):
                 return {}
         return match_dict
 
-
-    def sandesh_init(self, collectors_ip_list=None):
+    def sandesh_init(self, sm_args, mon_config_set, inv_config_set):
         # Inventory node module initialization part
         try:
             module = None
             port = None
             module_list = None
             self._smgr_log.log(self._smgr_log.INFO, "Initializing sandesh")
-            collectors_ip_list = eval(collectors_ip_list)
+            collectors_ip_list = eval(sm_args.collectors)
             if collectors_ip_list:
                 self._smgr_log.log(self._smgr_log.INFO, "Collector IPs from config: " + str(collectors_ip_list))
                 monitoring = True
                 inventory = True
-                try:
-                    __import__('contrail_sm_monitoring.monitoring')
-                except ImportError:
-                    monitoring = False
-                    pass
-                try:
-                    __import__('inventory_daemon.server_inventory')
-                except ImportError:
-                    inventory = False
-                    pass
 
-                if monitoring and inventory:
+                if mon_config_set and inv_config_set:
+                    try:
+                        __import__('contrail_sm_monitoring.monitoring')
+                    except ImportError:
+                        mon_config_set = False
+                        pass
+                    try:
+                        __import__('inventory_daemon.server_inventory')
+                    except ImportError:
+                        inv_config_set = False
+                        pass
                     module = Module.INVENTORY_AGENT
                     port = HttpPortInventorymgr
                     module_list = ['inventory_daemon.server_inventory', 'contrail_sm_monitoring.monitoring']
-                elif inventory:
+                elif inv_config_set:
+                    try:
+                        __import__('inventory_daemon.server_inventory')
+                    except ImportError:
+                        inv_config_set = False
+                        pass
                     module = Module.INVENTORY_AGENT
                     port = HttpPortInventorymgr
                     module_list = ['inventory_daemon.server_inventory']
-                elif monitoring:
+                elif mon_config_set:
+                    try:
+                        __import__('contrail_sm_monitoring.monitoring')
+                    except ImportError:
+                        mon_config_set = False
+                        pass
                     module = Module.IPMI_STATS_MGR
                     port = HttpPortIpmiStatsmgr
                     module_list = ['contrail_sm_monitoring.monitoring']
-                if monitoring or inventory:
+                if mon_config_set or inv_config_set:
                     module_name = ModuleNames[module]
                     node_type = Module2NodeType[module]
                     node_type_name = NodeTypeNames[node_type]
@@ -361,6 +370,9 @@ class ServerMgrMonBasePlugin(Thread):
                         module_name,
                         port,
                         module_list)
+                    sandesh_global.set_logging_params(level=sm_args.sandesh_log_level)
+                else:
+                    self._smgr_log.log(self._smgr_log.INFO, "Sandesh wasn't initialized")
             else:
                 pass
         except Exception as e:

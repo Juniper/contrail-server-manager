@@ -79,6 +79,7 @@ _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
 _DEF_COLLECTORS_IP = ['127.0.0.1:8086']
 _DEF_INTROSPECT_PORT = 8107
+_DEF_SANDESH_LOG_LEVEL = 'SYS_INFO'
 
 # Temporary variable added to disable use of new puppet framework. This should be removed/enabled
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
@@ -358,7 +359,8 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
-        self._monitoring_base_plugin_obj.sandesh_init(self._args.collectors)
+        self._monitoring_base_plugin_obj.sandesh_init(self._args,
+                                                      self._monitoring_config_set, self._inventory_config_set)
         self._monitoring_base_plugin_obj.set_serverdb(self._serverDb)
 
         if self._monitoring_config_set:
@@ -3274,7 +3276,8 @@ class VncServerManager():
             'ipmi_type'                 : _DEF_IPMI_TYPE,
             'puppet_dir'                 : _DEF_PUPPET_DIR,
             'collectors'                 : _DEF_COLLECTORS_IP,
-            'http_introspect_port'       : _DEF_INTROSPECT_PORT
+            'http_introspect_port'       : _DEF_INTROSPECT_PORT,
+            'sandesh_log_level'          : _DEF_SANDESH_LOG_LEVEL
         }
 
         if args.config_file:

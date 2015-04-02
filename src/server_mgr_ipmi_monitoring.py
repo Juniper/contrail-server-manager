@@ -660,5 +660,5 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                     sel_log_dict[str(hostname)] = return_dict["sel_log"]
                 else:
                     self.log("error", "Greenlet for server " + str(hostname) + " didn't return successfully: "
-                                      + thread.get())
+                                      + str(thread.get()))
 
