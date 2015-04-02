@@ -79,6 +79,7 @@ class ServerMgrTransactionlogger:
     GET_SMGR_CFG_SERVER = "GET_SMGR_SERVER"
     GET_SMGR_CFG_IMAGE = "GET_SMGR_IMAGE"
     GET_SMGR_CFG_STATUS = "GET_SMGR_STATUS"   
+    GET_SMGR_CFG_CHASSIS_ID = "GET_SMGR_CHASSIS_ID"   
     GET_SMGR_CFG_TAG = "GET_SMGR_TAG"   
 
     PUT_SMGR_CFG_ALL = "PUT_SMGR_ALL"
@@ -178,6 +179,9 @@ class ServerMgrTransactionlogger:
              msg = "ACTION %s: %s %s %s" % \
                         (transaction_type, data.url, data.json, success_str)
         elif transaction_type == self.SMGR_PROVISION:
+             msg = "ACTION %s: %s %s %s" % \
+                        (transaction_type, data.url, data.json, success_str)
+        elif transaction_type == self.GET_SMGR_CFG_CHASSIS_ID:
              msg = "ACTION %s: %s %s %s" % \
                         (transaction_type, data.url, data.json, success_str)
 
