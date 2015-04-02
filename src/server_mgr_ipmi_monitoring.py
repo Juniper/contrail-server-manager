@@ -409,8 +409,8 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
             sshclient.close()
             return return_dict
         except Exception as e:
-            self.log("error", "Gevent SSH Connect Execption: " + e.message)
-            raise e
+            self.log("error", "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + e.message)
+            pass
 
     # ####### MONITORING GET INFO SECTION ###########
 

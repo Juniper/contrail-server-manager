@@ -434,7 +434,8 @@ class ServerMgrInventory():
                 self.get_memory_info(hostname, ip, sshclient)
                 sshclient.close()
             except Exception as e:
-                self.log(self.ERROR, "Gevent SSH Connect Execption: " + e.message)
+                self.log("error",
+                         "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + e.message)
                 pass
         elif action == "delete":
             self.log(self.INFO, "Deleted info of server: %s" % hostname)

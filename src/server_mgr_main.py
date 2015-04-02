@@ -2089,11 +2089,6 @@ class VncServerManager():
     # API call to delete a server from the configuration.
     def delete_server(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "delete_server")
-        server_ipmi_list = list()
-        server_ipmi_un_list = list()
-        server_ipmi_pw_list = list()
-        server_hostname_list = list()
-        server_ip_list = list()
         try:
             ret_data = self.validate_smgr_request("SERVER", "DELETE",
                                                          bottle.request)
