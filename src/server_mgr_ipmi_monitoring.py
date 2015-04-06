@@ -540,6 +540,10 @@ class ServerMgrIPMIMonitoring():
             raise e
         return json.dumps(list_return_dict)
 
+    def cleanup(self, obj):
+        if obj:
+            obj.kill()
+
     # The Thread's run function continually checks the list of servers in the Server Mgr DB and polls them.
     # It then calls other functions to send the information to the correct analytics server.
     def run(self):

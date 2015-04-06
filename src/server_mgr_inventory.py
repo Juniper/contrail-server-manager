@@ -559,7 +559,7 @@ class ServerMgrInventory():
         self.log(self.DEBUG, "run_inventory")
         try:
             entity = bottle.request.json
-            ret_data = self._base_obj.validate_rest_api_args(entity, self.rev_tags_dict, self.types_list)
+            ret_data = self._base_obj.validate_rest_api_args(entity, self.rev_tags_dict)
             if ret_data["status"]:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]

@@ -59,7 +59,6 @@ _DEF_INTROSPECT_PORT = 8107
 class ServerMgrMonBasePlugin():
     val = 1
     freq = 300
-    _dev_env_monitoring_obj = None
     _config_set = False
     _serverDb = None
     _monitoring_log = None
@@ -90,6 +89,7 @@ class ServerMgrMonBasePlugin():
         self.inventory_config_set = False
         self.server_monitoring_obj = None
         self.server_inventory_obj = None
+        self.monitoring_gevent_thread_obj = None
 
     def set_serverdb(self, server_db):
         self._serverDb = server_db
@@ -143,7 +143,7 @@ class ServerMgrMonBasePlugin():
             parser.set_defaults(**self.InventoryCfg)
         return parser.parse_args(remaining_argv)
 
-    def parse_monitoring_args(self, args_str, args, sm_args, _rev_tags_dict):
+    def parse_monitoring_args(self, args_str, args, sm_args, _rev_tags_dict, base_obj):
         config = ConfigParser.SafeConfigParser()
         config.read([args.config_file])
         try:
@@ -174,16 +174,17 @@ class ServerMgrMonBasePlugin():
                 else:
                     self._smgr_log.log(self._smgr_log.ERROR,
                                        "Analytics IP and Monitoring API misconfigured, monitoring aborted")
-                    self.server_monitoring_obj = None
+                    self.server_monitoring_obj = base_obj
             except ImportError as ie:
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    "Configured modules are missing. Server Manager will quit now.")
                 self._smgr_log.log(self._smgr_log.ERROR, "Error: " + str(ie))
                 raise ImportError
         else:
-            self.server_monitoring_obj = None
+            self.server_monitoring_obj = base_obj
+        return self.server_monitoring_obj
 
-    def parse_inventory_args(self, args_str, args, sm_args, _rev_tags_dict):
+    def parse_inventory_args(self, args_str, args, sm_args, _rev_tags_dict, base_obj):
         config = ConfigParser.SafeConfigParser()
         config.read([args.config_file])
         try:
@@ -213,13 +214,14 @@ class ServerMgrMonBasePlugin():
                 else:
                     self._smgr_log.log(self._smgr_log.ERROR,
                                        "Iventory API misconfigured, inventory aborted")
-                    self.server_inventory_obj = None
+                    self.server_inventory_obj = base_obj
             except ImportError:
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    "Configured modules are missing. Server Manager will quit now.")
                 raise ImportError
         else:
-            self.server_inventory_obj = None
+            self.server_inventory_obj = base_obj
+        return self.server_inventory_obj
 
     def validate_rest_api_args(self, request, rev_tags_dict):
         ret_data = {"msg": None, "type_msg": None}
@@ -570,6 +572,25 @@ class ServerMgrMonBasePlugin():
               (str(ip), str(introspect_port), uve_name)
         return url
 
+    def initialize_features(self, sm_args, serverdb):
+        self.sandesh_init(sm_args, self.monitoring_config_set, self.inventory_config_set)
+        self.set_serverdb(serverdb)
+        if self.monitoring_config_set:
+            self.server_monitoring_obj.set_serverdb(serverdb)
+            self.server_monitoring_obj.set_ipmi_defaults(sm_args.ipmi_username, sm_args.ipmi_password)
+            self.monitoring_gevent_thread_obj = gevent.spawn(self.server_monitoring_obj.run)
+        else:
+            self._smgr_log.log(self._smgr_log.ERROR, "Monitoring configuration not set. "
+                                                     "You will be unable to get Monitor information of servers.")
+
+        if self.inventory_config_set:
+            self.server_inventory_obj.set_serverdb(serverdb)
+            self.server_inventory_obj.set_ipmi_defaults(sm_args.ipmi_username, sm_args.ipmi_password)
+            self.server_inventory_obj.add_inventory()
+        else:
+            self._smgr_log.log(self._smgr_log.ERROR, "Inventory configuration not set. "
+                                                     "You will be unable to get Inventory information from servers.")
+
     @staticmethod
     def get_mon_conf_details(self):
         return "Monitoring Parameters haven't been configured.\n" \
@@ -597,12 +618,17 @@ class ServerMgrMonBasePlugin():
 
     @staticmethod
     def handle_inventory_trigger(self):
+        self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
         return "Inventory Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     def add_inventory(self):
         self._smgr_log.log(self._smgr_log.ERROR, "Inventory Parameters haven't been configured.\n" +
                                                  "Reset the configuration correctly to add inventory.\n")
+
+    def cleanup(self, obj=None):
+        self._smgr_log.log(self._smgr_log.INFO, "Monitoring Parameters haven't been configured.\n" +
+                           "No cleanup needed.\n")
 
     # A place-holder run function that the Server Monitor defaults to in the absence of a configured
     # monitoring API layer to use.

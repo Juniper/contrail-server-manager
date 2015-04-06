@@ -141,8 +141,6 @@ class VncServerManager():
     _server_monitoring_obj = None
     _server_inventory_obj = None
     _monitoring_base_plugin_obj = None
-    _monitoring_config_set = False
-    _inventory_config_set = False
     _monitoring_gevent_thread_obj = None
     #dict to hold cfg defaults
     _cfg_defaults_dict = {}
@@ -360,25 +358,7 @@ class VncServerManager():
             except Exception as e:
                 print repr(e)
 
-        self._monitoring_base_plugin_obj.sandesh_init(self._args,
-                                                      self._monitoring_config_set, self._inventory_config_set)
-        self._monitoring_base_plugin_obj.set_serverdb(self._serverDb)
-
-        if self._monitoring_config_set:
-            self._server_monitoring_obj.set_serverdb(self._serverDb)
-            self._server_monitoring_obj.set_ipmi_defaults(self._args.ipmi_username, self._args.ipmi_password)
-            self._monitoring_gevent_thread_obj = gevent.spawn(self._server_monitoring_obj.run)
-        else:
-            self._smgr_log.log(self._smgr_log.ERROR, "Monitoring configuration not set. "
-                                                     "You will be unable to get Monitor information of servers.")
-
-        if self._inventory_config_set:
-            self._server_inventory_obj.set_serverdb(self._serverDb)
-            self._server_inventory_obj.set_ipmi_defaults(self._args.ipmi_username, self._args.ipmi_password)
-            self._server_inventory_obj.add_inventory()
-        else:
-            self._smgr_log.log(self._smgr_log.ERROR, "Inventory configuration not set. "
-                                                     "You will be unable to get Inventory information from servers.")
+        self._monitoring_base_plugin_obj.initialize_features(sm_args=self._args, serverdb=self._serverDb)
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -1440,11 +1420,7 @@ class VncServerManager():
                     server['discovered'] = "false"
                     self._serverDb.add_server(server)
                     # Trigger to collect monitoring info
-                    if self._inventory_config_set:
-                        self._server_inventory_obj.handle_inventory_trigger("add", servers)
-                    else:
-                        self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
-
+                    self._server_inventory_obj.handle_inventory_trigger("add", servers)
                 server_data = {}
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
@@ -2113,10 +2089,7 @@ class VncServerManager():
             # Sync the above information
             self._smgr_cobbler.sync()
             # Inventory Delete Info Trigger
-            if self._inventory_config_set:
-                self._server_inventory_obj.handle_inventory_trigger("delete", servers)
-            else:
-                self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be deleted.")
+            self._server_inventory_obj.handle_inventory_trigger("delete", servers)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
@@ -3221,8 +3194,7 @@ class VncServerManager():
     # TBD
     def cleanup(self):
         print "called cleanup"
-        if self._monitoring_gevent_thread_obj:
-            self._monitoring_gevent_thread_obj.join()
+        self._server_monitoring_obj.cleanup(self._monitoring_base_plugin_obj.monitoring_gevent_thread_obj)
     # end cleanup
 
     # Private Methods
@@ -3331,18 +3303,12 @@ class VncServerManager():
                 "Name of JSON file containing list of cluster and servers,"
                 " default None"))
         self._args = parser.parse_args(remaining_argv)
-        self._monitoring_base_plugin_obj.parse_monitoring_args(args_str, args, self._args, self._rev_tags_dict)
-        if self._monitoring_base_plugin_obj.monitoring_config_set:
-            self._monitoring_config_set = True
-            self._server_monitoring_obj = self._monitoring_base_plugin_obj.server_monitoring_obj
-        else:
-            self._server_monitoring_obj = self._monitoring_base_plugin_obj
-        self._monitoring_base_plugin_obj.parse_inventory_args(args_str, args, self._args, self._rev_tags_dict)
-        if self._monitoring_base_plugin_obj.inventory_config_set:
-            self._inventory_config_set = True
-            self._server_inventory_obj = self._monitoring_base_plugin_obj.server_inventory_obj
-        else:
-            self._server_inventory_obj = self._monitoring_base_plugin_obj
+        self._server_monitoring_obj = \
+            self._monitoring_base_plugin_obj.parse_monitoring_args(args_str, args, self._args, self._rev_tags_dict,
+                                                                   self._monitoring_base_plugin_obj)
+        self._server_inventory_obj = \
+            self._monitoring_base_plugin_obj.parse_inventory_args(args_str, args, self._args, self._rev_tags_dict,
+                                                                  self._monitoring_base_plugin_obj)
         self._args.config_file = args.config_file
     # end _parse_args
 
