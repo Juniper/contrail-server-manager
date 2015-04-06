@@ -3093,6 +3093,7 @@ class VncServerManager():
                 num_storage_hosts = int(0)
                 live_migration = "disable"
                 live_migration_host = ""
+                live_migration_ip = ""
                 live_migration_storage_scope = "local"
                 for role_server in role_servers['storage-compute']:
                     server_params_compute = eval(role_server['parameters'])
@@ -3169,6 +3170,10 @@ class VncServerManager():
                 for x in role_servers['storage-compute']:
                     storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
                     storage_mon_hostname_set.add(x['id'])
+                    if x['id'] == live_migration_host: 
+                        live_migration_ip = self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"')
+                        self._smgr_log.log(self._smgr_log.DEBUG, "live-M ip = %s" % live_migration_ip)
+                        provision_params['live_migration_ip'] = live_migration_ip
                     server_params_compute = eval(x['parameters'])
                     if 'storage_chassis_id' in server_params_compute.keys() and server_params_compute['storage_chassis_id']:
                         storage_chassis_id = [x['id'], ':', server_params_compute['storage_chassis_id']]
