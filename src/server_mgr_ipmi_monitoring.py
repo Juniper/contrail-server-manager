@@ -302,14 +302,17 @@ class ServerMgrIPMIMonitoring():
                 filestr = sshclient.exec_command(cmd=cmd)
                 fileoutput = cStringIO.StringIO(filestr)
                 if fileoutput is not None:
+                    idle_index = -1
                     for line in fileoutput:
                         res = re.sub('\s+', ' ', line).strip()
                         arr = res.split()
-                        if len(arr) == 12:
-                            if "%idle" in arr:
-                                continue
-                            else:
-                                resource_info1.cpu_usage_percentage = (100.0 - float(arr[11]))
+                        if idle_index != -1:
+                            resource_info1.cpu_usage_percentage = (100.0 - float(arr[idle_index]))
+                            break
+                        if "%idle" not in arr:
+                            continue
+                        else:
+                            idle_index = arr.index('%idle')
             is_vmstat = sshclient.exec_command('which vmstat')
             if not is_vmstat:
                 resource_info1.mem_usage_mb = 0
