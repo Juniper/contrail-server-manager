@@ -21,6 +21,7 @@ import logging
 import logging.config
 import logging.handlers
 import inspect
+import threading
 import cStringIO
 import re
 import socket
@@ -51,7 +52,6 @@ _DEF_INTROSPECT_PORT = 8107
 
 
 class ServerMgrInventory():
-    types_list = ["fru_infos", "interface_infos", "cpu_info_state", "eth_controller_state", "mem_state"]
     _serverDb = None
     _inventory_log = None
     _collectors_ip = None
@@ -317,7 +317,7 @@ class ServerMgrInventory():
         filestr = sshclient.exec_command(cmd)
         if not filestr:
             return None
-        if cmd == "lsblk" or cmd == "facter" or "statistics" in cmd:
+        if cmd == "lsblk" or cmd == "facter" or "statistics" in cmd or cmd == "vmstat":
             return filestr
         else:
             fileoutput = cStringIO.StringIO(filestr)
@@ -387,6 +387,7 @@ class ServerMgrInventory():
         server_inventory_info.mem_state.mem_speed_MHz = 0
         server_inventory_info.mem_state.num_of_dimms = 0
         server_inventory_info.mem_state.dimm_size_mb = 0
+        server_inventory_info.mem_state.total_mem__mb = 0
         server_inventory_info.mem_state.swap_size_mb = 0.0
         dmi_cmd = 'which dmidecode'
         if self.get_field_value(sshclient, ip, dmi_cmd):
@@ -395,17 +396,21 @@ class ServerMgrInventory():
             dimm_cmd = 'dmidecode -t memory | grep "Size" | head -n1'
             num_cmd = 'dmidecode -t memory | grep "Size" | wc -l'
             swap_cmd = 'facter | egrep -w swapsize_mb'
+            total_mem_cmd = 'vmstat -s | grep "total memory"'
             server_inventory_info.mem_state.mem_type = self.get_field_value(sshclient, ip, type_cmd)
             mem_speed = self.get_field_value(sshclient, ip, mem_cmd)
             unit = mem_speed.split(" ")[1]
             if unit == "MHz":
                 server_inventory_info.mem_state.mem_speed_MHz = int(mem_speed.split(" ")[0])
             dimm_size = self.get_field_value(sshclient, ip, dimm_cmd)
+            unit = dimm_size.split(" ")[1]
             if unit == "MB":
                 server_inventory_info.mem_state.dimm_size_mb = int(dimm_size.split(" ")[0])
             server_inventory_info.mem_state.num_of_dimms = int(self.get_field_value(sshclient, ip, num_cmd))
             swap_size = self.get_field_value(sshclient, ip, swap_cmd)
             server_inventory_info.mem_state.swap_size_mb = float(swap_size.split(" ")[0])
+            total_mem = self.get_field_value(sshclient, ip, total_mem_cmd)
+            server_inventory_info.mem_state.total_mem_mb = int(int(total_mem.lstrip().split(" ")[0])/1024)
             self.log(self.INFO, "Got the Memory info for IP: %s" % ip)
         else:
             self.log(self.INFO, "Couldn't get the Memory info for IP: %s" % ip)
@@ -419,6 +424,10 @@ class ServerMgrInventory():
         inventory_info_obj = ServerInventoryInfo()
         inventory_info_obj.name = str(hostname)
         inventory_info_obj.deleted = True
+        inventory_info_obj.fru_infos = None
+        inventory_info_obj.interface_infos = None
+        inventory_info_obj.cpu_info_state = None
+        inventory_info_obj.eth_controller_state = None
         self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
 
     def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, option="key"):
@@ -458,54 +467,12 @@ class ServerMgrInventory():
 
     def filter_inventory_results(self, xml_dict, type_list):
         return_dict = {}
-        server_inv_info_fields = dict(xml_dict["data"]["ServerInventoryInfo"])
-        for field in server_inv_info_fields:
-            if field == "mem_state" and (field in type_list or "all" in type_list):
-                server_mem_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["memory_info"]
-                mem_info_dict = dict()
-                for mem_field in server_mem_info_dict:
-                    mem_info_dict[mem_field] = self.convert_type(server_mem_info_dict[mem_field])
-                return_dict[field] = mem_info_dict
-            elif field == "interface_infos" and (field in type_list or "all" in type_list):
-                server_interface_list = \
-                    list(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["interface_info"])
-                interface_dict_list = list()
-                for interface in server_interface_list:
-                    # interface = dict(interface)
-                    server_interface_info_dict = dict()
-                    for intf_field in interface:
-                        server_interface_info_dict[intf_field] = self.convert_type(interface[intf_field])
-                    interface_dict_list.append(server_interface_info_dict)
-                return_dict[field] = interface_dict_list
-            elif field == "fru_infos" and (field in type_list or "all" in type_list):
-                server_fru_list = []
-                if isinstance(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"], list):
-                    server_fru_list = list(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"])
-                elif isinstance(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"], dict):
-                    server_fru_list.append(xml_dict["data"]["ServerInventoryInfo"][field]["list"]["fru_info"])
-                fru_dict_list = list()
-                for fru in server_fru_list:
-                    # fru = dict(fru)
-                    server_fru_info_dict = dict()
-                    for fru_field in fru:
-                        server_fru_info_dict[fru_field] = self.convert_type(fru[fru_field])
-                    fru_dict_list.append(server_fru_info_dict)
-                return_dict[field] = fru_dict_list
-            elif field == "cpu_info_state" and (field in type_list or "all" in type_list):
-                server_cpu_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["cpu_info"]
-                cpu_info_dict = dict()
-                for cpu_field in server_cpu_info_dict:
-                    cpu_info_dict[cpu_field] = self.convert_type(server_cpu_info_dict[cpu_field])
-                return_dict[field] = cpu_info_dict
-            elif field == "eth_controller_state" and (field in type_list or "all" in type_list):
-                server_eth_info_dict = xml_dict["data"]["ServerInventoryInfo"][field]["ethernet_controller"]
-                eth_info_dict = dict()
-                for eth_field in server_eth_info_dict:
-                    eth_info_dict[eth_field] = self.convert_type(server_eth_info_dict[eth_field])
-                return_dict[field] = eth_info_dict
-            elif "all" in type_list:
-                return_dict[field] = \
-                    self.convert_type(server_inv_info_fields[field])
+        if "all" in type_list:
+            return_dict = dict(xml_dict)
+        else:
+            selected_fields = set(xml_dict.keys()).intersection(type_list)
+            for selected_field in selected_fields:
+                return_dict[selected_field] = xml_dict[selected_field]
         return return_dict
 
     @staticmethod
@@ -520,9 +487,10 @@ class ServerMgrInventory():
         server_cluster_list = list()
         server_tag_dict_list = list()
         self.log(self.DEBUG, "get_inventory_info")
+        uve_name = "ServerInventoryInfo"
         try:
             entity = bottle.request
-            ret_data = self._base_obj.validate_rest_api_args(entity, self.rev_tags_dict, self.types_list)
+            ret_data = self._base_obj.validate_rest_api_args(entity, self.rev_tags_dict)
             if ret_data["status"]:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
@@ -545,33 +513,32 @@ class ServerMgrInventory():
                     tags_dict[tag_name] = str(server[self.rev_tags_dict[tag_name]])
                 server_tag_dict_list.append(dict(tags_dict))
             self.log(self.DEBUG, "Getting inventory info of following servers: " + str(server_hostname_list))
-            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=ServerInventoryInfo" % \
-                  (str(self.smgr_ip), self.introspect_port)
+            url = self._base_obj.get_sandesh_url(self.smgr_ip, self.introspect_port, uve_name)
             headers = {'content-type': 'application/json'}
             resp = requests.get(url, timeout=5, headers=headers)
             xml_data = resp.text
             data = xmltodict.parse(str(xml_data))
             json_obj = json.dumps(data, sort_keys=True, indent=4)
-            data_dict = dict(json.loads(json_obj))
+            data_dict = dict(json.loads(json_obj)["__" + str(uve_name) + "Uve_list"])
             if "msg" in data_dict or "type_msg" in data_dict:
                 return data_dict
-            data_list = list(data_dict["__ServerInventoryInfoUve_list"]["ServerInventoryInfoUve"])
             pruned_data_dict = dict()
-            if data_dict and data_list:
-                for server in data_list:
+            parsed_data_list = self._base_obj.parse_sandesh_xml(data_dict, uve_name)
+            if data_dict and parsed_data_list:
+                for server in parsed_data_list:
                     server = dict(server)
-                    server_hostname = server["data"]["ServerInventoryInfo"]["name"]["#text"]
+                    server_hostname = server["data"]["name"]
                     if server_hostname in server_hostname_list:
-                        pruned_data_dict[str(server_hostname)] = server
+                        pruned_data_dict[str(server_hostname)] = server["data"]
                 for server_hostname, server_cluster, server_tag_dict in \
                         zip(server_hostname_list, server_cluster_list, server_tag_dict_list):
                     return_dict = dict()
                     return_dict["name"] = str(server_hostname)
                     return_dict["cluster_id"] = str(server_cluster)
                     return_dict["tag"] = dict(server_tag_dict)
-                    return_dict["ServerInventoryInfo"] = dict()
+                    return_dict[str(uve_name)] = dict()
                     if server_hostname in pruned_data_dict:
-                        return_dict["ServerInventoryInfo"] = \
+                        return_dict[str(uve_name)] = \
                             self.filter_inventory_results(pruned_data_dict[str(server_hostname)], ret_data["type"])
                     list_return_dict.append(return_dict)
             else:
@@ -592,7 +559,7 @@ class ServerMgrInventory():
         self.log(self.DEBUG, "run_inventory")
         try:
             entity = bottle.request.json
-            ret_data = self._base_obj.validate_rest_api_args(entity, self.rev_tags_dict, self.types_list)
+            ret_data = self._base_obj.validate_rest_api_args(entity, self.rev_tags_dict)
             if ret_data["status"]:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]

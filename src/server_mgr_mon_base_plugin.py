@@ -21,20 +21,22 @@ import logging
 import logging.config
 import logging.handlers
 import inspect
+import threading
 import cStringIO
 import re
 import socket
 import pdb
 import re
 import ast
-import gevent
 from gevent import monkey
-monkey.patch_all()
+monkey.patch_all(thread=not 'unittest' in sys.modules)
+from threading import Thread
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_ssh_client import ServerMgrSSHClient
 import json
 import requests
+import gevent
 import math
 import paramiko
 from pysandesh.sandesh_base import *
@@ -57,7 +59,6 @@ _DEF_INTROSPECT_PORT = 8107
 class ServerMgrMonBasePlugin():
     val = 1
     freq = 300
-    _dev_env_monitoring_obj = None
     _config_set = False
     _serverDb = None
     _monitoring_log = None
@@ -88,6 +89,7 @@ class ServerMgrMonBasePlugin():
         self.inventory_config_set = False
         self.server_monitoring_obj = None
         self.server_inventory_obj = None
+        self.monitoring_gevent_thread_obj = None
 
     def set_serverdb(self, server_db):
         self._serverDb = server_db
@@ -141,7 +143,7 @@ class ServerMgrMonBasePlugin():
             parser.set_defaults(**self.InventoryCfg)
         return parser.parse_args(remaining_argv)
 
-    def parse_monitoring_args(self, args_str, args, sm_args, _rev_tags_dict):
+    def parse_monitoring_args(self, args_str, args, sm_args, _rev_tags_dict, base_obj):
         config = ConfigParser.SafeConfigParser()
         config.read([args.config_file])
         try:
@@ -172,16 +174,17 @@ class ServerMgrMonBasePlugin():
                 else:
                     self._smgr_log.log(self._smgr_log.ERROR,
                                        "Analytics IP and Monitoring API misconfigured, monitoring aborted")
-                    self.server_monitoring_obj = None
+                    self.server_monitoring_obj = base_obj
             except ImportError as ie:
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    "Configured modules are missing. Server Manager will quit now.")
                 self._smgr_log.log(self._smgr_log.ERROR, "Error: " + str(ie))
                 raise ImportError
         else:
-            self.server_monitoring_obj = None
+            self.server_monitoring_obj = base_obj
+        return self.server_monitoring_obj
 
-    def parse_inventory_args(self, args_str, args, sm_args, _rev_tags_dict):
+    def parse_inventory_args(self, args_str, args, sm_args, _rev_tags_dict, base_obj):
         config = ConfigParser.SafeConfigParser()
         config.read([args.config_file])
         try:
@@ -211,15 +214,16 @@ class ServerMgrMonBasePlugin():
                 else:
                     self._smgr_log.log(self._smgr_log.ERROR,
                                        "Iventory API misconfigured, inventory aborted")
-                    self.server_inventory_obj = None
+                    self.server_inventory_obj = base_obj
             except ImportError:
                 self._smgr_log.log(self._smgr_log.ERROR,
                                    "Configured modules are missing. Server Manager will quit now.")
                 raise ImportError
         else:
-            self.server_inventory_obj = None
+            self.server_inventory_obj = base_obj
+        return self.server_inventory_obj
 
-    def validate_rest_api_args(self, request, rev_tags_dict, types_list, sub_types_list=None):
+    def validate_rest_api_args(self, request, rev_tags_dict):
         ret_data = {"msg": None, "type_msg": None}
         match_keys = list(['id', 'cluster_id', 'tag', 'where'])
         print_match_keys = list(['server_id', 'cluster_id', 'tag', 'where'])
@@ -230,44 +234,21 @@ class ServerMgrMonBasePlugin():
                               keep_blank_values=True)
         if len(query_args) == 0:
             ret_data["type"] = ["all"]
-            ret_data["sub_type"] = "all"
             ret_data["status"] = True
             ret_data["match_key"] = None
             ret_data["match_value"] = None
         elif len(query_args) >= 1:
             select_value_list = None
-            sub_type_value = None
             if "select" in query_args:
                 select_value_list = query_args.get("select", None)[0]
                 select_value_list = str(select_value_list).split(',')
                 self._smgr_log.log(self._smgr_log.DEBUG,
                                    "Select value list=" + str(select_value_list))
                 query_args.pop("select")
-            if "type" in query_args:
-                sub_type_value = query_args.get("type", None)[0]
-                query_args.pop("type")
-            if select_value_list:
-                if set(select_value_list) < set(types_list):
-                    ret_data["type"] = select_value_list
-                    if sub_type_value:
-                        if sub_type_value in sub_types_list:
-                            ret_data["sub_type"] = sub_type_value
-                        else:
-                            ret_data["status"] = False
-                            ret_data["type_msg"] = "Selected sub type not available. " + \
-                                                   "Choose one of the following sub types " \
-                                                   "(if empty, all sub types sent): " + str(sub_types_list).strip('[]')
-                    else:
-                        ret_data["sub_type"] = "all"
-                else:
-                    ret_data["status"] = False
-                    ret_data["type_msg"] = "Selected type not available. " + \
-                                           "Choose one of the following types (if empty, all types sent): " + \
-                                           str(types_list).strip('[]')
-                    return ret_data
-            else:
+            if not select_value_list:
                 ret_data["type"] = ["all"]
-                ret_data["sub_type"] = "all"
+            else:
+                ret_data["type"] = select_value_list
             match_key = match_value = None
             if query_args:
                 match_key, match_value = query_args.popitem()
@@ -322,14 +303,34 @@ class ServerMgrMonBasePlugin():
                 inventory = True
 
                 if mon_config_set and inv_config_set:
+                    try:
+                        __import__('contrail_sm_monitoring.monitoring')
+                    except ImportError:
+                        mon_config_set = False
+                        pass
+                    try:
+                        __import__('inventory_daemon.server_inventory')
+                    except ImportError:
+                        inv_config_set = False
+                        pass
                     module = Module.INVENTORY_AGENT
                     port = HttpPortInventorymgr
                     module_list = ['inventory_daemon.server_inventory', 'contrail_sm_monitoring.monitoring']
                 elif inv_config_set:
+                    try:
+                        __import__('inventory_daemon.server_inventory')
+                    except ImportError:
+                        inv_config_set = False
+                        pass
                     module = Module.INVENTORY_AGENT
                     port = HttpPortInventorymgr
                     module_list = ['inventory_daemon.server_inventory']
                 elif mon_config_set:
+                    try:
+                        __import__('contrail_sm_monitoring.monitoring')
+                    except ImportError:
+                        mon_config_set = False
+                        pass
                     module = Module.IPMI_STATS_MGR
                     port = HttpPortIpmiStatsmgr
                     module_list = ['contrail_sm_monitoring.monitoring']
@@ -348,6 +349,8 @@ class ServerMgrMonBasePlugin():
                         port,
                         module_list)
                     sandesh_global.set_logging_params(level=sm_args.sandesh_log_level)
+                else:
+                    self._smgr_log.log(self._smgr_log.INFO, "Sandesh wasn't initialized")
             else:
                 pass
         except Exception as e:
@@ -477,6 +480,117 @@ class ServerMgrMonBasePlugin():
             self._smgr_log.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
             return None
 
+    def get_list_name(self, lst):
+        sname = ""
+        for sattr in lst.keys():
+            if sattr[0] not in ['@']:
+                sname = sattr
+        return sname
+
+    def parse_sandesh_xml(self, inp, uve_name):
+        try:
+            sname = ""
+            # pdb.set_trace()
+            if '@type' not in inp:
+                return None
+            if inp['@type'] == 'slist':
+                sname = str(uve_name) + "Uve"
+                ret = []
+                items = inp[sname]
+                if not isinstance(items, list):
+                    items = [items]
+                lst = []
+                for elem in items:
+                    if not isinstance(elem, dict):
+                        lst.append(elem)
+                    else:
+                        lst_elem = {}
+                        for k, v in elem.items():
+                            lst_elem[k] = self.parse_sandesh_xml(v, uve_name)
+                        lst.append(lst_elem)
+                # ret[sname] = lst
+                ret = lst
+                return ret
+            elif inp['@type'] == 'sandesh':
+                sname = "data"
+                ret = {}
+                for k, v in inp[sname].items():
+                    ret[k] = self.parse_sandesh_xml(v, uve_name)
+                return ret
+            elif inp['@type'] == 'struct':
+                sname = self.get_list_name(inp)
+                if (sname == ""):
+                    self._smgr_log.log("error", "Error parsing sandesh xml dict : " + str('Struct Parse Error'))
+                    return None
+                ret = {}
+                for k, v in inp[sname].items():
+                    ret[k] = self.parse_sandesh_xml(v, uve_name)
+                return ret
+            elif (inp['@type'] == 'list'):
+                sname = self.get_list_name(inp['list'])
+                ret = []
+                if (sname == ""):
+                    return ret
+                items = inp['list'][sname]
+                if not isinstance(items, list):
+                    items = [items]
+                lst = []
+                for elem in items:
+                    if not isinstance(elem, dict):
+                        lst.append(elem)
+                    else:
+                        lst_elem = {}
+                        for k, v in elem.items():
+                            lst_elem[k] = self.parse_sandesh_xml(v, uve_name)
+                        lst.append(lst_elem)
+                # ret[sname] = lst
+                ret = lst
+                return ret
+            else:
+                if '#text' not in inp:
+                    return None
+                if inp['@type'] in ['i16', 'i32', 'i64', 'byte',
+                                    'u64', 'u32', 'u16']:
+                    return int(inp['#text'])
+                elif inp['@type'] in ['float', 'double']:
+                    return float(inp['#text'])
+                elif inp['@type'] in ['bool']:
+                    if inp['#text'] in ["false"]:
+                        return False
+                    elif inp['#text'] in ["true"]:
+                        return True
+                    else:
+                        return inp['#text']
+                else:
+                    return inp['#text']
+        except Exception as e:
+            self._smgr_log.log("error", "Error parsing sandesh xml dict : " + str(e))
+            return None
+
+    def get_sandesh_url(self, ip, introspect_port, uve_name):
+        url = "http://%s:%s/Snh_SandeshUVECacheReq?x=%s" % \
+              (str(ip), str(introspect_port), uve_name)
+        return url
+
+    def initialize_features(self, sm_args, serverdb):
+        self.sandesh_init(sm_args, self.monitoring_config_set, self.inventory_config_set)
+        self.set_serverdb(serverdb)
+        if self.monitoring_config_set:
+            self.server_monitoring_obj.set_serverdb(serverdb)
+            self.server_monitoring_obj.set_ipmi_defaults(sm_args.ipmi_username, sm_args.ipmi_password)
+            self.monitoring_gevent_thread_obj = gevent.spawn(self.server_monitoring_obj.run)
+        else:
+            self._smgr_log.log(self._smgr_log.ERROR, "Monitoring configuration not set. "
+                                                     "You will be unable to get Monitor information of servers.")
+
+        if self.inventory_config_set:
+            self.server_inventory_obj.set_serverdb(serverdb)
+            self.server_inventory_obj.set_ipmi_defaults(sm_args.ipmi_username, sm_args.ipmi_password)
+            self.server_inventory_obj.add_inventory()
+        else:
+            self._smgr_log.log(self._smgr_log.ERROR, "Inventory configuration not set. "
+                                                     "You will be unable to get Inventory information from servers.")
+
     @staticmethod
     def get_mon_conf_details(self):
         return "Monitoring Parameters haven't been configured.\n" \
@@ -504,12 +618,17 @@ class ServerMgrMonBasePlugin():
 
     @staticmethod
     def handle_inventory_trigger(self):
+        self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
         return "Inventory Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     def add_inventory(self):
         self._smgr_log.log(self._smgr_log.ERROR, "Inventory Parameters haven't been configured.\n" +
                                                  "Reset the configuration correctly to add inventory.\n")
+
+    def cleanup(self, obj=None):
+        self._smgr_log.log(self._smgr_log.INFO, "Monitoring Parameters haven't been configured.\n" +
+                           "No cleanup needed.\n")
 
     # A place-holder run function that the Server Monitor defaults to in the absence of a configured
     # monitoring API layer to use.
