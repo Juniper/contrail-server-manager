@@ -162,9 +162,6 @@ class ServerMgrIPMIMonitoring():
             payload = json.dumps(payload)
             headers = {'content-type': 'application/json'}
             resp = requests.post(url, headers=headers, timeout=5, data=payload)
-            self.log("info", "URL for Run Inv: " + str(url))
-            self.log("info", "Payload for Run Inv: " + str(payload))
-            self.log("info", "Got immediate reply: " + str(resp.text))
             return resp.text
         except Exception as e:
             self.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
@@ -393,8 +390,9 @@ class ServerMgrIPMIMonitoring():
                         # self.log("info", "Sending UVE: " + str(sellog))
                         sellog.send()
                     else:
-                        self.log("info", "Log already sent for host " +
-                                 str(hostname) + " and event " + str(event_id))
+                        pass
+                        #self.log("info", "Log already sent for host " +
+                        #        str(hostname) + " and event " + str(event_id))
             return sel_event_log_list
         except Exception as e:
             self.log("error", "Error getting SEL Logs for " + str(hostname) + " : " + str(e.message))
@@ -413,7 +411,7 @@ class ServerMgrIPMIMonitoring():
             self.call_send(ipmi_stats_trace)
 
     def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, ipmi_state,
-                           sel_event_log_list, option="key"):
+                           sel_event_log_list, option="password"):
         return_dict = dict()
         self.log("info", "Gevent Thread created for %s" % ip)
         try:
@@ -569,11 +567,6 @@ class ServerMgrIPMIMonitoring():
             del server_ip_list[:]
             del ipmi_username_list[:]
             del ipmi_password_list[:]
-            for server in servers:
-                if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server:
-                    self.base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
-                elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
-                    self.base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
             self.base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list,
                                                      ipmi_username_list, ipmi_password_list)
             new_server_set = set(hostname_list)

@@ -82,6 +82,7 @@ class ServerMgrInventory():
     def set_ipmi_defaults(self, ipmi_username, ipmi_password):
         self._default_ipmi_username = ipmi_username
         self._default_ipmi_password = ipmi_password
+        self._base_obj.set_ipmi_defaults(ipmi_username, ipmi_password)
 
     def log(self, level, msg):
         frame, filename, line_number, function_name, lines, index = inspect.stack()[1]
@@ -418,7 +419,7 @@ class ServerMgrInventory():
 
     def add_inventory(self):
         servers = self._serverDb.get_server(None, detail=True)
-        self.handle_inventory_trigger("add", servers)
+        gevent.spawn(self.handle_inventory_trigger, "add", servers)
 
     def delete_inventory_info(self, hostname):
         inventory_info_obj = ServerInventoryInfo()
@@ -430,7 +431,7 @@ class ServerMgrInventory():
         inventory_info_obj.eth_controller_state = None
         self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
 
-    def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, option="key"):
+    def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, option="password"):
         if action == "add":
             try:
                 sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
@@ -590,12 +591,17 @@ class ServerMgrInventory():
         ipmi_username_list = list()
         ipmi_password_list = list()
         if action == "add":
+            gevent_ssh_threads = []
+            self.log(self.DEBUG, "Started Creating SSH Keys in Inventory")
             for server in servers:
-                if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server:
+                if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server and server['id']:
                     self._base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
-                elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server:
+                    self.log(self.DEBUG, "Finished Key Copy/Creation for " + str(server['id']))
+                elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server and server['id']:
                     self._base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
-
+                    self.log(self.DEBUG, "Finished Key Copy/Creation for " + str(server['id']))
+            gevent.joinall(gevent_ssh_threads)
+        self.log(self.DEBUG, "Finished Creating SSH Keys in Inventory")
         self._base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list, ipmi_username_list,
                                                   ipmi_password_list)
         gevent_threads = []
@@ -606,5 +612,6 @@ class ServerMgrInventory():
                 thread = gevent.spawn(self.gevent_runner_function,
                                       action, hostname, ip, ipmi, username, password)
                 gevent_threads.append(thread)
+        self.log(self.DEBUG, "Finished Running Inventory")
                 # gevent.joinall(gevent_threads)
 

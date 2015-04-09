@@ -380,12 +380,12 @@ class ServerMgrMonBasePlugin():
         source_file = ""
         try:
             # Save Public key on Target Server
+            source_file = "/opt/contrail/server_manager/" + str(server_id) + ".pub"
             with open("/opt/contrail/server_manager/" + str(server_id) + ".pub", 'w+') as content_file:
                 content_file.write("ssh-rsa " + str(ssh_key.get_base64()))
                 content_file.close()
             ssh = ServerMgrSSHClient(self._serverDb)
             ssh.connect(server_ip, option="password")
-            source_file = "/opt/contrail/server_manager/" + str(server_id) + ".pub"
             dest_file = "/root/.ssh/authorized_keys"
             ssh.exec_command("mkdir -p /root/.ssh/")
             ssh.exec_command("touch /root/.ssh/authorized_keys")
@@ -400,7 +400,7 @@ class ServerMgrMonBasePlugin():
             ssh.close()
             return ssh_key
         except Exception as e:
-            self._smgr_log.log(self._smgr_log.ERROR, "Error Creating/Copying Keys: " + e.message)
+            self._smgr_log.log(self._smgr_log.ERROR, "Error Creating/Copying Keys: " + str(server_id) + " : " + str(e))
             if os.path.exists(source_file):
                 os.remove(source_file)
             # Update Server table with ssh public and private keys
@@ -588,8 +588,18 @@ class ServerMgrMonBasePlugin():
             self.server_inventory_obj.set_ipmi_defaults(sm_args.ipmi_username, sm_args.ipmi_password)
             self.server_inventory_obj.add_inventory()
         else:
+            gevent.spawn(self.setup_keys, serverdb)
             self._smgr_log.log(self._smgr_log.ERROR, "Inventory configuration not set. "
                                                      "You will be unable to get Inventory information from servers.")
+
+    def setup_keys(self, server_db):
+        servers = self._serverDb.get_server(None, detail=True)
+        for server in servers:
+            if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server and server['id']:
+                self.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+            elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server and server['id']:
+                self.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+
 
     @staticmethod
     def get_mon_conf_details(self):

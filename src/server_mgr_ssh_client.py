@@ -30,7 +30,7 @@ class ServerMgrSSHClient():
         else:
             self._serverDb = db(DEF_SERVER_DB_LOCATION)
 
-    def connect(self, ip, option="key"):
+    def connect(self, ip, option="password"):
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -39,12 +39,12 @@ class ServerMgrSSHClient():
             server = self._serverDb.get_server(match_dict, detail=True)
             if len(server) == 1:
                 server = server[0]
-                if "ssh_private_key" in server and option == "key":
+                if "ssh_private_key" in server and option == "key" and server["ssh_private_key"]:
                     key = str(server["ssh_private_key"])
                     private_key = StringIO(key)
                     pkey = paramiko.RSAKey.from_private_key(private_key)
                     ssh.connect(ip, username='root', pkey=pkey, timeout=3)
-                elif "password" in server and option == "password":
+                elif "password" in server and option == "password" and server["password"]:
                     root_pwd = server["password"]
                     ssh.connect(ip, username='root', password=root_pwd, timeout=3)
             self._ssh_client = ssh
