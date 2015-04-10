@@ -59,6 +59,7 @@ from contrail_defaults import *
 from gevent import monkey
 monkey.patch_all()
 import gevent
+from gevent.queue import Queue
 
 bottle.BaseRequest.MEMFILE_MAX = 2 * 102400
 
@@ -81,6 +82,8 @@ _DEF_COLLECTORS_IP = ['127.0.0.1:8086']
 _DEF_INTROSPECT_PORT = 8107
 _DEF_SANDESH_LOG_LEVEL = 'SYS_INFO'
 _DEF_ROLE_SEQUENCE_DEF_FILE = 'role_sequence.json'
+_CONTRAIL_CENTOS_REPO = 'contrail-centos-repo'
+_CONTRAIL_REDHAT_REPO = 'contrail-redhat-repo'
 
 # Temporary variable added to disable use of new puppet framework. This should be removed/enabled
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
@@ -304,6 +307,12 @@ class VncServerManager():
                                                   self._args.cobbler_port,
                                                   self._args.cobbler_username,
                                                   self._args.cobbler_password)
+            # Copy contrail centos/redhat repo to cobber repos, so that target
+            # systems can install and run puppet agent from kickstart.
+            self._smgr_cobbler._init_create_repo(
+                _CONTRAIL_CENTOS_REPO, self._args.server_manager_base_dir)
+            self._smgr_cobbler._init_create_repo(
+                _CONTRAIL_REDHAT_REPO, self._args.server_manager_base_dir)
         except:
             print "Error connecting to cobbler"
             exit()
@@ -316,6 +325,10 @@ class VncServerManager():
         except:
             self._smgr_log.log(self._smgr_log.ERROR, "Error creating instance of puppet object")
             exit()
+
+        # Start gevent thread for reimage task.
+        self._reimage_queue = Queue()
+        gevent.spawn(self._reimage_server_cobbler) 
 
         try:
             # needed for testing...
@@ -2495,8 +2508,6 @@ class VncServerManager():
                     reimage_parameters['config_file'] = \
                                 "http://%s/contrail/config_file/%s.sh" % \
                                 (self._args.listen_ip_addr, server_id)
-#                self._do_reimage_server(
-#                    image, package_image_id, reimage_parameters)
 
                 _mandatory_reimage_params = {"server_password": "password",
                             "server_gateway": "gateway","server_domain":"domain",
@@ -2531,10 +2542,10 @@ class VncServerManager():
                 reimage_status['server'].append(server_status)
             # end for server in servers
 
-            gevent.spawn(self._reimage_server_cobbler,
-                         reimage_server_list,
-                         reboot_server_list,
-                         do_reboot)
+            # Add the request to reimage_queue
+            reimage_item = (reimage_server_list, reboot_server_list, do_reboot)
+            self._reimage_queue.put_nowait(reimage_item)
+
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
@@ -2624,18 +2635,43 @@ class VncServerManager():
             f.close()
         return execute_script
 
-    def _reimage_server_cobbler(self, reimage_server_list,
-                                reboot_server_list, do_reboot):
-        self._smgr_log.log(self._smgr_log.DEBUG, "reimage_server_cobbler")
+    # This function runs on a separate gevent thread and processes requests for reimage.
+    def _reimage_server_cobbler(self):
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                           "started reimage_server_cobbler greenlet")
         server = {}
-        if reimage_server_list:
-            for server in reimage_server_list:
-                self._do_reimage_server(server['image'],
-                                        server['package_image_id'],
-                                        server['reimage_parameters'])
-        if do_reboot and reboot_server_list:
-            self._power_cycle_servers(reboot_server_list, True)
-        self._smgr_cobbler.sync()
+        # Since this runs on a separate greenlet, create its own cobbler
+        # connection, so that it does not interfere with main thread.
+        cobbler_server = ServerMgrCobbler(
+            self._args.server_manager_base_dir,
+            self._args.cobbler_ip_address,
+            self._args.cobbler_port,
+            self._args.cobbler_username,
+            self._args.cobbler_password)
+
+        while True:
+            try:
+                reimage_item = self._reimage_queue.get()
+                reimage_server_list = reimage_item[0]
+                reboot_server_list = reimage_item[1]
+                do_reboot = reimage_item[2]
+	        if reimage_server_list:
+		    for server in reimage_server_list:
+		        self._do_reimage_server(
+			    server['image'],
+			    server['package_image_id'],
+			    server['reimage_parameters'],
+			    cobbler_server)
+	        if do_reboot and reboot_server_list:
+		    status_msg = self._power_cycle_servers(
+		        reboot_server_list, cobbler_server, True)
+	        cobbler_server.sync()
+                gevent.sleep(0)
+            except Exception as e:
+                self._smgr_log.log(
+                    self._smgr_log.DEBUG,
+                    "reimage_server_cobbler failed")
+                pass
 
     # API call to power-cycle the server (IMPI Interface)
     def restart_server(self):
@@ -2701,7 +2737,7 @@ class VncServerManager():
             # end for server in servers
 
             status_msg = self._power_cycle_servers(
-                reboot_server_list, do_net_boot)
+                reboot_server_list, self._smgr_cobbler, do_net_boot)
             self._smgr_cobbler.sync()
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -3724,7 +3760,8 @@ class VncServerManager():
     # connectivity is available to the server, that is used to login and reboot
     # the server.
     def _power_cycle_servers(
-        self, reboot_server_list, net_boot=False):
+        self, reboot_server_list,
+        cobbler_server, net_boot=False):
         self._smgr_log.log(self._smgr_log.DEBUG,
                                 "_power_cycle_servers")
         success_list = []
@@ -3739,7 +3776,7 @@ class VncServerManager():
                 if net_boot:
                     self._smgr_log.log(self._smgr_log.DEBUG,
                                         "Enable netboot")
-                    self._smgr_cobbler.enable_system_netboot(
+                    cobbler_server.enable_system_netboot(
                         server['id'])
                     cmd = "puppet cert clean %s.%s" % (
                         server['id'], server['domain'])
@@ -3803,10 +3840,9 @@ class VncServerManager():
                                 (server['id']))
                 failed_list.append(server['id'])
         #end for
-        #self._smgr_cobbler.sync()
         if power_reboot_list:
             try:
-                self._smgr_cobbler.reboot_system(
+                cobbler_server.reboot_system(
                     power_reboot_list)
                 status_msg = (
                     "OK : IPMI reboot operation"
@@ -3837,12 +3873,13 @@ class VncServerManager():
     # Internal private call to upgrade server. This is called by REST
     # API update_server and upgrade_cluster
     def _do_reimage_server(self, base_image,
-                           package_image_id, reimage_parameters):
+                           package_image_id, reimage_parameters,
+                           cobbler_server):
         try:
             # Profile name is based on image name.
             profile_name = base_image['id']
             # Setup system information in cobbler
-            self._smgr_cobbler.create_system(
+            cobbler_server.create_system(
                 reimage_parameters['server_id'], profile_name, package_image_id,
                 reimage_parameters['server_mac'], reimage_parameters['server_ip'],
                 reimage_parameters['server_mask'], reimage_parameters['server_gateway'],
