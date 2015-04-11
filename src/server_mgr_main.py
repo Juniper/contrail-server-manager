@@ -80,6 +80,7 @@ _DEF_PUPPET_DIR = '/etc/puppet/'
 _DEF_COLLECTORS_IP = ['127.0.0.1:8086']
 _DEF_INTROSPECT_PORT = 8107
 _DEF_SANDESH_LOG_LEVEL = 'SYS_INFO'
+_DEF_ROLE_SEQUENCE_DEF_FILE = 'role_sequence.json'
 
 # Temporary variable added to disable use of new puppet framework. This should be removed/enabled
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
@@ -135,6 +136,17 @@ class VncServerManager():
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
                       "contrail-storage-ubuntu-package"]
     _image_category_list = ["image", "package"]
+    _control_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _role_sequence = [(['database'], 's'), (['openstack'], 's'), 
+                      (['config'], 's'), (['control'], 's'), 
+                      (['collector'], 's'), (['webui'], 's')]
+    #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 'p')]
+    #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 's')]
+    _compute_roles = ['compute', 'storage-compute', 'storage-master']
+    _roles = _control_roles + _compute_roles
+    _control_step_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _compute_step_roles = ['compute', 'storage-compute', 'storage-master']
+    _step_roles = _control_step_roles + _compute_step_roles
     _tags_dict = {}
     _rev_tags_dict = {}
     _monitoring_base_plugin_obj = None
@@ -312,6 +324,7 @@ class VncServerManager():
             status_thread_config['listen_port'] = '9002'
             status_thread_config['base_obj'] = self._monitoring_base_plugin_obj
             status_thread_config['smgr_puppet'] = self._smgr_puppet
+            status_thread_config['smgr_main'] = self
             status_thread = ServerMgrStatusThread(
                             None, "Status-Thread", status_thread_config)
             # Make the thread as daemon
@@ -762,6 +775,7 @@ class VncServerManager():
                     self.log_and_raise_exception(msg)
                 cluster_id = server['cluster_id']
             # end for
+            ret_data["cluster_id"] = cluster_id
             #Modify the roles
             for key, value in prov_servers.iteritems():
                 new_server = {
@@ -798,6 +812,7 @@ class VncServerManager():
             self._validate_roles(cluster_id)
             ret_data["status"] = 0
             ret_data["servers"] = servers
+            ret_data["cluster_id"] = cluster_id
             ret_data["package_image_id"] = package_image_id
         ret_data['server_packages'] = \
             self.get_server_packages(servers, package_image_id)
@@ -1340,6 +1355,9 @@ class VncServerManager():
                     cur_cluster["parameters"].update({"uuid": str_uuid})
                     cur_cluster["parameters"].update({"storage_fsid": storage_fsid})
                     cur_cluster["parameters"].update({"storage_virsh_uuid": storage_virsh_uuid})
+                    cur_cluster["provision_role_sequence"] = {}
+                    cur_cluster["provision_role_sequence"]["steps"] = []
+                    cur_cluster["provision_role_sequence"]["completed"] = []
                     service_token = cur_cluster["parameters"].get(
                         "service_token", "")
                     if not service_token:
@@ -2859,6 +2877,270 @@ class VncServerManager():
                                                                             None)
             abort(404, resp_msg)
 
+
+    def update_cluster_provision(self, cluster_id, role_sequence):
+        if not cluster_id or not role_sequence:
+            return
+        cluster_data = {"id": cluster_id, "provision_role_sequence": role_sequence}
+        self._serverDb.modify_cluster(cluster_data)
+        role_steps_list = []
+        sequence_steps = role_sequence.get('steps', [])
+        if sequence_steps:
+            role_steps_list = sequence_steps[0]
+        for step_tuple in role_steps_list:
+            server_id = step_tuple[0]
+            hiera_file = self.get_server_control_hiera_filename(server_id)
+            self._smgr_puppet.modify_server_hiera_data(server_id, hiera_file, [step_tuple])
+
+    def get_server_control_hiera_filename(self, server_id, cluster=None):
+        hiera_filename = ''
+        servers = self._serverDb.get_server({'id': server_id}, detail=True)
+        if not servers:
+            return hiera_filename
+        server = servers[0]
+        server_domain = self.get_server_domain(server, cluster)
+        hieradata_environment = self.get_hieradata_environment(server)
+        if not server_domain or not hieradata_environment:
+            return hiera_filename
+        hiera_filename = hieradata_environment + \
+            server['id'] + "." + \
+            server_domain + "-contrail.yaml"
+        return hiera_filename
+
+    def get_server_domain(self, server, cluster=None):
+        domain = ''
+        domain = server['domain']
+        if domain:
+            return domain
+        if not cluster:
+            cluster_id = server['cluster_id']
+            if not cluster_id:
+                return domain
+            cluster = self._status_serverDb.get_cluster(
+                {"id" : cluster_id}, detail=True)
+            domain = cluster['domain']
+        return domain
+    # end get_server_domain
+
+    def update_provision_role_sequence(self, server_id, status):
+        if not server_id or not status or '_' not in status:
+            return False
+        if status.split('_')[-1] != 'completed':
+            return False
+        state = status.replace('_completed', '')
+
+        if not state or (state not in self._roles and state != 'post_provision'):
+            return False
+        servers = self._serverDb.get_server(
+            {"id" : server_id}, detail=True)
+        if not servers:
+            return False
+        server = servers[0]
+        cluster_id = server['cluster_id']
+        clusters = self._serverDb.get_cluster(
+            {"id" : cluster_id}, detail=True)
+        if not clusters:
+            return False
+        cluster = clusters[0]
+        sequence_provisioning = eval(cluster['parameters']).get(
+            "sequence_provisioning", False)
+        if not sequence_provisioning:
+            return False
+        
+        provision_role_sequence = cluster.get('provision_role_sequence', '{}')
+        if not provision_role_sequence:
+            return False
+        provision_role_sequence = eval(provision_role_sequence)
+        if not provision_role_sequence:
+            return False
+        steps = provision_role_sequence.get('steps', [])
+        step_tuple = (server_id, state)
+        role_steps_list = []
+        if steps:
+            role_steps_list = steps[0]
+        else:
+            return False
+        if step_tuple not in role_steps_list:
+                return False
+
+        role_steps_list.remove(step_tuple)
+        time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
+        provision_role_sequence['completed'].append(step_tuple + (time_str,))
+        hiera_file = self.get_server_control_hiera_filename(step_tuple[0])
+        self._smgr_puppet.modify_server_hiera_data(step_tuple[0],
+                                                   hiera_file, [step_tuple],
+                                                   False)
+        if role_steps_list:
+            provision_role_sequence['steps'][0] = role_steps_list
+        else:
+            role_steps_list = []
+            provision_role_sequence['steps'].pop(0)
+            if provision_role_sequence['steps']:
+                role_steps_list = provision_role_sequence['steps'][0]
+            for new_step_tuple in role_steps_list:
+                hiera_file = self.get_server_control_hiera_filename(new_step_tuple[0])
+                if not hiera_file:
+                    return False
+                self._smgr_puppet.modify_server_hiera_data(new_step_tuple[0], hiera_file, [new_step_tuple])
+        cluster_data = {'id': cluster_id, 'provision_role_sequence': provision_role_sequence}
+        self._serverDb.modify_cluster(cluster_data)
+        return True
+    # end update_provision_role_sequence
+
+    def get_hieradata_environment(self, server):
+        hiera_env = ''
+        package_image_id = server['provisioned_id']
+        if not package_image_id:
+            return hiera_env
+        environment = ''
+        package_image_id, package = self.get_package_image(package_image_id)
+        puppet_manifest_version = \
+            eval(package['parameters'])['puppet_manifest_version']
+        environment = puppet_manifest_version.replace('-','_')
+        if not environment:
+            return hiera_env
+        hiera_env = self._smgr_puppet.puppet_directory + "environments/" + \
+            environment + "/hieradata/"
+        return hiera_env
+    # end get_hieradata_environment
+
+    def validate_role_sequence(self, role_sequence):
+        return True
+
+    def get_role_sequence(self, cluster_id):
+        if not cluster_id:
+            return []
+        try:
+            role_sequence_file = open(_DEF_ROLE_SEQUENCE_DEF_FILE, 'r')
+            json_data = role_sequence_file.read()
+            role_sequence_file.close()
+        except IOError:
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               "Error reading role sequence config file %s" \
+                               % (_DEF_ROLE_SEQUENCE_DEF_FILE))
+            role_sequence = self._role_sequence
+            return role_sequence
+        try:
+            role_sequence_data = json.loads(json_data)
+            cluster_role_sequence_list = role_sequence_data.get('cluster', [])
+            cluster_role_sequence = []
+            for cluster in cluster_role_sequence_list:
+                if cluster_id == cluster.get('id', ''):
+                    cluster_role_sequence = cluster['role_sequence']
+                    break
+            if not cluster_role_sequence:
+                default_sequence = role_sequence_data.get('default', {})
+                cluster_role_sequence = default_sequence.get('role_sequence', [])
+            role_sequence = []
+            for role_set_list in cluster_role_sequence:
+                role_tuple = tuple(role_set_list)
+                role_sequence.append(role_tuple)
+            if not role_sequence:
+                role_sequence = self._role_sequence
+            else:
+                if not self.validate_role_sequence(role_sequence):
+                    role_sequence = self._role_sequence
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                               "Role sequence: %s" % str(role_sequence))           
+        except Exception as e:
+            print repr(e)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               "Role sequence file %s "
+                               "File should be in JSON format") \
+                               % (_DEF_ROLE_SEQUENCE_DEF_FILE)
+            role_sequence = self._role_sequence
+        return role_sequence
+
+    def prepare_provision_role_sequence(self, cluster, role_servers, puppet_manifest_version):
+        provision_role_sequence = {}
+        if not cluster or not role_servers:
+            return provision_role_sequence
+        if not self._smgr_puppet.is_new_provisioning(puppet_manifest_version):
+            return provision_role_sequence
+        if cluster['provision_role_sequence'] and eval(cluster['provision_role_sequence']):
+            self._smgr_log.log(self._smgr_log.WARN, 
+                               "provision_role_sequence already present:%s" %(cluster['provision_role_sequence']))
+        provision_role_sequence['steps'] = []
+        provision_role_sequence['completed'] = []
+        control_role_sequence = []
+        compute_role_sequence = []
+        server_compute_flag = {}
+        # Get the role sequence
+        role_sequence = self.get_role_sequence(cluster['id'])
+        cluster_servers = self._serverDb.get_server(
+            {"cluster_id" : cluster['id']})
+        for role_seq in role_sequence:
+            role_list = role_seq[0]
+            execution = role_seq[1]
+            if execution != 's' and execution != 'p':
+                execution = 's'
+            if execution == 'p':
+                role_steps_list = []
+            for server in cluster_servers:
+                if execution == 's':
+                    role_steps_list = []
+                for role in role_list:
+                    if role in self._compute_roles:
+                        continue
+                    for role_server in role_servers[role]:
+                        if server['id'] == role_server['id']:
+                            role_steps_tuple = (server['id'], role)
+                            role_steps_list.append(role_steps_tuple)
+                            server_compute_flag[server['id']] = False
+                            break
+                if role_steps_list and execution == 's':
+                    control_role_sequence.append(role_steps_list)
+            if role_steps_list and execution == 'p':
+                control_role_sequence.append(role_steps_list)
+
+        for role in self._compute_roles:
+            role_steps_list = []
+            for server in role_servers[role]:
+                role_steps_tuple = (server['id'], role)
+                role_steps_list.append(role_steps_tuple)
+                server_compute_flag[server['id']] = True
+            if role_steps_list:
+                compute_role_sequence.append(role_steps_list)
+        # Set provision_complete as last step for all the servers.
+        provision_complete_control_list = []
+        provision_complete_compute_list = []
+        compute_list = []
+        control_list = []
+        for server_id, compute_flag in server_compute_flag.iteritems():
+            role_steps_tuple = (server_id, "post_provision")
+            if compute_flag:
+                compute_list.append(role_steps_tuple)
+            else:
+                control_list.append(role_steps_tuple)
+        if control_list:
+            provision_complete_control_list.append(control_list)
+        if compute_list:
+            provision_complete_compute_list.append(compute_list)
+        # Create the full sequence of steps
+        provision_role_sequence['steps'] = control_role_sequence + \
+            provision_complete_control_list + \
+            compute_role_sequence + \
+            provision_complete_compute_list
+        return provision_role_sequence
+
+    #end prepare_provision_role_sequence
+
+    def get_role_servers(self, cluster_id):
+        role_servers = {}
+        if not cluster_id:
+            return role_servers
+        cluster_servers = self._serverDb.get_server(
+            {"cluster_id" : cluster_id},
+            detail="True")
+        # build roles dictionary for this cluster. Roles dictionary will be
+        # keyed by role-id and value would be list of servers configured
+        # with this role.
+        for role in self._roles:
+            role_servers[role] = self.role_get_servers(
+                cluster_servers, role)
+        return role_servers
+    #end get_role_servers
+
     # API call to provision server(s) as per roles/roles
     # defined for those server(s). This function creates the
     # puppet manifest file for the server and adds it to site
@@ -2883,6 +3165,22 @@ class VncServerManager():
                 self.log_and_raise_exception(msg)
 
             provision_status['server'] = []
+            cluster_id = ret_data['cluster_id']
+            puppet_manifest_version = \
+                server_packages[0]['puppet_manifest_version']
+            role_servers = self.get_role_servers(cluster_id)
+            cluster = self._serverDb.get_cluster(
+                {"id" : cluster_id},
+                detail=True)[0]
+            sequence_provisioning = eval(cluster['parameters']).get(
+                "sequence_provisioning", False)
+            if sequence_provisioning:
+                role_sequence = \
+                    self.prepare_provision_role_sequence(
+                        cluster,
+                        role_servers, 
+                        puppet_manifest_version)
+            role_servers = {}
             for server_pkg in server_packages:
                 server = server_pkg['server']
                 package_image_id = server_pkg['package_image_id']
@@ -2901,19 +3199,16 @@ class VncServerManager():
                 # keyed by role-id and value would be list of servers configured
                 # with this role.
                 if not role_servers:
-                    for role in ['database', 'openstack',
-                                 'config', 'control',
-                                 'collector', 'webui',
-                                 'compute', 'storage-compute', 'storage-master']:
+                    for role in self._roles:
                         role_servers[role] = self.role_get_servers(
                             cluster_servers, role)
                         role_ips[role] = [x["ip_address"] for x in role_servers[role]]
                         role_ids[role] = [x["id"] for x in role_servers[role]]
 
                 provision_params = {}
+                puppet_manifest_version = server_pkg['puppet_manifest_version']
                 provision_params['package_image_id'] = package_image_id
                 provision_params['package_type'] = package_type
-                puppet_manifest_version = server_pkg['puppet_manifest_version']
                 provision_params['puppet_manifest_version'] = puppet_manifest_version
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
                 provision_params['roles'] = role_ips
@@ -3208,6 +3503,8 @@ class VncServerManager():
                 server_status['package_id'] = package_image_id
                 provision_status['server'].append(server_status)
                 #end of for
+            if sequence_provisioning:
+                self.update_cluster_provision(cluster_id, role_sequence)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION,

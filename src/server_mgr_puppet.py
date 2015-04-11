@@ -17,6 +17,7 @@ import random
 import tempfile
 import re
 import openstack_hieradata
+import yaml
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
@@ -212,11 +213,11 @@ class ServerMgrPuppet:
     def _update_provision_complete(self, provision_params, require_param):
         # Get all the parameters needed to send to puppet manifest.
         data = '''    # Update the state of server that provision is complete
-    contrail_%s::contrail_common::report_status{provision_completed:
+    contrail_%s::contrail_common::report_status{post_provision_completed:
         state => "%s",
         require => %s
     }\n\n''' % (provision_params['puppet_manifest_version'],
-                "provision_completed" , require_param)
+                "post_provision_completed" , require_param)
         return data
     # end _update_provision_complete
 
@@ -1830,7 +1831,7 @@ $__contrail_quantum_servers__
 	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
             data += '    class { \'::contrail::profile::storage\' :  stage => \'storage\' }\n'
         # Add post role
-        data += '    class { \'::contrail::provision_complete\' : state => \'provision_completed\', stage => \'post\' }\n'
+        data += '    class { \'::contrail::provision_complete\' : state => \'post_provision_completed\', stage => \'post\' }\n'
 
         data += "}\n"
         with open(site_file, "a") as site_fh:
@@ -1924,6 +1925,8 @@ $__contrail_quantum_servers__
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
         cluster_params = eval(cluster['parameters'])
+        sequence_provisioning = cluster_params.get(
+            "sequence_provisioning", False)
         server_params = eval(server['parameters'])
         data = ''
         package_ids = [provision_params.get('package_image_id', "").encode('ascii')]
@@ -1960,9 +1963,15 @@ $__contrail_quantum_servers__
         role_ids = {}
         role_passwd = {}
         role_users = {}
+        # Set enable_provision_complete flag to false
+        if sequence_provisioning:
+            data += 'contrail::params::enable_post_provision: False\n'
         for role in ['database', 'config', 'openstack',
                      'control', 'collector',
                      'webui', 'compute']:
+            # Set all module enable flags to false
+            if sequence_provisioning:
+                data += 'contrail::params::enable_%s: False\n' %(role)
             role_ips[role] = [
                 self.get_control_ip(provision_params, x["ip_address"].encode('ascii')) \
                     for x in cluster_servers if role in set(eval(x['roles']))]
@@ -2150,6 +2159,37 @@ $__contrail_quantum_servers__
             cluster, cluster_servers)
     # end def build_hieradata_files
 
+    def modify_server_hiera_data(self, server_id, hiera_file, role_steps_list,
+                                 enable=True):
+        if not server_id or not hiera_file or not role_steps_list:
+            return
+        try:
+            hiera_data_fp = open(hiera_file, 'r')
+        except:
+            return
+        hiera_data_dict = yaml.load(hiera_data_fp)
+        hiera_data_fp.close()
+        if not hiera_data_dict:
+            return
+        for role_step_tuple in role_steps_list:
+            if server_id == role_step_tuple[0]:
+                key = 'contrail::params::enable_' + role_step_tuple[1]
+                if enable:
+                    hiera_data_dict[key] = True
+                else:
+                    hiera_data_dict[key] = False
+        data = ''
+        for key, value in hiera_data_dict.iteritems():
+            if isinstance(value, str):
+                data = data + str(key) + ': ' + '"%s"\n' %(str(value))
+            else:
+                data = data + str(key) + ': ' + str(value) + '\n'
+        if data:
+            hiera_data_fp = open(hiera_file, 'w')
+            hiera_data_fp.write(data)
+            hiera_data_fp.close()
+    # end modify_server_hiera_data
+
     def new_provision_server(
         self, provision_params, server, cluster, cluster_servers):
         server_fqdn = provision_params['server_id'] + "." + \
@@ -2249,6 +2289,14 @@ $__contrail_quantum_servers__
         return env_name
     # end update_node_map_file
 
+    def is_new_provisioning(self, puppet_manifest_version):
+        environment = puppet_manifest_version.replace('-','_')
+        if ((environment != "") and
+            (os.path.isdir(
+                    "/etc/puppet/environments/" + environment))):
+            return True
+        return False
+    # end is_new_provisioning
 
     def provision_server(
         self, provision_params, server, cluster, cluster_servers):
@@ -2259,13 +2307,11 @@ $__contrail_quantum_servers__
         puppet_manifest_version = provision_params.get(
             'puppet_manifest_version', "")
         environment = puppet_manifest_version.replace('-','_')
-        if ((environment != "") and
-            (os.path.isdir(
-                "/etc/puppet/environments/" + environment))):
+        if self.is_new_provisioning(puppet_manifest_version):
             self.new_provision_server(
                 provision_params, server, cluster, cluster_servers)
             return
-        # end if puppet_manifest_version
+
         server_fqdn = provision_params["server_id"] + "." + \
             provision_params["domain"]
         env_name = "contrail_" + environment

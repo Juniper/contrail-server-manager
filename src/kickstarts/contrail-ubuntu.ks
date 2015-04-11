@@ -152,7 +152,7 @@ echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
 echo "    listen = true" >> /etc/puppet/puppet.conf
 echo "    ordering = manifest" >> /etc/puppet/puppet.conf
 echo "[main]" >> /etc/puppet/puppet.conf
-echo "runinterval=60" >> /etc/puppet/puppet.conf
+echo "runinterval=10" >> /etc/puppet/puppet.conf
 
 cat >/tmp/puppet-auth.conf <<EOF
 # Allow puppet kick access
