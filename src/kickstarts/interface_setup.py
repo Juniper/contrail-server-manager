@@ -53,6 +53,7 @@ class BaseInterface(object):
         self.ip         = kwargs.get('ip', None)
         self.gw         = kwargs.get('gw', None)
         self.vlan       = kwargs.get('vlan', None)
+        self.dhcp       = kwargs.get('dhcp', None)
         self.bond_opts  = {'miimon': '100', 'mode': '802.3ad',
                            'xmit_hash_policy': 'layer3+4'}
         try:
@@ -233,9 +234,12 @@ class BaseInterface(object):
                'NM_CONTROLLED' : 'no',
                'HWADDR'        : mac}
         if not self.vlan:
-            cfg.update({'NETMASK'       : self.netmask,
-                        'IPADDR'        : self.ipaddr
-                       })
+            if self.dhcp:
+                cfg.update({'BOOTPROTO': 'dhcp'})
+            else:
+                cfg.update({'NETMASK'       : self.netmask,
+                            'IPADDR'        : self.ipaddr
+                            })
             if self.gw:
                 cfg['GATEWAY'] = self.gw
         else:
@@ -250,7 +254,7 @@ class BaseInterface(object):
 
     def post_conf(self):
         '''Execute commands after after interface configuration'''
-        self.restart_service()
+        pass
 
     def pre_conf(self):
         '''Execute commands before interface configuration'''
@@ -266,13 +270,13 @@ class BaseInterface(object):
             ip = IPNetwork(self.ip)
             self.ipaddr = str(ip.ip)
             self.netmask = str(ip.netmask)
-        else:
+        elif not self.dhcp:
             raise Exception("IP address/mask is not specified")
         if 'bond' in self.device.lower():
             self.create_bonding_interface()
         else:
             self.create_interface()
-        time.sleep(3)
+        #time.sleep(3)
         self.post_conf()
 
 class UbuntuInterface(BaseInterface):
@@ -325,8 +329,6 @@ class UbuntuInterface(BaseInterface):
         os.system('sudo cp -f %s %s'%(self.tempfile.name, filename))
 
     def biosdevname_mapping(self, name):
-        if not name.startswith('rename'):
-            return name
         biosdev_name = ''
         try:
             biosdev_name = os.popen('biosdevname -i %s'%(name)).read()
@@ -375,17 +377,20 @@ class UbuntuInterface(BaseInterface):
     def create_interface(self):
         '''Create interface config for normal interface for Ubuntu'''
         log.info('Creating Interface: %s' % self.device)
-        if not self.vlan:
+        if self.vlan:
+            cfg = ['auto %s' %self.device,
+                   'iface %s inet manual' %self.device,
+                   'down ip addr flush dev %s' %self.device]
+        elif self.dhcp:
+            cfg = ['auto %s' %self.device,
+                   'iface %s inet dhcp' %self.device]
+        else:
             cfg = ['auto %s' %self.device,
                    'iface %s inet static' %self.device,
                    'address %s' %self.ipaddr,
                    'netmask  %s' %self.netmask]
             if self.gw:
                 cfg.append('gateway %s' %self.gw)
-        else:
-            cfg = ['auto %s' %self.device,
-                   'iface %s inet manual' %self.device,
-                   'down ip addr flush dev %s' %self.device]
         self.write_network_script(cfg)
         if self.vlan:
             self.create_vlan_interface()
@@ -451,7 +456,6 @@ def parse_cli(args):
                         help='Name of Member interfaces or Mac addresses')
     parser.add_argument('--ip', 
                         action='store',
-                        required=True,
                         help='IP address of the new Interface')
     parser.add_argument('--gw', 
                         action='store',
@@ -464,6 +468,9 @@ def parse_cli(args):
     parser.add_argument('--vlan',
                         action='store',
                         help='vLAN ID')
+    parser.add_argument('--dhcp',
+                        action='store_true',
+                        help='DHCP')
     pargs = parser.parse_args(args)
     if len(args) == 0:
         parser.print_help()

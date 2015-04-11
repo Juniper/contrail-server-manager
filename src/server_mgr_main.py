@@ -2547,7 +2547,7 @@ class VncServerManager():
         for intf in interface_list:
             name = intf.get('name', '')
             if name and name in member_intfs:
-                mac_address = intf.get('mac_address', '')
+                mac_address = intf.get('mac_address', '').lower()
                 if mac_address:
                     new_member_list.append(mac_address)
                 else:
@@ -2572,8 +2572,6 @@ class VncServerManager():
                 ip_addr = intf.get('ip_address', None)
                 if ip_addr is None:
                     continue
-                if name.lower() == mgmt_intf.lower():
-                    continue
 
                 ip = IPNetwork(ip_addr)
                 d_gw = intf.get('default_gateway', None)
@@ -2594,7 +2592,7 @@ class VncServerManager():
                     execute_script = True
                 else:
                     if 'mac_address' in intf:
-                        name = intf['mac_address']
+                        name = intf['mac_address'].lower()
                     if dhcp:
                         device_str+= ("python interface_setup.py --device %s --dhcp\n") % \
                             (name)
