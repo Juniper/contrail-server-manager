@@ -1,0 +1,31 @@
+{
+    "default": {
+            "role_sequence": [[["database"], "s"], 
+	    		      [["openstack"], "s"], 
+                      	      [["config"], "s"], 
+			      [["control"], "s"], 
+                      	      [["collector"], "s"], 
+			      [["webui"], "s"],
+			      [["compute"], "p"]]
+    },
+    "cluster": [
+        {
+            "id": "scale2",
+            "role_sequence": [[["database"], "s"], 
+	    		      [["openstack"], "s"], 
+                      	      [["config"], "s"], 
+			      [["control"], "s"], 
+                      	      [["collector"], "s"], 
+			      [["webui"], "s"], 
+			      [["compute"], "p"]]
+
+        },
+        {
+            "id": "cluster2",
+            "role_sequence": [[["database","openstack", 
+	    		        "config", "control",
+				"collector", "webui", "compute"], "s"]] 
+        }
+    ]
+}
+

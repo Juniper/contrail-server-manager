@@ -133,6 +133,7 @@ class ServerMgrDb:
                 self._add_table_column(cursor, cluster_table, "base_image_id", "TEXT")
                 self._add_table_column(cursor, cluster_table, "package_image_id", "TEXT")
                 self._add_table_column(cursor, cluster_table, "provisioned_id", "TEXT")
+                self._add_table_column(cursor, cluster_table, "provision_role_sequence", "TEXT")
                 # Add columns for server_table
                 self._add_table_column(cursor, server_table, "reimaged_id", "TEXT")
                 self._add_table_column(cursor, server_table, "provisioned_id", "TEXT")
@@ -495,6 +496,11 @@ class ServerMgrDb:
             cluster_parameters = cluster_data.pop("parameters", None)
             if cluster_parameters is not None:
                 cluster_data['parameters'] = str(cluster_parameters)
+            # Store provision sequence list as a text field
+            provision_role_sequence = cluster_data.pop("provision_role_sequence",
+                                                       None)
+            if provision_role_sequence is not None:
+                cluster_data['provision_role_sequence'] = str(provision_role_sequence)
             # Store email list as text field
             email = cluster_data.pop("email", None)
             if email is not None:
@@ -730,6 +736,11 @@ class ServerMgrDb:
             email = cluster_data.pop("email", None)
             if email is not None:
                 cluster_data['email'] = str(email)
+            
+            provision_role_sequence = cluster_data.pop("provision_role_sequence",
+                                                       None)
+            if provision_role_sequence is not None:
+                cluster_data['provision_role_sequence'] = str(provision_role_sequence)
             self._modify_row(
                 cluster_table, cluster_data,
                 {'id' : cluster_id}, {})

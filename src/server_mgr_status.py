@@ -41,6 +41,7 @@ class ServerMgrStatusThread(threading.Thread):
     _status_serverDb = None
     _base_obj = None
     _smgr_puppet = None
+    _smgr_main = None
 
 
     ''' Class to run function that keeps validating the cobbler token
@@ -50,6 +51,7 @@ class ServerMgrStatusThread(threading.Thread):
         threading.Thread.__init__(self)
         self._status_thread_config = status_thread_config
         self._smgr_puppet = status_thread_config['smgr_puppet']
+        self._smgr_main = status_thread_config['smgr_main']
 
     def run(self):
         #create the logger
@@ -92,7 +94,10 @@ class ServerMgrStatusThread(threading.Thread):
         body = request.body.read()
         server_data = {}
         server_data['id'] = server_id
-        server_data['status'] = server_state
+        if server_state == "post_provision_completed":
+            server_data['status'] = "provision_completed"
+        else:
+            server_data['status'] = server_state
         try:
             time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
             message = server_id + ' ' + server_state + time_str
@@ -105,6 +110,12 @@ class ServerMgrStatusThread(threading.Thread):
                 self._smgr_log.log(self._smgr_log.DEBUG, "Spawning Gevent for Id: %s" % payload["id"])
                 gevent.spawn(self._base_obj.reimage_run_inventory, self._status_thread_config["listen_ip"],
                              self._status_thread_config["listen_port"], payload)
+
+            self._smgr_main.update_provision_role_sequence(server_id,
+                                                           server_state)
+            if server_state == "post_provision_completed":
+                server_state = "provision_completed"
+
             if server_state == "provision_completed":
                 domain = self._status_serverDb.get_server_domain(server_id)
                 environment_name = 'TurningOffPuppetAgent__' + time_str
