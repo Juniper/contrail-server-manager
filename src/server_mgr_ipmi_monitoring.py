@@ -45,6 +45,15 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
 from sandesh_common.vns.constants import *
 from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 
+class PrevDisk:
+    total_read_bytes = 0
+    total_write_bytes = 0
+
+class PrevNw:
+    total_tx_bytes = 0
+    total_tx_packets = 0
+    total_rx_bytes = 0
+    total_rx_packets = 0
 
 # Class ServerMgrIPMIMonitoring provides a monitoring object that runs as a thread
 # when Server Manager starts/restarts. This thread continually polls all the servers
@@ -54,6 +63,8 @@ from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 class ServerMgrIPMIMonitoring():
     types_list = ["sensor_state", "chassis_state", "disk_usage_state", "network_info_state", "resource_info_state"]
     sub_types_list = ["fan", "temperature", "power"]
+    host_disklist = dict()
+    host_nw_info_list = dict()
     _default_ipmi_username = None
     _default_ipmi_password = None
     DEBUG = "debug"
@@ -122,34 +133,38 @@ class ServerMgrIPMIMonitoring():
         sm_ipmi_info.name = str(hostname)
         if data_type == "ipmi_data":
             sm_ipmi_info.sensor_stats = []
-            sm_ipmi_info.sensor_state = []
             for ipmidata in ipmi_data:
                 sm_ipmi_info.sensor_stats.append(ipmidata)
-                sm_ipmi_info.sensor_state.append(ipmidata)
             self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
             self.log("info", "UVE Info = " + str(sm_ipmi_info))
         elif data_type == "ipmi_chassis_data":
             sm_ipmi_info.chassis_state = ipmi_data
         elif data_type == "disk_list":
             sm_ipmi_info.disk_usage_stats = []
-            sm_ipmi_info.disk_usage_state = []
             for data in ipmi_data:
                 sm_ipmi_info.disk_usage_stats.append(data)
-                sm_ipmi_info.disk_usage_state.append(data)
             self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
             self.log("info", "UVE Info = " + str(sm_ipmi_info))
-        elif data_type == "resource_info":
-            sm_ipmi_info.resource_info_state = ipmi_data
+        elif data_type == "disk_list_tot":
+            sm_ipmi_info.disk_usage_totals = []
+            for data in ipmi_data:
+                sm_ipmi_info.disk_usage_totals.append(data)
+            self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+            self.log("info", "UVE Info = " + str(sm_ipmi_info))
         elif data_type == "resource_info_list":
             sm_ipmi_info.resource_info_stats = []
             for data in ipmi_data:
                 sm_ipmi_info.resource_info_stats.append(data)
-        elif data_type == "network_info":
+        elif data_type == "intinfo_list_tot":
+            sm_ipmi_info.network_info_totals = []
+            for data in ipmi_data:
+                sm_ipmi_info.network_info_totals.append(data)
+            self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+            self.log("info", "UVE Interface Info = " + str(sm_ipmi_info))
+        elif data_type == "intinfo_list":
             sm_ipmi_info.network_info_stats = []
-            sm_ipmi_info.network_info_state = []
             for data in ipmi_data:
                 sm_ipmi_info.network_info_stats.append(data)
-                sm_ipmi_info.network_info_state.append(data)
             self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
             self.log("info", "UVE Interface Info = " + str(sm_ipmi_info))
         ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
@@ -255,34 +270,64 @@ class ServerMgrIPMIMonitoring():
 
     def fetch_and_process_disk_info(self, hostname, ip, sshclient):
         disk_list = []
+        disk_list_tot = []
         cmd = 'iostat -m'
 
         is_sysstat = sshclient.exec_command('which iostat')
         if not is_sysstat:
             self.log("info", "sysstat package not installed on " + str(ip))
             disk_data = Disk()
+            disk_data_tot = Disk_totals()
             disk_data.disk_name = "N/A"
-            disk_data.read_MB = int(0)
-            disk_data.write_MB = int(0)
+            disk_data.read_bytes = int(0)
+            disk_data.write_bytes = int(0)
+            disk_data_tot.total_read_bytes = int(0)
+            disk_data_tot.total_write_bytes = int(0)
             disk_list.append(disk_data)
+            disk_list_tot.append(disk_data_tot)
             self.send_ipmi_stats(ip, disk_list, hostname, "disk_list")
+            self.send_ipmi_stats(ip, disk_list_tot, hostname, "disk_list_tot")
         else:
             try:
                 filestr = sshclient.exec_command(cmd=cmd)
                 fileoutput = cStringIO.StringIO(filestr)
                 if fileoutput is not None:
+                    #lookup for host dictionary
+                    if hostname not in self.host_disklist:
+                        #if empty insert the disklist dictionary
+                        dict_disk = dict()
+                        self.host_disklist[hostname] = dict_disk
+                    else:
+                        # disklist entry found
+                        dict_disk = self.host_disklist[hostname]
+
                     for line in fileoutput:
                         if line is not None:
                             if line.find('sd') != -1 or line.find('dm') != -1:
                                 disk_data = Disk()
+                                disk_data_tot = Disk_totals()
+                                prev_disk_info = PrevDisk()
                                 res = re.sub('\s+', ' ', line).strip()
                                 arr = res.split()
                                 disk_data.disk_name = arr[0]
-                                disk_data.read_MB = int(arr[4])
-                                disk_data.write_MB = int(arr[5])
-                                disk_list.append(disk_data)
+                                disk_data_tot.disk_name = arr[0]
+                                disk_data_tot.total_read_bytes = int(arr[4])
+                                disk_data_tot.total_write_bytes = int(arr[5])
+                                if len(dict_disk) != 0:
+                                    if disk_data_tot.disk_name in dict_disk:
+                                        disk_data.read_bytes = disk_data_tot.total_read_bytes - dict_disk[disk_data_tot.disk_name].total_read_bytes
+                                        disk_data.write_bytes = disk_data_tot.total_write_bytes - dict_disk[disk_data_tot.disk_name].total_write_bytes
+                                        disk_list.append(disk_data)
+
+                                prev_disk_info.total_read_bytes = disk_data_tot.total_read_bytes
+                                prev_disk_info.total_write_bytes = disk_data_tot.total_write_bytes
+                                dict_disk[disk_data_tot.disk_name] = prev_disk_info
+                                disk_list_tot.append(disk_data_tot)
                     if disk_list:
                         self.send_ipmi_stats(ip, disk_list, hostname, "disk_list")
+                        #return True  no return
+                    if disk_list_tot:
+                        self.send_ipmi_stats(ip, disk_list_tot, hostname, "disk_list_tot")
                         return True
                     else:
                         return False
@@ -335,18 +380,30 @@ class ServerMgrIPMIMonitoring():
                             (resource_info1.mem_usage_mb/float(int(arr[0])/1024))*100))
                 resource_info_list.append(resource_info1)
             self.send_ipmi_stats(ip, resource_info_list, hostname, "resource_info_list")
-            self.send_ipmi_stats(ip, resource_info1, hostname, "resource_info")
         except Exception as e:
             self.log("error", "Error in getting resource info for  " + str(hostname) + str(e))
 
     def fetch_and_process_network_info(self, hostname, ip, sshclient):
         try:
             intinfo_list = []
+            intinfo_list_tot = []
             result = sshclient.exec_command("ls /sys/class/net/")
             if result:
                 output = cStringIO.StringIO(result)
+                net_dictinfo = None
+                #lookup for host dictionary
+                if hostname not in self.host_nw_info_list:
+                    #if empty insert the net dict info
+                    net_dictinfo = dict()
+                    self.host_nw_info_list[hostname] = net_dictinfo
+                else:
+                    # disklist entry found
+                    net_dictinfo = self.host_nw_info_list[hostname]
+
                 for line in output:
                     intinfo = network_info()
+                    intinfo_tot = network_info_totals()
+                    prev_nw = PrevNw()
                     cmd = "cat /sys/class/net/" + line.rstrip() + "/statistics/tx_bytes"
                     tx_bytes = sshclient.exec_command(cmd=cmd)
                     cmd = "cat /sys/class/net/" + line.rstrip() + "/statistics/tx_packets"
@@ -355,13 +412,32 @@ class ServerMgrIPMIMonitoring():
                     rx_bytes = sshclient.exec_command(cmd=cmd)
                     cmd = "cat /sys/class/net/" + line.rstrip() + "/statistics/rx_packets"
                     rx_packets = sshclient.exec_command(cmd=cmd)
+                    intinfo_tot.interface_name = line.rstrip()
                     intinfo.interface_name = line.rstrip()
-                    intinfo.tx_bytes = int(tx_bytes.rstrip())
-                    intinfo.tx_packets = int(tx_packets.rstrip())
-                    intinfo.rx_bytes = int(rx_bytes.rstrip())
-                    intinfo.rx_packets = int(rx_packets.rstrip())
-                    intinfo_list.append(intinfo)
-            self.send_ipmi_stats(ip, intinfo_list, hostname, "network_info")
+                    intinfo_tot.total_tx_bytes = int(tx_bytes.rstrip())
+                    intinfo_tot.total_tx_packets = int(tx_packets.rstrip())
+                    intinfo_tot.total_rx_bytes = int(rx_bytes.rstrip())
+                    intinfo_tot.total_rx_packets = int(rx_packets.rstrip())
+                    if len(net_dictinfo) != 0:
+                        if intinfo_tot.interface_name in net_dictinfo:
+                            intinfo.tx_bytes = intinfo_tot.total_tx_bytes - net_dictinfo[intinfo_tot.interface_name].total_tx_bytes
+                            intinfo.rx_bytes = intinfo_tot.total_rx_bytes - net_dictinfo[intinfo_tot.interface_name].total_rx_bytes
+                            intinfo.tx_packets = intinfo_tot.total_tx_packets - net_dictinfo[intinfo_tot.interface_name].total_tx_packets
+                            intinfo.rx_packets = intinfo_tot.total_rx_packets - net_dictinfo[intinfo_tot.interface_name].total_rx_packets
+                            intinfo_list.append(intinfo)
+                    prev_nw.total_tx_bytes = intinfo_tot.total_tx_bytes
+                    prev_nw.total_rx_bytes = intinfo_tot.total_rx_bytes
+                    prev_nw.total_tx_packets = intinfo_tot.total_tx_packets
+                    prev_nw.total_rx_packets = intinfo_tot.total_rx_packets
+                    net_dictinfo[intinfo_tot.interface_name] = prev_nw
+                    intinfo_list_tot.append(intinfo_tot)
+                if intinfo_list:
+                    self.send_ipmi_stats(ip, intinfo_list, hostname, "intinfo_list")
+                if intinfo_list_tot:
+                    self.send_ipmi_stats(ip, intinfo_list_tot, hostname, "intinfo_list_tot")
+                    return True
+                else:
+                    return False
         except Exception as e:
             self.log("error", "Error in getting network info for " + str(hostname) + str(e))
 
@@ -404,10 +480,6 @@ class ServerMgrIPMIMonitoring():
             sm_ipmi_info = ServerMonitoringInfo()
             sm_ipmi_info.name = str(hostname)
             sm_ipmi_info.deleted = True
-            sm_ipmi_info.sensor_state = None
-            sm_ipmi_info.disk_usage_state = None
-            sm_ipmi_info.network_info_state = None
-            sm_ipmi_info.resource_info_state = None
             sm_ipmi_info.chassis_state = None
             ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
             self.call_send(ipmi_stats_trace)
