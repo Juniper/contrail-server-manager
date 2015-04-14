@@ -1822,20 +1822,24 @@ $__contrail_quantum_servers__
         }
 
         data = ''
-
-        # Go thru all the keys above and if present, add to parameter list
-        for k,v in cluster_params_mapping.items():
-            if k in cluster_params:
-                # if value is text, add with quotes, else without the quotes.
-                if v[1].lower() == "string":
-                    data += 'contrail::params::' + v[0] + ': "' + \
-                        cluster_params.get(k, "") + '"\n'
-                else:
-                    data += 'contrail::params::' + v[0] + ': ' + \
-                        cluster_params.get(k, "") + '\n'
-                # end if-else
-        # end for
-        return data
+        try:
+            # Go thru all the keys above and if present, add to parameter list
+            for k,v in cluster_params_mapping.items():
+                if k in cluster_params:
+                    # if value is text, add with quotes, else without the quotes.
+                    if v[1].lower() == "string":
+                        data += 'contrail::params::' + v[0] + ': "' + \
+                            cluster_params.get(k, "") + '"\n'
+                    else:
+                        data += 'contrail::params::' + v[0] + ': ' + \
+                            cluster_params.get(k, "") + '\n'
+                    # end if-else
+            # end for
+            return data
+        except Exception as e:
+            msg = "%s, %s, %s:%s" % (repr(e), v, k, cluster_params.get(k))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg, ERR_OPR_ERROR)         
     # end add cluster_parameters
 
     def initiate_esx_contrail_vm(self, provision_params):
