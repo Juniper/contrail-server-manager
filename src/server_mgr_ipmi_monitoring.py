@@ -160,38 +160,43 @@ class ServerMgrIPMIMonitoring(ServerMgrMonBasePlugin):
                 self.base_obj.log("info", "Started IPMI Polling")
                 for ip, hostname, username, password in \
                         zip(ipmi_list, hostname_list, ipmi_username_list, ipmi_password_list):
-                    ipmi_data = []
-                    cmd = 'ipmitool -H %s -U %s -P %s sdr list all' % (ip, username, password)
-                    result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
-                    if result is not None and "|" in result:
-                        fileoutput = cStringIO.StringIO(result)
-                        for line in fileoutput:
-                            reading = line.split("|")
-                            sensor = reading[0].strip()
-                            reading_value = reading[1].strip()
-                            status = reading[2].strip()
-                            for i in supported_sensors:
-                                if re.search(i, sensor) is not None:
-                                    if 'FAN' in sensor:
-                                        sensor_type = 'fan'
-                                    elif 'PWR' in sensor or 'Power' in sensor:
-                                        sensor_type = 'power'
-                                    elif 'Temp' in sensor:
-                                        sensor_type = 'temperature'
-                                    value = reading_value.split()
-                                    ipmidata = IpmiData()
-                                    ipmidata.sensor = sensor
-                                    ipmidata.status = status
-                                    if status == "ns":
-                                        pass
-                                    elif status == "ok":
-                                        ipmidata.reading = long(value[0].strip())
-                                        ipmidata.unit = value[len(value) - 1].strip()
-                                        ipmidata.sensor_type = sensor_type
-                                        ipmi_data.append(ipmidata)
-                    else:
-                        self.base_obj.log("info", "IPMI Polling failed for " + str(ip))
-                    self.send_ipmi_stats(ipmi_data, hostname=hostname)
+                    try:
+                        ipmi_data = []
+                        cmd = 'ipmitool -H %s -U %s -P %s sdr list all' % (ip, username, password)
+                        result = super(ServerMgrIPMIMonitoring, self).call_subprocess(cmd)
+                        if result is not None and "|" in result:
+                            fileoutput = cStringIO.StringIO(result)
+                            for line in fileoutput:
+                                reading = line.split("|")
+                                sensor = reading[0].strip()
+                                reading_value = reading[1].strip()
+                                status = reading[2].strip()
+                                for i in supported_sensors:
+                                    if re.search(i, sensor) is not None:
+                                        if 'FAN' in sensor:
+                                            sensor_type = 'fan'
+                                        elif 'PWR' in sensor or 'Power' in sensor:
+                                            sensor_type = 'power'
+                                        elif 'Temp' in sensor:
+                                            sensor_type = 'temperature'
+                                        value = reading_value.split()
+                                        ipmidata = IpmiData()
+                                        ipmidata.sensor = sensor
+                                        ipmidata.status = status
+                                        if status == "ns":
+                                            pass
+                                        elif status == "ok" and value[0].strip().isdigit():
+                                            ipmidata.reading = long(value[0].strip())
+                                            ipmidata.unit = value[len(value) - 1].strip()
+                                            ipmidata.sensor_type = sensor_type
+                                            ipmi_data.append(ipmidata)
+                        else:
+                            self.base_obj.log("error", "IPMI Polling failed for " + str(ip))
+                        self.send_ipmi_stats(ipmi_data, hostname=hostname)
+                    except Exception as e:
+                        self.base_obj.log("error", "IPMI Polling failed for " + str(ip))
+                        self.base_obj.log("error", "Error Reported: " + str(e))
+                        continue
             else:
                 self.base_obj.log("error", "IPMI Polling: No Analytics IP info found")
 
