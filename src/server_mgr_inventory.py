@@ -4,7 +4,9 @@
 """
    Name : server_mgr_inventory.py
    Author : Nitish Krishna
-   Description : TBD
+   Description : Main Server Managaer Inventory Module. This module provides the functions to fetch and process
+   inventory info from a set of servers that have monitoring configured. It also provides the functions to expose the
+   collected information stored in the Sandesh UVE Cache trough REST API.
 """
 
 import os
@@ -42,6 +44,7 @@ from sandesh_common.vns.constants import *
 from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 from server_mgr_ssh_client import ServerMgrSSHClient
 from server_mgr_exception import ServerMgrException as ServerMgrException
+from datetime import datetime
 
 _DEF_COLLECTORS_IP = None
 _DEF_MON_FREQ = 300
@@ -431,7 +434,7 @@ class ServerMgrInventory():
         inventory_info_obj.eth_controller_state = None
         self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
 
-    def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, option="password"):
+    def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, option="key"):
         if action == "add":
             try:
                 sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
@@ -488,6 +491,7 @@ class ServerMgrInventory():
         server_cluster_list = list()
         server_tag_dict_list = list()
         self.log(self.DEBUG, "get_inventory_info")
+        self.log("debug", "Entered get_inventory_info " + str(datetime.now()))
         uve_name = "ServerInventoryInfo"
         try:
             entity = bottle.request
@@ -506,15 +510,12 @@ class ServerMgrInventory():
                     match_dict, detail=True)
             else:
                 servers = self._serverDb.get_server(detail=True)
-            for server in servers:
-                server_hostname_list.append(str(server['id']))
-                server_cluster_list.append(str(server['cluster_id']))
-                tags_dict = dict()
-                for tag_name in self.rev_tags_dict:
-                    tags_dict[tag_name] = str(server[self.rev_tags_dict[tag_name]])
-                server_tag_dict_list.append(dict(tags_dict))
-            self.log(self.DEBUG, "Getting inventory info of following servers: " + str(server_hostname_list))
-            url = self._base_obj.get_sandesh_url(self.smgr_ip, self.introspect_port, uve_name)
+            #self.log(self.DEBUG, "Getting inventory info of following servers: " + str(servers))
+            if len(servers) == 1:
+                url = self._base_obj.get_sandesh_url(self.smgr_ip, self.introspect_port, uve_name,
+                                                     dict(servers[0])['id'])
+            else:
+                url = self._base_obj.get_sandesh_url(self.smgr_ip, self.introspect_port, uve_name)
             headers = {'content-type': 'application/json'}
             resp = requests.get(url, timeout=5, headers=headers)
             xml_data = resp.text
@@ -523,33 +524,40 @@ class ServerMgrInventory():
             data_dict = dict(json.loads(json_obj)["__" + str(uve_name) + "Uve_list"])
             if "msg" in data_dict or "type_msg" in data_dict:
                 return data_dict
-            pruned_data_dict = dict()
             parsed_data_list = self._base_obj.parse_sandesh_xml(data_dict, uve_name)
-            if data_dict and parsed_data_list:
-                for server in parsed_data_list:
+            parsed_data_dict = dict()
+            if parsed_data_list and servers:
+                for parsed_server in parsed_data_list:
+                    parsed_server = dict(parsed_server)
+                    parsed_data_dict[str(parsed_server["data"]["name"])] = dict(parsed_server["data"])
+                for server in servers:
                     server = dict(server)
-                    server_hostname = server["data"]["name"]
-                    if server_hostname in server_hostname_list:
-                        pruned_data_dict[str(server_hostname)] = server["data"]
-                for server_hostname, server_cluster, server_tag_dict in \
-                        zip(server_hostname_list, server_cluster_list, server_tag_dict_list):
-                    return_dict = dict()
-                    return_dict["name"] = str(server_hostname)
-                    return_dict["cluster_id"] = str(server_cluster)
-                    return_dict["tag"] = dict(server_tag_dict)
-                    return_dict[str(uve_name)] = dict()
-                    if server_hostname in pruned_data_dict:
-                        return_dict[str(uve_name)] = \
-                            self.filter_inventory_results(pruned_data_dict[str(server_hostname)], ret_data["type"])
-                    list_return_dict.append(return_dict)
+                    server_hostname = str(server['id'])
+                    if server_hostname in parsed_data_dict.keys():
+                        return_dict = dict(server)
+                        return_dict["name"] = str(server_hostname)
+                        return_dict["cluster_id"] = server['cluster_id']
+                        tags_dict = dict()
+                        for tag_name in self.rev_tags_dict:
+                            tags_dict[tag_name] = str(server[self.rev_tags_dict[tag_name]])
+                        return_dict["tag"] = tags_dict
+                        return_dict[str(uve_name)] = self.filter_inventory_results(
+                            parsed_data_dict[str(server_hostname)],
+                            ret_data["type"])
+                        list_return_dict.append(return_dict)
+                    else:
+                        self.log(self.ERROR, "Server Details missing in cache. ")
+                        self.log(self.ERROR, "Server Hostname = " + str(server_hostname))
             else:
+                self.log(self.ERROR, "Server Details missing in db. ")
                 return {}
         except ServerMgrException as e:
-            self.log(self.ERROR, "Get Inventory Info Execption: " + e.message)
+            self.log(self.ERROR, "Get Inventory Info Execption: " + str(e.message))
             raise e
         except Exception as e:
-            self.log(self.ERROR, "Get Inventory Info Execption: " + e.message)
+            self.log(self.ERROR, "Get Inventory Info Execption: " + str(e.message))
             raise e
+        self.log("debug", "Exited get_inventory_info " + str(datetime.now()))
         return json.dumps(list_return_dict)
         # end get_inventory_info
 
@@ -603,7 +611,7 @@ class ServerMgrInventory():
             gevent.joinall(gevent_ssh_threads)
         self.log(self.DEBUG, "Finished Creating SSH Keys in Inventory")
         self._base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list, ipmi_username_list,
-                                                  ipmi_password_list)
+                                                  ipmi_password_list, "inventory")
         gevent_threads = []
         if ipmi_list and len(ipmi_list) >= 1:
             for hostname, ip, ipmi, username, password in zip(hostname_list, server_ip_list, ipmi_list,

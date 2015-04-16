@@ -4,7 +4,9 @@
 """
    Name : server_mgr_mon_base_plugin.py
    Author : Nitish Krishna
-   Description : TBD
+   Description : This module is the base plugin module for monitoring and inventory features. If neither feature is
+   configured, this module takes over and returns default stub messages. It also provides some common functionality to
+   both these features such as config argument parsing.
 """
 
 import os
@@ -411,9 +413,17 @@ class ServerMgrMonBasePlugin():
             return None
 
     def populate_server_data_lists(self, servers, ipmi_list, hostname_list,
-                                   server_ip_list, ipmi_username_list, ipmi_password_list):
+                                   server_ip_list, ipmi_username_list, ipmi_password_list, feature):
         for server in servers:
             server = dict(server)
+            if 'parameters' in server:
+                server_parameters = eval(server['parameters'])
+                if feature == "monitoring" and "enable_monitoring" in server_parameters \
+                        and server_parameters["enable_monitoring"] in ["true", "True"]:
+                    continue
+                elif feature == "inventory" and "enable_inventory" in server_parameters \
+                        and server_parameters["enable_inventory"] in ["true", "True"]:
+                    continue
             if 'ipmi_address' in server and server['ipmi_address'] \
                     and 'id' in server and server['id'] \
                     and 'ip_address' in server and server['ip_address'] \
@@ -567,9 +577,13 @@ class ServerMgrMonBasePlugin():
             self._smgr_log.log("error", "Error parsing sandesh xml dict : " + str(e))
             return None
 
-    def get_sandesh_url(self, ip, introspect_port, uve_name):
-        url = "http://%s:%s/Snh_SandeshUVECacheReq?x=%s" % \
-              (str(ip), str(introspect_port), uve_name)
+    def get_sandesh_url(self, ip, introspect_port, uve_name, server_id=None):
+        if server_id:
+            url = "http://%s:%s/Snh_SandeshUVECacheReq?tname=%s&key=%s" % \
+                  (str(ip), str(introspect_port), uve_name, server_id)
+        else:
+            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=%s" % \
+                  (str(ip), str(introspect_port), uve_name)
         return url
 
     def initialize_features(self, sm_args, serverdb):
