@@ -317,7 +317,7 @@ class ServerMgrInventory():
         filestr = sshclient.exec_command(cmd)
         if not filestr:
             return None
-        if cmd == "lsblk" or cmd == "facter" or "statistics" in cmd or cmd == "vmstat":
+        if cmd == "lsblk" or cmd == "facter" or "statistics" in cmd or cmd == "vmstat" or cmd == "lspci":
             return filestr
         else:
             fileoutput = cStringIO.StringIO(filestr)
@@ -369,12 +369,12 @@ class ServerMgrInventory():
             self.log(self.DEBUG, "ethtool not installed on host : %s" % ip)
         else:
             eth_cmd = 'ethtool eth0 | grep Speed'
-            port_cmd = 'ethtool eth0 | grep "Supported ports"'
+            port_cmd = 'lspci | grep Net | wc -l'
             driver_cmd = 'ethtool -i eth0 | grep driver'
             server_inventory_info.eth_controller_state.speed_Mb_per_sec = self.get_field_value(sshclient, ip, eth_cmd)
             temp_var = re.findall('\d+|\D+', server_inventory_info.eth_controller_state.speed_Mb_per_sec)
             server_inventory_info.eth_controller_state.speed_Mb_per_sec = int(temp_var[0])
-            server_inventory_info.eth_controller_state.num_of_ports = 0
+            server_inventory_info.eth_controller_state.num_of_ports = int(self.get_field_value(sshclient, ip, port_cmd))
             server_inventory_info.eth_controller_state.model = self.get_field_value(sshclient, ip, driver_cmd)
             self.log(self.INFO, "Got the Ethtool info for IP: %s" % ip)
         self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
