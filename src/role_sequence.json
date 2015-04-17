@@ -6,7 +6,9 @@
 			      [["control"], "s"], 
                       	      [["collector"], "s"], 
 			      [["webui"], "s"],
-			      [["compute"], "p"]]
+                  [["compute"], "p"], 
+                  [["storage-compute"], "p"],
+                  [["storage-master"], "s"]]
     },
     "cluster": [
         {
