@@ -47,6 +47,7 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
 from sandesh_common.vns.constants import *
 from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 from datetime import datetime
+from server_mgr_disk_filesystem_view import file_system_disk_view
 
 class PrevDisk:
     total_read_bytes = 0
@@ -166,8 +167,14 @@ class ServerMgrIPMIMonitoring():
             sm_ipmi_info.network_info_stats = []
             for data in ipmi_data:
                 sm_ipmi_info.network_info_stats.append(data)
-                sm_ipmi_info.network_info_state.append(data)
-            #self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+            self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+            #self.log("info", "UVE Interface Info = " + str(sm_ipmi_info))
+	elif data_type == "file_system_view_list":
+            sm_ipmi_info.file_system_view_stats = []
+            for data in ipmi_data:
+                sm_ipmi_info.file_system_view_stats.append(data)
+            self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+            #self.log("info", "UVE Interface Info = " + str(sm_ipmi_info))
         ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
         # self.log("info", "UVE Info Sent= " + str(sm_ipmi_info))
         self.call_send(ipmi_stats_trace)
@@ -335,6 +342,16 @@ class ServerMgrIPMIMonitoring():
                 #self.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
                 return False
 
+    #This function gets the mounted file system view. This will be the output of the df command
+    def fetch_and_process_file_system_view(self, hostname, ip, sshclient):
+        try:
+            fs_view = file_system_disk_view()
+            file_system_view_list = fs_view.get_file_system_view(sshclient)
+            self.send_ipmi_stats(ip, file_system_view_list, hostname, "file_system_view_list")
+        except Exception as e:
+            self.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
+            return False
+
     def fetch_and_process_resource_info(self, hostname, ip, sshclient):
         try:
             resource_info_list = []
@@ -498,6 +515,7 @@ class ServerMgrIPMIMonitoring():
             self.fetch_and_process_resource_info(hostname, ip, sshclient)
             self.fetch_and_process_network_info(hostname, ip, sshclient)
             self.fetch_and_process_disk_info(hostname, ip, sshclient)
+	    self.fetch_and_process_file_system_view(hostname, ip, sshclient)
             return_dict["ipmi_status"] = \
                 self.fetch_and_process_monitoring(hostname, ipmi, ip, username, password, supported_sensors)
             self.fetch_and_process_chassis(hostname, ipmi, ip, username, password)
