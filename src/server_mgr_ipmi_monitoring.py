@@ -49,15 +49,7 @@ from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 from datetime import datetime
 from server_mgr_disk_filesystem_view import file_system_disk_view
 
-class PrevDisk:
-    total_read_bytes = 0
-    total_write_bytes = 0
 
-class PrevNw:
-    total_tx_bytes = 0
-    total_tx_packets = 0
-    total_rx_bytes = 0
-    total_rx_packets = 0
 
 # Class ServerMgrIPMIMonitoring provides a monitoring object that runs as a thread
 # when Server Manager starts/restarts. This thread continually polls all the servers
@@ -313,7 +305,7 @@ class ServerMgrIPMIMonitoring():
                             if line.find('sd') != -1 or line.find('dm') != -1:
                                 disk_data = Disk()
                                 disk_data_tot = Disk_totals()
-                                prev_disk_info = PrevDisk()
+                                prev_disk_info = Disk_totals()
                                 res = re.sub('\s+', ' ', line).strip()
                                 arr = res.split()
                                 disk_data.disk_name = arr[0]
@@ -421,7 +413,7 @@ class ServerMgrIPMIMonitoring():
                 for line in output:
                     intinfo = network_info()
                     intinfo_tot = network_info_totals()
-                    prev_nw = PrevNw()
+                    prev_nw = network_info_totals()
                     cmd = "cat /sys/class/net/" + line.rstrip() + "/statistics/tx_bytes"
                     tx_bytes = sshclient.exec_command(cmd=cmd)
                     cmd = "cat /sys/class/net/" + line.rstrip() + "/statistics/tx_packets"
