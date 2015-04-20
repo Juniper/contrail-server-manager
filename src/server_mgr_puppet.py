@@ -1877,6 +1877,16 @@ $__contrail_quantum_servers__
             self._smgr_log.log(self._smgr_log.DEBUG, "ContrilVM:" %(out))
     # end initiate_esx_contrail_vm
 
+    def add_contrail_upgrade(
+        self, server, provision_parameters):
+        data = ''
+
+        if server.get('provisioned_id',"") != provision_parameters.get('package_image_id', ""):
+            data += 'contrail::params::contrail_upgrade: %s\n' %(
+                           True)
+
+        return data
+
     def build_contrail_hiera_file(
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
@@ -1914,6 +1924,8 @@ $__contrail_quantum_servers__
         if "uuid" in cluster_params:
             data += 'contrail::params::uuid: "%s"\n' %(
                 cluster_params.get('uuid', ""))
+
+        data += self.add_contrail_upgrade(server, provision_params)
 
         role_ips = {}
         role_ids = {}
