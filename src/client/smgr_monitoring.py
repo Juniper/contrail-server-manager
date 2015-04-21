@@ -40,7 +40,6 @@ class ServerMgrIPMIQuerying():
             url = "http://%s:%s/%s" % (server_ip, port, 'MonitorInfo')
             args_str = ''
             conn = pycurl.Curl()
-            conn.setopt(pycurl.TIMEOUT, 3)
             conn.setopt(pycurl.URL, url)
             conn.setopt(pycurl.HTTPHEADER, headers)
             conn.setopt(pycurl.HTTPGET, 1)
