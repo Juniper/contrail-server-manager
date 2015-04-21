@@ -1922,6 +1922,11 @@ $__contrail_quantum_servers__
         # Set enable_provision_complete flag to false
         if sequence_provisioning:
             data += 'contrail::params::enable_post_provision: False\n'
+            data += 'contrail::params::enable_pre_exec_vnc_galera: False\n'
+            data += 'contrail::params::enable_post_exec_vnc_galera: False\n'
+            data += 'contrail::params::enable_keepalived: False\n'
+            data += 'contrail::params::enable_haproxy: False\n'
+            data += 'contrail::params::enable_sequence_provisioning: True\n'
         for role in ['database', 'config', 'openstack',
                      'control', 'collector',
                      'webui', 'compute']:
