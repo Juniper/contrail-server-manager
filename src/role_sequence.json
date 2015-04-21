@@ -8,9 +8,20 @@
 			      [["webui"], "s"],
 			      [["compute"], "p"]]
     },
+    "default_ha": {
+            "role_sequence": [[["database"], "s"], 
+	    		      [["openstack"], "s"],
+			      [["pre_exec_vnc_galera"], "s"],
+			      [["post_exec_vnc_galera"], "s"],
+                      	      [["config"], "s"], 
+			      [["control"], "s"], 
+                      	      [["collector"], "s"], 
+			      [["webui"], "s"],
+			      [["compute"], "p"]]
+    },
     "cluster": [
         {
-            "id": "scale2",
+            "id": "scale3",
             "role_sequence": [[["database"], "s"], 
 	    		      [["openstack"], "s"], 
                       	      [["config"], "s"], 
@@ -21,7 +32,7 @@
 
         },
         {
-            "id": "cluster2",
+            "id": "cluster3",
             "role_sequence": [[["database","openstack", 
 	    		        "config", "control",
 				"collector", "webui", "compute"], "s"]] 

@@ -140,10 +140,17 @@ class VncServerManager():
     _role_sequence = [(['database'], 's'), (['openstack'], 's'), 
                       (['config'], 's'), (['control'], 's'), 
                       (['collector'], 's'), (['webui'], 's')]
+    _role_step_sequence_ha = [(['database'], 's'), (['openstack'], 's'),
+                      (['pre_exec_vnc_galera'], 's'),
+                      (['post_exec_vnc_galera'], 's'),
+                      (['config'], 's'), (['control'], 's'), 
+                      (['collector'], 's'), (['webui'], 's')]
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 'p')]
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 's')]
     _compute_roles = ['compute', 'storage-compute', 'storage-master']
     _roles = _control_roles + _compute_roles
+    _openstack_steps = ['pre_exec_vnc_galera', 'post_exec_vnc_galera']
+    _role_steps = _control_roles + _openstack_steps + _compute_roles
     _control_step_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
     _compute_step_roles = ['compute', 'storage-compute', 'storage-master']
     _step_roles = _control_step_roles + _compute_step_roles
@@ -2914,9 +2921,12 @@ class VncServerManager():
             cluster_id = server['cluster_id']
             if not cluster_id:
                 return domain
-            cluster = self._status_serverDb.get_cluster(
+            clusters = self._serverDb.get_cluster(
                 {"id" : cluster_id}, detail=True)
-            domain = cluster['domain']
+            if clusters:
+                cluster = clusters[0]
+                cluster_params = eval(cluster['parameters'])
+                domain = cluster_params['domain']
         return domain
     # end get_server_domain
 
@@ -2927,7 +2937,8 @@ class VncServerManager():
             return False
         state = status.replace('_completed', '')
 
-        if not state or (state not in self._roles and state != 'post_provision'):
+        if not state or \
+           (state not in self._role_steps and state != 'post_provision'):
             return False
         servers = self._serverDb.get_server(
             {"id" : server_id}, detail=True)
@@ -3002,12 +3013,40 @@ class VncServerManager():
         return hiera_env
     # end get_hieradata_environment
 
+    def get_role_step_servers(self, role_servers):
+        role_step_servers = {}
+        role_step_servers['pre_exec_vnc_galera'] = []
+        role_step_servers['post_exec_vnc_galera'] = []
+        for role in self._roles:
+            role_step_servers[role] = []
+            for server in role_servers[role]:
+                role_step_servers[role].append(server['id'])
+                if role == 'openstack':
+                    role_step_servers['pre_exec_vnc_galera'].append(server['id'])
+                    role_step_servers['post_exec_vnc_galera'].append(server['id'])
+        return role_step_servers
+
     def validate_role_sequence(self, role_sequence):
         return True
 
-    def get_role_sequence(self, cluster_id):
-        if not cluster_id:
+    def is_cluster_ha(self, cluster):
+        if not cluster:
+            return False
+        cluster_params = eval(cluster['parameters'])
+        internal_vip = cluster_params.get('internal_vip', '')
+        if internal_vip:
+            return True
+        return False
+
+    def get_role_sequence(self, cluster):
+        if not cluster:
             return []
+        cluster_id = cluster['id']
+        ha = self.is_cluster_ha(cluster)
+        if ha:
+            default_role_sequence = self._role_step_sequence_ha
+        else:
+            default_role_sequence = self._role_sequence
         try:
             role_sequence_file = open(_DEF_ROLE_SEQUENCE_DEF_FILE, 'r')
             json_data = role_sequence_file.read()
@@ -3016,7 +3055,7 @@ class VncServerManager():
             self._smgr_log.log(self._smgr_log.ERROR,
                                "Error reading role sequence config file %s" \
                                % (_DEF_ROLE_SEQUENCE_DEF_FILE))
-            role_sequence = self._role_sequence
+            role_sequence = default_role_sequence
             return role_sequence
         try:
             role_sequence_data = json.loads(json_data)
@@ -3027,17 +3066,20 @@ class VncServerManager():
                     cluster_role_sequence = cluster['role_sequence']
                     break
             if not cluster_role_sequence:
-                default_sequence = role_sequence_data.get('default', {})
+                if ha:
+                    default_sequence = role_sequence_data.get('default_ha', {})
+                else:
+                    default_sequence = role_sequence_data.get('default', {})
                 cluster_role_sequence = default_sequence.get('role_sequence', [])
             role_sequence = []
             for role_set_list in cluster_role_sequence:
                 role_tuple = tuple(role_set_list)
                 role_sequence.append(role_tuple)
             if not role_sequence:
-                role_sequence = self._role_sequence
+                role_sequence = default_role_sequence
             else:
                 if not self.validate_role_sequence(role_sequence):
-                    role_sequence = self._role_sequence
+                    role_sequence = default_role_sequence
             self._smgr_log.log(self._smgr_log.DEBUG,
                                "Role sequence: %s" % str(role_sequence))           
         except Exception as e:
@@ -3046,7 +3088,7 @@ class VncServerManager():
                                "Role sequence file %s "
                                "File should be in JSON format") \
                                % (_DEF_ROLE_SEQUENCE_DEF_FILE)
-            role_sequence = self._role_sequence
+            role_sequence = default_role_sequence
         return role_sequence
 
     def prepare_provision_role_sequence(self, cluster, role_servers, puppet_manifest_version):
@@ -3064,7 +3106,8 @@ class VncServerManager():
         compute_role_sequence = []
         server_compute_flag = {}
         # Get the role sequence
-        role_sequence = self.get_role_sequence(cluster['id'])
+        role_sequence = self.get_role_sequence(cluster)
+        role_step_servers = self.get_role_step_servers(role_servers)
         cluster_servers = self._serverDb.get_server(
             {"cluster_id" : cluster['id']})
         for role_seq in role_sequence:
@@ -3080,8 +3123,8 @@ class VncServerManager():
                 for role in role_list:
                     if role in self._compute_roles:
                         continue
-                    for role_server in role_servers[role]:
-                        if server['id'] == role_server['id']:
+                    for role_step_server_id in role_step_servers[role]:
+                        if server['id'] == role_step_server_id:
                             role_steps_tuple = (server['id'], role)
                             role_steps_list.append(role_steps_tuple)
                             server_compute_flag[server['id']] = False
@@ -3093,10 +3136,10 @@ class VncServerManager():
 
         for role in self._compute_roles:
             role_steps_list = []
-            for server in role_servers[role]:
-                role_steps_tuple = (server['id'], role)
+            for role_step_server_id in role_step_servers[role]:
+                role_steps_tuple = (role_step_server_id, role)
                 role_steps_list.append(role_steps_tuple)
-                server_compute_flag[server['id']] = True
+                server_compute_flag[role_step_server_id] = True
             if role_steps_list:
                 compute_role_sequence.append(role_steps_list)
         # Set provision_complete as last step for all the servers.
