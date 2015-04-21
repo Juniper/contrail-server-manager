@@ -16,8 +16,6 @@ _DEF_COBBLER_PORT = ''
 _DEF_USERNAME = 'cobbler'
 _DEF_PASSWORD = 'cobbler'
 _DEF_BASE_DIR = '/etc/contrail/'
-_CONTRAIL_CENTOS_REPO = 'contrail-centos-repo'
-_CONTRAIL_REDHAT_REPO = 'contrail-redhat-repo'
 
 class ServerMgrCobbler:
 
@@ -57,12 +55,6 @@ class ServerMgrCobbler:
                     self._cobbler_ip + "/cobbler_api")
             self._token = self._server.login(self._cobbler_username,
                                              self._cobbler_password)
-            # Copy contrail centos/redhat repo to cobber repos, so that target
-            # systems can install and run puppet agent from kickstart.
-            self._init_create_repo(_CONTRAIL_CENTOS_REPO, self._server, 
-                                   self._token, base_dir)
-            self._init_create_repo(_CONTRAIL_REDHAT_REPO, self._server, 
-                                   self._token, base_dir)
         except subprocess.CalledProcessError as e:
             msg = ("Cobbler Init: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
@@ -75,8 +67,10 @@ class ServerMgrCobbler:
          self._smgr_log.log(self._smgr_log.ERROR, msg)
          raise ServerMgrException(msg, err_code)
 
-    def _init_create_repo(self, repo_name, cobbler_server, token, base_dir):
+    def _init_create_repo(self, repo_name, base_dir):
         try:
+            cobbler_server = self._server
+            token = self._token
             repo = cobbler_server.find_repo({"name": repo_name})
             if repo:
                 rid = cobbler_server.get_repo_handle(
@@ -110,8 +104,8 @@ class ServerMgrCobbler:
     # Function to check if cobbler token is valid or not, before calling any
     # XMLRPC calls that need a valid token. If token is not valid, the function
     # acquires a new token from cobbler.
-    def _validate_token(self, token, resource):
-        valid = self._server.check_access_no_fail(token, resource)
+    def _validate_token(self, token):
+        valid = self._server.token_check(token)
         if not valid:
             self._token = self._server.login(
                 self._cobbler_username, self._cobbler_password)
@@ -121,7 +115,7 @@ class ServerMgrCobbler:
                       kernel_file, initrd_file, cobbler_ip_address):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "distro")
+            self._validate_token(self._token)
             # If distro already exists in cobbler, nothing to do.
             distro = self._server.find_distro({"name":  distro_name})
             if distro:
@@ -186,7 +180,7 @@ class ServerMgrCobbler:
                         ks_meta):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "profile")
+            self._validate_token(self._token)
             # If profile exists, nothing to do, jus return.
             profile = self._server.find_profile({"name":  profile_name})
             if profile:
@@ -218,7 +212,7 @@ class ServerMgrCobbler:
     def create_repo(self, repo_name, mirror):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "repo")
+            self._validate_token(self._token)
             repo = self._server.find_repo({"name": repo_name})
             if repo:
                 rid = self._server.get_repo_handle(
@@ -250,7 +244,7 @@ class ServerMgrCobbler:
                       node_cfg = None):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "system")
+            self._validate_token(self._token)
             system = self._server.find_system({"name":  system_name})
             if system:
                 system_id = self._server.get_system_handle(
@@ -371,7 +365,7 @@ class ServerMgrCobbler:
     def enable_system_netboot(self, system_name):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "system")
+            self._validate_token(self._token)
             system = self._server.find_system({"name":  system_name})
             if not system:
                 msg = ("cobbler error : System %s not found" % system_name)
@@ -391,7 +385,7 @@ class ServerMgrCobbler:
     def reboot_system(self, reboot_system_list):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "system")
+            self._validate_token(self._token)
             power = {
                 "power" : "reboot",
                 "systems" : reboot_system_list }
@@ -416,7 +410,7 @@ class ServerMgrCobbler:
     def delete_distro(self, distro_name):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "distro")
+            self._validate_token(self._token)
             self._server.remove_distro(distro_name, self._token)
         except Exception as e:
             pass
@@ -425,7 +419,7 @@ class ServerMgrCobbler:
     def delete_repo(self, repo_name):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "repo")
+            self._validate_token(self._token)
             self._server.remove_repo(repo_name, self._token)
         except Exception as e:
             pass
@@ -434,7 +428,7 @@ class ServerMgrCobbler:
     def delete_profile(self, profile_name):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "profile")
+            self._validate_token(self._token)
             self._server.remove_profile(profile_name, self._token)
         except Exception as e:
             pass
@@ -443,7 +437,7 @@ class ServerMgrCobbler:
     def delete_system(self, system_name):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "system")
+            self._validate_token(self._token)
             system = self._server.find_system({"name":  system_name})
             if system:
                 self._server.remove_system(system_name, self._token)
@@ -454,7 +448,7 @@ class ServerMgrCobbler:
     def sync(self):
         try:
             # Validate cobbler token
-            self._validate_token(self._token, "system")
+            self._validate_token(self._token)
             self._server.sync(self._token)
         except Exception as e:
             raise e
