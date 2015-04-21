@@ -1735,10 +1735,12 @@ $__contrail_quantum_servers__
         # Add common role
         data += '    class { \'::contrail::profile::common\' : stage => \'first\' }\n'
         # Add keepalived (This class is no-op if vip is not configured.)
-        if 'config' in server['roles']:
+        if 'config' in server['roles'] or \
+           'openstack' in server['roles']:
             data += '    include ::contrail::profile::keepalived\n'
         # Add haproxy (for config node)
-        if 'config' in server['roles']:
+        if 'config' in server['roles'] or \
+           'openstack' in server['roles']:
             data += '    include ::contrail::profile::haproxy\n'
         # Add database role.
         if 'database' in server['roles']:
@@ -1748,7 +1750,8 @@ $__contrail_quantum_servers__
             data += '    include ::contrail::profile::webui\n'
         # Add openstack role.
         if 'openstack' in server['roles']:
-            if cluster_params.get("internal_vip", "") != "" :
+            if cluster_params.get("internal_vip", "") != "" or \
+                cluster_params.get("contrail_internal_vip", "") != "" :
                 data += '    class { \'::contrail::profile::openstack_controller\': } ->\n'
                 if 'config' in server['roles']:
                     data += '    class { \'::contrail::ha_config\': } ->\n'
@@ -1758,7 +1761,8 @@ $__contrail_quantum_servers__
                 data += '    include ::contrail::profile::openstack_controller\n'
         # Add config role.
         if 'config' in server['roles']:
-            if cluster_params.get("internal_vip", "") != "" :
+            if cluster_params.get("internal_vip", "") != "" or \
+                cluster_params.get("contrail_internal_vip", "") != "" :
                 data += '    class { \'::contrail::profile::config\': }\n'
             else:
                 data += '    include ::contrail::profile::config\n'
