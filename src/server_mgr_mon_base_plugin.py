@@ -4,7 +4,9 @@
 """
    Name : server_mgr_mon_base_plugin.py
    Author : Nitish Krishna
-   Description : TBD
+   Description : This module is the base plugin module for monitoring and inventory features. If neither feature is
+   configured, this module takes over and returns default stub messages. It also provides some common functionality to
+   both these features such as config argument parsing.
 """
 
 import os
@@ -358,18 +360,25 @@ class ServerMgrMonBasePlugin():
 
     # call_subprocess function runs the IPMI command passed to it and returns the result
     def call_subprocess(self, cmd):
-        times = datetime.datetime.now()
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-        while p.poll() is None:
-            time.sleep(0.1)
-            now = datetime.datetime.now()
-            diff = now - times
-            if diff.seconds > 3:
-                os.kill(p.pid, signal.SIGKILL)
-                os.waitpid(-1, os.WNOHANG)
-                self._smgr_log.log(self._smgr_log.INFO, "command:" + cmd + " --> hanged")
-                return None
-        return p.stdout.read()
+        try:
+            times = datetime.datetime.now()
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+            while p.poll() is None:
+                time.sleep(0.3)
+                now = datetime.datetime.now()
+                diff = now - times
+                if diff.seconds > 3:
+                    if p.returncode is None:
+                        p.terminate()
+                    self._smgr_log.log(self._smgr_log.INFO, "command:" + cmd + " --> hanged")
+                    return None
+            return_str = str(p.stdout.read())
+            return return_str
+        except Exception as e:
+            if p.returncode is None:
+                p.terminate()
+            self._smgr_log.log(self._smgr_log.INFO, "Exception in call_subprocess: " + str(e))
+            return None
 
     def create_store_copy_ssh_keys(self, server_id, server_ip):
 
@@ -380,12 +389,12 @@ class ServerMgrMonBasePlugin():
         source_file = ""
         try:
             # Save Public key on Target Server
+            source_file = "/opt/contrail/server_manager/" + str(server_id) + ".pub"
             with open("/opt/contrail/server_manager/" + str(server_id) + ".pub", 'w+') as content_file:
                 content_file.write("ssh-rsa " + str(ssh_key.get_base64()))
                 content_file.close()
             ssh = ServerMgrSSHClient(self._serverDb)
-            ssh.connect(server_ip, option="password")
-            source_file = "/opt/contrail/server_manager/" + str(server_id) + ".pub"
+            ssh.connect(server_ip, server_id, option="password")
             dest_file = "/root/.ssh/authorized_keys"
             ssh.exec_command("mkdir -p /root/.ssh/")
             ssh.exec_command("touch /root/.ssh/authorized_keys")
@@ -400,7 +409,7 @@ class ServerMgrMonBasePlugin():
             ssh.close()
             return ssh_key
         except Exception as e:
-            self._smgr_log.log(self._smgr_log.ERROR, "Error Creating/Copying Keys: " + e.message)
+            self._smgr_log.log(self._smgr_log.ERROR, "Error Creating/Copying Keys: " + str(server_id) + " : " + str(e))
             if os.path.exists(source_file):
                 os.remove(source_file)
             # Update Server table with ssh public and private keys
@@ -411,9 +420,17 @@ class ServerMgrMonBasePlugin():
             return None
 
     def populate_server_data_lists(self, servers, ipmi_list, hostname_list,
-                                   server_ip_list, ipmi_username_list, ipmi_password_list):
+                                   server_ip_list, ipmi_username_list, ipmi_password_list, feature):
         for server in servers:
             server = dict(server)
+            if 'parameters' in server:
+                server_parameters = eval(server['parameters'])
+                if feature == "monitoring" and "enable_monitoring" in server_parameters \
+                        and server_parameters["enable_monitoring"] in ["true", "True"]:
+                    continue
+                elif feature == "inventory" and "enable_inventory" in server_parameters \
+                        and server_parameters["enable_inventory"] in ["true", "True"]:
+                    continue
             if 'ipmi_address' in server and server['ipmi_address'] \
                     and 'id' in server and server['id'] \
                     and 'ip_address' in server and server['ip_address'] \
@@ -441,7 +458,7 @@ class ServerMgrMonBasePlugin():
                 if server and len(server) == 1:
                     server = server[0]
                     subprocess.call(['ssh-keygen', '-f', '/root/.ssh/known_hosts', '-R', str(server["ip_address"])])
-                    sshclient.connect(str(server["ip_address"]), "password")
+                    sshclient.connect(str(server["ip_address"]), str(server["id"]), "password")
                     match_dict = dict()
                     match_dict["id"] = str(payload["id"])
                     self._smgr_log.log(self._smgr_log.DEBUG, "Running inventory on " + str(payload["id"]) +
@@ -461,11 +478,15 @@ class ServerMgrMonBasePlugin():
                     os.remove(source_file)
                     success = True
                 else:
+                    if os.path.exists(source_file):
+                        os.remove(source_file)
                     self._smgr_log.log(self._smgr_log.ERROR, "SSH Key copy failed on  " + str(payload["id"]) +
                                        ", try " + str(tries))
                     sshclient.close()
                     success = False
             except Exception as e:
+                if os.path.exists(source_file):
+                    os.remove(source_file)
                 self._smgr_log.log(self._smgr_log.ERROR, "Error running inventory on  " + str(payload) +
                                    ", try " + str(tries)
                                    + "failed : " + str(e))
@@ -567,9 +588,13 @@ class ServerMgrMonBasePlugin():
             self._smgr_log.log("error", "Error parsing sandesh xml dict : " + str(e))
             return None
 
-    def get_sandesh_url(self, ip, introspect_port, uve_name):
-        url = "http://%s:%s/Snh_SandeshUVECacheReq?x=%s" % \
-              (str(ip), str(introspect_port), uve_name)
+    def get_sandesh_url(self, ip, introspect_port, uve_name, server_id=None):
+        if server_id:
+            url = "http://%s:%s/Snh_SandeshUVECacheReq?tname=%s&key=%s" % \
+                  (str(ip), str(introspect_port), uve_name, server_id)
+        else:
+            url = "http://%s:%s/Snh_SandeshUVECacheReq?x=%s" % \
+                  (str(ip), str(introspect_port), uve_name)
         return url
 
     def initialize_features(self, sm_args, serverdb):
@@ -588,8 +613,29 @@ class ServerMgrMonBasePlugin():
             self.server_inventory_obj.set_ipmi_defaults(sm_args.ipmi_username, sm_args.ipmi_password)
             self.server_inventory_obj.add_inventory()
         else:
+            gevent.spawn(self.setup_keys, serverdb)
             self._smgr_log.log(self._smgr_log.ERROR, "Inventory configuration not set. "
                                                      "You will be unable to get Inventory information from servers.")
+
+    def setup_keys(self, server_db):
+        servers = self._serverDb.get_server(None, detail=True)
+        for server in servers:
+            if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server and server['id']:
+                self.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+            elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server and server['id']:
+                self.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+
+    def create_server_dict(self, servers):
+        return_dict = dict()
+        for server in servers:
+            server = dict(server)
+            if 'ipmi_username' not in server or not server['ipmi_username'] \
+                    or 'ipmi_password' not in server or not server['ipmi_password']:
+                server['ipmi_username'] = self._default_ipmi_username
+                server['ipmi_password'] = self._default_ipmi_password
+            return_dict[str(server['id'])] = server
+        self._smgr_log.log(self._smgr_log.DEBUG, "Created server dictionary.")
+        return return_dict
 
     @staticmethod
     def get_mon_conf_details(self):
