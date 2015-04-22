@@ -53,7 +53,6 @@ import math
 import time
 
 
-
 # Class ServerMgrIPMIMonitoring provides a monitoring object that runs as a thread
 # when Server Manager starts/restarts. This thread continually polls all the servers
 # that are stored in the Server Manager DB at any point. Before this polling can occur,
@@ -128,47 +127,38 @@ class ServerMgrIPMIMonitoring():
     # to the analytics node
     def send_ipmi_stats(self, ip, ipmi_data, hostname, data_type):
         sm_ipmi_info = ServerMonitoringInfo()
-
         sm_ipmi_info.name = str(hostname)
         if data_type == "ipmi_data":
             sm_ipmi_info.sensor_stats = []
             for ipmidata in ipmi_data:
                 sm_ipmi_info.sensor_stats.append(ipmidata)
-            #self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
         elif data_type == "ipmi_chassis_data":
             sm_ipmi_info.chassis_state = ipmi_data
         elif data_type == "disk_list":
             sm_ipmi_info.disk_usage_stats = []
             for data in ipmi_data:
                 sm_ipmi_info.disk_usage_stats.append(data)
-            #self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
         elif data_type == "disk_list_tot":
             sm_ipmi_info.disk_usage_totals = []
             for data in ipmi_data:
                 sm_ipmi_info.disk_usage_totals.append(data)
-            #self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
-        elif data_type == "resource_info_list":
+        elif data_type == "resource_info_stats":
             sm_ipmi_info.resource_info_stats = ipmi_data
         elif data_type == "intinfo_list_tot":
             sm_ipmi_info.network_info_totals = []
             for data in ipmi_data:
                 sm_ipmi_info.network_info_totals.append(data)
-            #self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
-            #self.log("info", "UVE Interface Info = " + str(sm_ipmi_info))
         elif data_type == "intinfo_list":
             sm_ipmi_info.network_info_stats = []
             for data in ipmi_data:
                 sm_ipmi_info.network_info_stats.append(data)
-            #self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
-            #self.log("info", "UVE Interface Info = " + str(sm_ipmi_info))
         elif data_type == "file_system_view_list":
             sm_ipmi_info.file_system_view_stats = []
             for data in ipmi_data:
                 sm_ipmi_info.file_system_view_stats.append(data)
-            self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
-            #self.log("info", "UVE Interface Info = " + str(sm_ipmi_info))
         ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
-        # self.log("info", "UVE Info Sent= " + str(sm_ipmi_info))
+        #self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
+        #self.log("info", "UVE Info Sent= " + str(sm_ipmi_info))
         self.call_send(ipmi_stats_trace)
 
     # Packages and sends a REST API call to the ServerManager node
@@ -180,7 +170,7 @@ class ServerMgrIPMIMonitoring():
             resp = requests.post(url, headers=headers, timeout=5, data=payload)
             return resp.text
         except Exception as e:
-            #self.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
+            self.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
             return None
 
     def return_collector_ip(self):
@@ -219,12 +209,12 @@ class ServerMgrIPMIMonitoring():
                                 ipmidata.sensor_type = sensor_type
                                 ipmi_data.append(ipmidata)
             except Exception as e:
-                #self.log("error", "Error getting dev env data for " + str(hostname) + " : " + str(e.message))
+                self.log("error", "Error getting dev env data for " + str(hostname) + " : " + str(e.message))
                 return False
             self.send_ipmi_stats(ip, ipmi_data, hostname, "ipmi_data")
             return True
         else:
-            #self.log("error", "IPMI Polling failed for " + str(ip))
+            self.log("error", "IPMI Polling failed for " + str(ip))
             return False
 
     def fetch_and_process_chassis(self, hostname, ipmi, ip, username, password):
@@ -264,7 +254,7 @@ class ServerMgrIPMIMonitoring():
                 ipmi_chassis_data = ipmichassisdata
             self.send_ipmi_stats(ip, ipmi_chassis_data, hostname, "ipmi_chassis_data")
         except Exception as e:
-            #self.log("error", "Error getting chassis data for " + str(hostname) + " : " + str(e.message))
+            self.log("error", "Error getting chassis data for " + str(hostname) + " : " + str(e.message))
             pass
 
     def fetch_and_process_disk_info(self, hostname, ip, sshclient):
@@ -331,7 +321,7 @@ class ServerMgrIPMIMonitoring():
                     else:
                         return False
             except Exception as e:
-                #self.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
+                self.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
                 return False
 
     #This function gets the mounted file system view. This will be the output of the df command
@@ -341,12 +331,11 @@ class ServerMgrIPMIMonitoring():
             file_system_view_list = fs_view.get_file_system_view(sshclient)
             self.send_ipmi_stats(ip, file_system_view_list, hostname, "file_system_view_list")
         except Exception as e:
-            self.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
+            self.log("error", "Error getting file system view info for " + str(hostname) + " : " + str(e))
             return False
 
     def fetch_and_process_resource_info(self, hostname, ip, sshclient):
         try:
-            resource_info_list = []
             resource_info1 = resource_info()
             is_mpstat = sshclient.exec_command('which mpstat')
             if not is_mpstat:
@@ -387,8 +376,8 @@ class ServerMgrIPMIMonitoring():
                         arr = line.split()
                         resource_info1.mem_usage_percent = float("{0:.2f}".format(
                             (resource_info1.mem_usage_mb/float(int(arr[0])/1024))*100))
-                resource_info_list.append(resource_info1)
-            self.send_ipmi_stats(ip, resource_info_list, hostname, "resource_info_list")
+
+            self.send_ipmi_stats(ip, resource_info1, hostname, "resource_info_stats")
         except Exception as e:
             self.log("error", "Error in getting resource info for  " + str(hostname) + str(e))
             pass
@@ -403,7 +392,7 @@ class ServerMgrIPMIMonitoring():
                 checker_output = cStringIO.StringIO(phys_intf_checker)
                 for line in checker_output:
                     line = str(line)
-                    if "virtual" not in line:
+                    if "virtual" not in line and "total" not in line and len(line.split(' ')) > 8:
                         line = line.split(' ')
                         phys_intf_list.append(line[8])
 
@@ -478,8 +467,11 @@ class ServerMgrIPMIMonitoring():
                     sellog.name = str(hostname)
                     col = line.split("|")
                     hex_event_id = col[0]
-                    event_id = int(hex_event_id, 16)
-                    if event_id not in sel_event_log_list:
+                    if hex_event_id.isdigit():
+                        event_id = int(hex_event_id, 16)
+                    else:
+                        event_id = None
+                    if event_id and event_id not in sel_event_log_list:
                         sel_event_log_list.append(event_id)
                         sellog.event_id = event_id
                         sellog.ipmi_timestamp = str(col[1]) + " " + str(col[2])
@@ -496,8 +488,8 @@ class ServerMgrIPMIMonitoring():
                         sellog.send()
                     else:
                         pass
-                        self.log("info", "Log already sent for host " +
-                                str(hostname) + " and event " + str(event_id))
+                        #self.log("info", "Log already sent for host " +
+                                #str(hostname) + " and event " + str(event_id))
             return sel_event_log_list
         except Exception as e:
             self.log("error", "Error getting SEL Logs for " + str(hostname) + " : " + str(e.message))
@@ -536,10 +528,6 @@ class ServerMgrIPMIMonitoring():
                 payload = dict()
                 payload["id"] = str(hostname)
                 self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
-            """sm_ipmi_info = ServerMonitoringInfo()
-            sm_ipmi_info.name = str(hostname)
-            ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
-            self.call_send(ipmi_stats_trace)"""
             sshclient.close()
             return return_dict
         except Exception as e:
@@ -577,14 +565,6 @@ class ServerMgrIPMIMonitoring():
     def get_mon_conf_details(self):
         return "Configuration for Monitoring set correctly."
 
-    def fake_get_mon(self):
-        with open("/opt/contrail/server_manager/fakefile.txt", "r") as fakefile:
-            fake_list = []
-            data = fakefile.read().replace('\n', '')
-            fake_list.append(data)
-        fakefile.close()
-        return json.dumps(fake_list)
-
     def get_monitoring_info(self):
         list_return_dict = list()
         return_dict = dict()
@@ -593,12 +573,12 @@ class ServerMgrIPMIMonitoring():
         server_cluster_list = list()
         server_tag_dict_list = list()
         self.log("debug", "get_monitoring_info")
-        self.log("debug", "Entered get_monitoring_info " + str(datetime.now()))
+        #self.log("debug", "Entered get_monitoring_info " + str(datetime.now()))
         uve_name = "ServerMonitoringInfo"
         try:
             entity = bottle.request
             ret_data = self.base_obj.validate_rest_api_args(entity, self.rev_tags_dict)
-            self.log("debug", "Validated rest api params " + str(datetime.now()))
+            #self.log("debug", "Validated rest api params " + str(datetime.now()))
             if ret_data["status"]:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
@@ -623,20 +603,20 @@ class ServerMgrIPMIMonitoring():
                 url = self.base_obj.get_sandesh_url(self.smgr_ip, self.introspect_port, uve_name)
             headers = {'content-type': 'application/json'}
             #self.log("debug", "After get_sandesh_url, before REST API call " + str(datetime.now()))
-            time_before = time.time()
+            #time_before = time.time()
             resp = requests.get(url, timeout=300, headers=headers)
             xml_data = resp.text
-            time_after = time.time()
-            time_sec = time_after - time_before
-            self.log("debug", "Sandesh REST API Call : Time taken = " + str(time_sec)
-                     + " Resp length = " + str(len(xml_data)))
+            #time_after = time.time()
+            #time_sec = time_after - time_before
+            #self.log("debug", "Sandesh REST API Call : Time taken = " + str(time_sec)
+            #         + " Resp length = " + str(len(xml_data)))
             #self.log("debug", "After REST API call " + str(datetime.now()))
-            time_before = time.time()
+            #time_before = time.time()
             data = xmltodict.parse(str(xml_data))
             #self.log("debug", "After XMLtoDict" + str(datetime.now()))
-            time_after = time.time()
-            time_sec = time_after - time_before
-            self.log("debug", "XMLtoDict Call : Time taken = " + str(time_sec))
+            #time_after = time.time()
+            #time_sec = time_after - time_before
+            #self.log("debug", "XMLtoDict Call : Time taken = " + str(time_sec))
             json_obj = json.dumps(data, indent=4)
             data_dict = dict(data["__" + str(uve_name) + "Uve_list"])
             #self.log("debug", "Before  processing " + str(datetime.now()))
@@ -782,8 +762,8 @@ class ServerMgrIPMIMonitoring():
                         sel_log_dict[str(hostname)] = return_dict["sel_log"]
                         thread.kill()
                     else:
-                        #self.log("error", "Greenlet for server " + str(hostname) + " didn't return successfully: "
-                         #        + str(thread.get()))
+                        self.log("error", "Greenlet for server " + str(hostname) + " didn't return successfully: "
+                                 + str(thread.get()))
                         thread.kill()
                         pass
 
