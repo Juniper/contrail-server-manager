@@ -438,7 +438,7 @@ class ServerMgrInventory():
         if action == "add":
             try:
                 sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
-                sshclient.connect(ip, option)
+                sshclient.connect(ip, hostname, option)
                 self.get_fru_info(hostname, ipmi, username, password)
                 self.get_facter_info(hostname, ip, sshclient)
                 self.get_cpu_info(hostname, ip, sshclient)
@@ -605,7 +605,8 @@ class ServerMgrInventory():
                 if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server and server['id']:
                     self._base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
                     self.log(self.DEBUG, "Finished Key Copy/Creation for " + str(server['id']))
-                elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server and server['id']:
+                elif 'ssh_private_key' in server and server['ssh_private_key'] is None and 'id' in server \
+                        and 'ip_address' in server and server['id']:
                     self._base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
                     self.log(self.DEBUG, "Finished Key Copy/Creation for " + str(server['id']))
             gevent.joinall(gevent_ssh_threads)
