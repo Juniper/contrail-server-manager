@@ -71,7 +71,6 @@ class file_system_disk_view:
 
 	#This function checks if the physical disk name already exists in the lists
 	def get_existing_disk(self,physical_disks, disk_name):
-		return None
 		for file_system in self.file_system_list:
 			physical_disks = file_system.physical_disks
 			for disks in physical_disks:
@@ -124,7 +123,7 @@ class file_system_disk_view:
 				if num_disks_in_lvm > 1:
 					self.add_disk_view(file_system, disk_name, sshclient,lvm_size)
 				else:
-					self.add_disk_view(file_system, sshclient,disk_name)
+					self.add_disk_view(file_system, disk_name, sshclient)
 		#Calculate teh used_percentage
 		for value in file_system.physical_disks:
 			value.disk_used_percentage = int(math.ceil(float(value.disk_used_kb*100)/float(value.disk_size_kb)))

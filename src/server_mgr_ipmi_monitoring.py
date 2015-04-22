@@ -128,10 +128,8 @@ class ServerMgrIPMIMonitoring():
     # to the analytics node
     def send_ipmi_stats(self, ip, ipmi_data, hostname, data_type):
         sm_ipmi_info = ServerMonitoringInfo()
-        sm_ipmi_summary = ServerMonitoringSummary()
 
         sm_ipmi_info.name = str(hostname)
-        sm_ipmi_summary.name = str(hostname)
         if data_type == "ipmi_data":
             sm_ipmi_info.sensor_stats = []
             for ipmidata in ipmi_data:
@@ -150,9 +148,7 @@ class ServerMgrIPMIMonitoring():
                 sm_ipmi_info.disk_usage_totals.append(data)
             #self.log("info", "Sending Monitoring UVE Info for: " + str(data_type))
         elif data_type == "resource_info_list":
-            sm_ipmi_info.resource_info_stats = []
-            for data in ipmi_data:
-                sm_ipmi_info.resource_info_stats.append(data)
+            sm_ipmi_info.resource_info_stats = ipmi_data
         elif data_type == "intinfo_list_tot":
             sm_ipmi_info.network_info_totals = []
             for data in ipmi_data:
@@ -778,7 +774,6 @@ class ServerMgrIPMIMonitoring():
                     #self.log("debug", "No additional sleep. ")
                     pass
 
-                """
                 for hostname in gevent_threads:
                     thread = gevent_threads[str(hostname)]
                     if thread.successful() and thread.value:
@@ -790,7 +785,7 @@ class ServerMgrIPMIMonitoring():
                         #self.log("error", "Greenlet for server " + str(hostname) + " didn't return successfully: "
                          #        + str(thread.get()))
                         thread.kill()
-                        pass"""
+                        pass
 
             except Exception as e:
                 self.log("error", "Exception occured while spawning gevents. Error = " + str(e))
