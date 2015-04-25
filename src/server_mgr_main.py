@@ -2590,10 +2590,11 @@ class VncServerManager():
                 ip_addr = intf.get('ip_address', None)
                 if ip_addr is None:
                     continue
-
                 ip = IPNetwork(ip_addr)
                 d_gw = intf.get('default_gateway', None)
                 dhcp = intf.get('dhcp', None)
+                if name.lower() == mgmt_intf.lower():
+                    dhcp = True
                 type = intf.get('type', None)
                 #form string
                 if type and type.lower() == 'bond':
