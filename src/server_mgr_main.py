@@ -139,6 +139,7 @@ class VncServerManager():
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
                       "contrail-storage-ubuntu-package"]
     _image_category_list = ["image", "package"]
+<<<<<<< HEAD
     _control_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
     _role_sequence = [(['haproxy'], 'p'),
                       (['database'], 'p'), (['openstack'], 'p'), 
@@ -150,6 +151,12 @@ class VncServerManager():
                       (['post_exec_vnc_galera'], 's'),
                       (['config'], 'p'), (['control'], 'p'), 
                       (['collector'], 'p'), (['webui'], 'p')]
+=======
+    _control_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui', 'storage-master']
+    _role_sequence = [(['database'], 's'), (['openstack'], 's'), 
+                      (['config'], 's'), (['control'], 's'), 
+                      (['collector'], 's'), (['webui'], 's') ]
+>>>>>>> 8d0a17f... SM-Storage: Support of sequencing for storagea basic installation
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 'p')]
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 's')]
     _compute_roles = ['compute', 'storage-compute', 'storage-master']
@@ -3504,6 +3511,7 @@ class VncServerManager():
                 provision_params['storage_virsh_uuid'] = cluster_params['storage_virsh_uuid']
                 provision_params['num_storage_hosts'] = num_storage_hosts
                 provision_params['live_migration_host'] = live_migration_host
+                provision_params['live_migration_ip'] = ""
                 if len(role_servers['storage-compute']):
                     if len(role_servers['storage-master']) == 0:
                         msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"

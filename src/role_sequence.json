@@ -1,5 +1,6 @@
 {
     "default": {
+<<<<<<< HEAD
             "role_sequence": [[["haproxy"], "p"],
 			      [["database"], "p"], 
 	    		      [["openstack"], "p"], 
@@ -21,6 +22,17 @@
                       	      [["collector"], "p"], 
 			      [["webui"], "p"],
 			      [["compute"], "p"]]
+=======
+            "role_sequence": [[["database"], "s"], 
+	    		      [["openstack"], "s"], 
+                      	      [["config"], "s"], 
+			      [["control"], "s"], 
+                      	      [["collector"], "s"], 
+			      [["webui"], "s"],
+                  [["compute"], "p"], 
+                  [["storage-compute"], "p"],
+                  [["storage-master"], "s"]]
+>>>>>>> 8d0a17f... SM-Storage: Support of sequencing for storagea basic installation
     },
     "cluster": [
         {
