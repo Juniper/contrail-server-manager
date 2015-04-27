@@ -2008,6 +2008,9 @@ $__contrail_quantum_servers__
 
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
+            if sequence_provisioning:
+                data += 'contrail::params::enable_storage_master: False\n'
+                data += 'contrail::params::enable_storage_compute: False\n'
             data += 'contrail::params::host_roles: %s\n' %(str(provision_params['host_roles']))
             data += 'contrail::params::storage_num_osd: %s\n' %(provision_params['storage_num_osd'])
             data += 'contrail::params::storage_fsid: "%s"\n' %(provision_params['storage_fsid'])
@@ -2027,8 +2030,8 @@ $__contrail_quantum_servers__
 
             storage_hostnames = ''
             for key in provision_params['storage_hostnames']:
-                storage_hostnames += '''"%s", ''' % key
-            data += 'contrail::params::storage_hostnames: \'[%s]\'\n' %(str(storage_hostnames))
+                storage_hostnames += ''''%s', ''' % key
+            data += 'contrail::params::storage_hostnames: "[%s]"\n' %(str(storage_hostnames))
 
             if 'storage-master' in provision_params['host_roles']:
                 storage_chassis_config = ''
@@ -2152,8 +2155,11 @@ $__contrail_quantum_servers__
         if not hiera_data_dict:
             return
         for role_step_tuple in role_steps_list:
+            self._smgr_log.log(self._smgr_log.DEBUG, "role-tuple: %s = %s" % (role_step_tuple[0], role_step_tuple[1]))
             if server_id == role_step_tuple[0]:
-                key = 'contrail::params::enable_' + role_step_tuple[1]
+                role_step = role_step_tuple[1].replace('-', '_')
+                key = 'contrail::params::enable_' + role_step
+                self._smgr_log.log(self._smgr_log.DEBUG, "role-key: %s" % (key))
                 if enable:
                     hiera_data_dict[key] = True
                 else:
