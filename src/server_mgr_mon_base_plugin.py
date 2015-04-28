@@ -359,7 +359,7 @@ class ServerMgrMonBasePlugin():
             raise ServerMgrException("Error during Sandesh Init: " + str(e))
 
     # call_subprocess function runs the IPMI command passed to it and returns the result
-    def call_subprocess(self, cmd):
+    """def call_subprocess(self, cmd):
         try:
             times = datetime.datetime.now()
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
@@ -378,7 +378,29 @@ class ServerMgrMonBasePlugin():
             if p.returncode is None:
                 p.terminate()
             self._smgr_log.log(self._smgr_log.INFO, "Exception in call_subprocess: " + str(e))
+            return None"""
+
+    def call_subprocess(self, cmd):
+        p = None
+        try:
+            times = datetime.datetime.now()
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+            while p.poll() is None:
+                time.sleep(0.5)
+                now = datetime.datetime.now()
+                diff = now - times
+                if diff.seconds > 3:
+                    os.kill(p.pid, signal.SIGKILL)
+                    os.waitpid(-1, os.WNOHANG)
+                    syslog.syslog("command:" + cmd + " --> hanged")
+                    return None
+            return p.communicate()[0].strip()
+        except Exception as e:
+            if p and p.poll() != 0:
+                p.terminate()
+            self._smgr_log.log(self._smgr_log.INFO, "Exception in call_subprocess: " + str(e))
             return None
+
 
     def create_store_copy_ssh_keys(self, server_id, server_ip):
 
