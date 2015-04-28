@@ -92,4 +92,5 @@ fru_fields = {
     "product_part_number": ""
 }
 
-email_events = ["reimage_started", "reimage_completed", "provision_started", "provision_completed"]
+email_events = ["reimage_started", "reimage_completed", "provision_completed"]
+

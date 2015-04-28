@@ -115,4 +115,5 @@ popularity-contest	popularity-contest/participate	boolean	false
 
 d-i   preseed/late_command string true && \
 	rm -f /usr/lib/finish-install.d/55netcfg-copy-config /usr/lib/finish-install.d/50config-target-network; \
+	sed -i "s/--nopirq//g" /target/lib/udev/rules.d/71-biosdevname.rules; \
 	wget "http://$http_server/cblr/svc/op/nopxe/system/$system_name" -O /dev/null

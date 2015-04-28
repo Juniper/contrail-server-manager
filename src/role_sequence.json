@@ -1,0 +1,45 @@
+{
+    "default": {
+            "role_sequence": [[["haproxy"], "s"],
+			      [["database"], "s"], 
+	    		      [["openstack"], "s"], 
+                      	      [["config"], "s"], 
+			      [["control"], "s"], 
+                      	      [["collector"], "s"], 
+			      [["webui"], "s"],
+			      [["compute"], "p"]]
+    },
+    "default_ha": {
+            "role_sequence": [[["keepalived"], "p"],
+			      [["haproxy"], "p"],
+			      [["database"], "p"], 
+	    		      [["openstack"], "p"],
+			      [["pre_exec_vnc_galera"], "s"],
+			      [["post_exec_vnc_galera"], "s"],
+                      	      [["config"], "p"], 
+			      [["control"], "p"], 
+                      	      [["collector"], "p"], 
+			      [["webui"], "p"],
+			      [["compute"], "p"]]
+    },
+    "cluster": [
+        {
+            "id": "scale3",
+            "role_sequence": [[["database"], "s"], 
+	    		      [["openstack"], "s"], 
+                      	      [["config"], "s"], 
+			      [["control"], "s"], 
+                      	      [["collector"], "s"], 
+			      [["webui"], "s"], 
+			      [["compute"], "p"]]
+
+        },
+        {
+            "id": "cluster3",
+            "role_sequence": [[["database","openstack", 
+	    		        "config", "control",
+				"collector", "webui", "compute"], "s"]] 
+        }
+    ]
+}
+

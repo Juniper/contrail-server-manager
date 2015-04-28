@@ -59,6 +59,7 @@ from contrail_defaults import *
 from gevent import monkey
 monkey.patch_all()
 import gevent
+from gevent.queue import Queue
 
 bottle.BaseRequest.MEMFILE_MAX = 2 * 102400
 
@@ -80,6 +81,9 @@ _DEF_PUPPET_DIR = '/etc/puppet/'
 _DEF_COLLECTORS_IP = ['127.0.0.1:8086']
 _DEF_INTROSPECT_PORT = 8107
 _DEF_SANDESH_LOG_LEVEL = 'SYS_INFO'
+_DEF_ROLE_SEQUENCE_DEF_FILE = _DEF_SMGR_BASE_DIR + 'role_sequence.json'
+_CONTRAIL_CENTOS_REPO = 'contrail-centos-repo'
+_CONTRAIL_REDHAT_REPO = 'contrail-redhat-repo'
 
 # Temporary variable added to disable use of new puppet framework. This should be removed/enabled
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
@@ -117,7 +121,6 @@ def error_503(err):
 
 
 class VncServerManager():
-
     '''
     This is the main class that makes use of bottle package to provide rest
     interface for the server manager. This class serves rest APIs and then
@@ -136,13 +139,33 @@ class VncServerManager():
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
                       "contrail-storage-ubuntu-package"]
     _image_category_list = ["image", "package"]
+    _control_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _role_sequence = [(['haproxy'], 'p'),
+                      (['database'], 'p'), (['openstack'], 'p'), 
+                      (['config'], 'p'), (['control'], 'p'), 
+                      (['collector'], 'p'), (['webui'], 'p')]
+    _role_step_sequence_ha = [(['keepalived'], 'p'), (['haproxy'], 'p'),
+                      (['database'], 'p'), (['openstack'], 'p'),
+                      (['pre_exec_vnc_galera'], 's'),
+                      (['post_exec_vnc_galera'], 's'),
+                      (['config'], 'p'), (['control'], 'p'), 
+                      (['collector'], 'p'), (['webui'], 'p')]
+    #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 'p')]
+    #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 's')]
+    _compute_roles = ['compute', 'storage-compute', 'storage-master']
+    _roles = _control_roles + _compute_roles
+    _openstack_steps = ['pre_exec_vnc_galera', 'post_exec_vnc_galera', 'keepalived', 'haproxy']
+    _role_steps = _control_roles + _openstack_steps + _compute_roles
+    _control_step_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _compute_step_roles = ['compute', 'storage-compute', 'storage-master']
+    _step_roles = _control_step_roles + _compute_step_roles
     _tags_dict = {}
     _rev_tags_dict = {}
-    _server_monitoring_obj = None
-    _server_inventory_obj = None
     _monitoring_base_plugin_obj = None
+    _monitoring_config_set = False
+    _inventory_config_set = False
     _monitoring_gevent_thread_obj = None
-    #dict to hold cfg defaults
+    # dict to hold cfg defaults
     _cfg_defaults_dict = {}
     #dict to hold code defaults
     _code_defaults_dict = {}
@@ -233,8 +256,6 @@ class VncServerManager():
         except:
             print "Error Creating logger object"
 
-
-
         self._smgr_log.log(self._smgr_log.INFO, "Starting Server Manager")
 
 
@@ -295,6 +316,12 @@ class VncServerManager():
                                                   self._args.cobbler_port,
                                                   self._args.cobbler_username,
                                                   self._args.cobbler_password)
+            # Copy contrail centos/redhat repo to cobber repos, so that target
+            # systems can install and run puppet agent from kickstart.
+            self._smgr_cobbler._init_create_repo(
+                _CONTRAIL_CENTOS_REPO, self._args.server_manager_base_dir)
+            self._smgr_cobbler._init_create_repo(
+                _CONTRAIL_REDHAT_REPO, self._args.server_manager_base_dir)
         except:
             print "Error connecting to cobbler"
             exit()
@@ -308,6 +335,9 @@ class VncServerManager():
             self._smgr_log.log(self._smgr_log.ERROR, "Error creating instance of puppet object")
             exit()
 
+        # Start gevent thread for reimage task.
+        self._reimage_queue = Queue()
+        gevent.spawn(self._reimage_server_cobbler) 
 
         try:
             # needed for testing...
@@ -316,6 +346,7 @@ class VncServerManager():
             status_thread_config['listen_port'] = '9002'
             status_thread_config['base_obj'] = self._monitoring_base_plugin_obj
             status_thread_config['smgr_puppet'] = self._smgr_puppet
+            status_thread_config['smgr_main'] = self
             status_thread = ServerMgrStatusThread(
                             None, "Status-Thread", status_thread_config)
             # Make the thread as daemon
@@ -372,6 +403,7 @@ class VncServerManager():
         bottle.route('/image', 'GET', self.get_image)
         bottle.route('/status', 'GET', self.get_status)
         bottle.route('/server_status', 'GET', self.get_server_status)
+        bottle.route('/chassis-id', 'GET', self.get_server_chassis_id)
         bottle.route('/tag', 'GET', self.get_server_tags)
         bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
         bottle.route('/InventoryConf', 'GET', self._server_inventory_obj.get_inv_conf_details)
@@ -509,7 +541,6 @@ class VncServerManager():
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
-
 
         self._smgr_trans_log.log(bottle.request,
                                  self._smgr_trans_log.GET_SMGR_CFG_TAG)
@@ -766,6 +797,7 @@ class VncServerManager():
                     self.log_and_raise_exception(msg)
                 cluster_id = server['cluster_id']
             # end for
+            ret_data["cluster_id"] = cluster_id
             #Modify the roles
             for key, value in prov_servers.iteritems():
                 new_server = {
@@ -802,6 +834,7 @@ class VncServerManager():
             self._validate_roles(cluster_id)
             ret_data["status"] = 0
             ret_data["servers"] = servers
+            ret_data["cluster_id"] = cluster_id
             ret_data["package_image_id"] = package_image_id
         ret_data['server_packages'] = \
             self.get_server_packages(servers, package_image_id)
@@ -940,6 +973,48 @@ class VncServerManager():
             # end else
         return match_dict
     # end _process_server_tags
+
+    # This function gets storage_chassis_id of all servers configured in
+    # the server-manager. If chassis_id is not configured, it returns "[]"
+    # empty array. This api helps SM-UI to get all chassis-id configured
+    # in the system abd let admin select any of existing chassis-id or 
+    # provide a new one.
+    def get_server_chassis_id(self):
+        try:
+            servers = self._serverDb.get_server(None, detail=True)
+            all_chassis_id_set = set()
+            for server in servers:
+                server_parameters = server.get('parameters', "{}")
+                if not server_parameters:
+                    server_parameters = "{}"
+                server_params = eval(server_parameters)
+                storage_chassis_id = server_params.get('storage_chassis_id', "")
+                # if no chassis_id is configured, just move-on. we are here to
+                # collect chassis-id only
+                if storage_chassis_id and storage_chassis_id != "":
+                    all_chassis_id_set.add(storage_chassis_id)
+
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR, None)
+            abort(404, resp_msg)
+
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER)
+        # Convert some of the fields in server entry to match what is accepted for put
+        self._smgr_log.log(self._smgr_log.DEBUG, "JSON response:%s" % (all_chassis_id_set))
+
+        return {"chassis_id": list(all_chassis_id_set)}
+
+    # End get_server_chassis_id
 
     # This call returns status information about a provided server. If no server
     # if provided, information about all the servers in server manager
@@ -1142,7 +1217,6 @@ class VncServerManager():
             abort(404, resp_msg)
 
 
-
     def get_status(self):
         match_key = match_value = None
         match_dict = None
@@ -1309,6 +1383,9 @@ class VncServerManager():
                     cur_cluster["parameters"].update({"uuid": str_uuid})
                     cur_cluster["parameters"].update({"storage_fsid": storage_fsid})
                     cur_cluster["parameters"].update({"storage_virsh_uuid": storage_virsh_uuid})
+                    cur_cluster["provision_role_sequence"] = {}
+                    cur_cluster["provision_role_sequence"]["steps"] = []
+                    cur_cluster["provision_role_sequence"]["completed"] = []
                     service_token = cur_cluster["parameters"].get(
                         "service_token", "")
                     if not service_token:
@@ -1399,7 +1476,7 @@ class VncServerManager():
                     None, True)
                 if not db_servers:
                     db_servers = self._serverDb.get_server(
-                        {"mac_address" : server['mac_address']}, 
+                        {"mac_address" : server['mac_address']},
                         None, True)
                 if db_servers:
                     #TODO - Revisit this logic
@@ -1420,6 +1497,7 @@ class VncServerManager():
                     server['discovered'] = "false"
                     self._serverDb.add_server(server)
                     # Trigger to collect monitoring info
+
                 server_data = {}
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
@@ -2000,7 +2078,6 @@ class VncServerManager():
                 resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
                 abort(404, resp_msg)
 
-
             self._mount_and_copy_iso(dest, copy_path, distro_name,
                                      kernel_file, initrd_file, image_type)
             # Setup distro information in cobbler
@@ -2447,8 +2524,6 @@ class VncServerManager():
                     reimage_parameters['config_file'] = \
                                 "http://%s/contrail/config_file/%s.sh" % \
                                 (self._args.listen_ip_addr, server_id)
-#                self._do_reimage_server(
-#                    image, package_image_id, reimage_parameters)
 
                 _mandatory_reimage_params = {"server_password": "password",
                             "server_gateway": "gateway","server_domain":"domain",
@@ -2483,10 +2558,10 @@ class VncServerManager():
                 reimage_status['server'].append(server_status)
             # end for server in servers
 
-            gevent.spawn(self._reimage_server_cobbler,
-                         reimage_server_list,
-                         reboot_server_list,
-                         do_reboot)
+            # Add the request to reimage_queue
+            reimage_item = (reimage_server_list, reboot_server_list, do_reboot)
+            self._reimage_queue.put_nowait(reimage_item)
+
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
@@ -2517,13 +2592,13 @@ class VncServerManager():
         for intf in interface_list:
             name = intf.get('name', '')
             if name and name in member_intfs:
-                mac_address = intf.get('mac_address', '')
+                mac_address = intf.get('mac_address', '').lower()
                 if mac_address:
                     new_member_list.append(mac_address)
                 else:
                     new_member_list.append(name)
         return new_member_list
-            
+
     # end get_member_interfaces
 
     def build_server_cfg(self, server):
@@ -2542,12 +2617,11 @@ class VncServerManager():
                 ip_addr = intf.get('ip_address', None)
                 if ip_addr is None:
                     continue
-                if name.lower() == mgmt_intf.lower():
-                    continue
-
                 ip = IPNetwork(ip_addr)
                 d_gw = intf.get('default_gateway', None)
                 dhcp = intf.get('dhcp', None)
+                if name.lower() == mgmt_intf.lower():
+                    dhcp = True
                 type = intf.get('type', None)
                 #form string
                 if type and type.lower() == 'bond':
@@ -2564,7 +2638,7 @@ class VncServerManager():
                     execute_script = True
                 else:
                     if 'mac_address' in intf:
-                        name = intf['mac_address']
+                        name = intf['mac_address'].lower()
                     if dhcp:
                         device_str+= ("python interface_setup.py --device %s --dhcp\n") % \
                             (name)
@@ -2578,18 +2652,43 @@ class VncServerManager():
             f.close()
         return execute_script
 
-    def _reimage_server_cobbler(self, reimage_server_list,
-                                reboot_server_list, do_reboot):
-        self._smgr_log.log(self._smgr_log.DEBUG, "reimage_server_cobbler")
+    # This function runs on a separate gevent thread and processes requests for reimage.
+    def _reimage_server_cobbler(self):
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                           "started reimage_server_cobbler greenlet")
         server = {}
-        if reimage_server_list:
-            for server in reimage_server_list:
-                self._do_reimage_server(server['image'],
-                                        server['package_image_id'],
-                                        server['reimage_parameters'])
-        if do_reboot and reboot_server_list:
-            self._power_cycle_servers(reboot_server_list, True)
-        self._smgr_cobbler.sync()
+        # Since this runs on a separate greenlet, create its own cobbler
+        # connection, so that it does not interfere with main thread.
+        cobbler_server = ServerMgrCobbler(
+            self._args.server_manager_base_dir,
+            self._args.cobbler_ip_address,
+            self._args.cobbler_port,
+            self._args.cobbler_username,
+            self._args.cobbler_password)
+
+        while True:
+            try:
+                reimage_item = self._reimage_queue.get()
+                reimage_server_list = reimage_item[0]
+                reboot_server_list = reimage_item[1]
+                do_reboot = reimage_item[2]
+	        if reimage_server_list:
+		    for server in reimage_server_list:
+		        self._do_reimage_server(
+			    server['image'],
+			    server['package_image_id'],
+			    server['reimage_parameters'],
+			    cobbler_server)
+	        if do_reboot and reboot_server_list:
+		    status_msg = self._power_cycle_servers(
+		        reboot_server_list, cobbler_server, True)
+	        cobbler_server.sync()
+                gevent.sleep(0)
+            except Exception as e:
+                self._smgr_log.log(
+                    self._smgr_log.DEBUG,
+                    "reimage_server_cobbler failed")
+                pass
 
     # API call to power-cycle the server (IMPI Interface)
     def restart_server(self):
@@ -2655,7 +2754,7 @@ class VncServerManager():
             # end for server in servers
 
             status_msg = self._power_cycle_servers(
-                reboot_server_list, do_net_boot)
+                reboot_server_list, self._smgr_cobbler, do_net_boot)
             self._smgr_cobbler.sync()
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2698,9 +2797,8 @@ class VncServerManager():
 		control_data_intf = contrail_dict.get('control_data_interface', "")
 		interface_list = self.get_interfaces(server)
 		intf_dict = {}
-
-		control_ip = interface_list[control_data_intf] ['ip']	
-		control_mask = interface_list[control_data_intf] ['mask']	
+		control_ip = interface_list[control_data_intf] ['ip']
+		control_mask = interface_list[control_data_intf] ['mask']
 		control_gway = interface_list[control_data_intf].get('d_gw', "")
  		ip_prefix = "%s/%s" %(control_ip, control_mask)
 		ip_obj = IPNetwork(ip_prefix)
@@ -2830,6 +2928,333 @@ class VncServerManager():
                                                                             None)
             abort(404, resp_msg)
 
+
+    def update_cluster_provision(self, cluster_id, role_sequence):
+        if not cluster_id or not role_sequence:
+            return
+        cluster_data = {"id": cluster_id, "provision_role_sequence": role_sequence}
+        self._serverDb.modify_cluster(cluster_data)
+        role_steps_list = []
+        sequence_steps = role_sequence.get('steps', [])
+        if sequence_steps:
+            role_steps_list = sequence_steps[0]
+        for step_tuple in role_steps_list:
+            server_id = step_tuple[0]
+            hiera_file = self.get_server_control_hiera_filename(server_id)
+            self._smgr_puppet.modify_server_hiera_data(server_id, hiera_file, [step_tuple])
+
+    def get_server_control_hiera_filename(self, server_id, cluster=None):
+        hiera_filename = ''
+        servers = self._serverDb.get_server({'id': server_id}, detail=True)
+        if not servers:
+            return hiera_filename
+        server = servers[0]
+        server_domain = self.get_server_domain(server, cluster)
+        hieradata_environment = self.get_hieradata_environment(server)
+        if not server_domain or not hieradata_environment:
+            return hiera_filename
+        hiera_filename = hieradata_environment + \
+            server['id'] + "." + \
+            server_domain + "-contrail.yaml"
+        return hiera_filename
+
+    def get_server_domain(self, server, cluster=None):
+        domain = ''
+        domain = server['domain']
+        if domain:
+            return domain
+        if not cluster:
+            cluster_id = server['cluster_id']
+            if not cluster_id:
+                return domain
+            clusters = self._serverDb.get_cluster(
+                {"id" : cluster_id}, detail=True)
+            if clusters:
+                cluster = clusters[0]
+                cluster_params = eval(cluster['parameters'])
+                domain = cluster_params['domain']
+        return domain
+    # end get_server_domain
+
+    def update_provision_role_sequence(self, server_id, status):
+        if not server_id or not status or '_' not in status:
+            return False
+        if status.split('_')[-1] != 'completed':
+            return False
+        state = status.replace('_completed', '')
+
+        if not state or \
+           (state not in self._role_steps and state != 'post_provision'):
+            return False
+        servers = self._serverDb.get_server(
+            {"id" : server_id}, detail=True)
+        if not servers:
+            return False
+        server = servers[0]
+        cluster_id = server['cluster_id']
+        clusters = self._serverDb.get_cluster(
+            {"id" : cluster_id}, detail=True)
+        if not clusters:
+            return False
+        cluster = clusters[0]
+        sequence_provisioning = eval(cluster['parameters']).get(
+            "sequence_provisioning", False)
+        if not sequence_provisioning:
+            return False
+        
+        provision_role_sequence = cluster.get('provision_role_sequence', '{}')
+        if not provision_role_sequence:
+            return False
+        provision_role_sequence = eval(provision_role_sequence)
+        if not provision_role_sequence:
+            return False
+        steps = provision_role_sequence.get('steps', [])
+        step_tuple = (server_id, state)
+        role_steps_list = []
+        if steps:
+            role_steps_list = steps[0]
+        else:
+            return False
+        if step_tuple not in role_steps_list:
+                return False
+
+        role_steps_list.remove(step_tuple)
+        time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
+        provision_role_sequence['completed'].append(step_tuple + (time_str,))
+        hiera_file = self.get_server_control_hiera_filename(step_tuple[0])
+        self._smgr_puppet.modify_server_hiera_data(step_tuple[0],
+                                                   hiera_file, [step_tuple],
+                                                   False)
+        if role_steps_list:
+            provision_role_sequence['steps'][0] = role_steps_list
+        else:
+            role_steps_list = []
+            provision_role_sequence['steps'].pop(0)
+            if provision_role_sequence['steps']:
+                role_steps_list = provision_role_sequence['steps'][0]
+            for new_step_tuple in role_steps_list:
+                hiera_file = self.get_server_control_hiera_filename(new_step_tuple[0])
+                if not hiera_file:
+                    return False
+                self._smgr_puppet.modify_server_hiera_data(new_step_tuple[0], hiera_file, [new_step_tuple])
+        cluster_data = {'id': cluster_id, 'provision_role_sequence': provision_role_sequence}
+        self._serverDb.modify_cluster(cluster_data)
+        return True
+    # end update_provision_role_sequence
+
+    def get_hieradata_environment(self, server):
+        hiera_env = ''
+        package_image_id = server['provisioned_id']
+        if not package_image_id:
+            return hiera_env
+        environment = ''
+        package_image_id, package = self.get_package_image(package_image_id)
+        puppet_manifest_version = \
+            eval(package['parameters'])['puppet_manifest_version']
+        environment = puppet_manifest_version.replace('-','_')
+        if not environment:
+            return hiera_env
+        hiera_env = self._smgr_puppet.puppet_directory + "environments/" + \
+            environment + "/hieradata/"
+        return hiera_env
+    # end get_hieradata_environment
+
+    def get_role_step_servers(self, role_servers, cluster):
+        role_step_servers = {}
+        if not cluster:
+            return role_step_servers
+        role_step_servers['pre_exec_vnc_galera'] = []
+        role_step_servers['post_exec_vnc_galera'] = []
+        role_step_servers['keepalived'] = []
+        role_step_servers['haproxy'] = []
+        openstack_ha = self.is_cluster_ha(cluster)
+        contrail_ha = self.is_cluster_contrail_ha(cluster)
+        for role in self._roles:
+            role_step_servers[role] = []
+            for server in role_servers[role]:
+                role_step_servers[role].append(server['id'])
+                if role == 'openstack' and openstack_ha:
+                    if server['id'] not in role_step_servers['pre_exec_vnc_galera']:
+                        role_step_servers['pre_exec_vnc_galera'].append(server['id'])
+                    if server['id'] not in role_step_servers['post_exec_vnc_galera']:
+                        role_step_servers['post_exec_vnc_galera'].append(server['id'])
+                    if server['id'] not in role_step_servers['keepalived']:
+                        role_step_servers['keepalived'].append(server['id'])
+                    if server['id'] not in role_step_servers['haproxy']:
+                        role_step_servers['haproxy'].append(server['id'])
+                if role == 'config':
+                    if server['id'] not in role_step_servers['haproxy']:
+                        role_step_servers['haproxy'].append(server['id'])
+                    if contrail_ha:
+                        if server['id'] not in role_step_server['keepalived']:
+                            role_step_servers['keepalived'].append(server['id'])
+        return role_step_servers
+
+    def validate_role_sequence(self, role_sequence):
+        return True
+
+    def is_cluster_ha(self, cluster):
+        if not cluster:
+            return False
+        cluster_params = eval(cluster['parameters'])
+        internal_vip = cluster_params.get('internal_vip', '')
+        if internal_vip:
+            return True
+        return False
+
+    def is_cluster_contrail_ha(self, cluster):
+        if not cluster:
+            return False
+        cluster_params = eval(cluster['parameters'])
+        contrail_internal_vip = cluster_params.get('contrail_internal_vip', '')
+        if contrail_internal_vip:
+            return True
+        return False
+
+    def get_role_sequence(self, cluster):
+        if not cluster:
+            return []
+        cluster_id = cluster['id']
+        ha = self.is_cluster_ha(cluster)
+        if ha:
+            default_role_sequence = self._role_step_sequence_ha
+        else:
+            default_role_sequence = self._role_sequence
+        try:
+            role_sequence_file = open(_DEF_ROLE_SEQUENCE_DEF_FILE, 'r')
+            json_data = role_sequence_file.read()
+            role_sequence_file.close()
+        except IOError:
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               "Error reading role sequence config file %s" \
+                               % (_DEF_ROLE_SEQUENCE_DEF_FILE))
+            role_sequence = default_role_sequence
+            return role_sequence
+        try:
+            role_sequence_data = json.loads(json_data)
+            cluster_role_sequence_list = role_sequence_data.get('cluster', [])
+            cluster_role_sequence = []
+            for cluster in cluster_role_sequence_list:
+                if cluster_id == cluster.get('id', ''):
+                    cluster_role_sequence = cluster['role_sequence']
+                    break
+            if not cluster_role_sequence:
+                if ha:
+                    default_sequence = role_sequence_data.get('default_ha', {})
+                else:
+                    default_sequence = role_sequence_data.get('default', {})
+                cluster_role_sequence = default_sequence.get('role_sequence', [])
+            role_sequence = []
+            for role_set_list in cluster_role_sequence:
+                role_tuple = tuple(role_set_list)
+                role_sequence.append(role_tuple)
+            if not role_sequence:
+                role_sequence = default_role_sequence
+            else:
+                if not self.validate_role_sequence(role_sequence):
+                    role_sequence = default_role_sequence
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                               "Role sequence: %s" % str(role_sequence))           
+        except Exception as e:
+            print repr(e)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               "Role sequence file %s "
+                               "File should be in JSON format") \
+                               % (_DEF_ROLE_SEQUENCE_DEF_FILE)
+            role_sequence = default_role_sequence
+        return role_sequence
+
+    def prepare_provision_role_sequence(self, cluster, role_servers, puppet_manifest_version):
+        provision_role_sequence = {}
+        if not cluster or not role_servers:
+            return provision_role_sequence
+        if not self._smgr_puppet.is_new_provisioning(puppet_manifest_version):
+            return provision_role_sequence
+        if cluster['provision_role_sequence'] and eval(cluster['provision_role_sequence']):
+            self._smgr_log.log(self._smgr_log.WARN, 
+                               "provision_role_sequence already present:%s" %(cluster['provision_role_sequence']))
+        provision_role_sequence['steps'] = []
+        provision_role_sequence['completed'] = []
+        control_role_sequence = []
+        compute_role_sequence = []
+        server_compute_flag = {}
+        # Get the role sequence
+        role_sequence = self.get_role_sequence(cluster)
+        role_step_servers = self.get_role_step_servers(role_servers, cluster)
+        cluster_servers = self._serverDb.get_server(
+            {"cluster_id" : cluster['id']})
+        for role_seq in role_sequence:
+            role_list = role_seq[0]
+            execution = role_seq[1]
+            if execution != 's' and execution != 'p':
+                execution = 's'
+            if execution == 'p':
+                role_steps_list = []
+            for server in cluster_servers:
+                if execution == 's':
+                    role_steps_list = []
+                for role in role_list:
+                    if role in self._compute_roles:
+                        continue
+                    for role_step_server_id in role_step_servers[role]:
+                        if server['id'] == role_step_server_id:
+                            role_steps_tuple = (server['id'], role)
+                            role_steps_list.append(role_steps_tuple)
+                            server_compute_flag[server['id']] = False
+                            break
+                if role_steps_list and execution == 's':
+                    control_role_sequence.append(role_steps_list)
+            if role_steps_list and execution == 'p':
+                control_role_sequence.append(role_steps_list)
+
+        for role in self._compute_roles:
+            role_steps_list = []
+            for role_step_server_id in role_step_servers[role]:
+                role_steps_tuple = (role_step_server_id, role)
+                role_steps_list.append(role_steps_tuple)
+                server_compute_flag[role_step_server_id] = True
+            if role_steps_list:
+                compute_role_sequence.append(role_steps_list)
+        # Set provision_complete as last step for all the servers.
+        provision_complete_control_list = []
+        provision_complete_compute_list = []
+        compute_list = []
+        control_list = []
+        for server_id, compute_flag in server_compute_flag.iteritems():
+            role_steps_tuple = (server_id, "post_provision")
+            if compute_flag:
+                compute_list.append(role_steps_tuple)
+            else:
+                control_list.append(role_steps_tuple)
+        if control_list:
+            provision_complete_control_list.append(control_list)
+        if compute_list:
+            provision_complete_compute_list.append(compute_list)
+        # Create the full sequence of steps
+        provision_role_sequence['steps'] = control_role_sequence + \
+            provision_complete_control_list + \
+            compute_role_sequence + \
+            provision_complete_compute_list
+        return provision_role_sequence
+
+    #end prepare_provision_role_sequence
+
+    def get_role_servers(self, cluster_id):
+        role_servers = {}
+        if not cluster_id:
+            return role_servers
+        cluster_servers = self._serverDb.get_server(
+            {"cluster_id" : cluster_id},
+            detail="True")
+        # build roles dictionary for this cluster. Roles dictionary will be
+        # keyed by role-id and value would be list of servers configured
+        # with this role.
+        for role in self._roles:
+            role_servers[role] = self.role_get_servers(
+                cluster_servers, role)
+        return role_servers
+    #end get_role_servers
+
     # API call to provision server(s) as per roles/roles
     # defined for those server(s). This function creates the
     # puppet manifest file for the server and adds it to site
@@ -2854,6 +3279,22 @@ class VncServerManager():
                 self.log_and_raise_exception(msg)
 
             provision_status['server'] = []
+            cluster_id = ret_data['cluster_id']
+            puppet_manifest_version = \
+                server_packages[0]['puppet_manifest_version']
+            role_servers = self.get_role_servers(cluster_id)
+            cluster = self._serverDb.get_cluster(
+                {"id" : cluster_id},
+                detail=True)[0]
+            sequence_provisioning = eval(cluster['parameters']).get(
+                "sequence_provisioning", False)
+            if sequence_provisioning:
+                role_sequence = \
+                    self.prepare_provision_role_sequence(
+                        cluster,
+                        role_servers, 
+                        puppet_manifest_version)
+            role_servers = {}
             for server_pkg in server_packages:
                 server = server_pkg['server']
                 package_image_id = server_pkg['package_image_id']
@@ -2872,19 +3313,16 @@ class VncServerManager():
                 # keyed by role-id and value would be list of servers configured
                 # with this role.
                 if not role_servers:
-                    for role in ['database', 'openstack',
-                                 'config', 'control',
-                                 'collector', 'webui',
-                                 'compute', 'storage-compute', 'storage-master']:
+                    for role in self._roles:
                         role_servers[role] = self.role_get_servers(
                             cluster_servers, role)
                         role_ips[role] = [x["ip_address"] for x in role_servers[role]]
                         role_ids[role] = [x["id"] for x in role_servers[role]]
 
                 provision_params = {}
+                puppet_manifest_version = server_pkg['puppet_manifest_version']
                 provision_params['package_image_id'] = package_image_id
                 provision_params['package_type'] = package_type
-                puppet_manifest_version = server_pkg['puppet_manifest_version']
                 provision_params['puppet_manifest_version'] = puppet_manifest_version
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
                 provision_params['roles'] = role_ips
@@ -3038,6 +3476,7 @@ class VncServerManager():
                 num_storage_hosts = int(0)
                 live_migration = "disable"
                 live_migration_host = ""
+                live_migration_ip = ""
                 live_migration_storage_scope = "local"
                 for role_server in role_servers['storage-compute']:
                     server_params_compute = eval(role_server['parameters'])
@@ -3046,7 +3485,7 @@ class VncServerManager():
                         num_storage_hosts += 1
                     else:
                         pass
-    
+
                 if 'live_migration' in cluster_params.keys() and cluster_params['live_migration'] == "enable":
                   if 'live_migration_nfs_vm_host' in cluster_params.keys() and cluster_params['live_migration_nfs_vm_host'] and len(cluster_params['live_migration_nfs_vm_host']) > 0 :
                       live_migration = "enable"
@@ -3066,9 +3505,10 @@ class VncServerManager():
                     msg = "Invalid Live Migration Storage Scope (local/global are valid)"
                     raise ServerMgrException(msg)
 
-                provision_params['live_migration_storage_scope'] = live_migration_storage_scope
-                provision_params['contrail-storage-enabled'] = storage_status
-                provision_params['subnet-mask'] = subnet_mask
+
+		provision_params['live_migration_storage_scope'] = live_migration_storage_scope
+		provision_params['contrail-storage-enabled'] = storage_status
+		provision_params['subnet-mask'] = subnet_mask
                 provision_params['host_roles'] = [ x.encode('ascii') for x in eval(server['roles']) ]
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
@@ -3113,8 +3553,12 @@ class VncServerManager():
                 for x in role_servers['storage-compute']:
                     storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
                     storage_mon_hostname_set.add(x['id'])
-                    if 'storage_chassis_id' in server_params.keys() and server_params['storage_chassis_id']:
-                        server_params_compute = eval(x['parameters'])
+                    if x['id'] == live_migration_host: 
+                        live_migration_ip = self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"')
+                        self._smgr_log.log(self._smgr_log.DEBUG, "live-M ip = %s" % live_migration_ip)
+                        provision_params['live_migration_ip'] = live_migration_ip
+                    server_params_compute = eval(x['parameters'])
+                    if 'storage_chassis_id' in server_params_compute.keys() and server_params_compute['storage_chassis_id']:
                         storage_chassis_id = [x['id'], ':', server_params_compute['storage_chassis_id']]
                         storage_host_chassis = ''.join(storage_chassis_id)
                         storage_chassis_config_set.add(storage_host_chassis)
@@ -3154,8 +3598,12 @@ class VncServerManager():
                 # Storage manager restrictions
                 if len(role_servers['storage-master']):
                     if len(role_servers['storage-master']) > 1:
-                        msg = "There can only be only one node with the role 'storage-master'"
-                        raise ServerMgrException(msg)
+                        # if HA is configured, there may be more than 1 storage-master
+                        if cluster_params.get("internal_vip", "") == "" :
+                            msg = "There can only be only one node with the role 'storage-master'"
+                            raise ServerMgrException(msg)
+                        else:
+                            pass
                     elif len(role_servers['storage-compute']) == 0:
                         msg = "Storage manager node needs Storage nodes to also be provisioned"
                         raise ServerMgrException(msg)
@@ -3169,6 +3617,8 @@ class VncServerManager():
                 server_status['package_id'] = package_image_id
                 provision_status['server'].append(server_status)
                 #end of for
+            if sequence_provisioning:
+                self.update_cluster_provision(cluster_id, role_sequence)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION,
@@ -3236,22 +3686,22 @@ class VncServerManager():
         args, remaining_argv = conf_parser.parse_known_args(args_str)
 
         serverMgrCfg = {
-            'listen_ip_addr'             : _WEB_HOST,
-            'listen_port'                : _WEB_PORT,
-            'database_name'              : _DEF_CFG_DB,
-            'server_manager_base_dir'    : _DEF_SMGR_BASE_DIR,
-            'html_root_dir'              : _DEF_HTML_ROOT_DIR,
-            'cobbler_ip_address'         : _DEF_COBBLER_IP,
-            'cobbler_port'               : _DEF_COBBLER_PORT,
-            'cobbler_username'           : _DEF_COBBLER_USERNAME,
-            'cobbler_password'           : _DEF_COBBLER_PASSWORD,
-            'ipmi_username'             : _DEF_IPMI_USERNAME,
-            'ipmi_password'             : _DEF_IPMI_PASSWORD,
-            'ipmi_type'                 : _DEF_IPMI_TYPE,
-            'puppet_dir'                 : _DEF_PUPPET_DIR,
-            'collectors'                 : _DEF_COLLECTORS_IP,
-            'http_introspect_port'       : _DEF_INTROSPECT_PORT,
-            'sandesh_log_level'          : _DEF_SANDESH_LOG_LEVEL
+            'listen_ip_addr': _WEB_HOST,
+            'listen_port': _WEB_PORT,
+            'database_name': _DEF_CFG_DB,
+            'server_manager_base_dir': _DEF_SMGR_BASE_DIR,
+            'html_root_dir': _DEF_HTML_ROOT_DIR,
+            'cobbler_ip_address': _DEF_COBBLER_IP,
+            'cobbler_port': _DEF_COBBLER_PORT,
+            'cobbler_username': _DEF_COBBLER_USERNAME,
+            'cobbler_password': _DEF_COBBLER_PASSWORD,
+            'ipmi_username': _DEF_IPMI_USERNAME,
+            'ipmi_password': _DEF_IPMI_PASSWORD,
+            'ipmi_type': _DEF_IPMI_TYPE,
+            'puppet_dir': _DEF_PUPPET_DIR,
+            'collectors': _DEF_COLLECTORS_IP,
+            'http_introspect_port': _DEF_INTROSPECT_PORT,
+            'sandesh_log_level': _DEF_SANDESH_LOG_LEVEL
         }
 
         if args.config_file:
@@ -3273,7 +3723,7 @@ class VncServerManager():
             msg = "Server Manager doesn't have a configuration set."
             self.log_and_raise_exception(msg)
 
-        self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg )
+        self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg)
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -3389,7 +3839,8 @@ class VncServerManager():
     # connectivity is available to the server, that is used to login and reboot
     # the server.
     def _power_cycle_servers(
-        self, reboot_server_list, net_boot=False):
+        self, reboot_server_list,
+        cobbler_server, net_boot=False):
         self._smgr_log.log(self._smgr_log.DEBUG,
                                 "_power_cycle_servers")
         success_list = []
@@ -3404,7 +3855,7 @@ class VncServerManager():
                 if net_boot:
                     self._smgr_log.log(self._smgr_log.DEBUG,
                                         "Enable netboot")
-                    self._smgr_cobbler.enable_system_netboot(
+                    cobbler_server.enable_system_netboot(
                         server['id'])
                     cmd = "puppet cert clean %s.%s" % (
                         server['id'], server['domain'])
@@ -3468,10 +3919,9 @@ class VncServerManager():
                                 (server['id']))
                 failed_list.append(server['id'])
         #end for
-        #self._smgr_cobbler.sync()
         if power_reboot_list:
             try:
-                self._smgr_cobbler.reboot_system(
+                cobbler_server.reboot_system(
                     power_reboot_list)
                 status_msg = (
                     "OK : IPMI reboot operation"
@@ -3502,12 +3952,13 @@ class VncServerManager():
     # Internal private call to upgrade server. This is called by REST
     # API update_server and upgrade_cluster
     def _do_reimage_server(self, base_image,
-                           package_image_id, reimage_parameters):
+                           package_image_id, reimage_parameters,
+                           cobbler_server):
         try:
             # Profile name is based on image name.
             profile_name = base_image['id']
             # Setup system information in cobbler
-            self._smgr_cobbler.create_system(
+            cobbler_server.create_system(
                 reimage_parameters['server_id'], profile_name, package_image_id,
                 reimage_parameters['server_mac'], reimage_parameters['server_ip'],
                 reimage_parameters['server_mask'], reimage_parameters['server_gateway'],
@@ -3597,7 +4048,6 @@ def print_rest_response(resp):
             return resp
 
 
-
 def main(args_str=None):
     vnc_server_mgr = VncServerManager(args_str)
     pipe_start_app = vnc_server_mgr.get_pipe_start_app()
@@ -3632,4 +4082,5 @@ if __name__ == "__main__":
 
     main()
 # End if __name__
+
 

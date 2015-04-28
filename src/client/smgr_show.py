@@ -179,8 +179,8 @@ def send_REST_request(ip, port, rest_api_params, detail):
             args_str += "&detail"
         if args_str != '':
             url += "?" + args_str
+        print url
         conn = pycurl.Curl()
-        conn.setopt(pycurl.TIMEOUT, 3)
         conn.setopt(pycurl.URL, url)
         conn.setopt(pycurl.HTTPHEADER, headers)
         conn.setopt(pycurl.HTTPGET, 1)

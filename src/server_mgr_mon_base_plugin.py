@@ -401,7 +401,6 @@ class ServerMgrMonBasePlugin():
             self._smgr_log.log(self._smgr_log.INFO, "Exception in call_subprocess: " + str(e))
             return None
 
-
     def create_store_copy_ssh_keys(self, server_id, server_ip):
 
         # Create the Keys using Pycrypto

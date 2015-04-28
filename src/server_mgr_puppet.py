@@ -17,6 +17,7 @@ import random
 import tempfile
 import re
 import openstack_hieradata
+import yaml
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
@@ -123,7 +124,8 @@ class ServerMgrPuppet:
         role_ips_dict = provision_params['roles']
         cluster_params = eval(cluster['parameters'])
         server_params = eval(server['parameters'])
-        openstack_ip = cluster_params.get("internal_vip", None)
+        #openstack_ip = cluster_params.get("internal_vip", None)
+        openstack_ip = ''
         self_ip = server.get("ip_address", "")
         if openstack_ip is None or openstack_ip == '':
             if self_ip in role_ips_dict['openstack']:
@@ -211,11 +213,11 @@ class ServerMgrPuppet:
     def _update_provision_complete(self, provision_params, require_param):
         # Get all the parameters needed to send to puppet manifest.
         data = '''    # Update the state of server that provision is complete
-    contrail_%s::contrail_common::report_status{provision_completed:
+    contrail_%s::contrail_common::report_status{post_provision_completed:
         state => "%s",
         require => %s
     }\n\n''' % (provision_params['puppet_manifest_version'],
-                "provision_completed" , require_param)
+                "post_provision_completed" , require_param)
         return data
     # end _update_provision_complete
 
@@ -470,23 +472,8 @@ class ServerMgrPuppet:
         
         config_server_control = self.get_control_ip(
             provision_params, config_server)
-        if 'zookeeper' in provision_params['roles']:
-            zk_servers = provision_params['roles']['zookeeper']
-        else:
-            zk_servers = []
-            db_ip_list = ["\"%s\""%(x) for x in database_server]
-            zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
-            zk_ip_list_control=[]
-            contrail_database_index = database_server.index(
-                provision_params["server_ip"])+1
-
-        #####-
-        cassandra_seeds = ["\"%s\""%(x) for x in \
-            provision_params['roles']['config']]
-        cassandra_seeds_control_list=[]
-        for item in cassandra_seeds:
-            cassandra_seeds_control_list.append(self.get_control_ip(provision_params,item))
-        #####-
+        contrail_database_index = database_server.index(
+            provision_params["server_ip"])+1
 
         # Build Params items
         if self._params_dict.get(
@@ -504,7 +491,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_cassandra_seeds', None) is None:
             self._params_dict['contrail_cassandra_seeds'] = (
-                "[%s]" %(','.join(cassandra_seeds_control_list)))
+                "[%s]" %('"{}"'.format('", "'.join(database_ip_control_list))))
         if self._params_dict.get(
             'system_name', None) is None:
             self._params_dict['system_name'] = (
@@ -516,7 +503,7 @@ class ServerMgrPuppet:
         if self._params_dict.get(
             'contrail_zookeeper_ip_list', None) is None:
             self._params_dict['contrail_zookeeper_ip_list'] = (
-                "[%s]" %(','.join(database_ip_control_list)))
+                "[%s]" %('"{}"'.format('", "'.join(database_ip_control_list))))
         if self._params_dict.get(
             'contrail_database_index', None) is None:
             self._params_dict['contrail_database_index'] = (
@@ -724,21 +711,9 @@ $__contrail_disc_backend_servers__
         config_servers = provision_params['roles']['config']
         zk_servers = provision_params['roles']['zookeeper']
 
-        cfgm_ip_list = ["\"%s\""%(x) for x in config_servers]
-        zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
-        zk_ip_list = cfgm_ip_list + zoo_ip_list
-
-        #TODO -REMOVE
-        cfgm_ip_list_control=[]
-        zoo_ip_list_control=[]
-        zk_ip_list_control=[]
-        for itr in cfgm_ip_list:
-            cfgm_ip_list_control.append(self.get_control_ip(provision_params,itr))
-        for itr in zoo_ip_list:
-            zoo_ip_list_control.append(self.get_control_ip(provision_params,itr))
-        for itr in zk_ip_list:
-            zk_ip_list_control.append(self.get_control_ip(provision_params,itr))
-
+        zk_ip_list=[]
+        for item in (config_servers + zk_servers):
+            zk_ip_list.append(self.get_control_ip(provision_params,item))
 
         contrail_zk_index = len(config_servers) + zk_servers.index(
                 provision_params["server_ip"])+1
@@ -747,7 +722,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'zk_ip_list', None) is None:
             self._params_dict['zk_ip_list'] = (
-                "[%s]" %(','.join(zk_ip_list)))
+                "[%s]" %('"{}"'.format('", "'.join(zk_ip_list))))
         if self._params_dict.get(
             'zk_index', None) is None:
             self._params_dict['zk_index'] = (
@@ -771,43 +746,22 @@ $__contrail_disc_backend_servers__
             compute_server = provision_params['roles']['compute'][0]
         compute_server_control= self.get_control_ip(provision_params,compute_server)
 
-        control_server_id_lst = ['"%s"' %(x) for x in \
-            provision_params['role_ids']['control']]
-
         config_servers = provision_params['roles']['config']
-        if 'zookeeper' in provision_params['roles']:
-            zk_servers = provision_params['roles']['zookeeper']
-        else:
-            zk_servers = []
-            cfgm_ip_list = ["\"%s\""%(x) for x in config_servers]
-            zoo_ip_list = ["\"%s\""%(x) for x in zk_servers]
-            zk_ip_list = cfgm_ip_list + zoo_ip_list
-            cfgm_ip_list_control=[]
-            zoo_ip_list_control=[]
-            zk_ip_list_control=[]
-            for itr in cfgm_ip_list:
-                cfgm_ip_list_control.append(self.get_control_ip(provision_params,itr))
-            for itr in zoo_ip_list:
-                zoo_ip_list_control.append(self.get_control_ip(provision_params,itr))
-            for itr in zk_ip_list:
-                zk_ip_list_control.append(self.get_control_ip(provision_params,itr))
+        cfgm_ip_list_control=[]
+        for itr in config_servers:
+            cfgm_ip_list_control.append(self.get_control_ip(provision_params,itr))
+        contrail_cfgm_index = config_servers.index(
+            provision_params["server_ip"])+1
 
-            contrail_cfgm_index = config_servers.index(
-                provision_params["server_ip"])+1
-            cassandra_ip_list = ["\"%s\""%(x) for x in \
-                provision_params['roles']['database']]
         cassandra_ip_list_control=[]
-        for itr in cassandra_ip_list:
+        for itr in provision_params['roles']['database']:
             cassandra_ip_list_control.append(self.get_control_ip(provision_params,itr))
 
         openstack_server = provision_params['roles']['openstack'][0]
         openstack_server_control = self.get_control_ip(provision_params,openstack_server)
-        
-        control_ip_list = ["\"%s\""%(x) for x in \
-            provision_params['roles']['control']]
 
         control_ip_list_control=[]
-        for itr in control_ip_list:
+        for itr in provision_params['roles']['control']:
             control_ip_list_control.append(self.get_control_ip(provision_params,itr))
             
         if (provision_params['openstack_mgmt_ip'] == ''):
@@ -878,11 +832,11 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_control_ip_list', None) is None:
             self._params_dict['contrail_control_ip_list'] = (
-                "[%s]" %(','.join(control_ip_list_control)))
+                "[%s]" %('"{}"'.format('", "'.join(control_ip_list_control))))
         if self._params_dict.get(
             'contrail_control_name_list', None) is None:
             self._params_dict['contrail_control_name_list'] = (
-                "[%s]" %(','.join(control_server_id_lst)))
+                "[%s]" %('"{}"'.format('", "'.join(provision_params['role_ids']['control']))))
         if self._params_dict.get(
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
@@ -910,7 +864,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_cassandra_ip_list', None) is None:
             self._params_dict['contrail_cassandra_ip_list'] = (
-                "[%s]" %(','.join(cassandra_ip_list_control)))
+                "[%s]" %('"{}"'.format('", "'.join(cassandra_ip_list_control))))
         if self._params_dict.get(
             'contrail_cassandra_ip_port', None) is None:
             self._params_dict['contrail_cassandra_ip_port'] = (
@@ -918,7 +872,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_zookeeper_ip_list', None) is None:
             self._params_dict['contrail_zookeeper_ip_list'] = (
-                "[%s]" %(','.join(cassandra_ip_list_control)))
+                "[%s]" %('"{}"'.format('", "'.join(cassandra_ip_list_control))))
         if self._params_dict.get(
             'contrail_zk_ip_port', None) is None:
             self._params_dict['contrail_zk_ip_port'] = (
@@ -1101,10 +1055,8 @@ $__contrail_disc_backend_servers__
         data = ''
         config_server = provision_params['roles']['config'][0]
         config_server_control = self.get_control_ip(provision_params, config_server)
-        cassandra_ip_list = ["\"%s\""%(x) for x in \
-            provision_params['roles']['database']]
         cassandra_ip_list_control=[]
-        for itr in cassandra_ip_list:
+        for itr in provision_params['roles']['database']:
             cassandra_ip_list_control.append(self.get_control_ip(provision_params, itr))
         collector_servers = provision_params['roles']['collector']
         redis_master_ip = collector_servers[0]
@@ -1137,7 +1089,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_cassandra_ip_list', None) is None:
             self._params_dict['contrail_cassandra_ip_list'] = (
-                "[%s]" %(','.join(cassandra_ip_list_control)))
+                "[%s]" %('"{}"'.format('", "'.join(cassandra_ip_list_control))))
         if self._params_dict.get(
             'contrail_cassandra_ip_port', None) is None:
             self._params_dict['contrail_cassandra_ip_port'] = (
@@ -1186,10 +1138,8 @@ $__contrail_disc_backend_servers__
         collector_server_control = self.get_control_ip(provision_params, collector_server)
         openstack_server = provision_params['roles']['openstack'][0]
         openstack_server_control = self.get_control_ip(provision_params, openstack_server)
-        cassandra_ip_list = ["\"%s\""%(x) for x in \
-            provision_params['roles']['database']]
         cassandra_ip_list_control=[]
-        for itr in cassandra_ip_list:
+        for itr in provision_params['roles']['database']:
             cassandra_ip_list_control.append(self.get_control_ip(provision_params, itr))
         # Build Params items
         if self._params_dict.get(
@@ -1207,7 +1157,7 @@ $__contrail_disc_backend_servers__
         if self._params_dict.get(
             'contrail_cassandra_ip_list', None) is None:
             self._params_dict['contrail_cassandra_ip_list'] = (
-                "[%s]" %(','.join(cassandra_ip_list_control)))
+                "[%s]" %('"{}"'.format('", "'.join(cassandra_ip_list_control))))
         # Build resource items
         data += '''    # contrail-webui role.
         contrail_%s::contrail_webui::contrail_webui{contrail_webui:
@@ -1785,10 +1735,12 @@ $__contrail_quantum_servers__
         # Add common role
         data += '    class { \'::contrail::profile::common\' : stage => \'first\' }\n'
         # Add keepalived (This class is no-op if vip is not configured.)
-        if 'config' in server['roles']:
+        if 'config' in server['roles'] or \
+           'openstack' in server['roles']:
             data += '    include ::contrail::profile::keepalived\n'
         # Add haproxy (for config node)
-        if 'config' in server['roles']:
+        if 'config' in server['roles'] or \
+           'openstack' in server['roles']:
             data += '    include ::contrail::profile::haproxy\n'
         # Add database role.
         if 'database' in server['roles']:
@@ -1798,14 +1750,23 @@ $__contrail_quantum_servers__
             data += '    include ::contrail::profile::webui\n'
         # Add openstack role.
         if 'openstack' in server['roles']:
-            if cluster_params.get("internal_vip", "") != "" :
+            if cluster_params.get("internal_vip", "") != "" or \
+                cluster_params.get("contrail_internal_vip", "") != "" :
                 data += '    class { \'::contrail::profile::openstack_controller\': } ->\n'
-                data += '    class { \'::contrail::ha_config\': }\n'
+                if 'config' in server['roles']:
+                    data += '    class { \'::contrail::ha_config\': } ->\n'
+                else:
+                    data += '    class { \'::contrail::ha_config\': }\n'
             else:
                 data += '    include ::contrail::profile::openstack_controller\n'
         # Add config role.
         if 'config' in server['roles']:
-            data += '    include ::contrail::profile::config\n'
+            if cluster_params.get("internal_vip", "") != "" or \
+                cluster_params.get("contrail_internal_vip", "") != "" :
+                data += '    class { \'::contrail::profile::config\': }\n'
+            else:
+                data += '    include ::contrail::profile::config\n'
+
         # Add controller role.
         if 'control' in server['roles']:
             data += '    include ::contrail::profile::controller\n'
@@ -1822,7 +1783,7 @@ $__contrail_quantum_servers__
 	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
             data += '    class { \'::contrail::profile::storage\' :  stage => \'storage\' }\n'
         # Add post role
-        data += '    class { \'::contrail::provision_complete\' : state => \'provision_completed\', stage => \'post\' }\n'
+        data += '    class { \'::contrail::provision_complete\' : state => \'post_provision_completed\', stage => \'post\' }\n'
 
         data += "}\n"
         with open(site_file, "a") as site_fh:
@@ -1839,6 +1800,12 @@ $__contrail_quantum_servers__
             "contrail_internal_vip" : ["contrail_internal_vip", "string"],
             "contrail_external_vip" : ["contrail_external_vip", "string"],
             "analytics_data_ttl" : ["analytics_data_ttl", "integer"],
+            "analytics_config_audit_ttl" : ["analytics_config_audit_ttl", "integer"],
+            "analytics_statistics_ttl" : ["analytics_statistics_ttl", "integer"],
+            "analytics_flow_ttl" : ["analytics_flow_ttl", "integer"],
+            "snmp_scan_frequency" : ["snmp_scan_frequency", "integer"],
+            "snmp_fast_scan_frequency" : ["snmp_fast_scan_frequency", "integer"],
+            "topology_scan_frequency" : ["topology_scan_frequency", "integer"],
             "analytics_syslog_port" : ["analytics_syslog_port", "integer"],
             "database_dir" : ["database_dir", "string"],
             "analytics_data_dir" : ["analytics_data_dir", "string"],
@@ -1865,20 +1832,24 @@ $__contrail_quantum_servers__
         }
 
         data = ''
-
-        # Go thru all the keys above and if present, add to parameter list
-        for k,v in cluster_params_mapping.items():
-            if k in cluster_params:
-                # if value is text, add with quotes, else without the quotes.
-                if v[1].lower() == "string":
-                    data += 'contrail::params::' + v[0] + ': "' + \
-                        cluster_params.get(k, "") + '"\n'
-                else:
-                    data += 'contrail::params::' + v[0] + ': ' + \
-                        cluster_params.get(k, "") + '\n'
-                # end if-else
-        # end for
-        return data
+        try:
+            # Go thru all the keys above and if present, add to parameter list
+            for k,v in cluster_params_mapping.items():
+                if k in cluster_params:
+                    # if value is text, add with quotes, else without the quotes.
+                    if v[1].lower() == "string":
+                        data += 'contrail::params::' + v[0] + ': "' + \
+                            cluster_params.get(k, "") + '"\n'
+                    else:
+                        data += 'contrail::params::' + v[0] + ': ' + \
+                            cluster_params.get(k, "") + '\n'
+                    # end if-else
+            # end for
+            return data
+        except Exception as e:
+            msg = "%s, %s, %s:%s" % (repr(e), v, k, cluster_params.get(k))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg, ERR_OPR_ERROR)         
     # end add cluster_parameters
 
     def initiate_esx_contrail_vm(self, provision_params):
@@ -1912,10 +1883,22 @@ $__contrail_quantum_servers__
             self._smgr_log.log(self._smgr_log.DEBUG, "ContrilVM:" %(out))
     # end initiate_esx_contrail_vm
 
+    def add_contrail_upgrade(
+        self, server, provision_parameters):
+        data = ''
+
+        if server.get('provisioned_id',"") != provision_parameters.get('package_image_id', ""):
+            data += 'contrail::params::contrail_upgrade: %s\n' %(
+                           True)
+
+        return data
+
     def build_contrail_hiera_file(
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
         cluster_params = eval(cluster['parameters'])
+        sequence_provisioning = cluster_params.get(
+            "sequence_provisioning", False)
         server_params = eval(server['parameters'])
         data = ''
         package_ids = [provision_params.get('package_image_id', "").encode('ascii')]
@@ -1948,13 +1931,26 @@ $__contrail_quantum_servers__
             data += 'contrail::params::uuid: "%s"\n' %(
                 cluster_params.get('uuid', ""))
 
+        data += self.add_contrail_upgrade(server, provision_params)
+
         role_ips = {}
         role_ids = {}
         role_passwd = {}
         role_users = {}
+        # Set enable_provision_complete flag to false
+        if sequence_provisioning:
+            data += 'contrail::params::enable_post_provision: False\n'
+            data += 'contrail::params::enable_pre_exec_vnc_galera: False\n'
+            data += 'contrail::params::enable_post_exec_vnc_galera: False\n'
+            data += 'contrail::params::enable_keepalived: False\n'
+            data += 'contrail::params::enable_haproxy: False\n'
+            data += 'contrail::params::enable_sequence_provisioning: True\n'
         for role in ['database', 'config', 'openstack',
                      'control', 'collector',
                      'webui', 'compute']:
+            # Set all module enable flags to false
+            if sequence_provisioning:
+                data += 'contrail::params::enable_%s: False\n' %(role)
             role_ips[role] = [
                 self.get_control_ip(provision_params, x["ip_address"].encode('ascii')) \
                     for x in cluster_servers if role in set(eval(x['roles']))]
@@ -2022,6 +2018,7 @@ $__contrail_quantum_servers__
             data += 'contrail::params::storage_enabled: "%s"\n' %(provision_params['contrail-storage-enabled'])
             data += 'contrail::params::live_migration_storage_scope: "%s"\n' %(provision_params['live_migration_storage_scope'])
             data += 'contrail::params::live_migration_host: "%s"\n' %(provision_params['live_migration_host'])
+            data += 'contrail::params::live_migration_ip: "%s"\n' %(provision_params['live_migration_ip'])
             storage_mon_hosts = ''
             for key in provision_params['storage_monitor_hosts']:
                 storage_mon_hosts += '''%s, ''' % key
@@ -2141,6 +2138,37 @@ $__contrail_quantum_servers__
             cluster, cluster_servers)
     # end def build_hieradata_files
 
+    def modify_server_hiera_data(self, server_id, hiera_file, role_steps_list,
+                                 enable=True):
+        if not server_id or not hiera_file or not role_steps_list:
+            return
+        try:
+            hiera_data_fp = open(hiera_file, 'r')
+        except:
+            return
+        hiera_data_dict = yaml.load(hiera_data_fp)
+        hiera_data_fp.close()
+        if not hiera_data_dict:
+            return
+        for role_step_tuple in role_steps_list:
+            if server_id == role_step_tuple[0]:
+                key = 'contrail::params::enable_' + role_step_tuple[1]
+                if enable:
+                    hiera_data_dict[key] = True
+                else:
+                    hiera_data_dict[key] = False
+        data = ''
+        for key, value in hiera_data_dict.iteritems():
+            if isinstance(value, str):
+                data = data + str(key) + ': ' + '"%s"\n' %(str(value))
+            else:
+                data = data + str(key) + ': ' + str(value) + '\n'
+        if data:
+            hiera_data_fp = open(hiera_file, 'w')
+            hiera_data_fp.write(data)
+            hiera_data_fp.close()
+    # end modify_server_hiera_data
+
     def new_provision_server(
         self, provision_params, server, cluster, cluster_servers):
         server_fqdn = provision_params['server_id'] + "." + \
@@ -2240,6 +2268,14 @@ $__contrail_quantum_servers__
         return env_name
     # end update_node_map_file
 
+    def is_new_provisioning(self, puppet_manifest_version):
+        environment = puppet_manifest_version.replace('-','_')
+        if ((environment != "") and
+            (os.path.isdir(
+                    "/etc/puppet/environments/" + environment))):
+            return True
+        return False
+    # end is_new_provisioning
 
     def provision_server(
         self, provision_params, server, cluster, cluster_servers):
@@ -2250,13 +2286,11 @@ $__contrail_quantum_servers__
         puppet_manifest_version = provision_params.get(
             'puppet_manifest_version', "")
         environment = puppet_manifest_version.replace('-','_')
-        if ((environment != "") and
-            (os.path.isdir(
-                "/etc/puppet/environments/" + environment))):
+        if self.is_new_provisioning(puppet_manifest_version):
             self.new_provision_server(
                 provision_params, server, cluster, cluster_servers)
             return
-        # end if puppet_manifest_version
+
         server_fqdn = provision_params["server_id"] + "." + \
             provision_params["domain"]
         env_name = "contrail_" + environment

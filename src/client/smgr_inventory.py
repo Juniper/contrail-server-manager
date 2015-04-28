@@ -38,7 +38,7 @@ class ServerMgrInventory():
             url = "http://%s:%s/%s" % (server_ip, port, 'InventoryInfo')
             headers = ["Content-Type:application/json"]
             conn = pycurl.Curl()
-            conn.setopt(pycurl.TIMEOUT, 3)
+            conn.setopt(pycurl.TIMEOUT, 30)
             conn.setopt(pycurl.URL, str(url))
             conn.setopt(pycurl.HTTPHEADER, headers)
             conn.setopt(conn.WRITEFUNCTION, response.write)
