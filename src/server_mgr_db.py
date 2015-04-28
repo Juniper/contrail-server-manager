@@ -108,7 +108,7 @@ class ServerMgrDb:
                          email TEXT, status TEXT,
                          tag1 TEXT, tag2 TEXT, tag3 TEXT,
                          tag4 TEXT, tag5 TEXT, tag6 TAXT, tag7 TEXT,
-                         network TEXT, contrail TEXT,
+                         network TEXT, contrail TEXT, top_of_rack TEXT,
                          UNIQUE (id))""")
                 # Create inventory table
                 cursor.execute(
@@ -138,6 +138,7 @@ class ServerMgrDb:
                 self._add_table_column(cursor, server_table, "reimaged_id", "TEXT")
                 self._add_table_column(cursor, server_table, "provisioned_id", "TEXT")
                 self._add_table_column(cursor, server_table, "network", "TEXT")
+                self._add_table_column(cursor, server_table, "top_of_rack", "TEXT")
                 self._add_table_column(cursor, server_table, "contrail", "TEXT")
                 self._add_table_column(cursor, server_table, "ssh_public_key", "TEXT")
                 self._add_table_column(cursor, server_table, "ssh_private_key", "TEXT")
@@ -544,6 +545,10 @@ class ServerMgrDb:
             if 'network' in server_data:
                 network_data_str = str(server_data.pop("network", None))
                 server_data['network'] = network_data_str
+            #Add top_of_rack configuration 
+            if 'top_of_rack' in server_data:
+                top_of_rack_data_str = str(server_data.pop("top_of_rack", None))
+                server_data['top_of_rack'] = top_of_rack_data_str 
             #Add contrail
             if 'contrail' in server_data:
                 contrail_data_str = str(server_data.pop("contrail", None))
