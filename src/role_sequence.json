@@ -8,6 +8,8 @@
                       	      [["collector"], "p"], 
 			      [["webui"], "p"],
 			      [["compute"], "p"]],
+                              [["tsn"], "p"], 
+                              [["toragent"], "p"], 
                   [["storage-compute"], "p"],
                   [["storage-master"], "s"]]
     },
