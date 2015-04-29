@@ -359,19 +359,48 @@ class ServerMgrMonBasePlugin():
             raise ServerMgrException("Error during Sandesh Init: " + str(e))
 
     # call_subprocess function runs the IPMI command passed to it and returns the result
+    """def call_subprocess(self, cmd):
+        try:
+            times = datetime.datetime.now()
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+            while p.poll() is None:
+                time.sleep(0.3)
+                now = datetime.datetime.now()
+                diff = now - times
+                if diff.seconds > 3:
+                    if p.returncode is None:
+                        p.terminate()
+                    self._smgr_log.log(self._smgr_log.INFO, "command:" + cmd + " --> hanged")
+                    return None
+            return_str = str(p.stdout.read())
+            return return_str
+        except Exception as e:
+            if p.returncode is None:
+                p.terminate()
+            self._smgr_log.log(self._smgr_log.INFO, "Exception in call_subprocess: " + str(e))
+            return None"""
+
     def call_subprocess(self, cmd):
-        times = datetime.datetime.now()
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-        while p.poll() is None:
-            time.sleep(0.1)
-            now = datetime.datetime.now()
-            diff = now - times
-            if diff.seconds > 3:
-                os.kill(p.pid, signal.SIGKILL)
-                os.waitpid(-1, os.WNOHANG)
-                self._smgr_log.log(self._smgr_log.INFO, "command:" + cmd + " --> hanged")
-                return None
-        return p.stdout.read()
+        p = None
+        try:
+            times = datetime.datetime.now()
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+            while p.poll() is None:
+                time.sleep(0.5)
+                now = datetime.datetime.now()
+                diff = now - times
+                if diff.seconds > 3:
+                    os.kill(p.pid, signal.SIGKILL)
+                    os.waitpid(-1, os.WNOHANG)
+                    syslog.syslog("command:" + cmd + " --> hanged")
+                    return None
+            return p.communicate()[0].strip()
+        except Exception as e:
+            if p and p.poll() != 0:
+                p.terminate()
+            self._smgr_log.log(self._smgr_log.INFO, "Exception in call_subprocess: " + str(e))
+            return None
+
 
     def create_store_copy_ssh_keys(self, server_id, server_ip):
 
@@ -387,7 +416,7 @@ class ServerMgrMonBasePlugin():
                 content_file.write("ssh-rsa " + str(ssh_key.get_base64()))
                 content_file.close()
             ssh = ServerMgrSSHClient(self._serverDb)
-            ssh.connect(server_ip, option="password")
+            ssh.connect(server_ip, server_id, option="password")
             dest_file = "/root/.ssh/authorized_keys"
             ssh.exec_command("mkdir -p /root/.ssh/")
             ssh.exec_command("touch /root/.ssh/authorized_keys")
@@ -451,7 +480,7 @@ class ServerMgrMonBasePlugin():
                 if server and len(server) == 1:
                     server = server[0]
                     subprocess.call(['ssh-keygen', '-f', '/root/.ssh/known_hosts', '-R', str(server["ip_address"])])
-                    sshclient.connect(str(server["ip_address"]), "password")
+                    sshclient.connect(str(server["ip_address"]), str(server["id"]), "password")
                     match_dict = dict()
                     match_dict["id"] = str(payload["id"])
                     self._smgr_log.log(self._smgr_log.DEBUG, "Running inventory on " + str(payload["id"]) +
@@ -471,11 +500,15 @@ class ServerMgrMonBasePlugin():
                     os.remove(source_file)
                     success = True
                 else:
+                    if os.path.exists(source_file):
+                        os.remove(source_file)
                     self._smgr_log.log(self._smgr_log.ERROR, "SSH Key copy failed on  " + str(payload["id"]) +
                                        ", try " + str(tries))
                     sshclient.close()
                     success = False
             except Exception as e:
+                if os.path.exists(source_file):
+                    os.remove(source_file)
                 self._smgr_log.log(self._smgr_log.ERROR, "Error running inventory on  " + str(payload) +
                                    ", try " + str(tries)
                                    + "failed : " + str(e))
@@ -614,6 +647,17 @@ class ServerMgrMonBasePlugin():
             elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server and server['id']:
                 self.create_store_copy_ssh_keys(server['id'], server['ip_address'])
 
+    def create_server_dict(self, servers):
+        return_dict = dict()
+        for server in servers:
+            server = dict(server)
+            if 'ipmi_username' not in server or not server['ipmi_username'] \
+                    or 'ipmi_password' not in server or not server['ipmi_password']:
+                server['ipmi_username'] = self._default_ipmi_username
+                server['ipmi_password'] = self._default_ipmi_password
+            return_dict[str(server['id'])] = server
+        self._smgr_log.log(self._smgr_log.DEBUG, "Created server dictionary.")
+        return return_dict
 
     @staticmethod
     def get_mon_conf_details(self):

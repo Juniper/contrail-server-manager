@@ -30,12 +30,12 @@ class ServerMgrSSHClient():
         else:
             self._serverDb = db(DEF_SERVER_DB_LOCATION)
 
-    def connect(self, ip, option="password"):
+    def connect(self, ip, server_id, option="password"):
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             match_dict = dict()
-            match_dict["ip_address"] = ip
+            match_dict["id"] = server_id
             server = self._serverDb.get_server(match_dict, detail=True)
             if len(server) == 1:
                 server = server[0]
@@ -43,12 +43,13 @@ class ServerMgrSSHClient():
                     key = str(server["ssh_private_key"])
                     private_key = StringIO(key)
                     pkey = paramiko.RSAKey.from_private_key(private_key)
-                    ssh.connect(ip, username='root', pkey=pkey, timeout=3)
+                    ssh.connect(ip, username='root', pkey=pkey, timeout=60)
                 elif "password" in server and option == "password" and server["password"]:
                     root_pwd = server["password"]
-                    ssh.connect(ip, username='root', password=root_pwd, timeout=3)
+                    ssh.connect(ip, username='root', password=root_pwd, timeout=60)
             self._ssh_client = ssh
         except Exception as e:
+            ssh.close()
             raise e
         return ssh
 
@@ -58,6 +59,7 @@ class ServerMgrSSHClient():
             sftp.put(source, dest)
             sftp.close()
         except Exception as e:
+            sftp.close()
             raise e
         return 1
 
