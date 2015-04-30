@@ -252,6 +252,7 @@ class ServerMgrInventory():
         server_inventory_info = ServerInventoryInfo()
         # Get the total number of disks
         numdisks = self.get_field_value(sshclient, ip, 'lsblk | grep disk | wc -l')
+        is_ethtool = sshclient.exec_command('which ethtool')
         server_inventory_info.total_numof_disks = int(numdisks)
         # Get the other inventory information from the facter tool
         try:
@@ -275,6 +276,22 @@ class ServerMgrInventory():
                                     continue
                                 intinfo = interface_info()
                                 intinfo.interface_name = name
+                                intinfo.speed_Mb_per_sec = 0
+                                intinfo.model = "N/A"
+                                if not is_ethtool:
+                                    self.log(self.DEBUG, "ethtool not installed on host : %s" % ip)
+                                else:
+                                    eth_cmd = 'ethtool ' + name + ' | grep Speed'
+                                    driver_cmd = 'ethtool -i ' + name + ' | grep driver'
+                                    intinfo.speed_Mb_per_sec = self.get_field_value(sshclient, ip, eth_cmd)
+                                    if bool(re.search(r'\d', intinfo.speed_Mb_per_sec)):
+                                        temp_var = re.findall('\d+|\D+', intinfo.speed_Mb_per_sec)
+                                        intinfo.speed_Mb_per_sec = int(temp_var[0].strip())
+                                    else:
+                                        intinfo.speed_Mb_per_sec = 0
+                                    intinfo.model = self.get_field_value(sshclient, ip, driver_cmd)
+                                    self.log(self.INFO, "Got the Ethtool info for IP: " + ip + " interface name: " + name)
+
                                 exp = '.*_' + name + '.*$'
                                 # exp = '(^ipaddress_|^macaddress_|^netmask_).*'+name+'.*$'
                                 res = re.findall(exp, filestr, re.MULTILINE)
@@ -375,22 +392,12 @@ class ServerMgrInventory():
             server_inventory_info = ServerInventoryInfo()
             server_inventory_info.name = str(hostname)
             server_inventory_info.eth_controller_state = ethernet_controller()
-            server_inventory_info.eth_controller_state.speed_Mb_per_sec = 0
             server_inventory_info.eth_controller_state.num_of_ports = 0
-            server_inventory_info.eth_controller_state.model = "N/A"
             if not is_ethtool:
                 self.log(self.DEBUG, "ethtool not installed on host : %s" % ip)
             else:
-                eth_cmd = 'ethtool eth0 | grep Speed'
                 port_cmd = 'lspci | grep Net | wc -l'
-                driver_cmd = 'ethtool -i eth0 | grep driver'
-                server_inventory_info.eth_controller_state.speed_Mb_per_sec = self.get_field_value(sshclient, ip,
-                                                                                                   eth_cmd)
-                temp_var = re.findall('\d+|\D+', server_inventory_info.eth_controller_state.speed_Mb_per_sec)
-                server_inventory_info.eth_controller_state.speed_Mb_per_sec = int(temp_var[0])
-                server_inventory_info.eth_controller_state.num_of_ports = int(
-                    self.get_field_value(sshclient, ip, port_cmd))
-                server_inventory_info.eth_controller_state.model = self.get_field_value(sshclient, ip, driver_cmd)
+                server_inventory_info.eth_controller_state.num_of_ports = int(self.get_field_value(sshclient, ip, port_cmd))
                 self.log(self.INFO, "Got the Ethtool info for IP: %s" % ip)
             self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
         except Exception as e:
