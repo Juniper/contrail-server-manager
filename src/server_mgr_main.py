@@ -2990,8 +2990,9 @@ class VncServerManager():
         if not clusters:
             return False
         cluster = clusters[0]
+        # By default, sequence provisioning is On.
         sequence_provisioning = eval(cluster['parameters']).get(
-            "sequence_provisioning", False)
+            "sequence_provisioning", True)
         if not sequence_provisioning:
             return False
         
@@ -3279,14 +3280,19 @@ class VncServerManager():
             cluster = self._serverDb.get_cluster(
                 {"id" : cluster_id},
                 detail=True)[0]
+            # By default, sequence provisioning is On.
             sequence_provisioning = eval(cluster['parameters']).get(
-                "sequence_provisioning", False)
+                "sequence_provisioning", True)
             if sequence_provisioning:
                 role_sequence = \
                     self.prepare_provision_role_sequence(
                         cluster,
                         role_servers, 
                         puppet_manifest_version)
+            else:
+                role_sequence = {}
+                role_sequence['steps'] = []
+                role_sequence['completed'] = []
             role_servers = {}
             for server_pkg in server_packages:
                 server = server_pkg['server']
@@ -3610,8 +3616,9 @@ class VncServerManager():
                 server_status['package_id'] = package_image_id
                 provision_status['server'].append(server_status)
                 #end of for
-            if sequence_provisioning:
-                self.update_cluster_provision(cluster_id, role_sequence)
+            # Update cluster with role_sequence and apply sequence first step
+            # If no role_sequence present, just update cluster with it.
+            self.update_cluster_provision(cluster_id, role_sequence)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION,

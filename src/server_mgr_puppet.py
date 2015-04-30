@@ -1897,8 +1897,9 @@ $__contrail_quantum_servers__
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
         cluster_params = eval(cluster['parameters'])
+        # By default, sequence provisioning is On.
         sequence_provisioning = cluster_params.get(
-            "sequence_provisioning", False)
+            "sequence_provisioning", True)
         server_params = eval(server['parameters'])
         data = ''
         package_ids = [provision_params.get('package_image_id', "").encode('ascii')]
