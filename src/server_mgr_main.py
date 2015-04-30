@@ -407,6 +407,7 @@ class VncServerManager():
         bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
         bottle.route('/InventoryConf', 'GET', self._server_inventory_obj.get_inv_conf_details)
         bottle.route('/MonitorInfo', 'GET', self._server_monitoring_obj.get_monitoring_info)
+        bottle.route('/MonitorInfoSummary', 'GET', self._server_monitoring_obj.get_monitoring_info_summary)
         bottle.route('/InventoryInfo', 'GET', self._server_inventory_obj.get_inventory_info)
         bottle.route('/defaults', 'GET', self.get_defaults)
 

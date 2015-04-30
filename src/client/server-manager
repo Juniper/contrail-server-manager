@@ -20,6 +20,7 @@ import smgr_restart_server
 import smgr_status
 import smgr_add
 import smgr_client_def
+import smgr_run_inventory
 
 commands_dict = {
     'add' : smgr_add.add_config,
@@ -29,7 +30,8 @@ commands_dict = {
     'provision' : smgr_provision_server.provision_server,
     'restart' : smgr_restart_server.restart_server,
     'upload_image' : smgr_upload_image.upload_image,
-    'status' : smgr_status.show_server_status
+    'status' : smgr_status.show_server_status,
+    'run_inventory'  : smgr_run_inventory.run_inventory
     }
 
 def server_manager(args_str=None):
@@ -47,6 +49,7 @@ The server manager commands are:
    show           Show server manager objects configuration
    reimage        Prepare servers for reimaging with given image
    provision      Provision servers to provide configured roles
+   run_inventory  Run inventory on a particular server or cluster
    restart        Restart servers 
    upload_image   Upload images to server manager DB
    status         Status of servers
@@ -62,7 +65,7 @@ The server manager commands are:
         help='server manager command to run',
         choices=['add', 'delete',
                  'show', 'reimage', 'provision',
-                 'restart', 'upload_image', 'status'])
+                 'restart', 'upload_image', 'status', 'run_inventory'])
     if len(sys.argv) > 1  and (sys.argv[1] == '-c' or sys.argv[1] == '--config_file'):
         args = parser.parse_args(sys.argv[1:4])
         argv = sys.argv[1:3] + sys.argv[4:] 
