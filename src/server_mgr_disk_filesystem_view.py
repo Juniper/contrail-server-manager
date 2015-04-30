@@ -213,7 +213,7 @@ class file_system_disk_view:
     def get_file_system_view(self, sshclient):
         try:
             count = 1
-            del self.file_system_list[:]
+            #del self.file_system_list[:]
             #Keep track of the col index. The column values may be wrapped in multiple lines
             #Make sure all the 6 columns are read even if it spans multiple lines
             #Get the column values

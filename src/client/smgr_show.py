@@ -169,9 +169,6 @@ def send_REST_request(ip, port, rest_api_params, detail):
         if rest_api_params["select"]:
             args_str += "select" + "=" \
                 + urllib.quote_plus(rest_api_params["select"]) + "&"
-        if "sub_type" in rest_api_params and rest_api_params["sub_type"]:
-            args_str += "type" + "=" \
-                + urllib.quote_plus(rest_api_params["sub_type"]) + "&"
         if rest_api_params["match_key"]:
             args_str += urllib.quote_plus(rest_api_params["match_key"]) + "=" \
                 + urllib.quote_plus(rest_api_params["match_value"])
