@@ -120,6 +120,10 @@ apt-get -y install puppet
 apt-get -y install python-netaddr
 apt-get -y install ifenslave-2.6=1.1.0-19ubuntu5
 
+# Packages needed to get Inventory and Monitoring Info
+apt-get -y install sysstat
+apt-get -y install ethtool
+
 wget http://$server/kickstarts/interface_setup.py
 wget http://$server/contrail/config_file/$system_name.sh
 chmod +x $system_name.sh
