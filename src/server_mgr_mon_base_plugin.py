@@ -48,6 +48,7 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
 from Crypto.PublicKey import RSA
 import StringIO
 from sandesh_common.vns.constants import *
+from datetime import datetime
 
 _DEF_COLLECTORS_IP = None
 _DEF_MON_FREQ = 300
@@ -358,46 +359,32 @@ class ServerMgrMonBasePlugin():
         except Exception as e:
             raise ServerMgrException("Error during Sandesh Init: " + str(e))
 
-    # call_subprocess function runs the IPMI command passed to it and returns the result
-    """def call_subprocess(self, cmd):
-        try:
-            times = datetime.datetime.now()
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-            while p.poll() is None:
-                time.sleep(0.3)
-                now = datetime.datetime.now()
-                diff = now - times
-                if diff.seconds > 3:
-                    if p.returncode is None:
-                        p.terminate()
-                    self._smgr_log.log(self._smgr_log.INFO, "command:" + cmd + " --> hanged")
-                    return None
-            return_str = str(p.stdout.read())
-            return return_str
-        except Exception as e:
-            if p.returncode is None:
-                p.terminate()
-            self._smgr_log.log(self._smgr_log.INFO, "Exception in call_subprocess: " + str(e))
-            return None"""
-
     def call_subprocess(self, cmd):
         p = None
         try:
-            times = datetime.datetime.now()
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+            times = datetime.now()
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, close_fds=True)
             while p.poll() is None:
-                time.sleep(0.5)
-                now = datetime.datetime.now()
+                time.sleep(0.3)
+                now = datetime.now()
                 diff = now - times
-                if diff.seconds > 3:
-                    os.kill(p.pid, signal.SIGKILL)
+                if diff.seconds > 2:
+                    if p and p.poll() != 0:
+                        p.terminate()
+                        p.stdout.close()
+                        p.stderr.close()
+                        p.stdin.close()
                     os.waitpid(-1, os.WNOHANG)
-                    syslog.syslog("command:" + cmd + " --> hanged")
+                    self._smgr_log.log(self._smgr_log.INFO, "command:" + cmd + " --> hanged")
                     return None
-            return p.communicate()[0].strip()
+            result = p.communicate()[0].strip()
+            return result
         except Exception as e:
             if p and p.poll() != 0:
                 p.terminate()
+                p.stdout.close()
+                p.stderr.close()
+                p.stdin.close()
             self._smgr_log.log(self._smgr_log.INFO, "Exception in call_subprocess: " + str(e))
             return None
 
@@ -675,6 +662,11 @@ class ServerMgrMonBasePlugin():
 
     @staticmethod
     def get_monitoring_info(self):
+        return "Monitoring Parameters haven't been configured.\n" \
+               "Reset the configuration correctly and restart Server Manager.\n"
+
+    @staticmethod
+    def get_monitoring_info_summary(self):
         return "Monitoring Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 

@@ -111,8 +111,8 @@ class ServerMgrInventory():
 
     # call_send function is the sending function of the sandesh object (send_inst)
     def call_send(self, send_inst):
-        self.log(self.INFO, "Sending UVE Info over Sandesh")
-        self.log("info", "UVE Info = " + str(send_inst.data))
+        #self.log(self.INFO, "Sending UVE Info over Sandesh")
+        #self.log("info", "UVE Info = " + str(send_inst.data))
         send_inst.send()
 
     @staticmethod
@@ -206,7 +206,6 @@ class ServerMgrInventory():
                         rc = self._serverDb.add_inventory(fru_dict)
                         if rc != 0:
                             self.log(self.ERROR, "ERROR REPORTED BY INVENTORY ADD: %s" % rc)
-                self.log(self.INFO, "Got the FRU info for IP: %s" % ip)
                 inventory_info_obj.fru_infos = fru_obj_list
             else:
                 self.log(self.INFO, "Could not get the FRU info for IP: %s" % ip)
@@ -220,7 +219,7 @@ class ServerMgrInventory():
             inventory_info_obj.name = hostname
             inventory_info_obj.fru_infos = None
             self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
-            return None
+            raise e
 
     @staticmethod
     def inventory_lookup(key):
@@ -259,7 +258,6 @@ class ServerMgrInventory():
             filestr = sshclient.exec_command('facter')
             fileoutput = cStringIO.StringIO(filestr)
             if fileoutput is not None:
-                self.log(self.INFO, "Got the Facter info for IP: %s" % ip)
                 interface_dict = {}
                 intinfo_list = []
                 for line in fileoutput:
@@ -284,13 +282,12 @@ class ServerMgrInventory():
                                     eth_cmd = 'ethtool ' + name + ' | grep Speed'
                                     driver_cmd = 'ethtool -i ' + name + ' | grep driver'
                                     intinfo.speed_Mb_per_sec = self.get_field_value(sshclient, ip, eth_cmd)
-                                    if bool(re.search(r'\d', intinfo.speed_Mb_per_sec)):
-                                        temp_var = re.findall('\d+|\D+', intinfo.speed_Mb_per_sec)
+                                    if bool(re.search(r'\d', str(intinfo.speed_Mb_per_sec))):
+                                        temp_var = re.findall('\d+|\D+', str(intinfo.speed_Mb_per_sec))
                                         intinfo.speed_Mb_per_sec = int(temp_var[0].strip())
                                     else:
                                         intinfo.speed_Mb_per_sec = 0
                                     intinfo.model = self.get_field_value(sshclient, ip, driver_cmd)
-                                    self.log(self.INFO, "Got the Ethtool info for IP: " + ip + " interface name: " + name)
 
                                 exp = '.*_' + name + '.*$'
                                 # exp = '(^ipaddress_|^macaddress_|^netmask_).*'+name+'.*$'
@@ -330,7 +327,7 @@ class ServerMgrInventory():
                 self.log(self.ERROR, "Could not get the Facter info for IP: %s" % ip)
         except Exception as e:
             self.log(self.ERROR, "Could not get the Facter info for IP " + str(ip) + " Error: %s" + str(e))
-            return None
+            raise e
 
     def get_field_value(self, sshclient, ip, cmd):
         try:
@@ -377,31 +374,32 @@ class ServerMgrInventory():
                     self.get_field_value(sshclient, ip, clock_cmd))
                 server_inventory_info.cpu_info_state.num_of_threads = int(
                     self.get_field_value(sshclient, ip, thread_cmd))
-                self.log(self.INFO, "Got the CPU info for IP: %s" % ip)
             else:
                 self.log(self.DEBUG, "lscpu not installed on host : %s" % ip)
             self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
         except Exception as e:
             self.log(self.ERROR, "Error in get_cpu_info: " + str(ip) + "Error: " + str(e))
+            raise e
 
 
     def get_ethernet_info(self, hostname, ip, sshclient):
         try:
             # Get the Ethernet information from server
-            is_ethtool = sshclient.exec_command('which ethtool')
+            is_lspci = sshclient.exec_command('which lspci')
             server_inventory_info = ServerInventoryInfo()
             server_inventory_info.name = str(hostname)
             server_inventory_info.eth_controller_state = ethernet_controller()
             server_inventory_info.eth_controller_state.num_of_ports = 0
-            if not is_ethtool:
-                self.log(self.DEBUG, "ethtool not installed on host : %s" % ip)
+            if not is_lspci:
+                self.log(self.DEBUG, "lspci not installed on host : %s" % ip)
             else:
                 port_cmd = 'lspci | grep Net | wc -l'
-                server_inventory_info.eth_controller_state.num_of_ports = int(self.get_field_value(sshclient, ip, port_cmd))
-                self.log(self.INFO, "Got the Ethtool info for IP: %s" % ip)
+                server_inventory_info.eth_controller_state.num_of_ports = int(
+                    self.get_field_value(sshclient, ip, port_cmd))
             self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
         except Exception as e:
             self.log(self.ERROR, "Error in get_ethernet_info: " + str(ip) + "Error: " + str(e))
+            raise e
 
     def get_memory_info(self, hostname, ip, sshclient):
         try:
@@ -416,10 +414,10 @@ class ServerMgrInventory():
             server_inventory_info.mem_state.swap_size_mb = 0.0
             dmi_cmd = 'which dmidecode'
             if self.get_field_value(sshclient, ip, dmi_cmd):
-                type_cmd = 'dmidecode -t memory | grep -m2 "Type" | tail -n1'
-                mem_cmd = 'dmidecode -t memory | grep "Speed" | head -n1'
-                dimm_cmd = 'dmidecode -t memory | grep "Size" | head -n1'
-                num_cmd = 'dmidecode -t memory | grep "Size" | wc -l'
+                type_cmd = 'dmidecode -t memory |  grep "Type:" | grep -v "Unknown" | grep -v "Error" | head -n1'
+                mem_cmd = 'dmidecode -t memory | grep "Speed" | grep -v "Unknown" | head -n1'
+                dimm_cmd = 'dmidecode -t memory | grep "Size" | grep -v "No Module" | head -n1'
+                num_cmd = 'dmidecode -t memory | grep "Size" | grep -v "No Module" | wc -l'
                 swap_cmd = 'facter | egrep -w swapsize_mb'
                 total_mem_cmd = 'vmstat -s | grep "total memory"'
                 server_inventory_info.mem_state.mem_type = self.get_field_value(sshclient, ip, type_cmd)
@@ -436,12 +434,12 @@ class ServerMgrInventory():
                 server_inventory_info.mem_state.swap_size_mb = float(swap_size.split(" ")[0])
                 total_mem = self.get_field_value(sshclient, ip, total_mem_cmd)
                 server_inventory_info.mem_state.total_mem_mb = int(int(total_mem.lstrip().split(" ")[0]) / 1024)
-                self.log(self.INFO, "Got the Memory info for IP: %s" % ip)
             else:
                 self.log(self.INFO, "Couldn't get the Memory info for IP: %s" % ip)
             self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
         except Exception as e:
             self.log(self.ERROR, "Error in get_memory_info: " + str(ip) + "Error: " + str(e))
+            raise e
 
     def add_inventory(self):
         servers = self._serverDb.get_server(None, detail=True)
@@ -458,6 +456,7 @@ class ServerMgrInventory():
         self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
 
     def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, option="password"):
+        sshclient = None
         try:
             if action == "add":
                 sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
@@ -472,6 +471,7 @@ class ServerMgrInventory():
                 self.log(self.INFO, "Deleted info of server: %s" % hostname)
                 self.delete_inventory_info(hostname)
         except Exception as e:
+            sshclient.close()
             self.log("error",
                      "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + e.message)
             pass
@@ -556,20 +556,16 @@ class ServerMgrInventory():
                         return_dict = dict()
                         return_dict["name"] = str(server_hostname)
                         return_dict["cluster_id"] = server['cluster_id']
-                        """tags_dict = dict()
-                        for tag_name in self.rev_tags_dict:
-                            tags_dict[tag_name] = str(server[self.rev_tags_dict[tag_name]])
-                        return_dict["tag"] = tags_dict"""
                         return_dict[str(uve_name)] = self.filter_inventory_results(
                             parsed_data_dict[str(server_hostname)],
                             ret_data["type"])
                         list_return_dict.append(return_dict)
                     else:
-                        #self.log(self.ERROR, "Server Details missing in cache. ")
-                        #self.log(self.ERROR, "Server Hostname = " + str(server_hostname))
+                        self.log(self.ERROR, "Server Details missing in cache. ")
+                        self.log(self.ERROR, "Server Hostname = " + str(server_hostname))
                         pass
             else:
-                #self.log(self.ERROR, "Server Details missing in db. ")
+                self.log(self.ERROR, "Server Details missing in db. ")
                 return {}
         except ServerMgrException as e:
             self.log(self.ERROR, "Get Inventory Info Execption: " + str(e.message))
@@ -589,6 +585,7 @@ class ServerMgrInventory():
         try:
             entity = bottle.request
             ret_data = self._base_obj.validate_rest_api_args(entity, self.rev_tags_dict)
+            #ret_data = self._base_obj.validate_run_inv_params(entity, self.rev_tags_dict)
             if ret_data["status"]:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
@@ -598,15 +595,17 @@ class ServerMgrInventory():
                 match_dict = self._base_obj.process_server_tags(self.rev_tags_dict, match_value)
             elif match_key:
                 match_dict[match_key] = match_value
-            servers = self._serverDb.get_server(
-                match_dict, detail=True)
-            self.log(self.DEBUG, "Running inventory for following servers: " + str(server_hostname_list))
+            if match_dict.keys():
+                servers = self._serverDb.get_server(
+                    match_dict, detail=True)
+            else:
+                servers = self._serverDb.get_server(detail=True)
             self.handle_inventory_trigger("add", servers)
         except ServerMgrException as e:
-            self.log(self.ERROR, "Run Inventory Execption: " + e.message)
+            self.log("error", "Run Inventory Execption: " + e.message)
             raise e
         except Exception as e:
-            self.log(self.ERROR, "Run Inventory Execption: " + e.message)
+            self.log("error", "Run Inventory Execption: " + e.message)
             raise e
         inventory_status = dict()
         inventory_status['return_message'] = "server(s) run_inventory issued"

@@ -78,7 +78,7 @@ _DEF_IPMI_USERNAME = 'ADMIN'
 _DEF_IPMI_PASSWORD = 'ADMIN'
 _DEF_IPMI_TYPE = 'ipmilan'
 _DEF_PUPPET_DIR = '/etc/puppet/'
-_DEF_COLLECTORS_IP = ['127.0.0.1:8086']
+_DEF_COLLECTORS_IP = "['127.0.0.1:8086']"
 _DEF_INTROSPECT_PORT = 8107
 _DEF_SANDESH_LOG_LEVEL = 'SYS_INFO'
 _DEF_ROLE_SEQUENCE_DEF_FILE = _DEF_SMGR_BASE_DIR + 'role_sequence.json'
@@ -408,6 +408,7 @@ class VncServerManager():
         bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
         bottle.route('/InventoryConf', 'GET', self._server_inventory_obj.get_inv_conf_details)
         bottle.route('/MonitorInfo', 'GET', self._server_monitoring_obj.get_monitoring_info)
+        bottle.route('/MonitorInfoSummary', 'GET', self._server_monitoring_obj.get_monitoring_info_summary)
         bottle.route('/InventoryInfo', 'GET', self._server_inventory_obj.get_inventory_info)
         bottle.route('/defaults', 'GET', self.get_defaults)
 
