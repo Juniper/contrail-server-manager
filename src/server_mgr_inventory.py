@@ -13,7 +13,6 @@ import os
 import time
 import signal
 import sys
-import datetime
 import syslog
 import subprocess
 import argparse
@@ -112,8 +111,8 @@ class ServerMgrInventory():
 
     # call_send function is the sending function of the sandesh object (send_inst)
     def call_send(self, send_inst):
-        self.log(self.INFO, "Sending UVE Info over Sandesh")
-        self.log("info", "UVE Info = " + str(send_inst.data))
+        #self.log(self.INFO, "Sending UVE Info over Sandesh")
+        #self.log("info", "UVE Info = " + str(send_inst.data))
         send_inst.send()
 
     @staticmethod
@@ -153,75 +152,74 @@ class ServerMgrInventory():
         cmd = 'ipmitool -H %s -U %s -P %s fru' % (ip, username, password)
         try:
             result = self._base_obj.call_subprocess(cmd)
+            if result:
+                inventory_info_obj = ServerInventoryInfo()
+                inventory_info_obj.name = hostname
+                fileoutput = cStringIO.StringIO(result)
+                fru_obj_list = list()
+                fru_dict = self.fru_dict_init(hostname)
+                fru_info_obj = self.fru_obj_init(hostname)
+                for line in fileoutput:
+                    if ":" in line:
+                        reading = line.split(":")
+                        sensor = reading[0].strip()
+                        reading_value = reading[1].strip()
+                        if reading_value == "":
+                            reading_value = "N/A"
+                    else:
+                        sensor = ""
+                    if sensor == "FRU Device Description":
+                        fru_info_obj.fru_description = reading_value
+                        fru_dict['fru_description'] = str(hostname) + " " + reading_value
+                    elif sensor == "Chassis Type":
+                        fru_info_obj.chassis_type = reading_value
+                        fru_dict['chassis_type'] = reading_value
+                    elif sensor == "Chassis Serial":
+                        fru_info_obj.chassis_serial_number = reading_value
+                        fru_dict['chassis_serial_number'] = reading_value
+                    elif sensor == "Board Mfg Date":
+                        fru_info_obj.board_mfg_date = reading_value
+                        fru_dict['board_mfg_date'] = reading_value
+                    elif sensor == "Board Mfg":
+                        fru_info_obj.board_manufacturer = reading_value
+                        fru_dict['board_manufacturer'] = reading_value
+                    elif sensor == "Board Product":
+                        fru_info_obj.board_product_name = reading_value
+                        fru_dict['board_product_name'] = reading_value
+                    elif sensor == "Board Serial":
+                        fru_info_obj.board_serial_number = reading_value
+                        fru_dict['board_serial_number'] = reading_value
+                    elif sensor == "Board Part Number":
+                        fru_info_obj.board_part_number = reading_value
+                        fru_dict['board_part_number'] = reading_value
+                    elif sensor == "Product Manufacturer":
+                        fru_info_obj.product_manfacturer = reading_value
+                        fru_dict['product_manfacturer'] = reading_value
+                    elif sensor == "Product Name":
+                        fru_info_obj.product_name = reading_value
+                        fru_dict['product_name'] = reading_value
+                    elif sensor == "Product Part Number":
+                        fru_info_obj.product_part_number = reading_value
+                        fru_dict['product_part_number'] = reading_value
+                    elif sensor == "":
+                        fru_obj_list.append(fru_info_obj)
+                        rc = self._serverDb.add_inventory(fru_dict)
+                        if rc != 0:
+                            self.log(self.ERROR, "ERROR REPORTED BY INVENTORY ADD: %s" % rc)
+                inventory_info_obj.fru_infos = fru_obj_list
+            else:
+                self.log(self.INFO, "Could not get the FRU info for IP: %s" % ip)
+                inventory_info_obj = ServerInventoryInfo()
+                inventory_info_obj.name = hostname
+                inventory_info_obj.fru_infos = None
+            self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
         except Exception as e:
             self.log(self.ERROR, "Could not get the FRU info for IP " + str(ip) + " Error: %s" + str(e))
             inventory_info_obj = ServerInventoryInfo()
             inventory_info_obj.name = hostname
             inventory_info_obj.fru_infos = None
             self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
-            return None
-        if result:
-            inventory_info_obj = ServerInventoryInfo()
-            inventory_info_obj.name = hostname
-            fileoutput = cStringIO.StringIO(result)
-            fru_obj_list = list()
-            fru_dict = self.fru_dict_init(hostname)
-            fru_info_obj = self.fru_obj_init(hostname)
-            for line in fileoutput:
-                if ":" in line:
-                    reading = line.split(":")
-                    sensor = reading[0].strip()
-                    reading_value = reading[1].strip()
-                    if reading_value == "":
-                        reading_value = "N/A"
-                else:
-                    sensor = ""
-                if sensor == "FRU Device Description":
-                    fru_info_obj.fru_description = reading_value
-                    fru_dict['fru_description'] = str(hostname) + " " + reading_value
-                elif sensor == "Chassis Type":
-                    fru_info_obj.chassis_type = reading_value
-                    fru_dict['chassis_type'] = reading_value
-                elif sensor == "Chassis Serial":
-                    fru_info_obj.chassis_serial_number = reading_value
-                    fru_dict['chassis_serial_number'] = reading_value
-                elif sensor == "Board Mfg Date":
-                    fru_info_obj.board_mfg_date = reading_value
-                    fru_dict['board_mfg_date'] = reading_value
-                elif sensor == "Board Mfg":
-                    fru_info_obj.board_manufacturer = reading_value
-                    fru_dict['board_manufacturer'] = reading_value
-                elif sensor == "Board Product":
-                    fru_info_obj.board_product_name = reading_value
-                    fru_dict['board_product_name'] = reading_value
-                elif sensor == "Board Serial":
-                    fru_info_obj.board_serial_number = reading_value
-                    fru_dict['board_serial_number'] = reading_value
-                elif sensor == "Board Part Number":
-                    fru_info_obj.board_part_number = reading_value
-                    fru_dict['board_part_number'] = reading_value
-                elif sensor == "Product Manufacturer":
-                    fru_info_obj.product_manfacturer = reading_value
-                    fru_dict['product_manfacturer'] = reading_value
-                elif sensor == "Product Name":
-                    fru_info_obj.product_name = reading_value
-                    fru_dict['product_name'] = reading_value
-                elif sensor == "Product Part Number":
-                    fru_info_obj.product_part_number = reading_value
-                    fru_dict['product_part_number'] = reading_value
-                elif sensor == "":
-                    fru_obj_list.append(fru_info_obj)
-                    rc = self._serverDb.add_inventory(fru_dict)
-                    if rc != 0:
-                        self.log(self.ERROR, "ERROR REPORTED BY INVENTORY ADD: %s" % rc)
-            self.log(self.INFO, "Got the FRU info for IP: %s" % ip)
-            inventory_info_obj.fru_infos = fru_obj_list
-        else:
-            self.log(self.INFO, "Could not get the FRU info for IP: %s" % ip)
-            inventory_info_obj = ServerInventoryInfo()
-            inventory_info_obj.name = hostname
-            inventory_info_obj.fru_infos = None
-        self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
+            raise e
 
     @staticmethod
     def inventory_lookup(key):
@@ -253,172 +251,195 @@ class ServerMgrInventory():
         server_inventory_info = ServerInventoryInfo()
         # Get the total number of disks
         numdisks = self.get_field_value(sshclient, ip, 'lsblk | grep disk | wc -l')
+        is_ethtool = sshclient.exec_command('which ethtool')
         server_inventory_info.total_numof_disks = int(numdisks)
         # Get the other inventory information from the facter tool
         try:
             filestr = sshclient.exec_command('facter')
             fileoutput = cStringIO.StringIO(filestr)
+            if fileoutput is not None:
+                interface_dict = {}
+                intinfo_list = []
+                for line in fileoutput:
+                    inventory = line.split('=>')
+                    try:
+                        key = inventory[0].strip()
+                        if len(inventory) > 1:
+                            value = inventory[1].strip()
+                        if key == 'interfaces':
+                            interface_list = value.split(',')
+                            for name in interface_list:
+                                # Skip the loopback interface
+                                if name.strip() == 'lo':
+                                    continue
+                                intinfo = interface_info()
+                                intinfo.interface_name = name
+                                intinfo.speed_Mb_per_sec = 0
+                                intinfo.model = "N/A"
+                                if not is_ethtool:
+                                    self.log(self.DEBUG, "ethtool not installed on host : %s" % ip)
+                                else:
+                                    eth_cmd = 'ethtool ' + name + ' | grep Speed'
+                                    driver_cmd = 'ethtool -i ' + name + ' | grep driver'
+                                    intinfo.speed_Mb_per_sec = self.get_field_value(sshclient, ip, eth_cmd)
+                                    if bool(re.search(r'\d', str(intinfo.speed_Mb_per_sec))):
+                                        temp_var = re.findall('\d+|\D+', str(intinfo.speed_Mb_per_sec))
+                                        intinfo.speed_Mb_per_sec = int(temp_var[0].strip())
+                                    else:
+                                        intinfo.speed_Mb_per_sec = 0
+                                    intinfo.model = self.get_field_value(sshclient, ip, driver_cmd)
+
+                                exp = '.*_' + name + '.*$'
+                                # exp = '(^ipaddress_|^macaddress_|^netmask_).*'+name+'.*$'
+                                res = re.findall(exp, filestr, re.MULTILINE)
+                                for items in res:
+                                    actualkey = items.split('=>')
+                                    namekey = actualkey[0].split('_')
+                                    objkey = self.inventory_lookup(key=namekey[0].strip())
+                                    value = actualkey[1].strip()
+                                    if objkey:
+                                        setattr(intinfo, objkey, value)
+                                if not getattr(intinfo, 'macaddress'):
+                                    setattr(intinfo, 'macaddress', "N/A")
+                                if not getattr(intinfo, 'ip_addr'):
+                                    setattr(intinfo, 'ip_addr', "N/A")
+                                if not getattr(intinfo, 'netmask'):
+                                    setattr(intinfo, 'netmask', "N/A")
+                                intinfo_list.append(intinfo)
+                        else:
+                            objkey = self.inventory_lookup(key)
+                            if key == 'physicalprocessorcount' or key == 'processorcount' or key == 'uptime_seconds':
+                                value = int(value)
+                            elif key == 'memorytotal':
+                                memval = value.split()
+                                value = math.trunc(float(memval[0]))
+                                if memval[1].strip() == 'GB':
+                                    value *= 1024
+                            if objkey:
+                                setattr(server_inventory_info, objkey, value)
+                    except Exception as KeyError:
+                        self.log(self.INFO, "keyerror: %s " + str(KeyError) + " for IP: %s" % ip)
+                        continue
+                server_inventory_info.name = str(hostname)
+                server_inventory_info.interface_infos = intinfo_list
+                self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+            else:
+                self.log(self.ERROR, "Could not get the Facter info for IP: %s" % ip)
         except Exception as e:
             self.log(self.ERROR, "Could not get the Facter info for IP " + str(ip) + " Error: %s" + str(e))
-            return
-        if fileoutput is not None:
-            self.log(self.INFO, "Got the Facter info for IP: %s" % ip)
-            interface_dict = {}
-            intinfo_list = []
-            for line in fileoutput:
-                inventory = line.split('=>')
-                try:
-                    key = inventory[0].strip()
-                    if len(inventory) > 1:
-                        value = inventory[1].strip()
-                    if key == 'interfaces':
-                        interface_list = value.split(',')
-                        for name in interface_list:
-                            # Skip the loopback interface
-                            if name.strip() == 'lo':
-                                continue
-                            intinfo = interface_info()
-                            intinfo.interface_name = name
-                            exp = '.*_' + name + '.*$'
-                            # exp = '(^ipaddress_|^macaddress_|^netmask_).*'+name+'.*$'
-                            res = re.findall(exp, filestr, re.MULTILINE)
-                            for items in res:
-                                actualkey = items.split('=>')
-                                namekey = actualkey[0].split('_')
-                                objkey = self.inventory_lookup(key=namekey[0].strip())
-                                value = actualkey[1].strip()
-                                if objkey:
-                                    setattr(intinfo, objkey, value)
-                            if not getattr(intinfo, 'macaddress'):
-                                setattr(intinfo, 'macaddress', "N/A")
-                            if not getattr(intinfo, 'ip_addr'):
-                                setattr(intinfo, 'ip_addr', "N/A")
-                            if not getattr(intinfo, 'netmask'):
-                                setattr(intinfo, 'netmask', "N/A")
-                            intinfo_list.append(intinfo)
-                    else:
-                        objkey = self.inventory_lookup(key)
-                        if key == 'physicalprocessorcount' or key == 'processorcount' or key == 'uptime_seconds':
-                            value = int(value)
-                        elif key == 'memorytotal':
-                            memval = value.split()
-                            value = math.trunc(float(memval[0]))
-                            if memval[1].strip() == 'GB':
-                                value *= 1024
-                        if objkey:
-                            setattr(server_inventory_info, objkey, value)
-                except Exception as KeyError:
-                    self.log(self.INFO, "keyerror: %s " + str(KeyError) + " for IP: %s" % ip)
-                    continue
-            server_inventory_info.name = str(hostname)
-            server_inventory_info.interface_infos = intinfo_list
-            self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
-        else:
-            self.log(self.ERROR, "Could not get the Facter info for IP: %s" % ip)
+            raise e
 
     def get_field_value(self, sshclient, ip, cmd):
-        times = datetime.datetime.now()
-        filestr = sshclient.exec_command(cmd)
-        if not filestr:
-            return None
-        if cmd == "lsblk" or cmd == "facter" or "statistics" in cmd or cmd == "vmstat" or cmd == "lspci":
-            return filestr
-        else:
-            fileoutput = cStringIO.StringIO(filestr)
-            if fileoutput is not None:
-                for line in fileoutput:
-                    if "=>" in line:
-                        value = line.rstrip("\n").split("=>")[1].lstrip()
+        try:
+            filestr = sshclient.exec_command(cmd)
+            if not filestr:
+                return None
+            if cmd == "lsblk" or cmd == "facter" or "statistics" in cmd or cmd == "vmstat" or cmd == "lspci":
+                return filestr
+            else:
+                fileoutput = cStringIO.StringIO(filestr)
+                if fileoutput is not None:
+                    for line in fileoutput:
+                        if "=>" in line:
+                            value = line.rstrip("\n").split("=>")[1].lstrip()
+                            return value
+                        elif ":" not in line:
+                            return line
+                        value = line.rstrip("\n").split(":")[1].lstrip()
                         return value
-                    elif ":" not in line:
-                        return line
-                    value = line.rstrip("\n").split(":")[1].lstrip()
-                    return value
+        except Exception as e:
+            self.log(self.ERROR, "Error in get_field_value: " + str(ip) + " Command = " + str(cmd) + "Error: " + str(e))
+            return None
 
     def get_cpu_info(self, hostname, ip, sshclient):
-        # Get the CPU information from server
-        server_inventory_info = ServerInventoryInfo()
-        server_inventory_info.name = str(hostname)
-        server_inventory_info.cpu_info_state = cpu_info()
-        check_cmd = 'cat /proc/cpuinfo'
-        lscpu__cmd = 'which lscpu'
-        server_inventory_info.cpu_info_state.model = "N/A"
-        server_inventory_info.cpu_info_state.core_count = 0
-        server_inventory_info.cpu_info_state.clock_speed_MHz = 0.0
-        server_inventory_info.cpu_info_state.num_of_threads = 0
-        if self.get_field_value(sshclient, ip, check_cmd) and self.get_field_value(sshclient, ip, lscpu__cmd):
-            model_cmd = 'cat /proc/cpuinfo | grep "model name" | head -n 1'
-            core_cmd = 'cat /proc/cpuinfo | grep "cpu cores" | head -n 1'
-            clock_cmd = 'cat /proc/cpuinfo | grep "cpu MHz" | head -n 1'
-            thread_cmd = 'lscpu | grep "Thread"'
-            server_inventory_info.cpu_info_state.model = self.get_field_value(sshclient, ip, model_cmd)
-            server_inventory_info.cpu_info_state.core_count = int(self.get_field_value(sshclient, ip, core_cmd))
-            server_inventory_info.cpu_info_state.clock_speed_MHz = float(self.get_field_value(sshclient, ip, clock_cmd))
-            server_inventory_info.cpu_info_state.num_of_threads = int(self.get_field_value(sshclient, ip, thread_cmd))
-            self.log(self.INFO, "Got the CPU info for IP: %s" % ip)
-        else:
-            self.log(self.DEBUG, "lscpu not installed on host : %s" % ip)
-        self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+        try:
+            # Get the CPU information from server
+            server_inventory_info = ServerInventoryInfo()
+            server_inventory_info.name = str(hostname)
+            server_inventory_info.cpu_info_state = cpu_info()
+            check_cmd = 'cat /proc/cpuinfo'
+            lscpu__cmd = 'which lscpu'
+            server_inventory_info.cpu_info_state.model = "N/A"
+            server_inventory_info.cpu_info_state.core_count = 0
+            server_inventory_info.cpu_info_state.clock_speed_MHz = 0.0
+            server_inventory_info.cpu_info_state.num_of_threads = 0
+            if self.get_field_value(sshclient, ip, check_cmd) and self.get_field_value(sshclient, ip, lscpu__cmd):
+                model_cmd = 'cat /proc/cpuinfo | grep "model name" | head -n 1'
+                core_cmd = 'cat /proc/cpuinfo | grep "cpu cores" | head -n 1'
+                clock_cmd = 'cat /proc/cpuinfo | grep "cpu MHz" | head -n 1'
+                thread_cmd = 'lscpu | grep "Thread"'
+                server_inventory_info.cpu_info_state.model = self.get_field_value(sshclient, ip, model_cmd)
+                server_inventory_info.cpu_info_state.core_count = int(self.get_field_value(sshclient, ip, core_cmd))
+                server_inventory_info.cpu_info_state.clock_speed_MHz = float(
+                    self.get_field_value(sshclient, ip, clock_cmd))
+                server_inventory_info.cpu_info_state.num_of_threads = int(
+                    self.get_field_value(sshclient, ip, thread_cmd))
+            else:
+                self.log(self.DEBUG, "lscpu not installed on host : %s" % ip)
+            self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+        except Exception as e:
+            self.log(self.ERROR, "Error in get_cpu_info: " + str(ip) + "Error: " + str(e))
+            raise e
+
 
     def get_ethernet_info(self, hostname, ip, sshclient):
-        # Get the Ethernet information from server
-        is_ethtool = sshclient.exec_command('which ethtool')
-        server_inventory_info = ServerInventoryInfo()
-        server_inventory_info.name = str(hostname)
-        server_inventory_info.eth_controller_state = ethernet_controller()
-        server_inventory_info.eth_controller_state.speed_Mb_per_sec = 0
-        server_inventory_info.eth_controller_state.num_of_ports = 0
-        server_inventory_info.eth_controller_state.model = "N/A"
-        if not is_ethtool:
-            self.log(self.DEBUG, "ethtool not installed on host : %s" % ip)
-        else:
-            eth_cmd = 'ethtool eth0 | grep Speed'
-            port_cmd = 'lspci | grep Net | wc -l'
-            driver_cmd = 'ethtool -i eth0 | grep driver'
-            server_inventory_info.eth_controller_state.speed_Mb_per_sec = self.get_field_value(sshclient, ip, eth_cmd)
-            temp_var = re.findall('\d+|\D+', server_inventory_info.eth_controller_state.speed_Mb_per_sec)
-            server_inventory_info.eth_controller_state.speed_Mb_per_sec = int(temp_var[0])
-            server_inventory_info.eth_controller_state.num_of_ports = int(self.get_field_value(sshclient, ip, port_cmd))
-            server_inventory_info.eth_controller_state.model = self.get_field_value(sshclient, ip, driver_cmd)
-            self.log(self.INFO, "Got the Ethtool info for IP: %s" % ip)
-        self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+        try:
+            # Get the Ethernet information from server
+            is_lspci = sshclient.exec_command('which lspci')
+            server_inventory_info = ServerInventoryInfo()
+            server_inventory_info.name = str(hostname)
+            server_inventory_info.eth_controller_state = ethernet_controller()
+            server_inventory_info.eth_controller_state.num_of_ports = 0
+            if not is_lspci:
+                self.log(self.DEBUG, "lspci not installed on host : %s" % ip)
+            else:
+                port_cmd = 'lspci | grep Net | wc -l'
+                server_inventory_info.eth_controller_state.num_of_ports = int(
+                    self.get_field_value(sshclient, ip, port_cmd))
+            self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+        except Exception as e:
+            self.log(self.ERROR, "Error in get_ethernet_info: " + str(ip) + "Error: " + str(e))
+            raise e
 
     def get_memory_info(self, hostname, ip, sshclient):
-        server_inventory_info = ServerInventoryInfo()
-        server_inventory_info.name = str(hostname)
-        server_inventory_info.mem_state = memory_info()
-        server_inventory_info.mem_state.mem_type = "N/A"
-        server_inventory_info.mem_state.mem_speed_MHz = 0
-        server_inventory_info.mem_state.num_of_dimms = 0
-        server_inventory_info.mem_state.dimm_size_mb = 0
-        server_inventory_info.mem_state.total_mem__mb = 0
-        server_inventory_info.mem_state.swap_size_mb = 0.0
-        dmi_cmd = 'which dmidecode'
-        if self.get_field_value(sshclient, ip, dmi_cmd):
-            type_cmd = 'dmidecode -t memory | grep -m2 "Type" | tail -n1'
-            mem_cmd = 'dmidecode -t memory | grep "Speed" | head -n1'
-            dimm_cmd = 'dmidecode -t memory | grep "Size" | head -n1'
-            num_cmd = 'dmidecode -t memory | grep "Size" | wc -l'
-            swap_cmd = 'facter | egrep -w swapsize_mb'
-            total_mem_cmd = 'vmstat -s | grep "total memory"'
-            server_inventory_info.mem_state.mem_type = self.get_field_value(sshclient, ip, type_cmd)
-            mem_speed = self.get_field_value(sshclient, ip, mem_cmd)
-            unit = mem_speed.split(" ")[1]
-            if unit == "MHz":
-                server_inventory_info.mem_state.mem_speed_MHz = int(mem_speed.split(" ")[0])
-            dimm_size = self.get_field_value(sshclient, ip, dimm_cmd)
-            unit = dimm_size.split(" ")[1]
-            if unit == "MB":
-                server_inventory_info.mem_state.dimm_size_mb = int(dimm_size.split(" ")[0])
-            server_inventory_info.mem_state.num_of_dimms = int(self.get_field_value(sshclient, ip, num_cmd))
-            swap_size = self.get_field_value(sshclient, ip, swap_cmd)
-            server_inventory_info.mem_state.swap_size_mb = float(swap_size.split(" ")[0])
-            total_mem = self.get_field_value(sshclient, ip, total_mem_cmd)
-            server_inventory_info.mem_state.total_mem_mb = int(int(total_mem.lstrip().split(" ")[0])/1024)
-            self.log(self.INFO, "Got the Memory info for IP: %s" % ip)
-        else:
-            self.log(self.INFO, "Couldn't get the Memory info for IP: %s" % ip)
-        self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+        try:
+            server_inventory_info = ServerInventoryInfo()
+            server_inventory_info.name = str(hostname)
+            server_inventory_info.mem_state = memory_info()
+            server_inventory_info.mem_state.mem_type = "N/A"
+            server_inventory_info.mem_state.mem_speed_MHz = 0
+            server_inventory_info.mem_state.num_of_dimms = 0
+            server_inventory_info.mem_state.dimm_size_mb = 0
+            server_inventory_info.mem_state.total_mem__mb = 0
+            server_inventory_info.mem_state.swap_size_mb = 0.0
+            dmi_cmd = 'which dmidecode'
+            if self.get_field_value(sshclient, ip, dmi_cmd):
+                type_cmd = 'dmidecode -t memory |  grep "Type:" | grep -v "Unknown" | grep -v "Error" | head -n1'
+                mem_cmd = 'dmidecode -t memory | grep "Speed" | grep -v "Unknown" | head -n1'
+                dimm_cmd = 'dmidecode -t memory | grep "Size" | grep -v "No Module" | head -n1'
+                num_cmd = 'dmidecode -t memory | grep "Size" | grep -v "No Module" | wc -l'
+                swap_cmd = 'facter | egrep -w swapsize_mb'
+                total_mem_cmd = 'vmstat -s | grep "total memory"'
+                server_inventory_info.mem_state.mem_type = self.get_field_value(sshclient, ip, type_cmd)
+                mem_speed = self.get_field_value(sshclient, ip, mem_cmd)
+                unit = mem_speed.split(" ")[1]
+                if unit == "MHz":
+                    server_inventory_info.mem_state.mem_speed_MHz = int(mem_speed.split(" ")[0])
+                dimm_size = self.get_field_value(sshclient, ip, dimm_cmd)
+                unit = dimm_size.split(" ")[1]
+                if unit == "MB":
+                    server_inventory_info.mem_state.dimm_size_mb = int(dimm_size.split(" ")[0])
+                server_inventory_info.mem_state.num_of_dimms = int(self.get_field_value(sshclient, ip, num_cmd))
+                swap_size = self.get_field_value(sshclient, ip, swap_cmd)
+                server_inventory_info.mem_state.swap_size_mb = float(swap_size.split(" ")[0])
+                total_mem = self.get_field_value(sshclient, ip, total_mem_cmd)
+                server_inventory_info.mem_state.total_mem_mb = int(int(total_mem.lstrip().split(" ")[0]) / 1024)
+            else:
+                self.log(self.INFO, "Couldn't get the Memory info for IP: %s" % ip)
+            self.call_send(ServerInventoryInfoUve(data=server_inventory_info))
+        except Exception as e:
+            self.log(self.ERROR, "Error in get_memory_info: " + str(ip) + "Error: " + str(e))
+            raise e
 
     def add_inventory(self):
         servers = self._serverDb.get_server(None, detail=True)
@@ -434,9 +455,10 @@ class ServerMgrInventory():
         inventory_info_obj.eth_controller_state = None
         self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
 
-    def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, option="key"):
-        if action == "add":
-            try:
+    def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, option="password"):
+        sshclient = None
+        try:
+            if action == "add":
                 sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
                 sshclient.connect(ip, hostname, option)
                 self.get_fru_info(hostname, ipmi, username, password)
@@ -445,13 +467,14 @@ class ServerMgrInventory():
                 self.get_ethernet_info(hostname, ip, sshclient)
                 self.get_memory_info(hostname, ip, sshclient)
                 sshclient.close()
-            except Exception as e:
-                self.log("error",
-                         "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + e.message)
-                pass
-        elif action == "delete":
-            self.log(self.INFO, "Deleted info of server: %s" % hostname)
-            self.delete_inventory_info(hostname)
+            elif action == "delete":
+                self.log(self.INFO, "Deleted info of server: %s" % hostname)
+                self.delete_inventory_info(hostname)
+        except Exception as e:
+            sshclient.close()
+            self.log("error",
+                     "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + e.message)
+            pass
 
     ######## INVENTORY GET INFO SECTION ###########
 
@@ -491,7 +514,6 @@ class ServerMgrInventory():
         server_cluster_list = list()
         server_tag_dict_list = list()
         self.log(self.DEBUG, "get_inventory_info")
-        self.log("debug", "Entered get_inventory_info " + str(datetime.now()))
         uve_name = "ServerInventoryInfo"
         try:
             entity = bottle.request
@@ -517,13 +539,10 @@ class ServerMgrInventory():
             else:
                 url = self._base_obj.get_sandesh_url(self.smgr_ip, self.introspect_port, uve_name)
             headers = {'content-type': 'application/json'}
-            resp = requests.get(url, timeout=5, headers=headers)
+            resp = requests.get(url, timeout=300, headers=headers)
             xml_data = resp.text
             data = xmltodict.parse(str(xml_data))
-            json_obj = json.dumps(data, sort_keys=True, indent=4)
-            data_dict = dict(json.loads(json_obj)["__" + str(uve_name) + "Uve_list"])
-            if "msg" in data_dict or "type_msg" in data_dict:
-                return data_dict
+            data_dict = dict(data["__" + str(uve_name) + "Uve_list"])
             parsed_data_list = self._base_obj.parse_sandesh_xml(data_dict, uve_name)
             parsed_data_dict = dict()
             if parsed_data_list and servers:
@@ -534,13 +553,9 @@ class ServerMgrInventory():
                     server = dict(server)
                     server_hostname = str(server['id'])
                     if server_hostname in parsed_data_dict.keys():
-                        return_dict = dict(server)
+                        return_dict = dict()
                         return_dict["name"] = str(server_hostname)
                         return_dict["cluster_id"] = server['cluster_id']
-                        tags_dict = dict()
-                        for tag_name in self.rev_tags_dict:
-                            tags_dict[tag_name] = str(server[self.rev_tags_dict[tag_name]])
-                        return_dict["tag"] = tags_dict
                         return_dict[str(uve_name)] = self.filter_inventory_results(
                             parsed_data_dict[str(server_hostname)],
                             ret_data["type"])
@@ -548,6 +563,7 @@ class ServerMgrInventory():
                     else:
                         self.log(self.ERROR, "Server Details missing in cache. ")
                         self.log(self.ERROR, "Server Hostname = " + str(server_hostname))
+                        pass
             else:
                 self.log(self.ERROR, "Server Details missing in db. ")
                 return {}
@@ -557,7 +573,7 @@ class ServerMgrInventory():
         except Exception as e:
             self.log(self.ERROR, "Get Inventory Info Execption: " + str(e.message))
             raise e
-        self.log("debug", "Exited get_inventory_info " + str(datetime.now()))
+        #self.log("debug", "Exited get_inventory_info " + str(datetime.now()))
         return json.dumps(list_return_dict)
         # end get_inventory_info
 
@@ -567,8 +583,9 @@ class ServerMgrInventory():
         server_hostname_list = list()
         self.log(self.DEBUG, "run_inventory")
         try:
-            entity = bottle.request.json
+            entity = bottle.request
             ret_data = self._base_obj.validate_rest_api_args(entity, self.rev_tags_dict)
+            #ret_data = self._base_obj.validate_run_inv_params(entity, self.rev_tags_dict)
             if ret_data["status"]:
                 match_key = ret_data["match_key"]
                 match_value = ret_data["match_value"]
@@ -578,15 +595,17 @@ class ServerMgrInventory():
                 match_dict = self._base_obj.process_server_tags(self.rev_tags_dict, match_value)
             elif match_key:
                 match_dict[match_key] = match_value
-            servers = self._serverDb.get_server(
-                match_dict, detail=True)
-            self.log(self.DEBUG, "Running inventory for following servers: " + str(server_hostname_list))
+            if match_dict.keys():
+                servers = self._serverDb.get_server(
+                    match_dict, detail=True)
+            else:
+                servers = self._serverDb.get_server(detail=True)
             self.handle_inventory_trigger("add", servers)
         except ServerMgrException as e:
-            self.log(self.ERROR, "Run Inventory Execption: " + e.message)
+            self.log("error", "Run Inventory Execption: " + e.message)
             raise e
         except Exception as e:
-            self.log(self.ERROR, "Run Inventory Execption: " + e.message)
+            self.log("error", "Run Inventory Execption: " + e.message)
             raise e
         inventory_status = dict()
         inventory_status['return_message'] = "server(s) run_inventory issued"
