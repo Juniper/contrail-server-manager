@@ -7,11 +7,11 @@
 			      [["control"], "p"], 
                       	      [["collector"], "p"], 
 			      [["webui"], "p"],
-			      [["compute"], "p"]],
+			      [["compute"], "p"],
                               [["tsn"], "p"], 
                               [["toragent"], "p"], 
-                  [["storage-compute"], "p"],
-                  [["storage-master"], "s"]]
+                  	      [["storage-compute"], "p"],
+                              [["storage-master"], "s"]]
     },
     "default_ha": {
             "role_sequence": [[["keepalived"], "p"],
