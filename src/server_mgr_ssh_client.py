@@ -43,10 +43,10 @@ class ServerMgrSSHClient():
                     key = str(server["ssh_private_key"])
                     private_key = StringIO(key)
                     pkey = paramiko.RSAKey.from_private_key(private_key)
-                    ssh.connect(ip, username='root', pkey=pkey, timeout=60)
+                    ssh.connect(ip, username='root', pkey=pkey, timeout=30)
                 elif "password" in server and option == "password" and server["password"]:
                     root_pwd = server["password"]
-                    ssh.connect(ip, username='root', password=root_pwd, timeout=60)
+                    ssh.connect(ip, username='root', password=root_pwd, timeout=30)
             self._ssh_client = ssh
         except Exception as e:
             ssh.close()

@@ -249,10 +249,11 @@ class ServerMgrIPMIMonitoring():
                 self.send_ipmi_stats(ip, ipmi_data, hostname, "ipmi_data")
                 return True
             else:
-                self.log("error", "IPMI Polling failed for " + str(hostname) + " Error: result is None ")
+                self.log("error", "Error getting Sesnsor info for: " + str(hostname) +
+                         " Data returned was: " + str(result))
                 return False
         except Exception as e:
-            self.log("error", "IPMI Polling failed for " + str(hostname) + " Error is: " + str(e))
+            self.log("error", "Error getting Sesnsor info for: " + str(hostname) + " Error is: " + str(e))
             raise e
 
     def fetch_and_process_chassis(self, hostname, ipmi, ip, username, password):
@@ -497,7 +498,7 @@ class ServerMgrIPMIMonitoring():
                 else:
                     return False
         except Exception as e:
-            self.log("error", "Error in getting network info for " + str(hostname) + str(e))
+            self.log("error", "Error in getting network info for " + str(hostname) + " Error: " + str(e))
             raise e
 
     def fetch_and_process_sel_logs(self, hostname, ip, username, password, sel_event_log_list):
@@ -565,11 +566,11 @@ class ServerMgrIPMIMonitoring():
                     self.fetch_and_process_sel_logs(hostname, ipmi, username, password, sel_event_log_list)
             else:
                 return_dict["sel_log"] = self.fetch_and_process_sel_logs(hostname, ipmi, username, password, [])
-            """if not ipmi_state and return_dict["ipmi_status"]:
+            if not ipmi_state and return_dict["ipmi_status"]:
                 # Trigger REST API CALL to inventory for Server Hostname
                 payload = dict()
                 payload["id"] = str(hostname)
-                self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)"""
+                self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
             return return_dict
         except Exception as e:
             self.log("error", "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + str(e))
@@ -812,13 +813,13 @@ class ServerMgrIPMIMonitoring():
                 self.log(self.ERROR, "Server Details missing in db. ")
                 pass
         except ServerMgrException as e:
-            self.log("error", "Get Monitoring Info Execption: " + str(e.message))
+            self.log("error", "Get Monitoring Info Summary Execption: " + str(e.message))
             return_dict = {}
             list_return_dict = list()
             list_return_dict.append(return_dict)
             return json.dumps(list_return_dict)
         except Exception as e:
-            self.log("error", "Get Monitoring Info Execption: " + str(e.message))
+            self.log("error", "Get Monitoring Info Summary Execption: " + str(e.message))
             return_dict = {}
             list_return_dict = list()
             list_return_dict.append(return_dict)
@@ -855,9 +856,13 @@ class ServerMgrIPMIMonitoring():
             #self.base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list,
              #                                        ipmi_username_list, ipmi_password_list, "monitoring")
             server_dict = self.base_obj.create_server_dict(servers)
+            hostname_list = list(server_dict.keys())
             new_server_set = set(hostname_list)
             deleted_servers = set(old_server_set.difference(new_server_set))
 
+            if len(hostname_list) == 0:
+                time.sleep(self.freq)
+                continue
             if len(deleted_servers) > 0:
                 #self.log("info", "Deleting monitoring info of certain servers that have been removed")
                 #self.log("info", "Deleted servers: " + str(list(deleted_servers)))
@@ -917,7 +922,7 @@ class ServerMgrIPMIMonitoring():
                     #self.log("debug", "No additional sleep. ")
                     pass
 
-                """for hostname in gevent_threads:
+                for hostname in gevent_threads:
                     thread = gevent_threads[str(hostname)]
                     if thread.successful() and thread.value:
                         return_dict = dict(thread.value)
@@ -928,7 +933,7 @@ class ServerMgrIPMIMonitoring():
                         self.log("error", "Greenlet for server " + str(hostname) + " didn't return successfully: "
                                  + str(thread.get()))
                         thread.kill()
-                        pass"""
+                        pass
 
             except Exception as e:
                 self.log("error", "Exception occured while spawning gevents. Error = " + str(e))

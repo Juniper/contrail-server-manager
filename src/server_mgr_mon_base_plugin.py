@@ -370,10 +370,14 @@ class ServerMgrMonBasePlugin():
                 diff = now - times
                 if diff.seconds > 2:
                     if p and p.poll() != 0:
-                        p.terminate()
-                        p.stdout.close()
-                        p.stderr.close()
-                        p.stdin.close()
+                        if p.stdout:
+                            p.stdout.close()
+                        if p.stderr:
+                            p.stderr.close()
+                        if p.stdin:
+                            p.stdin.close()
+                        if p:
+                            p.terminate()
                     os.waitpid(-1, os.WNOHANG)
                     self._smgr_log.log(self._smgr_log.INFO, "command:" + cmd + " --> hanged")
                     return None
@@ -381,10 +385,14 @@ class ServerMgrMonBasePlugin():
             return result
         except Exception as e:
             if p and p.poll() != 0:
-                p.terminate()
-                p.stdout.close()
-                p.stderr.close()
-                p.stdin.close()
+                if p.stdout:
+                    p.stdout.close()
+                if p.stderr:
+                    p.stderr.close()
+                if p.stdin:
+                    p.stdin.close()
+                if p:
+                    p.terminate()
             self._smgr_log.log(self._smgr_log.INFO, "Exception in call_subprocess: " + str(e))
             return None
 

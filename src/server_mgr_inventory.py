@@ -152,6 +152,7 @@ class ServerMgrInventory():
         cmd = 'ipmitool -H %s -U %s -P %s fru' % (ip, username, password)
         try:
             result = self._base_obj.call_subprocess(cmd)
+            sensor = ""
             if result:
                 inventory_info_obj = ServerInventoryInfo()
                 inventory_info_obj.name = hostname
@@ -169,6 +170,8 @@ class ServerMgrInventory():
                     else:
                         sensor = ""
                     if sensor == "FRU Device Description":
+                        fru_dict = self.fru_dict_init(hostname)
+                        fru_info_obj = self.fru_obj_init(hostname)
                         fru_info_obj.fru_description = reading_value
                         fru_dict['fru_description'] = str(hostname) + " " + reading_value
                     elif sensor == "Chassis Type":
@@ -201,11 +204,18 @@ class ServerMgrInventory():
                     elif sensor == "Product Part Number":
                         fru_info_obj.product_part_number = reading_value
                         fru_dict['product_part_number'] = reading_value
-                    elif sensor == "":
+                    elif fru_dict['fru_description'] != "N/A" and sensor == "":
                         fru_obj_list.append(fru_info_obj)
                         rc = self._serverDb.add_inventory(fru_dict)
                         if rc != 0:
-                            self.log(self.ERROR, "ERROR REPORTED BY INVENTORY ADD: %s" % rc)
+                            self.log(self.ERROR, "ERROR REPORTED BY INVENTORY ADD TO DICT: %s" % rc)
+                        fru_dict = self.fru_dict_init(hostname)
+                        fru_info_obj = self.fru_obj_init(hostname)
+                if fru_dict['fru_description'] != "N/A":
+                    fru_obj_list.append(fru_info_obj)
+                    rc = self._serverDb.add_inventory(fru_dict)
+                    if rc != 0:
+                        self.log(self.ERROR, "ERROR REPORTED BY INVENTORY ADD TO DICT: %s" % rc)
                 inventory_info_obj.fru_infos = fru_obj_list
             else:
                 self.log(self.INFO, "Could not get the FRU info for IP: %s" % ip)
@@ -640,6 +650,7 @@ class ServerMgrInventory():
                 thread = gevent.spawn(self.gevent_runner_function,
                                       action, hostname, ip, ipmi, username, password)
                 gevent_threads.append(thread)
+                time.sleep(1)
         self.log(self.DEBUG, "Finished Running Inventory")
                 # gevent.joinall(gevent_threads)
 
