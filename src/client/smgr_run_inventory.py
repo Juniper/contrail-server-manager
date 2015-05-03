@@ -18,6 +18,7 @@ except ImportError:
     from ordereddict import OrderedDict
 import ConfigParser
 import smgr_client_def
+import urllib
 
 
 def parse_arguments(args_str=None):
@@ -57,9 +58,15 @@ def parse_arguments(args_str=None):
 def send_REST_request(ip, port, payload):
     try:
         url = "http://%s:%s/run_inventory" % (ip, port)
-        payload = json.dumps(payload)
+        args_str = ''
+        match_key, match_value = payload.popitem()
+        if match_key and match_value:
+            args_str += urllib.quote_plus(str(match_key)) + "=" \
+                        + urllib.quote_plus(str(match_value))
+        if args_str != '':
+            url += "?" + args_str
         headers = {'content-type': 'application/json'}
-        resp = requests.post(url, headers=headers, timeout=5, data=payload)
+        resp = requests.post(url, headers=headers, timeout=30)
         return resp.text
     except Exception as e:
         return None
@@ -103,12 +110,8 @@ def run_inventory(args_str=None):
         payload[match_key] = match_value
 
     if (not args.no_confirm):
-        if match_key:
-            msg = "Run Inventory on servers matching: (%s:%s)? (y/N) :" % (
-                match_key, match_value)
-        else:
-            msg = "server-manager run_inventory: error: no arguments specified - choose Cluster/Server/Tag"
-            sys.exit()
+        msg = "Run Inventory on servers matching: (%s:%s)? (y/N) :" % (
+            match_key, match_value)
         user_input = raw_input(msg).lower()
         if user_input not in ["y", "yes"]:
             sys.exit()
