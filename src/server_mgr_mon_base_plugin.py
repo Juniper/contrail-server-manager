@@ -317,7 +317,7 @@ class ServerMgrMonBasePlugin():
                         inv_config_set = False
                         pass
                     module = Module.INVENTORY_AGENT
-                    port = HttpPortInventorymgr
+                    port = int(sm_args.http_introspect_port)
                     module_list = ['inventory_daemon.server_inventory', 'contrail_sm_monitoring.monitoring']
                 elif inv_config_set:
                     try:
@@ -326,7 +326,7 @@ class ServerMgrMonBasePlugin():
                         inv_config_set = False
                         pass
                     module = Module.INVENTORY_AGENT
-                    port = HttpPortInventorymgr
+                    port = int(sm_args.http_introspect_port)
                     module_list = ['inventory_daemon.server_inventory']
                 elif mon_config_set:
                     try:
@@ -335,7 +335,7 @@ class ServerMgrMonBasePlugin():
                         mon_config_set = False
                         pass
                     module = Module.IPMI_STATS_MGR
-                    port = HttpPortIpmiStatsmgr
+                    port = int(sm_args.http_introspect_port)
                     module_list = ['contrail_sm_monitoring.monitoring']
                 if mon_config_set or inv_config_set:
                     module_name = ModuleNames[module]
