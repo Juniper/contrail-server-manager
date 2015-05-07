@@ -654,36 +654,35 @@ class ServerMgrMonBasePlugin():
         return return_dict
 
     @staticmethod
-    def get_mon_conf_details(self):
+    def get_mon_conf_details():
         return "Monitoring Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     @staticmethod
-    def get_inv_conf_details(self):
+    def get_inv_conf_details():
         return "Inventory Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     @staticmethod
-    def get_inventory_info(self):
+    def get_inventory_info():
         return "Inventory Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     @staticmethod
-    def get_monitoring_info(self):
+    def get_monitoring_info():
         return "Monitoring Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     @staticmethod
-    def get_monitoring_info_summary(self):
+    def get_monitoring_info_summary():
         return "Monitoring Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     @staticmethod
-    def run_inventory(self):
+    def run_inventory():
         return "Inventory Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
-    @staticmethod
     def handle_inventory_trigger(self):
         self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
         return "Inventory Parameters haven't been configured.\n" \
@@ -692,10 +691,14 @@ class ServerMgrMonBasePlugin():
     def add_inventory(self):
         self._smgr_log.log(self._smgr_log.ERROR, "Inventory Parameters haven't been configured.\n" +
                                                  "Reset the configuration correctly to add inventory.\n")
+        return "Inventory Parameters haven't been configured.\n" \
+               "Reset the configuration correctly and restart Server Manager.\n"
 
     def cleanup(self, obj=None):
         self._smgr_log.log(self._smgr_log.INFO, "Monitoring Parameters haven't been configured.\n" +
                            "No cleanup needed.\n")
+        return "Inventory Parameters haven't been configured.\n" \
+               "Reset the configuration correctly and restart Server Manager.\n"
 
     # A place-holder run function that the Server Monitor defaults to in the absence of a configured
     # monitoring API layer to use.
