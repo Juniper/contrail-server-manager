@@ -77,4 +77,5 @@ class ServerMgrSSHClient():
             raise e
 
     def close(self):
-        self._ssh_client.close()
+        if self._ssh_client:
+            self._ssh_client.close()

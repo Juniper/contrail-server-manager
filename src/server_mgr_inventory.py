@@ -579,10 +579,10 @@ class ServerMgrInventory():
                 return {}
         except ServerMgrException as e:
             self.log(self.ERROR, "Get Inventory Info Execption: " + str(e.message))
-            raise e
+            return json.dumps({})
         except Exception as e:
             self.log(self.ERROR, "Get Inventory Info Execption: " + str(e.message))
-            raise e
+            return json.dumps({})
         #self.log("debug", "Exited get_inventory_info " + str(datetime.now()))
         return json.dumps(list_return_dict)
         # end get_inventory_info
