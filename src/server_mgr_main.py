@@ -46,6 +46,7 @@ from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
+from server_mgr_validations import ServerMgrValidations as ServerMgrValidations
 from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 from send_mail import send_mail
 import pycurl
@@ -263,6 +264,12 @@ class VncServerManager():
             self._smgr_trans_log = ServerMgrTlog()
         except:
             print "Error Creating Transaction logger object"
+
+        try:
+            self._smgr_validations = ServerMgrValidations()
+        except: 
+            print "Error Creating ServerMgrValidations object"
+
 
         self._monitoring_base_plugin_obj = ServerMgrMonBasePlugin()
         if not args_str:
@@ -673,6 +680,12 @@ class VncServerManager():
                 msg = "role 'tsn' needs role 'compute' in provision file"
                 raise ServerMgrException(msg, ERR_OPR_ERROR)
 
+            if 'toragent' in data['roles']:
+                status, msg = self._smgr_validations.validate_tor_config(data)
+                self._smgr_log.log(self._smgr_log.DEBUG, "tor_cofnig =>status: %s, msg: %s" %(status, msg))
+                if status != 0:
+                    raise ServerMgrException(msg, ERR_OPR_ERROR)
+   
         return ret_data
 
     def validate_smgr_delete(self, validation_data, request, data = None):
