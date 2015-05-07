@@ -1038,6 +1038,12 @@ class VncServerManager():
                     select_clause = ["id", "mac_address", "ip_address", "status"]
                 servers = self._serverDb.get_server(
                     match_dict, detail=detail, field_list=select_clause)
+                if len(servers) == 0:
+                    if match_value and match_key:
+                        msg = "No Servers found macthing %s = %s " % (match_key, match_value)
+                    else:
+                        msg = "No macthing Servers found "
+                    self.log_and_raise_exception(msg)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
@@ -1082,6 +1088,12 @@ class VncServerManager():
                 detail = ret_data["detail"]
                 servers = self._serverDb.get_server(
                     match_dict, detail=detail, field_list=select_clause)
+                if len(servers) == 0:
+                    if match_value and match_key:
+                        msg = "No Servers found macthing %s = %s " % (match_key, match_value)
+                    else:
+                        msg = "No macthing Servers found "
+                    self.log_and_raise_exception(msg)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
@@ -2323,7 +2335,7 @@ class VncServerManager():
             msg = "No package %s found" % (package_image_id)
             raise ServerMgrException(msg)
         if packages[0]['category'] and packages[0]['category'] != 'package':
-            msg = "Category is not package, it is %s" (packages[0]['category'])
+            msg = "Target Package Category is not package, it is %s" % (packages[0]['category'])
             raise ServerMgrException(msg)
         if packages[0]['type'] not in self._package_types:
             msg = "%s is not a package" % (package_image_id)
@@ -2341,7 +2353,7 @@ class VncServerManager():
             msg = "No Image %s found" % (base_image_id)
             raise ServerMgrException(msg, ERR_IMG_NOT_FOUND)
         if images[0]['category'] and images[0]['category'] != 'image':
-            msg = "Category is not image, it is %s" % (images[0]['category'])
+            msg = "Target Image Category is not image, it is %s" % (images[0]['category'])
             raise ServerMgrException(msg, ERR_IMG_CATEGORY_ERROR)
         if images[0]['type'] not in self._iso_types:
             msg = "Image %s is not an iso" % (base_image_id)
