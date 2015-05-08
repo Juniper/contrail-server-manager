@@ -19,6 +19,7 @@ server_fields = {
     "gateway": "",
     "network": {},
     "contrail": {},
+    "top_of_rack" : {},
     "password": "",
     "domain": "",
     "email": "",

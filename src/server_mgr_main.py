@@ -152,8 +152,10 @@ class VncServerManager():
                       (['collector'], 'p'), (['webui'], 'p')]
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 'p')]
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 's')]
-    _compute_roles = ['compute', 'storage-compute', 'storage-master']
+    _compute_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
     _roles = _control_roles + _compute_roles
+    _control_step_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _compute_step_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
     _openstack_steps = ['pre_exec_vnc_galera', 'post_exec_vnc_galera', 'keepalived', 'haproxy']
     _role_steps = _control_roles + _openstack_steps + _compute_roles
     _control_step_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
@@ -665,6 +667,15 @@ class VncServerManager():
             elif 'storage-master' in data['roles'] and 'openstack' not in data['roles']:
                 msg = "role 'storage-master' needs role 'openstack' in provision file"
                 raise ServerMgrException(msg, ERR_OPR_ERROR)
+
+            if 'toragent' in data['roles'] and 'compute' not in data['roles']:
+                msg = "role 'toragent' needs role 'compute' in provision file"
+                raise ServerMgrException(msg, ERR_OPR_ERROR)
+
+            if 'tsn' in data['roles'] and 'compute' not in data['roles']:
+                msg = "role 'tsn' needs role 'compute' in provision file"
+                raise ServerMgrException(msg, ERR_OPR_ERROR)
+
         return ret_data
 
     def validate_smgr_delete(self, validation_data, request, data = None):
@@ -698,7 +709,7 @@ class VncServerManager():
                 "control", "collector", "webui", "compute" ]
         roles_set = set(role_list)
 
-        optional_role_list = ["storage-compute", "storage-master"]
+        optional_role_list = ["storage-compute", "storage-master", "tsn", "toragent"]
         optional_role_set = set(optional_role_list)
 
         cluster_role_list = []
@@ -759,7 +770,8 @@ class VncServerManager():
         if req_provision_params is not None:
             role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute", "zookeeper", "storage-compute", "storage-master"]
+                "control", "collector", "webui", "compute", "zookeeper",
+                "storage-compute", "storage-master", "tsn", "toragent"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
@@ -1116,6 +1128,8 @@ class VncServerManager():
                 x['network'] = eval(x['network'])
             if x.get("contrail", None):
                 x['contrail'] = eval(x['contrail'])
+            if x.get("top_of_rack", None):
+                x['top_of_rack'] = eval(x['top_of_rack'])
 
             if detail:
                 #Temp workarounf for UI, UI doesnt like None
@@ -3300,6 +3314,7 @@ class VncServerManager():
                 package_image_id = server_pkg['package_image_id']
                 package_type = server_pkg['package_type']
                 server_params = eval(server['parameters'])
+                server_tor_config = server['top_of_rack']
                 cluster = self._serverDb.get_cluster(
                     {"id" : server['cluster_id']},
                     detail=True)[0]
@@ -3463,12 +3478,34 @@ class VncServerManager():
                 elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
                     subnet_mask = cluster_params['subnet_mask']
 
-		if len(role_servers['storage-compute']):
-		    msg = "Storage is enabled"
-		    storage_status = '1'
-		else:
-		    msg = "Storage is disabled"
-		    storage_status = '0'
+                if len(role_servers['tsn']):
+                   if len(role_servers['toragent']) == 0:
+                      msg = "TSN can only be provisioned when there is a TOR Agent"
+                      raise ServerMgrException(msg)
+
+                if len(role_servers['toragent']):
+                   if len(role_servers['tsn']) == 0:
+                      msg = "TOR Agent can only be provisioned when there is a TSN node"
+                      raise ServerMgrException(msg)
+
+                if len(role_servers['toragent']) > 1:
+                   msg = "Multiple TOR Agents are not allowed"
+                   raise ServerMgrException(msg)
+    
+                if 'toragent' in server['roles']:
+                    provision_params['top_of_rack'] = server_tor_config
+                    self._smgr_log.log(self._smgr_log.DEBUG, "TOR-AGENT is there")
+                else:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "TOR-AGENT is not there")
+                    provision_params['top_of_rack'] = ""
+
+                self._smgr_log.log(self._smgr_log.DEBUG, "tor config of %s => %s" % (server['id'], server_tor_config))
+                if len(role_servers['storage-compute']):
+                    msg = "Storage is enabled"
+                    storage_status = '1'
+                else:
+                    msg = "Storage is disabled"
+                    storage_status = '0'
                 self._smgr_log.log(self._smgr_log.DEBUG, msg)
 
                 # Calculate the total number of disks in the cluster
@@ -3496,19 +3533,19 @@ class VncServerManager():
 
                   if 'live_migration_storage_scope' in cluster_params.keys() and cluster_params['live_migration_storage_scope']:
                       live_migration_storage_scope = cluster_params['live_migration_storage_scope']
-		  else:
-		      pass
-
-		if live_migration_storage_scope == "local" or live_migration_storage_scope == "global":
-		    pass
-		else:
+                  else:
+                      pass
+    
+                if live_migration_storage_scope == "local" or live_migration_storage_scope == "global":
+                    pass
+                else:
                     msg = "Invalid Live Migration Storage Scope (local/global are valid)"
                     raise ServerMgrException(msg)
-
-
-		provision_params['live_migration_storage_scope'] = live_migration_storage_scope
-		provision_params['contrail-storage-enabled'] = storage_status
-		provision_params['subnet-mask'] = subnet_mask
+    
+    
+                provision_params['live_migration_storage_scope'] = live_migration_storage_scope
+                provision_params['contrail-storage-enabled'] = storage_status
+                provision_params['subnet-mask'] = subnet_mask
                 provision_params['host_roles'] = [ x.encode('ascii') for x in eval(server['roles']) ]
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
@@ -3586,7 +3623,7 @@ class VncServerManager():
                             self.log_and_raise_exception(msg)
                     if server_params['storage_repo_id'] in image_ids:
                         if image_ids[server_params['storage_repo_id']] == 'contrail-storage-ubuntu-package':
-                            provision_params['storage_repo_id'] = server_params['storage_repo_id']
+                                provision_params['storage_repo_id'] = server_params['storage_repo_id']
                         else:
                             msg = "Storage repo id specified doesn't match a contrail storage package"
                             raise ServerMgrException(msg)
