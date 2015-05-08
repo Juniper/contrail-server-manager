@@ -680,6 +680,15 @@ class VncServerManager():
                 msg = "role 'tsn' needs role 'compute' in provision file"
                 raise ServerMgrException(msg, ERR_OPR_ERROR)
 
+            if (('storage-compute' in data['roles'])
+                or ('storage-master' in data['roles'])):
+                server_params = data['parameters']
+                if (('storage_repo_id' not in server_params.keys()) or
+                    (server_params['storage_repo_id'] == "")):
+                    msg = ("server parameters needs to have storage_repo_id"
+                          " for storage roles")
+                    raise ServerMgrException(msg, ERR_OPR_ERROR)
+
             if 'toragent' in data['roles']:
                 status, msg = self._smgr_validations.validate_tor_config(data)
                 self._smgr_log.log(self._smgr_log.DEBUG, "tor_cofnig =>status: %s, msg: %s" %(status, msg))
