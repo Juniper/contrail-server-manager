@@ -2991,6 +2991,32 @@ class VncServerManager():
         return domain
     # end get_server_domain
 
+    def update_provision_started_flag(self, server_id, status):
+        if status != "provision_started":
+            return False
+        servers = self._serverDb.get_server(
+            {"id" : server_id}, detail=True)
+        if not servers:
+            return False
+        server = servers[0]
+        cluster_id = server['cluster_id']
+        clusters = self._serverDb.get_cluster(
+            {"id" : cluster_id}, detail=True)
+        if not clusters:
+            return False
+        cluster = clusters[0]
+        # By default, sequence provisioning is On.
+        sequence_provisioning = eval(cluster['parameters']).get(
+            "sequence_provisioning", True)
+        if not sequence_provisioning:
+            return False
+        step_tuple = (server_id, status)
+        hiera_file = self.get_server_control_hiera_filename(server_id)
+        self._smgr_puppet.modify_server_hiera_data(server_id,
+                                                   hiera_file, [step_tuple],
+                                                   False)
+        return True
+        
     def update_provision_role_sequence(self, server_id, status):
         if not server_id or not status or '_' not in status:
             return False
