@@ -2985,9 +2985,12 @@ class VncServerManager():
             cluster_id = server['cluster_id']
             if not cluster_id:
                 return domain
-            cluster = self._status_serverDb.get_cluster(
-                {"id" : cluster_id}, detail=True)
-            domain = cluster['domain']
+            clusters = self._serverDb.get_cluster(
+                {"id": cluster_id}, detail=True)
+            if clusters:
+                cluster = clusters[0]
+                cluster_params = eval(cluster['parameters'])
+                domain = cluster_params['domain']
         return domain
     # end get_server_domain
 
