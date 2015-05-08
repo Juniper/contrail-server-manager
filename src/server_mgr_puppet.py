@@ -1939,6 +1939,7 @@ $__contrail_quantum_servers__
         role_passwd = {}
         role_users = {}
         # Set enable_provision_complete flag to false
+        data += 'contrail::params::enable_provision_started: True\n'
         if sequence_provisioning:
             data += 'contrail::params::enable_post_provision: False\n'
             data += 'contrail::params::enable_pre_exec_vnc_galera: False\n'
