@@ -3227,29 +3227,27 @@ class VncServerManager():
             for role_step_server_id in role_step_servers[role]:
                 role_steps_tuple = (role_step_server_id, role)
                 role_steps_list.append(role_steps_tuple)
+                role_steps_tuple = (role_step_server_id, "post_provision")
+                role_steps_list.append(role_steps_tuple)
                 server_compute_flag[role_step_server_id] = True
             if role_steps_list:
                 compute_role_sequence.append(role_steps_list)
         # Set provision_complete as last step for all the servers.
         provision_complete_control_list = []
-        provision_complete_compute_list = []
         compute_list = []
         control_list = []
         for server_id, compute_flag in server_compute_flag.iteritems():
-            role_steps_tuple = (server_id, "post_provision")
-            if compute_flag:
-                compute_list.append(role_steps_tuple)
-            else:
+            if not compute_flag:
+                role_steps_tuple = (server_id, "post_provision")
                 control_list.append(role_steps_tuple)
+
         if control_list:
             provision_complete_control_list.append(control_list)
-        if compute_list:
-            provision_complete_compute_list.append(compute_list)
+
         # Create the full sequence of steps
         provision_role_sequence['steps'] = control_role_sequence + \
             provision_complete_control_list + \
-            compute_role_sequence + \
-            provision_complete_compute_list
+            compute_role_sequence
         return provision_role_sequence
 
     #end prepare_provision_role_sequence
