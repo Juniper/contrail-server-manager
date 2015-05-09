@@ -1960,6 +1960,7 @@ $__contrail_quantum_servers__
             data += 'contrail::params::enable_keepalived: False\n'
             data += 'contrail::params::enable_haproxy: False\n'
             data += 'contrail::params::enable_sequence_provisioning: True\n'
+            data += 'contrail::params::enable_provision_started: True\n'
         for role in ['database', 'config', 'openstack',
                      'control', 'collector',
                      'webui', 'compute', 'tsn', 'toragent']:
