@@ -1063,12 +1063,6 @@ class VncServerManager():
                     select_clause = ["id", "mac_address", "ip_address", "status"]
                 servers = self._serverDb.get_server(
                     match_dict, detail=detail, field_list=select_clause)
-                if len(servers) == 0:
-                    if match_value and match_key:
-                        msg = "No Servers found matching %s = %s " % (match_key, match_value)
-                    else:
-                        msg = "No matching Servers found "
-                    self.log_and_raise_exception(msg)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
@@ -1113,12 +1107,6 @@ class VncServerManager():
                 detail = ret_data["detail"]
                 servers = self._serverDb.get_server(
                     match_dict, detail=detail, field_list=select_clause)
-                if len(servers) == 0:
-                    if match_value and match_key:
-                        msg = "No Servers found matching %s = %s " % (match_key, match_value)
-                    else:
-                        msg = "No matching Servers found "
-                    self.log_and_raise_exception(msg)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
