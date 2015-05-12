@@ -374,7 +374,6 @@ class ServerMgrIPMIMonitoring():
             fs_view = file_system_disk_view()
             file_system_view_list = fs_view.get_file_system_view(sshclient)
             self.send_ipmi_stats(ip, file_system_view_list, hostname, "file_system_view_list")
-            del file_system_view_list[:]
         except Exception as e:
             self.log("error", "Error getting file system view info for " + str(hostname) + " : " + str(e))
             raise e
