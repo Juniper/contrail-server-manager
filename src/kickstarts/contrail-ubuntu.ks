@@ -212,5 +212,8 @@ then
 fi
 #blacklist mei module for ocp
 echo "blacklist mei" >> /etc/modprobe.d/blacklist.conf
+echo "blacklist mei \ninstall mei /bin/true" > /etc/modprobe.d/mei.conf;
+echo "blacklist mei_me \ninstall mei_me /bin/true" > /etc/modprobe.d/mei_me.conf;
+echo "blacklist mei_me" >> /etc/modprobe.d/blacklist.conf
 wget http://$server/cblr/svc/op/trig/mode/post/system/$system_name
 %end
