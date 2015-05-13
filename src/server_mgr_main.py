@@ -3219,9 +3219,8 @@ class VncServerManager():
         except Exception as e:
             print repr(e)
             self._smgr_log.log(self._smgr_log.ERROR,
-                               "Role sequence file %s "
-                               "File should be in JSON format") \
-                               % (_DEF_ROLE_SEQUENCE_DEF_FILE)
+                               "Role sequence file %s File should be in JSON format" \
+                               % (_DEF_ROLE_SEQUENCE_DEF_FILE))
             role_sequence = default_role_sequence
         return role_sequence
 
