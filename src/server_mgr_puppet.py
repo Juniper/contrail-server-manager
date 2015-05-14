@@ -1824,6 +1824,7 @@ $__contrail_quantum_servers__
             "database_dir" : ["database_dir", "string"],
             "analytics_data_dir" : ["analytics_data_dir", "string"],
             "ssd_data_dir" : ["ssd_data_dir", "string"],
+            "database_minimum_diskGB" : ["database_minimum_diskGB", "integer"],
             "keystone_ip" : ["keystone_ip", "string"],
             "keystone_password" : ["keystone_admin_password", "string"],
             "service_token" : ["keystone_service_token", "string"],
