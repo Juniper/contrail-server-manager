@@ -4082,7 +4082,8 @@ class VncServerManager():
         # Update Server table to add image name
         update = {
             'mac_address': reimage_parameters['server_mac'],
-            'reimaged_id': base_image['id']}
+            'reimaged_id': base_image['id'],
+            'provisioned_id': ''}
         if not self._serverDb.modify_server(update):
             msg = "Server %s is not present" % reimage_parameters['server_id']
             self._smgr_log.log(self._smgr_log.ERROR, msg)
