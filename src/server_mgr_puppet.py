@@ -2049,10 +2049,7 @@ $__contrail_quantum_servers__
             data += 'contrail::params::live_migration_storage_scope: "%s"\n' %(provision_params['live_migration_storage_scope'])
             data += 'contrail::params::live_migration_host: "%s"\n' %(provision_params['live_migration_host'])
             data += 'contrail::params::live_migration_ip: "%s"\n' %(provision_params['live_migration_ip'])
-            storage_mon_hosts = ''
-            for key in provision_params['storage_monitor_hosts']:
-                storage_mon_hosts += '''%s, ''' % key
-            data += 'contrail::params::storage_monitor_hosts: "%s"\n' %(str(storage_mon_hosts))
+            data += 'contrail::params::storage_monitor_hosts: %s\n' %(str(provision_params['storage_monitor_hosts']))
 
             storage_hostnames = ''
             for key in provision_params['storage_hostnames']:
@@ -2064,7 +2061,7 @@ $__contrail_quantum_servers__
                 for key in provision_params['storage_chassis_config']:
                     storage_chassis_config += '''"%s", ''' % key
                 if len(str(storage_chassis_config)) != 0:
-                    data += 'contrail::params::storage_chassis_config: \'[%s]\'\n' %(str(storage_chassis_config))
+                    data += 'contrail::params::storage_chassis_config: [%s]\n' %(str(storage_chassis_config))
     
             if 'storage_server_disks' in provision_params:
                 storage_disks = [  x.encode('ascii') for x in provision_params['storage_server_disks']]
