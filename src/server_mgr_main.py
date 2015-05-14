@@ -140,7 +140,7 @@ class VncServerManager():
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
                       "contrail-storage-ubuntu-package"]
     _image_category_list = ["image", "package"]
-    _control_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui', 'storage-master']
+    _control_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
     _role_sequence = [(['haproxy'], 'p'),
                       (['database'], 'p'), (['openstack'], 'p'), 
                       (['config'], 'p'), (['control'], 'p'), 
@@ -3277,16 +3277,17 @@ class VncServerManager():
             if role_steps_list and execution == 'p':
                 control_role_sequence.append(role_steps_list)
 
+        role_steps_list = []
         for role in self._compute_roles:
-            role_steps_list = []
             for role_step_server_id in role_step_servers[role]:
                 role_steps_tuple = (role_step_server_id, role)
                 role_steps_list.append(role_steps_tuple)
                 role_steps_tuple = (role_step_server_id, "post_provision")
-                role_steps_list.append(role_steps_tuple)
+                if role_steps_tuple not in role_steps_list:
+                    role_steps_list.append(role_steps_tuple)
                 server_compute_flag[role_step_server_id] = True
-            if role_steps_list:
-                compute_role_sequence.append(role_steps_list)
+        if role_steps_list:
+            compute_role_sequence.append(role_steps_list)
         # Set provision_complete as last step for all the servers.
         provision_complete_control_list = []
         compute_list = []
