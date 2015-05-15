@@ -11,7 +11,7 @@
                               [["tsn"], "p"], 
                               [["toragent"], "p"], 
                   	      [["storage-compute"], "p"],
-                              [["storage-master"], "s"]]
+                              [["storage-master"], "p"]]
     },
     "default_ha": {
             "role_sequence": [[["keepalived"], "p"],
