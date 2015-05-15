@@ -510,7 +510,7 @@ class ServerMgrIPMIMonitoring():
                     sellog = IpmiSystemEventLog()
                     sellog.name = str(hostname)
                     col = line.split("|")
-                    hex_event_id = col[0]
+                    hex_event_id = col[0].strip()
                     if hex_event_id.isdigit():
                         event_id = int(hex_event_id, 16)
                     else:
