@@ -1528,8 +1528,8 @@ class VncServerManager():
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
                 self._serverDb.modify_server_to_new_interface_config(server_data)
-                # Trigger to collect inventory info
-                gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "add", servers)
+            # End of for
+            gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "add", servers)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
