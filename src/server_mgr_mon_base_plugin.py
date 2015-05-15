@@ -399,10 +399,12 @@ class ServerMgrMonBasePlugin():
     def create_store_copy_ssh_keys(self, server_id, server_ip):
 
         # Create the Keys using Pycrypto
+        self._smgr_log.log(self._smgr_log.DEBUG, "Copying keys for server: " + str(server_id))
         ssh_key = paramiko.RSAKey.generate(bits=2048)
         ssh_private_key_obj = StringIO.StringIO()
         ssh_key.write_private_key(ssh_private_key_obj)
         source_file = ""
+        bytes_sent = 0
         try:
             # Save Public key on Target Server
             source_file = "/opt/contrail/server_manager/" + str(server_id) + ".pub"
@@ -414,15 +416,17 @@ class ServerMgrMonBasePlugin():
             dest_file = "/root/.ssh/authorized_keys"
             ssh.exec_command("mkdir -p /root/.ssh/")
             ssh.exec_command("touch /root/.ssh/authorized_keys")
-            ssh.copy(source_file, dest_file)
-            os.remove(source_file)
-
+            if os.path.exists(source_file):
+                bytes_sent = ssh.copy(source_file, dest_file)
             # Update Server table with ssh public and private keys
             update = {'id': server_id,
                       'ssh_public_key': "ssh-rsa " + str(ssh_key.get_base64()),
                       'ssh_private_key': ssh_private_key_obj.getvalue()}
             self._serverDb.modify_server(update)
             ssh.close()
+            if os.path.exists(source_file):
+                os.remove(source_file)
+            self._smgr_log.log(self._smgr_log.DEBUG, "Bytes copied in ssh_key copy: " + str(bytes_sent))
             return ssh_key
         except Exception as e:
             self._smgr_log.log(self._smgr_log.ERROR, "Error Creating/Copying Keys: " + str(server_id) + " : " + str(e))
@@ -465,7 +469,11 @@ class ServerMgrMonBasePlugin():
     # Packages and sends a REST API call to the ServerManager node
     def reimage_run_inventory(self, ip, port, payload):
         success = False
+        source_file = ""
         sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
+        self._smgr_log.log("debug", "Running Reimage Inventory on  " + str(payload))
+        if not self.inventory_config_set:
+            return "No Inventory Configured"
         tries = 0
         while not success:
             try:
@@ -491,14 +499,16 @@ class ServerMgrMonBasePlugin():
                     sshclient.close()
                     self._smgr_log.log(self._smgr_log.DEBUG, "SSH Keys copied on  " + str(payload["id"]) +
                                        ", try " + str(tries))
-                    os.remove(source_file)
+                    if os.path.exists(source_file):
+                        os.remove(source_file)
                     success = True
                 else:
                     if os.path.exists(source_file):
                         os.remove(source_file)
                     self._smgr_log.log(self._smgr_log.ERROR, "SSH Key copy failed on  " + str(payload["id"]) +
                                        ", try " + str(tries))
-                    sshclient.close()
+                    if sshclient:
+                        sshclient.close()
                     success = False
             except Exception as e:
                 if os.path.exists(source_file):
@@ -506,6 +516,8 @@ class ServerMgrMonBasePlugin():
                 self._smgr_log.log(self._smgr_log.ERROR, "Error running inventory on  " + str(payload) +
                                    ", try " + str(tries)
                                    + "failed : " + str(e))
+                if sshclient:
+                    sshclient.close()
                 gevent.sleep(30)
         try:
             url = "http://%s:%s/run_inventory" % (ip, port)
