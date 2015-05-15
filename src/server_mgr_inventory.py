@@ -76,6 +76,7 @@ class ServerMgrInventory():
         self.smgr_port = smgr_port
         self.introspect_port = introspect_port
         self.rev_tags_dict = rev_tags_dict
+        self.ssh_access_method = "key"
 
     def set_serverdb(self, server_db):
         self._serverDb = server_db
@@ -465,10 +466,10 @@ class ServerMgrInventory():
         inventory_info_obj.eth_controller_state = None
         self.call_send(ServerInventoryInfoUve(data=inventory_info_obj))
 
-    def gevent_runner_function(self, action, hostname, ip, ipmi, username, password, option="password"):
+    def gevent_runner_function(self, action, hostname, ip=None, ipmi=None, username=None, password=None, option="key"):
         sshclient = None
         try:
-            if action == "add":
+            if action == "add" and ip and ipmi and username and password:
                 sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
                 sshclient.connect(ip, hostname, option)
                 self.get_fru_info(hostname, ipmi, username, password)
@@ -481,9 +482,10 @@ class ServerMgrInventory():
                 self.log(self.INFO, "Deleted info of server: %s" % hostname)
                 self.delete_inventory_info(hostname)
         except Exception as e:
-            sshclient.close()
+            if sshclient:
+                sshclient.close()
             self.log("error",
-                     "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + e.message)
+                     "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + str(e))
             pass
 
     ######## INVENTORY GET INFO SECTION ###########
@@ -622,13 +624,7 @@ class ServerMgrInventory():
         return inventory_status
 
     def handle_inventory_trigger(self, action, servers):
-        ipmi_list = list()
-        hostname_list = list()
-        server_ip_list = list()
-        ipmi_username_list = list()
-        ipmi_password_list = list()
         if action == "add":
-            gevent_ssh_threads = []
             self.log(self.DEBUG, "Started Creating SSH Keys in Inventory")
             for server in servers:
                 if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server and server['id']:
@@ -638,18 +634,21 @@ class ServerMgrInventory():
                         and 'ip_address' in server and server['id']:
                     self._base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
                     self.log(self.DEBUG, "Finished Key Copy/Creation for " + str(server['id']))
-            gevent.joinall(gevent_ssh_threads)
         self.log(self.DEBUG, "Finished Creating SSH Keys in Inventory")
-        self._base_obj.populate_server_data_lists(servers, ipmi_list, hostname_list, server_ip_list, ipmi_username_list,
-                                                  ipmi_password_list, "inventory")
+        server_dict = self._base_obj.create_server_dict(servers)
+
         gevent_threads = []
-        if ipmi_list and len(ipmi_list) >= 1:
-            for hostname, ip, ipmi, username, password in zip(hostname_list, server_ip_list, ipmi_list,
-                                                              ipmi_username_list,
-                                                              ipmi_password_list):
-                thread = gevent.spawn(self.gevent_runner_function,
-                                      action, hostname, ip, ipmi, username, password)
-                gevent_threads.append(thread)
+        if len(server_dict.keys()) >= 1:
+            for server_id in server_dict:
+                server = dict(server_dict[str(server_id)])
+                if action == "add":
+                    thread = gevent.spawn(self.gevent_runner_function, action, server['id'], server['ip_address'],
+                                          server['ipmi_address'], server['ipmi_username'], server['ipmi_password'],
+                                          self.ssh_access_method)
+                    gevent_threads.append(thread)
+                elif action == "delete":
+                    thread = gevent.spawn(self.gevent_runner_function, action, server['id'], self.ssh_access_method)
+                    gevent_threads.append(thread)
                 time.sleep(1)
         self.log(self.DEBUG, "Finished Running Inventory")
                 # gevent.joinall(gevent_threads)

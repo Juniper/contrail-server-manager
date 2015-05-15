@@ -30,7 +30,7 @@ class ServerMgrSSHClient():
         else:
             self._serverDb = db(DEF_SERVER_DB_LOCATION)
 
-    def connect(self, ip, server_id, option="password"):
+    def connect(self, ip, server_id, option="key"):
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -56,12 +56,14 @@ class ServerMgrSSHClient():
     def copy(self, source, dest):
         try:
             sftp = self._ssh_client.open_sftp()
-            sftp.put(source, dest)
+            sftp_attr = sftp.put(source, dest)
+            bytes_sent = sftp_attr.st_size
             sftp.close()
         except Exception as e:
-            sftp.close()
+            if sftp:
+                sftp.close()
             raise e
-        return 1
+        return bytes_sent
 
     def exec_command(self, cmd):
         try:
