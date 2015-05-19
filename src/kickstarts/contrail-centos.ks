@@ -54,14 +54,12 @@ wget
 openssh-clients
 ntpdate
 ntp
-puppet
 
 #if $getVar("contrail_repo_name","") != ""
 contrail-install-packages
 #end if
 
 $SNIPPET('func_install_if_enabled')
-## $SNIPPET('puppet_install_if_enabled')
 %end
 
 %post
@@ -92,42 +90,12 @@ $SNIPPET('post_install_kernel_options')
 $SNIPPET('func_register_if_enabled')
 ##$SNIPPET('puppet_register_if_enabled')
 ## Configure puppet agent and start it
-echo "$server puppet" >> /etc/hosts
 echo "$ip_address $system_name.$system_domain $system_name" >> /etc/hosts
 
-#if $str($getVar('puppet_auto_setup','')) == "1"
-## Tmp fix, copy the init.d script for puppet agent. This should be included in puppet package install.
-wget -O /etc/init.d/puppet "http://$server:$http_port/cobbler/aux/puppet"
-chmod 755 /etc/init.d/puppet
-echo "[agent]" >> /etc/puppet/puppet.conf
-echo "    pluginsync = true" >> /etc/puppet/puppet.conf
-echo "    ignorecache = true" >> /etc/puppet/puppet.conf
-echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
-echo "    listen = true" >> /etc/puppet/puppet.conf
-echo "[main]" >> /etc/puppet/puppet.conf
-echo "runinterval=60" >> /etc/puppet/puppet.conf
-cat >/tmp/puppet-auth.conf <<EOF
-# Allow puppet kick access
-path    /run
-method  save
-auth    any
-# allow   $server.$system_domain
-allow   *
-EOF
-cat /etc/puppet/auth.conf >> /tmp/puppet-auth.conf
-cp -f /tmp/puppet-auth.conf /etc/puppet/auth.conf
 # disable selinux and iptables
 sed -i 's/SELINUX=.*/SELINUX=disabled/g' /etc/selinux/config
 service iptables stop
 /sbin/chkconfig iptables off
-#if $getVar("contrail_repo_name","") != ""
-cd /opt/contrail/contrail_packages
-./setup.sh
-echo "exec-contrail-setup-sh" >> exec-contrail-setup-sh.out
-#end if
-## turn puppet service on for reboot
-/sbin/chkconfig puppet on
-#end if
 
 $SNIPPET('download_config_files')
 $SNIPPET('koan_environment')
