@@ -129,6 +129,10 @@ class ServerMgrIPMIMonitoring():
         #self.log("info", "Sending UVE Info over Sandesh")
         send_inst.send()
 
+    #This function returns the boolean value needed in the Sandesh Payload
+    def str2bool(self,value):
+        return value.lower() in ("true")
+
     # send_ipmi_stats function packages and sends the IPMI info gathered from server polling
     # to the analytics node
     def send_ipmi_stats(self, ip, ipmi_data, hostname, data_type):
@@ -272,13 +276,13 @@ class ServerMgrIPMIMonitoring():
                         if chassis_key == "System Power":
                             ipmichassisdata.system_power = chassis_value
                         elif chassis_key == "Power Overload" and chassis_value:
-                            ipmichassisdata.power_overload = bool(chassis_value)
+                            ipmichassisdata.power_overload = self.str2bool(chassis_value)
                         elif chassis_key == "Power Interlock" and chassis_value:
                             ipmichassisdata.power_interlock = chassis_value
                         elif chassis_key == "Main Power Fault" and chassis_value:
-                            ipmichassisdata.main_power_fault = bool(chassis_value)
+                            ipmichassisdata.main_power_fault = self.str2bool(chassis_value)
                         elif chassis_key == "Power Control Fault" and chassis_value:
-                            ipmichassisdata.power_control_fault = bool(chassis_value)
+                            ipmichassisdata.power_control_fault = self.str2bool(chassis_value)
                         elif chassis_key == "Power Restore Policy" and chassis_value:
                             ipmichassisdata.power_restore_policy = chassis_value
                         elif chassis_key == "Last Power Event" and chassis_value:
@@ -288,9 +292,9 @@ class ServerMgrIPMIMonitoring():
                         elif chassis_key == "Front-Panel Lockout" and chassis_value:
                             ipmichassisdata.front_panel_lockout = chassis_value
                         elif chassis_key == "Drive Fault" and chassis_value:
-                            ipmichassisdata.drive_fault = bool(chassis_value)
+                            ipmichassisdata.drive_fault = self.str2bool(chassis_value)
                         elif chassis_value:
-                            ipmichassisdata.cooling_fan_fault = bool(chassis_value)
+                            ipmichassisdata.cooling_fan_fault = self.str2bool(chassis_value)
                     else:
                         pass
                 ipmi_chassis_data = ipmichassisdata
