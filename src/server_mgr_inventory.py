@@ -642,13 +642,20 @@ class ServerMgrInventory():
             for server_id in server_dict:
                 server = dict(server_dict[str(server_id)])
                 if action == "add":
-                    thread = gevent.spawn(self.gevent_runner_function, action, server['id'], server['ip_address'],
-                                          server['ipmi_address'], server['ipmi_username'], server['ipmi_password'],
-                                          self.ssh_access_method)
-                    gevent_threads.append(thread)
+                    if 'id' in server and 'ip_address' in server and 'ipmi_address' in server and 'ipmi_username' \
+                            in server and 'ipmi_password' in server:
+                        thread = gevent.spawn(self.gevent_runner_function, action, server['id'], server['ip_address'],
+                                              server['ipmi_address'], server['ipmi_username'], server['ipmi_password'],
+                                              self.ssh_access_method)
+                        gevent_threads.append(thread)
+                    else:
+                        self.log(self.ERROR, "Missing fields in server dictionary - skipping inventory addition")
                 elif action == "delete":
-                    thread = gevent.spawn(self.gevent_runner_function, action, server['id'], self.ssh_access_method)
-                    gevent_threads.append(thread)
+                    if 'id' in server:
+                        thread = gevent.spawn(self.gevent_runner_function, action, server['id'], self.ssh_access_method)
+                        gevent_threads.append(thread)
+                    else:
+                        self.log(self.ERROR, "Missing id field in server dictionary - skipping inventory deletion")
                 time.sleep(1)
         self.log(self.DEBUG, "Finished Running Inventory")
                 # gevent.joinall(gevent_threads)
