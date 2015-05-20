@@ -171,6 +171,7 @@ echo "    listen = true" >> /etc/puppet/puppet.conf
 echo "    ordering = manifest"  >> /etc/puppet/puppet.conf
 echo "[main]" >> /etc/puppet/puppet.conf
 echo "runinterval=10" >> /etc/puppet/puppet.conf
+echo "configtimeout=500" >> /etc/puppet/puppet.conf
 
 cat >/tmp/puppet-auth.conf <<EOF
 # Allow puppet kick access
