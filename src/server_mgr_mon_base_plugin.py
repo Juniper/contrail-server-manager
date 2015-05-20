@@ -413,11 +413,15 @@ class ServerMgrMonBasePlugin():
                 content_file.close()
             ssh = ServerMgrSSHClient(self._serverDb)
             ssh.connect(server_ip, server_id, option="password")
+            key_dest_file = "/root/" + str(server_id) + ".pub"
             dest_file = "/root/.ssh/authorized_keys"
             ssh.exec_command("mkdir -p /root/.ssh/")
-            ssh.exec_command("touch /root/.ssh/authorized_keys")
+            ssh.exec_command("touch " + str(key_dest_file))
             if os.path.exists(source_file):
-                bytes_sent = ssh.copy(source_file, dest_file)
+                bytes_sent = ssh.copy(source_file, key_dest_file)
+                ssh.exec_command("echo '' >> " + str(dest_file))
+                ssh.exec_command("cat " + str(key_dest_file) + " >> " + str(dest_file))
+                ssh.exec_command("rm -rf " + str(key_dest_file))
             # Update Server table with ssh public and private keys
             update = {'id': server_id,
                       'ssh_public_key': "ssh-rsa " + str(ssh_key.get_base64()),
