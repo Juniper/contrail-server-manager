@@ -72,23 +72,24 @@ class BaseInterface(object):
         mac_map = {}
         for device in os.listdir(sys_dir):
             mac = os.popen('cat %s/%s/address'%(sys_dir, device)).read()
-            mac_map[mac.strip()] = device
+            mac_map[mac.strip().lower()] = device
         return mac_map
 
     def populate_device(self):
         if self.is_valid_mac(self.device):
             log.info("mac address is %s", self.device)
-            self.device = self.intf_mac_mapping.get(self.device, '')
+            self.device = self.intf_mac_mapping.get(self.device.lower(), '')
             if not self.device:
-                log.warn("mac address is not present in the system")
-                return
+                log.error("mac address is not present in the system")
+                exit()
         members = []
         for i in xrange(len(self.members)):
             if self.is_valid_mac(self.members[i]):
-                log.info("mac address is %s", self.members[i])
-                self.members[i] = self.intf_mac_mapping.get(self.members[i], '')
+                log.info("bond member mac address is %s", self.members[i])
+                self.members[i] = self.intf_mac_mapping.get(self.members[i].lower(), '')
                 if not self.members[i]:
-                    log.warn("mac address is not present in the system")
+                    log.error("mac address is not present in the system")
+                    exit()
 
     def validate_bond_opts(self):
         for key in list(self.bond_opts):

@@ -1723,10 +1723,18 @@ $__contrail_quantum_servers__
         data += '    stage{ \'compute\': }\n'
         data += '    stage{ \'pre\': }\n'
         data += '    stage{ \'post\': }\n'
-	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+        if 'tsn' in server['roles']:
+            data += '    stage{ \'tsn\': }\n'
+        if 'toragent' in server['roles']:
+            data += '    stage{ \'toragent\': }\n'
+        if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
             data += '    stage{ \'storage\': }\n'
         data += '    Stage[\'pre\']->Stage[\'first\']->Stage[\'main\']->Stage[\'last\']->Stage[\'compute\']->'
-	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+        if 'tsn' in server['roles']:
+            data += 'Stage[\'tsn\']->'
+        if 'toragent' in server['roles']:
+            data += 'Stage[\'toragent\']->'
+        if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
             data += 'Stage[\'storage\']->'
         data += 'Stage[\'post\']\n'
 
@@ -1779,8 +1787,14 @@ $__contrail_quantum_servers__
         # Add compute role
         if 'compute' in server['roles']:
             data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
+        # Add Tsn Role
+        if 'tsn' in server['roles']:
+            data += '    class { \'::contrail::profile::tsn\' :  stage => \'tsn\' }\n'
+        # Add Toragent Role
+        if 'toragent' in server['roles']:
+            data += '    class { \'::contrail::profile::toragent\' :  stage => \'toragent\' }\n'
         # Add Storage Role
-	if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
+        if 'storage-compute' in server['roles'] or 'storage-master' in server['roles']:
             data += '    class { \'::contrail::profile::storage\' :  stage => \'storage\' }\n'
         # Add post role
         data += '    class { \'::contrail::provision_complete\' : state => \'post_provision_completed\', stage => \'post\' }\n'
@@ -1810,6 +1824,7 @@ $__contrail_quantum_servers__
             "database_dir" : ["database_dir", "string"],
             "analytics_data_dir" : ["analytics_data_dir", "string"],
             "ssd_data_dir" : ["ssd_data_dir", "string"],
+            "database_minimum_diskGB" : ["database_minimum_diskGB", "integer"],
             "keystone_ip" : ["keystone_ip", "string"],
             "keystone_password" : ["keystone_admin_password", "string"],
             "service_token" : ["keystone_service_token", "string"],
@@ -1897,8 +1912,9 @@ $__contrail_quantum_servers__
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
         cluster_params = eval(cluster['parameters'])
+        # By default, sequence provisioning is On.
         sequence_provisioning = cluster_params.get(
-            "sequence_provisioning", False)
+            "sequence_provisioning", True)
         server_params = eval(server['parameters'])
         data = ''
         package_ids = [provision_params.get('package_image_id', "").encode('ascii')]
@@ -1945,9 +1961,10 @@ $__contrail_quantum_servers__
             data += 'contrail::params::enable_keepalived: False\n'
             data += 'contrail::params::enable_haproxy: False\n'
             data += 'contrail::params::enable_sequence_provisioning: True\n'
+            data += 'contrail::params::enable_provision_started: True\n'
         for role in ['database', 'config', 'openstack',
                      'control', 'collector',
-                     'webui', 'compute']:
+                     'webui', 'compute', 'tsn', 'toragent']:
             # Set all module enable flags to false
             if sequence_provisioning:
                 data += 'contrail::params::enable_%s: False\n' %(role)
@@ -2004,10 +2021,24 @@ $__contrail_quantum_servers__
             # end if control_intf_dict
         # enf if server_control_ip...
 
+        data += 'contrail::params::host_roles: %s\n' %(str(provision_params['host_roles']))
+        if 'toragent' in provision_params['host_roles'] :
+            tor_config = eval(provision_params.get("top_of_rack", ""))
+            #self._smgr_log.log(self._smgr_log.DEBUG, "tor_config => %s" % tor_config)
+            switch_list = tor_config.get('switches', "")
+            if switch_list:
+                data += 'contrail::params::top_of_rack:\n'
+                for  switch in switch_list:
+                    data += '  %s%s:\n' %(switch['switch_name'],switch['id'])
+                    for key,value in switch.items():
+                        #self._smgr_log.log(self._smgr_log.DEBUG, "switch key=> %s,value => %s" % (key,value))
+                        data += '    %s: "%s"\n' % (key,value)
 
-	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
+        if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
-            data += 'contrail::params::host_roles: %s\n' %(str(provision_params['host_roles']))
+            if sequence_provisioning:
+                data += 'contrail::params::enable_storage_master: False\n'
+                data += 'contrail::params::enable_storage_compute: False\n'
             data += 'contrail::params::storage_num_osd: %s\n' %(provision_params['storage_num_osd'])
             data += 'contrail::params::storage_fsid: "%s"\n' %(provision_params['storage_fsid'])
             data += 'contrail::params::storage_num_hosts: %s\n' %(provision_params['num_storage_hosts'])
@@ -2026,8 +2057,8 @@ $__contrail_quantum_servers__
 
             storage_hostnames = ''
             for key in provision_params['storage_hostnames']:
-                storage_hostnames += '''"%s", ''' % key
-            data += 'contrail::params::storage_hostnames: \'[%s]\'\n' %(str(storage_hostnames))
+                storage_hostnames += ''''%s', ''' % key
+            data += 'contrail::params::storage_hostnames: "[%s]"\n' %(str(storage_hostnames))
 
             if 'storage-master' in provision_params['host_roles']:
                 storage_chassis_config = ''
@@ -2151,8 +2182,11 @@ $__contrail_quantum_servers__
         if not hiera_data_dict:
             return
         for role_step_tuple in role_steps_list:
+            self._smgr_log.log(self._smgr_log.DEBUG, "role-tuple: %s = %s" % (role_step_tuple[0], role_step_tuple[1]))
             if server_id == role_step_tuple[0]:
-                key = 'contrail::params::enable_' + role_step_tuple[1]
+                role_step = role_step_tuple[1].replace('-', '_')
+                key = 'contrail::params::enable_' + role_step
+                self._smgr_log.log(self._smgr_log.DEBUG, "role-key: %s" % (key))
                 if enable:
                     hiera_data_dict[key] = True
                 else:

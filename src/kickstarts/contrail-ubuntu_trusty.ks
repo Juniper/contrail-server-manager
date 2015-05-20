@@ -136,6 +136,10 @@ apt-get -y install ifenslave=2.4ubuntu1
 apt-get -y install sysstat
 apt-get -y install ethtool
 
+# Packages needed to get Inventory and Monitoring Info
+apt-get -y install sysstat
+apt-get -y install ethtool
+
 wget http://$server/kickstarts/interface_setup.py
 wget http://$server/contrail/config_file/$system_name.sh
 chmod +x $system_name.sh
@@ -225,5 +229,8 @@ then
 fi
 #blacklist mei module for ocp
 echo "blacklist mei" >> /etc/modprobe.d/blacklist.conf
+echo "blacklist mei \ninstall mei /bin/true" > /etc/modprobe.d/mei.conf;
+echo "blacklist mei_me \ninstall mei_me /bin/true" > /etc/modprobe.d/mei_me.conf;
+echo "blacklist mei_me" >> /etc/modprobe.d/blacklist.conf
 wget http://$server/cblr/svc/op/trig/mode/post/system/$system_name
 %end

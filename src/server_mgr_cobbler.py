@@ -16,6 +16,8 @@ _DEF_COBBLER_PORT = ''
 _DEF_USERNAME = 'cobbler'
 _DEF_PASSWORD = 'cobbler'
 _DEF_BASE_DIR = '/etc/contrail/'
+_CONTRAIL_CENTOS_REPO = 'contrail-centos-repo'
+_CONTRAIL_REDHAT_REPO = 'contrail-redhat-repo'
 
 class ServerMgrCobbler:
 

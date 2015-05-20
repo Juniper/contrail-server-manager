@@ -1,13 +1,17 @@
 {
     "default": {
-            "role_sequence": [[["haproxy"], "s"],
-			      [["database"], "s"], 
-	    		      [["openstack"], "s"], 
-                      	      [["config"], "s"], 
-			      [["control"], "s"], 
-                      	      [["collector"], "s"], 
-			      [["webui"], "s"],
-			      [["compute"], "p"]]
+            "role_sequence": [[["haproxy"], "p"],
+			      [["database"], "p"], 
+	    		      [["openstack"], "p"], 
+                      	      [["config"], "p"], 
+			      [["control"], "p"], 
+                      	      [["collector"], "p"], 
+			      [["webui"], "p"],
+			      [["compute"], "p"],
+                              [["tsn"], "p"], 
+                              [["toragent"], "p"], 
+                  	      [["storage-compute"], "p"],
+                              [["storage-master"], "s"]]
     },
     "default_ha": {
             "role_sequence": [[["keepalived"], "p"],

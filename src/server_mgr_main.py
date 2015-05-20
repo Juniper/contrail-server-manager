@@ -46,6 +46,7 @@ from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
+from server_mgr_validations import ServerMgrValidations as ServerMgrValidations
 from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 from send_mail import send_mail
 import pycurl
@@ -139,7 +140,7 @@ class VncServerManager():
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
                       "contrail-storage-ubuntu-package"]
     _image_category_list = ["image", "package"]
-    _control_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _control_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui', 'storage-master']
     _role_sequence = [(['haproxy'], 'p'),
                       (['database'], 'p'), (['openstack'], 'p'), 
                       (['config'], 'p'), (['control'], 'p'), 
@@ -152,8 +153,10 @@ class VncServerManager():
                       (['collector'], 'p'), (['webui'], 'p')]
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 'p')]
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 's')]
-    _compute_roles = ['compute', 'storage-compute', 'storage-master']
+    _compute_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
     _roles = _control_roles + _compute_roles
+    _control_step_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _compute_step_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
     _openstack_steps = ['pre_exec_vnc_galera', 'post_exec_vnc_galera', 'keepalived', 'haproxy']
     _role_steps = _control_roles + _openstack_steps + _compute_roles
     _control_step_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
@@ -264,6 +267,12 @@ class VncServerManager():
             self._smgr_trans_log = ServerMgrTlog()
         except:
             print "Error Creating Transaction logger object"
+
+        try:
+            self._smgr_validations = ServerMgrValidations()
+        except: 
+            print "Error Creating ServerMgrValidations object"
+
 
         self._monitoring_base_plugin_obj = ServerMgrMonBasePlugin()
         if not args_str:
@@ -665,6 +674,21 @@ class VncServerManager():
             elif 'storage-master' in data['roles'] and 'openstack' not in data['roles']:
                 msg = "role 'storage-master' needs role 'openstack' in provision file"
                 raise ServerMgrException(msg, ERR_OPR_ERROR)
+
+            if 'toragent' in data['roles'] and 'compute' not in data['roles']:
+                msg = "role 'toragent' needs role 'compute' in provision file"
+                raise ServerMgrException(msg, ERR_OPR_ERROR)
+
+            if 'tsn' in data['roles'] and 'compute' not in data['roles']:
+                msg = "role 'tsn' needs role 'compute' in provision file"
+                raise ServerMgrException(msg, ERR_OPR_ERROR)
+
+            if 'toragent' in data['roles']:
+                status, msg = self._smgr_validations.validate_tor_config(data)
+                self._smgr_log.log(self._smgr_log.DEBUG, "tor_cofnig =>status: %s, msg: %s" %(status, msg))
+                if status != 0:
+                    raise ServerMgrException(msg, ERR_OPR_ERROR)
+   
         return ret_data
 
     def validate_smgr_delete(self, validation_data, request, data = None):
@@ -698,7 +722,7 @@ class VncServerManager():
                 "control", "collector", "webui", "compute" ]
         roles_set = set(role_list)
 
-        optional_role_list = ["storage-compute", "storage-master"]
+        optional_role_list = ["storage-compute", "storage-master", "tsn", "toragent"]
         optional_role_set = set(optional_role_list)
 
         cluster_role_list = []
@@ -759,7 +783,8 @@ class VncServerManager():
         if req_provision_params is not None:
             role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute", "zookeeper", "storage-compute", "storage-master"]
+                "control", "collector", "webui", "compute", "zookeeper",
+                "storage-compute", "storage-master", "tsn", "toragent"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
@@ -1118,6 +1143,8 @@ class VncServerManager():
                 x['network'] = eval(x['network'])
             if x.get("contrail", None):
                 x['contrail'] = eval(x['contrail'])
+            if x.get("top_of_rack", None):
+                x['top_of_rack'] = eval(x['top_of_rack'])
 
             if detail:
                 #Temp workarounf for UI, UI doesnt like None
@@ -1503,7 +1530,7 @@ class VncServerManager():
                 server_data['mac_address'] = server.get('mac_address', None)
                 server_data['id'] = server.get('id', None)
                 self._serverDb.modify_server_to_new_interface_config(server_data)
-            #End of For
+            # End of for
             gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "add", servers)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -2561,7 +2588,7 @@ class VncServerManager():
             # end for server in servers
 
             # Add the request to reimage_queue
-            reimage_item = (reimage_server_list, reboot_server_list, do_reboot)
+            reimage_item = ('reimage',reimage_server_list, reboot_server_list, do_reboot)
             self._reimage_queue.put_nowait(reimage_item)
 
         except ServerMgrException as e:
@@ -2671,25 +2698,38 @@ class VncServerManager():
         while True:
             try:
                 reimage_item = self._reimage_queue.get()
-                reimage_server_list = reimage_item[0]
-                reboot_server_list = reimage_item[1]
-                do_reboot = reimage_item[2]
-	        if reimage_server_list:
-		    for server in reimage_server_list:
-		        self._do_reimage_server(
-			    server['image'],
-			    server['package_image_id'],
-			    server['reimage_parameters'],
-			    cobbler_server)
-	        if do_reboot and reboot_server_list:
-		    status_msg = self._power_cycle_servers(
-		        reboot_server_list, cobbler_server, True)
-	        cobbler_server.sync()
-                gevent.sleep(0)
+		optype = reimage_item[0]
+		if optype == 'reimage':
+			#pdb.set_trace()
+			reimage_server_list = reimage_item[1]
+			reboot_server_list = reimage_item[2]
+			do_reboot = reimage_item[3]
+			if reimage_server_list:
+			    for server in reimage_server_list:
+				self._do_reimage_server(
+				    server['image'],
+				    server['package_image_id'],
+				    server['reimage_parameters'],
+				    cobbler_server)
+			if do_reboot and reboot_server_list:
+			    status_msg = self._power_cycle_servers(
+				reboot_server_list, cobbler_server, True)
+			cobbler_server.sync()
+			gevent.sleep(0)
+		if optype == 'provision':
+			#pdb.set_trace()
+			provision_server_list  = reimage_item[1]
+			if provision_server_list:
+			    cluster_id = reimage_item[2]
+			    role_sequence = reimage_item[3]
+			    for server in provision_server_list:
+			        self._do_provision_server(server['provision_params'], server['server'],
+					server['cluster'], server['cluster_servers'])
+            		    self.update_cluster_provision(cluster_id, role_sequence)
             except Exception as e:
                 self._smgr_log.log(
                     self._smgr_log.DEBUG,
-                    "reimage_server_cobbler failed")
+                    "reimage_server_cobbler failed: " + str(e))
                 pass
 
     # API call to power-cycle the server (IMPI Interface)
@@ -2978,6 +3018,32 @@ class VncServerManager():
         return domain
     # end get_server_domain
 
+    def update_provision_started_flag(self, server_id, status):
+        if status != "provision_started":
+            return False
+        servers = self._serverDb.get_server(
+            {"id" : server_id}, detail=True)
+        if not servers:
+            return False
+        server = servers[0]
+        cluster_id = server['cluster_id']
+        clusters = self._serverDb.get_cluster(
+            {"id" : cluster_id}, detail=True)
+        if not clusters:
+            return False
+        cluster = clusters[0]
+        # By default, sequence provisioning is On.
+        sequence_provisioning = eval(cluster['parameters']).get(
+            "sequence_provisioning", True)
+        if not sequence_provisioning:
+            return False
+        step_tuple = (server_id, status)
+        hiera_file = self.get_server_control_hiera_filename(server_id)
+        self._smgr_puppet.modify_server_hiera_data(server_id,
+                                                   hiera_file, [step_tuple],
+                                                   False)
+        return True
+        
     def update_provision_role_sequence(self, server_id, status):
         if not server_id or not status or '_' not in status:
             return False
@@ -2999,8 +3065,9 @@ class VncServerManager():
         if not clusters:
             return False
         cluster = clusters[0]
+        # By default, sequence provisioning is On.
         sequence_provisioning = eval(cluster['parameters']).get(
-            "sequence_provisioning", False)
+            "sequence_provisioning", True)
         if not sequence_provisioning:
             return False
         
@@ -3160,9 +3227,8 @@ class VncServerManager():
         except Exception as e:
             print repr(e)
             self._smgr_log.log(self._smgr_log.ERROR,
-                               "Role sequence file %s "
-                               "File should be in JSON format") \
-                               % (_DEF_ROLE_SEQUENCE_DEF_FILE)
+                               "Role sequence file %s File should be in JSON format" \
+                               % (_DEF_ROLE_SEQUENCE_DEF_FILE))
             role_sequence = default_role_sequence
         return role_sequence
 
@@ -3214,29 +3280,27 @@ class VncServerManager():
             for role_step_server_id in role_step_servers[role]:
                 role_steps_tuple = (role_step_server_id, role)
                 role_steps_list.append(role_steps_tuple)
+                role_steps_tuple = (role_step_server_id, "post_provision")
+                role_steps_list.append(role_steps_tuple)
                 server_compute_flag[role_step_server_id] = True
             if role_steps_list:
                 compute_role_sequence.append(role_steps_list)
         # Set provision_complete as last step for all the servers.
         provision_complete_control_list = []
-        provision_complete_compute_list = []
         compute_list = []
         control_list = []
         for server_id, compute_flag in server_compute_flag.iteritems():
-            role_steps_tuple = (server_id, "post_provision")
-            if compute_flag:
-                compute_list.append(role_steps_tuple)
-            else:
+            if not compute_flag:
+                role_steps_tuple = (server_id, "post_provision")
                 control_list.append(role_steps_tuple)
+
         if control_list:
             provision_complete_control_list.append(control_list)
-        if compute_list:
-            provision_complete_compute_list.append(compute_list)
+
         # Create the full sequence of steps
         provision_role_sequence['steps'] = control_role_sequence + \
             provision_complete_control_list + \
-            compute_role_sequence + \
-            provision_complete_compute_list
+            compute_role_sequence
         return provision_role_sequence
 
     #end prepare_provision_role_sequence
@@ -3262,6 +3326,7 @@ class VncServerManager():
     # puppet manifest file for the server and adds it to site
     # manifest file.
     def provision_server(self):
+	provision_server_list = []
         package_type_list = ["contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]
         self._smgr_log.log(self._smgr_log.DEBUG, "provision_server")
         provision_status = {}
@@ -3288,20 +3353,26 @@ class VncServerManager():
             cluster = self._serverDb.get_cluster(
                 {"id" : cluster_id},
                 detail=True)[0]
+            # By default, sequence provisioning is On.
             sequence_provisioning = eval(cluster['parameters']).get(
-                "sequence_provisioning", False)
+                "sequence_provisioning", True)
             if sequence_provisioning:
                 role_sequence = \
                     self.prepare_provision_role_sequence(
                         cluster,
                         role_servers, 
                         puppet_manifest_version)
+            else:
+                role_sequence = {}
+                role_sequence['steps'] = []
+                role_sequence['completed'] = []
             role_servers = {}
             for server_pkg in server_packages:
                 server = server_pkg['server']
                 package_image_id = server_pkg['package_image_id']
                 package_type = server_pkg['package_type']
                 server_params = eval(server['parameters'])
+                server_tor_config = server['top_of_rack']
                 cluster = self._serverDb.get_cluster(
                     {"id" : server['cluster_id']},
                     detail=True)[0]
@@ -3465,12 +3536,34 @@ class VncServerManager():
                 elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
                     subnet_mask = cluster_params['subnet_mask']
 
-		if len(role_servers['storage-compute']):
-		    msg = "Storage is enabled"
-		    storage_status = '1'
-		else:
-		    msg = "Storage is disabled"
-		    storage_status = '0'
+                if len(role_servers['tsn']):
+                   if len(role_servers['toragent']) == 0:
+                      msg = "TSN can only be provisioned when there is a TOR Agent"
+                      raise ServerMgrException(msg)
+
+                if len(role_servers['toragent']):
+                   if len(role_servers['tsn']) == 0:
+                      msg = "TOR Agent can only be provisioned when there is a TSN node"
+                      raise ServerMgrException(msg)
+
+                if len(role_servers['toragent']) > 1:
+                   msg = "Multiple TOR Agents are not allowed"
+                   raise ServerMgrException(msg)
+    
+                if 'toragent' in server['roles']:
+                    provision_params['top_of_rack'] = server_tor_config
+                    self._smgr_log.log(self._smgr_log.DEBUG, "TOR-AGENT is there")
+                else:
+                    self._smgr_log.log(self._smgr_log.DEBUG, "TOR-AGENT is not there")
+                    provision_params['top_of_rack'] = ""
+
+                self._smgr_log.log(self._smgr_log.DEBUG, "tor config of %s => %s" % (server['id'], server_tor_config))
+                if len(role_servers['storage-compute']):
+                    msg = "Storage is enabled"
+                    storage_status = '1'
+                else:
+                    msg = "Storage is disabled"
+                    storage_status = '0'
                 self._smgr_log.log(self._smgr_log.DEBUG, msg)
 
                 # Calculate the total number of disks in the cluster
@@ -3498,25 +3591,26 @@ class VncServerManager():
 
                   if 'live_migration_storage_scope' in cluster_params.keys() and cluster_params['live_migration_storage_scope']:
                       live_migration_storage_scope = cluster_params['live_migration_storage_scope']
-		  else:
-		      pass
+                  else:
+                      pass
 
                 if live_migration_storage_scope == "local" or live_migration_storage_scope == "global":
                     pass
                 else:
                     msg = "Invalid Live Migration Storage Scope (local/global are valid)"
                     raise ServerMgrException(msg)
-
-
-		provision_params['live_migration_storage_scope'] = live_migration_storage_scope
-		provision_params['contrail-storage-enabled'] = storage_status
-		provision_params['subnet-mask'] = subnet_mask
+    
+    
+                provision_params['live_migration_storage_scope'] = live_migration_storage_scope
+                provision_params['contrail-storage-enabled'] = storage_status
+                provision_params['subnet-mask'] = subnet_mask
                 provision_params['host_roles'] = [ x.encode('ascii') for x in eval(server['roles']) ]
                 provision_params['storage_num_osd'] = total_osd
                 provision_params['storage_fsid'] = cluster_params['storage_fsid']
                 provision_params['storage_virsh_uuid'] = cluster_params['storage_virsh_uuid']
                 provision_params['num_storage_hosts'] = num_storage_hosts
                 provision_params['live_migration_host'] = live_migration_host
+                provision_params['live_migration_ip'] = ""
                 if len(role_servers['storage-compute']):
                     if len(role_servers['storage-master']) == 0:
                         msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
@@ -3587,7 +3681,7 @@ class VncServerManager():
                             self.log_and_raise_exception(msg)
                     if server_params['storage_repo_id'] in image_ids:
                         if image_ids[server_params['storage_repo_id']] == 'contrail-storage-ubuntu-package':
-                            provision_params['storage_repo_id'] = server_params['storage_repo_id']
+                                provision_params['storage_repo_id'] = server_params['storage_repo_id']
                         else:
                             msg = "Storage repo id specified doesn't match a contrail storage package"
                             raise ServerMgrException(msg)
@@ -3611,16 +3705,24 @@ class VncServerManager():
                         raise ServerMgrException(msg)
                     else:
                         pass
-
-                self._do_provision_server(
-                    provision_params, server, cluster, cluster_servers)
+		if server.get('status') == 'restart_issued':
+			provision_server_entry = {'provision_params' : copy.deepcopy(provision_params),
+						'server' : copy.deepcopy(server),
+						'cluster' : copy.deepcopy(cluster),
+						'cluster_servers' : copy.deepcopy(cluster_servers)}
+			provision_server_list.append(provision_server_entry)
+		else:
+			self._do_provision_server(
+			    provision_params, server, cluster, cluster_servers)
                 server_status = {}
                 server_status['id'] = server['id']
                 server_status['package_id'] = package_image_id
                 provision_status['server'].append(server_status)
                 #end of for
-            if sequence_provisioning:
-                self.update_cluster_provision(cluster_id, role_sequence)
+            # Update cluster with role_sequence and apply sequence first step
+            # If no role_sequence present, just update cluster with it.
+	    if server.get('status') != 'restart_issued':
+            	self.update_cluster_provision(cluster_id, role_sequence)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION,
@@ -3987,7 +4089,8 @@ class VncServerManager():
         # Update Server table to add image name
         update = {
             'mac_address': reimage_parameters['server_mac'],
-            'reimaged_id': base_image['id']}
+            'reimaged_id': base_image['id'],
+            'provisioned_id': ''}
         if not self._serverDb.modify_server(update):
             msg = "Server %s is not present" % reimage_parameters['server_id']
             self._smgr_log.log(self._smgr_log.ERROR, msg)
