@@ -94,4 +94,5 @@ fru_fields = {
 }
 
 email_events = ["reimage_started", "reimage_completed", "provision_completed"]
+server_blocked_fileds = ["ssh_private_key"]
 
