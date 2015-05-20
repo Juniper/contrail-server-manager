@@ -1158,6 +1158,8 @@ class VncServerManager():
                         x['tag'][self._tags_dict[tag]] = x.pop(tag, None)
                     else:
                         x.pop(tag, None)
+                for blocked_field in server_blocked_fileds:
+                    x.pop(blocked_field, None)
         return {"server": servers}
     # end get_server
 
