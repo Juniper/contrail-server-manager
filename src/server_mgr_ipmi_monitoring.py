@@ -76,6 +76,7 @@ class ServerMgrIPMIMonitoring():
     CRITICAL = "critical"
     _serverDb = None
     sleep_period = 10
+    ssh_access_method = ""
 
     def __init__(self, val, frequency, smgr_ip=None, smgr_port=None, collectors_ip=None, introspect_port=None,
                  rev_tags_dict=None):
@@ -91,6 +92,7 @@ class ServerMgrIPMIMonitoring():
         self.freq = float(frequency)
         self._collectors_ip = collectors_ip
         self.rev_tags_dict = rev_tags_dict
+        self.ssh_access_method = "key"
 
     def log(self, level, msg):
         frame, filename, line_number, function_name, lines, index = inspect.stack()[1]
@@ -550,7 +552,7 @@ class ServerMgrIPMIMonitoring():
             self.call_send(ipmi_stats_trace)
 
     def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, ipmi_state,
-                           sel_event_log_list, option="password"):
+                           sel_event_log_list, option="key"):
         return_dict = dict()
         #self.log("info", "Gevent Thread created for %s" % hostname)
         try:
@@ -902,11 +904,17 @@ class ServerMgrIPMIMonitoring():
                     if server['id'] not in ipmi_state and server['id'] not in sel_log_dict:
                         ipmi_state[str(server['id'])] = True
                         sel_log_dict[str(server['id'])] = None
-                    thread = gevent.spawn(
-                        self.gevent_runner_func, server['id'], server['ipmi_address'], server['ip_address'],
-                        server['ipmi_username'], server['ipmi_password'],
-                        supported_sensors, ipmi_state[str(server['id'])], sel_log_dict[str(server['id'])])
-                    gevent_threads[str(server['id'])] = thread
+                    if 'id' in server and 'ip_address' in server and 'ipmi_address' in server and 'ipmi_username' \
+                            in server and 'ipmi_password' in server and server['id'] and server['ip_address'] \
+                            and server['ipmi_address'] and server['ipmi_username'] and server['ipmi_password']:
+                        thread = gevent.spawn(
+                            self.gevent_runner_func, server['id'], server['ipmi_address'], server['ip_address'],
+                            server['ipmi_username'], server['ipmi_password'],
+                            supported_sensors, ipmi_state[str(server['id'])], sel_log_dict[str(server['id'])],
+                            self.ssh_access_method)
+                        gevent_threads[str(server['id'])] = thread
+                    else:
+                        self.log("error", "Missing fields in server dictionary - skipping monitoring run")
                     if counter > 0:
                         pass
                     else:
