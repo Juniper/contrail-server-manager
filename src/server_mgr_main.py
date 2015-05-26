@@ -2556,7 +2556,7 @@ class VncServerManager():
 
                 _mandatory_reimage_params = {"server_password": "password",
                             "server_gateway": "gateway","server_domain":"domain",
-                            "ipmi_address":"ipmi_address","server_ifname" :"interface_name"}
+                            "server_ifname" :"interface_name"}
 
                 msg = ''
                 for k,v in _mandatory_reimage_params.items():
@@ -3994,7 +3994,9 @@ class VncServerManager():
                     client = paramiko.SSHClient()
                     client.set_missing_host_key_policy(
                         paramiko.AutoAddPolicy())
-                    client.connect(server_ip, username='root', password=passwd)
+                    client.connect(
+                        server["ip"], username='root',
+                        password=server["password"])
                     stdin, stdout, stderr = client.exec_command('reboot')
                 # end else
                 # Update Server table to update time.
