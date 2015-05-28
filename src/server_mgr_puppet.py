@@ -1903,7 +1903,10 @@ $__contrail_quantum_servers__
         self, server, provision_parameters):
         data = ''
 
-        if server.get('provisioned_id',"") != provision_parameters.get('package_image_id', ""):
+        #Set the flag only when targets image_id is not equal to what it is going
+        #to be provisoned with
+        if server.get('provisioned_id', "") != "" and \
+                  server.get('provisioned_id',"") != provision_parameters.get('package_image_id', ""):
             data += 'contrail::params::contrail_upgrade: %s\n' %(
                            True)
 
