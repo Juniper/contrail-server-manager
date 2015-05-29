@@ -2590,7 +2590,7 @@ class VncServerManager():
             # Add the request to reimage_queue
             reimage_item = ('reimage',reimage_server_list, reboot_server_list, do_reboot)
             self._reimage_queue.put_nowait(reimage_item)
-
+            self._smgr_log.log(self._smgr_log.DEBUG, "reimage queued. Number of servers reimaged is %d:" %len(reimage_server_list))
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_REIMAGE,
@@ -2698,39 +2698,44 @@ class VncServerManager():
         while True:
             try:
                 reimage_item = self._reimage_queue.get()
-		optype = reimage_item[0]
-		if optype == 'reimage':
-			#pdb.set_trace()
-			reimage_server_list = reimage_item[1]
-			reboot_server_list = reimage_item[2]
-			do_reboot = reimage_item[3]
-			if reimage_server_list:
-			    for server in reimage_server_list:
-				self._do_reimage_server(
-				    server['image'],
-				    server['package_image_id'],
-				    server['reimage_parameters'],
-				    cobbler_server)
-			if do_reboot and reboot_server_list:
-			    status_msg = self._power_cycle_servers(
-				reboot_server_list, cobbler_server, True)
-			cobbler_server.sync()
-			gevent.sleep(0)
-		if optype == 'provision':
-			#pdb.set_trace()
-			provision_server_list  = reimage_item[1]
-			if provision_server_list:
-			    cluster_id = reimage_item[2]
-			    role_sequence = reimage_item[3]
-			    for server in provision_server_list:
-			        self._do_provision_server(server['provision_params'], server['server'],
-					server['cluster'], server['cluster_servers'])
-            		    self.update_cluster_provision(cluster_id, role_sequence)
+                optype = reimage_item[0]
+                if optype == 'reimage':
+                    reimage_server_list = reimage_item[1]
+                    reboot_server_list = reimage_item[2]
+                    do_reboot = reimage_item[3]
+                    if reimage_server_list:
+                        for server in reimage_server_list:
+                            self._do_reimage_server(
+                                server['image'],
+                                server['package_image_id'],
+                                server['reimage_parameters'],
+                                cobbler_server)
+                            self._smgr_log.log(self._smgr_log.DEBUG, "reimage processed from queue")
+                    if do_reboot and reboot_server_list:
+                        status_msg = self._power_cycle_servers(
+                            reboot_server_list, cobbler_server, True)
+                    cobbler_server.sync()
+                if optype == 'provision':
+                    provision_server_list  = reimage_item[1]
+                    if provision_server_list:
+                        cluster_id = reimage_item[2]
+                        role_sequence = reimage_item[3]
+                        for server in provision_server_list:
+                            self._do_provision_server(server['provision_params'], server['server'],
+                                server['cluster'], server['cluster_servers'])
+                            self._smgr_log.log(self._smgr_log.DEBUG, "provision processed from queue")
+                        # Update cluster with role_sequence and apply sequence first step
+                        # If no role_sequence present, just update cluster with it.
+                        self.update_cluster_provision(cluster_id, role_sequence)
+                gevent.sleep(0)
             except Exception as e:
                 self._smgr_log.log(
                     self._smgr_log.DEBUG,
                     "reimage_server_cobbler failed: " + str(e))
                 pass
+            # end try
+        #end while
+    # end _reimage_server_cobbler
 
     # API call to power-cycle the server (IMPI Interface)
     def restart_server(self):
@@ -3706,24 +3711,22 @@ class VncServerManager():
                         raise ServerMgrException(msg)
                     else:
                         pass
-		if server.get('status') == 'restart_issued':
-			provision_server_entry = {'provision_params' : copy.deepcopy(provision_params),
-						'server' : copy.deepcopy(server),
-						'cluster' : copy.deepcopy(cluster),
-						'cluster_servers' : copy.deepcopy(cluster_servers)}
-			provision_server_list.append(provision_server_entry)
-		else:
-			self._do_provision_server(
-			    provision_params, server, cluster, cluster_servers)
+                provision_server_entry = {'provision_params' : copy.deepcopy(provision_params),
+                                          'server' : copy.deepcopy(server),
+                                          'cluster' : copy.deepcopy(cluster),
+                                          'cluster_servers' : copy.deepcopy(cluster_servers)}
+                provision_server_list.append(provision_server_entry)
+                self._smgr_log.log(self._smgr_log.DEBUG, "%s added in the provision server list" %server['ip_address'])
                 server_status = {}
                 server_status['id'] = server['id']
                 server_status['package_id'] = package_image_id
                 provision_status['server'].append(server_status)
                 #end of for
-            # Update cluster with role_sequence and apply sequence first step
-            # If no role_sequence present, just update cluster with it.
-	    if server.get('status') != 'restart_issued':
-            	self.update_cluster_provision(cluster_id, role_sequence)
+            # Add the provision request to reimage_queue (name of queue needs to be changed,
+            # earlier it was used only for reimage, now provision requests also queued there).
+            provision_item = ('provision', provision_server_list, cluster_id, role_sequence)
+            self._reimage_queue.put_nowait(provision_item)
+            self._smgr_log.log(self._smgr_log.DEBUG, "provision queued. Number of servers provisioned is %d:" %len(provision_server_list))
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.SMGR_PROVISION,
