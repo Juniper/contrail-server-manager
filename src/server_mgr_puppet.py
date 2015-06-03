@@ -1917,8 +1917,8 @@ $__contrail_quantum_servers__
         server, cluster, cluster_servers):
         cluster_params = eval(cluster['parameters'])
         # By default, sequence provisioning is On.
-        sequence_provisioning = cluster_params.get(
-            "sequence_provisioning", True)
+        sequence_provisioning = provision_params['sequence_provisioning']
+        sequence_provisioning_available = provision_params['sequence_provisioning_available']
         server_params = eval(server['parameters'])
         data = ''
         package_ids = [provision_params.get('package_image_id', "").encode('ascii')]
@@ -1958,7 +1958,7 @@ $__contrail_quantum_servers__
         role_passwd = {}
         role_users = {}
         # Set enable_provision_complete flag to false
-        if sequence_provisioning:
+        if sequence_provisioning_available and sequence_provisioning:
             data += 'contrail::params::enable_post_provision: False\n'
             data += 'contrail::params::enable_pre_exec_vnc_galera: False\n'
             data += 'contrail::params::enable_post_exec_vnc_galera: False\n'
@@ -1970,7 +1970,7 @@ $__contrail_quantum_servers__
                      'control', 'collector',
                      'webui', 'compute', 'tsn', 'toragent']:
             # Set all module enable flags to false
-            if sequence_provisioning:
+            if sequence_provisioning_available and sequence_provisioning:
                 data += 'contrail::params::enable_%s: False\n' %(role)
             role_ips[role] = [
                 self.get_control_ip(provision_params, x["ip_address"].encode('ascii')) \
@@ -2040,7 +2040,7 @@ $__contrail_quantum_servers__
 
         if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
-            if sequence_provisioning:
+            if sequence_provisioning_available and sequence_provisioning:
                 data += 'contrail::params::enable_storage_master: False\n'
                 data += 'contrail::params::enable_storage_compute: False\n'
             data += 'contrail::params::storage_num_osd: %s\n' %(provision_params['storage_num_osd'])
