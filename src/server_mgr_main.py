@@ -1324,10 +1324,11 @@ class VncServerManager():
                             msg =  ("Id given %s,Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
                             self.log_and_raise_exception(msg)
 
-                        puppet_manifest_version = self._create_repo(
+                        puppet_manifest_version, sequence_provisioning_available  = self._create_repo(
                             image_id, image_type, image_version, dest)
                         image_params['puppet_manifest_version'] = \
                             puppet_manifest_version
+                        image_params['sequence_provisioning_available'] = sequence_provisioning_available
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
                             image_id, image_type, image_version, dest)
@@ -1766,6 +1767,10 @@ class VncServerManager():
             # untar the puppet modules tgz file
             cmd = ("tar xvzf contrail-puppet-manifest.tgz > /dev/null")
             subprocess.check_call(cmd, shell=True)
+
+            sequence_provisioning_available = \
+                os.path.isfile('sequence_provisioning_available')
+
             # If the untarred file list has environment directory, copy it's
             # contents to /etc/puppet/environments. This is where the new
             # restructured contrail puppet labs modules are going to be
@@ -1829,7 +1834,7 @@ class VncServerManager():
                     version, filelist))
             subprocess.check_call(cmd, shell=True)
             os.chdir(cwd)
-            return version
+            return version, sequence_provisioning_available
         except subprocess.CalledProcessError as e:
             shutil.rmtree(tmpdirname) # delete directory
             msg = ("add_puppet_modules: error %d when executing"
@@ -1869,7 +1874,7 @@ class VncServerManager():
             # Handle the puppet manifests in this package.
             puppet_modules_tgz_path = mirror + \
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
-            puppet_manifest_version = self._add_puppet_modules(
+            puppet_manifest_version, sequence_provisioning_available  = self._add_puppet_modules(
                 puppet_modules_tgz_path, image_id)
             # Extract .tgz of other packages from the repo
             cmd = (
@@ -1894,7 +1899,7 @@ class VncServerManager():
             # cobbler add repo
             self._smgr_cobbler.create_repo(
                 image_id, mirror)
-            return puppet_manifest_version
+            return puppet_manifest_version, sequence_provisioning_available
         except subprocess.CalledProcessError as e:
             msg = ("create_yum_repo: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
@@ -1929,7 +1934,7 @@ class VncServerManager():
             # Handle the puppet manifests in this package.
             puppet_modules_tgz_path = mirror + \
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
-            puppet_manifest_version = self._add_puppet_modules(
+            puppet_manifest_version, sequence_provisioning_available  = self._add_puppet_modules(
                 puppet_modules_tgz_path, image_id)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_debs.tgz .")
             subprocess.check_call(cmd, shell=True)
@@ -1952,7 +1957,7 @@ class VncServerManager():
             # will need to revisit and make it work for ubuntu - Abhay
             # self._smgr_cobbler.create_repo(
             #     image_id, mirror)
-            return puppet_manifest_version
+            return puppet_manifest_version, sequence_provisioning_available
         except subprocess.CalledProcessError as e:
             msg = ("create_deb_repo: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
@@ -2020,12 +2025,13 @@ class VncServerManager():
     def _create_repo(
         self, image_id, image_type, image_version, dest):
         puppet_manifest_version = ""
+        sequence_provisioning_available = False
         try:
             if (image_type == "contrail-centos-package"):
-                puppet_manifest_version = self._create_yum_repo(
+                puppet_manifest_version, sequence_provisioning_available  = self._create_yum_repo(
                     image_id, image_type, image_version, dest)
             elif (image_type == "contrail-ubuntu-package"):
-                puppet_manifest_version = self._create_deb_repo(
+                puppet_manifest_version, sequence_provisioning_available  = self._create_deb_repo(
                     image_id, image_type, image_version, dest)
             elif (image_type == "contrail-storage-ubuntu-package"):
                 self._create_storage_deb_repo(
@@ -2033,7 +2039,7 @@ class VncServerManager():
 
             else:
                 pass
-            return puppet_manifest_version
+            return puppet_manifest_version, sequence_provisioning_available
         except Exception as e:
             raise(e)
     # end _create_repo
@@ -2916,6 +2922,8 @@ class VncServerManager():
             puppet_manifest_version = \
                 eval(package['parameters'])['puppet_manifest_version']
             package_type = package['type']
+            sequence_provisioning_available = \
+                eval(package['parameters']).get('sequence_provisioning_available', False)
         for server in servers:
             server_pkg = {}
             server_pkg['server'] = server
@@ -2943,10 +2951,13 @@ class VncServerManager():
                 server_pkg['puppet_manifest_version'] = \
                     eval(package['parameters'])['puppet_manifest_version']
                 server_pkg['package_type'] = package['type']
+                server_pkg['sequence_provisioning_available'] = \
+                    eval(package['parameters']).get('sequence_provisioning_available', False)
             else:
                 server_pkg['package_image_id'] = package_image_id
                 server_pkg['puppet_manifest_version'] = puppet_manifest_version
                 server_pkg['package_type'] = package_type
+                server_pkg['sequence_provisioning_available'] = sequence_provisioning_available
             server_packages.append(server_pkg)
         return server_packages
     # end get_server_packages
@@ -3027,6 +3038,16 @@ class VncServerManager():
         return domain
     # end get_server_domain
 
+    def is_sequence_provisioning_available(self, package_id):
+        available = False
+        try:
+            package_id, package = self.get_package_image(package_id)
+            available = \
+                eval(package['parameters']).get('sequence_provisioning_available', False)
+        except ServerMgrException as e:
+            pass
+        return available
+
     def update_provision_started_flag(self, server_id, status):
         if status != "provision_started":
             return False
@@ -3044,7 +3065,10 @@ class VncServerManager():
         # By default, sequence provisioning is On.
         sequence_provisioning = eval(cluster['parameters']).get(
             "sequence_provisioning", True)
-        if not sequence_provisioning:
+        provisioned_id  = server.get('provisioned_id', '')
+        sequence_provisioning_available = \
+            self.is_sequence_provisioning_available(provisioned_id)
+        if not sequence_provisioning_available or not sequence_provisioning:
             return False
         step_tuple = (server_id, status)
         hiera_file = self.get_server_control_hiera_filename(server_id)
@@ -3077,7 +3101,11 @@ class VncServerManager():
         # By default, sequence provisioning is On.
         sequence_provisioning = eval(cluster['parameters']).get(
             "sequence_provisioning", True)
-        if not sequence_provisioning:
+
+        provisioned_id  = server.get('provisioned_id', '')
+        sequence_provisioning_available = \
+            self.is_sequence_provisioning_available(provisioned_id)
+        if not sequence_provisioning_available or not sequence_provisioning:
             return False
         
         provision_role_sequence = cluster.get('provision_role_sequence', '{}')
@@ -3358,7 +3386,9 @@ class VncServerManager():
             provision_status['server'] = []
             cluster_id = ret_data['cluster_id']
             puppet_manifest_version = \
-                server_packages[0]['puppet_manifest_version']
+                server_packages[0].get('puppet_manifest_version', '')
+            sequence_provisioning_available = \
+                server_packages[0].get('sequence_provisioning_available', False)
             role_servers = self.get_role_servers(cluster_id)
             cluster = self._serverDb.get_cluster(
                 {"id" : cluster_id},
@@ -3366,7 +3396,7 @@ class VncServerManager():
             # By default, sequence provisioning is On.
             sequence_provisioning = eval(cluster['parameters']).get(
                 "sequence_provisioning", True)
-            if sequence_provisioning:
+            if sequence_provisioning_available and sequence_provisioning:
                 role_sequence = \
                     self.prepare_provision_role_sequence(
                         cluster,
@@ -3403,6 +3433,8 @@ class VncServerManager():
                         role_ids[role] = [x["id"] for x in role_servers[role]]
 
                 provision_params = {}
+                provision_params['sequence_provisioning'] = sequence_provisioning
+                provision_params['sequence_provisioning_available'] = self.is_sequence_provisioning_available(package_image_id)
                 puppet_manifest_version = server_pkg['puppet_manifest_version']
                 provision_params['package_image_id'] = package_image_id
                 provision_params['package_type'] = package_type
