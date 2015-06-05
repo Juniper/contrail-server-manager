@@ -1682,10 +1682,11 @@ class VncServerManager():
                     msg =  ("Id given %s, Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
                     self.log_and_raise_exception(msg)
 
-                puppet_manifest_version = self._create_repo(
+                puppet_manifest_version, sequence_provisioning_available = self._create_repo(
                     image_id, image_type, image_version, dest)
                 image_params['puppet_manifest_version'] = \
                     puppet_manifest_version
+                image_params['sequence_provisioning_available'] = sequence_provisioning_available
             elif image_type == "contrail-storage-ubuntu-package":
                 self._create_repo(
                     image_id, image_type, image_version, dest)
