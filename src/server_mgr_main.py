@@ -3340,19 +3340,19 @@ class VncServerManager():
 
     #end prepare_provision_role_sequence
 
-    def get_role_servers(self, cluster_id):
+    def get_role_servers(self, cluster_id, server_packages):
         role_servers = {}
+        servers = []
         if not cluster_id:
             return role_servers
-        cluster_servers = self._serverDb.get_server(
-            {"cluster_id" : cluster_id},
-            detail="True")
-        # build roles dictionary for this cluster. Roles dictionary will be
+        for server_pkg in server_packages:
+            servers.append(server_pkg['server'])
+        # build roles dictionary for this set of servers. Roles dictionary will be
         # keyed by role-id and value would be list of servers configured
         # with this role.
         for role in self._roles:
             role_servers[role] = self.role_get_servers(
-                cluster_servers, role)
+                servers, role)
         return role_servers
     #end get_role_servers
 
@@ -3386,7 +3386,7 @@ class VncServerManager():
                 server_packages[0].get('puppet_manifest_version', '')
             sequence_provisioning_available = \
                 server_packages[0].get('sequence_provisioning_available', False)
-            role_servers = self.get_role_servers(cluster_id)
+            role_servers = self.get_role_servers(cluster_id, server_packages)
             cluster = self._serverDb.get_cluster(
                 {"id" : cluster_id},
                 detail=True)[0]
