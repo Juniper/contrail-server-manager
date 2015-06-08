@@ -1844,7 +1844,8 @@ $__contrail_quantum_servers__
             "router_asn" : ["router_asn", "string"],
             "external_bgp" : ["external_bgp", "string"],
             "use_certificates" : ["use_certs", "boolean"],
-            "contrail_logoutput" : ["contrail_logoutput", "boolean"]
+            "contrail_logoutput" : ["contrail_logoutput", "boolean"],
+            "enable_ceilometer": ["enable_ceilometer", "boolean"]
         }
 
         data = ''
