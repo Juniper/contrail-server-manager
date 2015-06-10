@@ -406,9 +406,10 @@ class ServerMgrMonBasePlugin():
         source_file = ""
         bytes_sent = 0
         try:
+            subprocess.call(['mkdir', '-p', '/tmp'])
             # Save Public key on Target Server
-            source_file = "/opt/contrail/server_manager/" + str(server_id) + ".pub"
-            with open("/opt/contrail/server_manager/" + str(server_id) + ".pub", 'w+') as content_file:
+            source_file = "/tmp/" + str(server_id) + ".pub"
+            with open("/tmp/" + str(server_id) + ".pub", 'w+') as content_file:
                 content_file.write("ssh-rsa " + str(ssh_key.get_base64()))
                 content_file.close()
             ssh = ServerMgrSSHClient(self._serverDb)
@@ -421,6 +422,7 @@ class ServerMgrMonBasePlugin():
                 bytes_sent = ssh.copy(source_file, key_dest_file)
                 ssh.exec_command("echo '' >> " + str(dest_file))
                 ssh.exec_command("cat " + str(key_dest_file) + " >> " + str(dest_file))
+                ssh.exec_command("echo '' >> " + str(dest_file))
                 ssh.exec_command("rm -rf " + str(key_dest_file))
             # Update Server table with ssh public and private keys
             update = {'id': server_id,
@@ -476,30 +478,34 @@ class ServerMgrMonBasePlugin():
         source_file = ""
         sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
         self._smgr_log.log("debug", "Running Reimage Inventory on  " + str(payload))
-        if not self.inventory_config_set:
-            return "No Inventory Configured"
+        if not self.inventory_config_set and not self.monitoring_config_set:
+            return "No Inventory or Monitoring Configured"
         tries = 0
-        while not success:
+        gevent.sleep(60)
+        while not success and tries < 10:
             try:
                 tries += 1
                 server = self._serverDb.get_server({"id": str(payload["id"])}, detail=True)
                 if server and len(server) == 1:
                     server = server[0]
                     subprocess.call(['ssh-keygen', '-f', '/root/.ssh/known_hosts', '-R', str(server["ip_address"])])
+                    subprocess.call(['mkdir', '-p', '/tmp'])
                     sshclient.connect(str(server["ip_address"]), str(server["id"]), "password")
                     match_dict = dict()
                     match_dict["id"] = str(payload["id"])
                     self._smgr_log.log(self._smgr_log.DEBUG, "Running inventory on " + str(payload["id"]) +
                                        ", try " + str(tries))
                     ssh_public_ket_str = str(server["ssh_public_key"])
-                    with open("/opt/contrail/server_manager/" + str(payload["id"]) + ".pub", 'w+') as content_file:
+                    with open("/tmp/" + str(payload["id"]) + ".pub", 'w+') as content_file:
                         content_file.write(ssh_public_ket_str)
                         content_file.close()
-                    source_file = "/opt/contrail/server_manager/" + str(payload["id"]) + ".pub"
+                    source_file = "/tmp/" + str(payload["id"]) + ".pub"
                     dest_file = "/root/.ssh/authorized_keys"
-                    sshclient.exec_command('mkdir -p /root/.ssh/')
-                    sshclient.exec_command('touch /root/.ssh/authorized_keys')
-                    sshclient.copy(source_file, dest_file)
+                    if os.path.exists(source_file):
+                        sshclient.exec_command('mkdir -p /root/.ssh/')
+                        sshclient.exec_command('touch /root/.ssh/authorized_keys')
+                        bytes_sent = sshclient.copy(source_file, dest_file)
+                        sshclient.exec_command("echo '' >> " + str(dest_file))
                     sshclient.close()
                     self._smgr_log.log(self._smgr_log.DEBUG, "SSH Keys copied on  " + str(payload["id"]) +
                                        ", try " + str(tries))
@@ -507,31 +513,32 @@ class ServerMgrMonBasePlugin():
                         os.remove(source_file)
                     success = True
                 else:
+                    self._smgr_log.log(self._smgr_log.ERROR, "Server Matching Server Id:  " + str(payload["id"]) +
+                                       " not found. SSH Keys will not be copied. ")
+                    tries = 10
                     if os.path.exists(source_file):
                         os.remove(source_file)
-                    self._smgr_log.log(self._smgr_log.ERROR, "SSH Key copy failed on  " + str(payload["id"]) +
-                                       ", try " + str(tries))
                     if sshclient:
                         sshclient.close()
                     success = False
             except Exception as e:
                 if os.path.exists(source_file):
                     os.remove(source_file)
-                self._smgr_log.log(self._smgr_log.ERROR, "Error running inventory on  " + str(payload) +
-                                   ", try " + str(tries)
-                                   + "failed : " + str(e))
                 if sshclient:
                     sshclient.close()
                 gevent.sleep(30)
-        try:
-            url = "http://%s:%s/run_inventory" % (ip, port)
-            payload = json.dumps(payload)
-            headers = {'content-type': 'application/json'}
-            resp = requests.post(url, headers=headers, timeout=5, data=payload)
-            return resp.text
-        except Exception as e:
-            self._smgr_log.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
-            return None
+        if tries >= 10 and success is False:
+            self._smgr_log.log(self._smgr_log.ERROR, "SSH Key copy failed on  " + str(payload["id"]))
+        if success and self.inventory_config_set:
+            try:
+                url = "http://%s:%s/run_inventory" % (ip, port)
+                payload = json.dumps(payload)
+                headers = {'content-type': 'application/json'}
+                resp = requests.post(url, headers=headers, timeout=5, data=payload)
+                return resp.text
+            except Exception as e:
+                self._smgr_log.log("error", "Error running inventory on  " + str(payload) + " : " + str(e))
+                return None
 
     def get_list_name(self, lst):
         sname = ""
