@@ -2040,7 +2040,7 @@ $__contrail_quantum_servers__
 
         if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
-            if sequence_provisioing_available and sequence_provisioning:
+            if sequence_provisioning_available and sequence_provisioning:
                 data += 'contrail::params::enable_storage_master: False\n'
                 data += 'contrail::params::enable_storage_compute: False\n'
             data += 'contrail::params::storage_num_osd: %s\n' %(provision_params['storage_num_osd'])
