@@ -1826,6 +1826,7 @@ $__contrail_quantum_servers__
             "ssd_data_dir" : ["ssd_data_dir", "string"],
             "database_minimum_diskGB" : ["database_minimum_diskGB", "integer"],
             "enable_lbass" : ["enable_lbass", "boolean"],
+            "redis_password" : ["redis_password", "string"],
             "keystone_ip" : ["keystone_ip", "string"],
             "keystone_password" : ["keystone_admin_password", "string"],
             "service_token" : ["keystone_service_token", "string"],
