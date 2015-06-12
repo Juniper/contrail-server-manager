@@ -915,10 +915,6 @@ class VncServerManager():
         base_image_id = entity.get("base_image_id", None)
         package_image_id = entity.get("package_image_id", '')
 
-        if base_image_id is None:
-            msg = "No base image id specified"
-            self.log_and_raise_exception(msg)
-
         matches = self.validate_smgr_keys(entity)
         match_key, match_value = matches.popitem()
 
