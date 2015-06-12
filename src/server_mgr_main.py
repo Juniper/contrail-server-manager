@@ -3310,16 +3310,17 @@ class VncServerManager():
                 control_role_sequence.append(role_steps_list)
 
         role_steps_list = []
+        compute_post_provision_step_list = []
         for role in self._compute_roles:
             for role_step_server_id in role_step_servers[role]:
                 role_steps_tuple = (role_step_server_id, role)
                 role_steps_list.append(role_steps_tuple)
                 role_steps_tuple = (role_step_server_id, "post_provision")
-                if role_steps_tuple not in role_steps_list:
-                    role_steps_list.append(role_steps_tuple)
+                if role_steps_tuple not in compute_post_provision_step_list:
+                    compute_post_provision_step_list.append(role_steps_tuple)
                 server_compute_flag[role_step_server_id] = True
         if role_steps_list:
-            compute_role_sequence.append(role_steps_list)
+            compute_role_sequence.append(role_steps_list + compute_post_provision_step_list)
         # Set provision_complete as last step for all the servers.
         provision_complete_control_list = []
         compute_list = []
