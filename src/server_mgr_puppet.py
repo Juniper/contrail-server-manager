@@ -2061,7 +2061,7 @@ $__contrail_quantum_servers__
             storage_mon_hosts = ''
             for key in provision_params['storage_monitor_hosts']:
                 storage_mon_hosts += '''%s, ''' % key
-            data += 'contrail::params::storage_monitor_hosts: %s\n' %(str(provision_params['storage_monitor_hosts']))
+            data += 'contrail::params::storage_monitor_hosts: %s\n' %(str(storage_mon_hosts))
 
             storage_hostnames = ''
             for key in provision_params['storage_hostnames']:
