@@ -1774,23 +1774,17 @@ class VncServerManager():
             # maintained. The old logic is being maintained for safety till
             # the new refactored code is well tested and confirmed to be working.
             # not environment directory can't contain "-". replace with "_".
+            version = image_id
             environment_dir = "contrail/environment"
             if os.path.isdir(environment_dir):
                 if _ENABLE_NEW_PUPPET_FRAMEWORK:
                     distutils.dir_util.copy_tree(environment_dir,
                         "/etc/puppet/environments/" + image_id.replace('-','_'))
                 distutils.dir_util.remove_tree(environment_dir)
+                os.chdir(cwd)
+                return version
             # end if os.path.isdir
-            # Changing the below logic. Instead of reading version from
-            # version file, use image id as the version. Image id is unique
-            # and hence it would be easy to correlate puppet modules to
-            # contrail package being added. With this change, every image would
-            # have it's own manifests, even though manifests between two contrail
-            # versions might be identical.
-            # Extract contents of version file.
-            #with open('version','r') as f:
-            #    version = f.read().splitlines()[0]
-            version = image_id
+            # Below code is for old versions of contrail (pre-2.0) and old puppet modules.
             # Create modules directory if it does not exist.
             target_dir = "/etc/puppet/environments/contrail_" + version + \
                 "/modules/contrail_" + version
@@ -1840,6 +1834,7 @@ class VncServerManager():
             raise ServerMgrException(msg, ERR_OPR_ERROR)
         finally:
             try:
+                os.chdir(cwd)
                 shutil.rmtree(tmpdirname) # delete directory
             except OSError, e:
                 if e.errno != 2: # code 2 - no such file or directory
