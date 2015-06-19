@@ -3184,7 +3184,7 @@ class VncServerManager():
                     if server['id'] not in role_step_servers['haproxy']:
                         role_step_servers['haproxy'].append(server['id'])
                     if contrail_ha:
-                        if server['id'] not in role_step_server['keepalived']:
+                        if server['id'] not in role_step_servers['keepalived']:
                             role_step_servers['keepalived'].append(server['id'])
         return role_step_servers
 
