@@ -422,17 +422,21 @@ class UbuntuInterface(BaseInterface):
         '''Create interface config for bond master'''
         self.get_mac_from_bond_intf()
         self.create_bond_members()
-        log.info('Creating bond master: %s' %self.device)
+        bond_mac = self.get_mac_addr(self.members[0])
+        log.info('Creating bond master: %s with Mac Addr: %s' %
+                 (self.device, bond_mac))
         if not self.vlan:
             cfg = ['auto %s' %self.device,
                    'iface %s inet static' %self.device,
                    'address %s' %self.ipaddr,
-                   'netmask  %s' %self.netmask]
+                   'netmask  %s' %self.netmask,
+                   'hwaddress %s' % bond_mac]
             if self.gw:
                 cfg.append('gateway %s' %self.gw)
         else:
             cfg = ['auto %s' %self.device,
                    'iface %s inet manual' %self.device,
+                   'hwaddress %s' % bond_mac,
                    'down ip addr flush dev %s' %self.device]
         cfg += self.bond_opts_str.split("\n")
         self.write_network_script(cfg)
