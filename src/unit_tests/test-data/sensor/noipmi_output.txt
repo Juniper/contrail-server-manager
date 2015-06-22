@@ -1,0 +1,2 @@
+Error obtaining SDR info: Insufficient privilege level
+Unable to open SDR for reading

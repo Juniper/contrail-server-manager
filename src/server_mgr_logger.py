@@ -8,7 +8,7 @@ import logging.handlers
 import inspect
 import os
 
-class ServerMgrlogger:
+class ServerMgrlogger(object):
     class _ServerMgrlogger:
         DEBUG = "debug"
         INFO = "info"

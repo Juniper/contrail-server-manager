@@ -77,12 +77,13 @@ class ServerMgrIPMIMonitoring():
     _serverDb = None
     sleep_period = 10
     ssh_access_method = ""
+    log_file = '/opt/contrail/server_manager/logger.conf'
 
     def __init__(self, val, frequency, smgr_ip=None, smgr_port=None, collectors_ip=None, introspect_port=None,
                  rev_tags_dict=None):
         ''' Constructor '''
         self.base_obj = ServerMgrMonBasePlugin()
-        logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
+        logging.config.fileConfig(self.log_file)
         # create logger
         self._monitoring_log = logging.getLogger('MONITORING')
         self.val = val
@@ -220,6 +221,13 @@ class ServerMgrIPMIMonitoring():
     def return_collector_ip(self):
         return self._collectors_ip
 
+    def isfloat(self, num):
+        try:
+            float(num)
+        except ValueError:
+           return False
+        return True
+
     def fetch_and_process_monitoring(self, hostname, ipmi, ip, username, password, supported_sensors):
         try:
             ipmi_data = []
@@ -247,7 +255,7 @@ class ServerMgrIPMIMonitoring():
                             ipmidata.status = status
                             if status == "ns":
                                 pass
-                            elif status == "ok" and value[0].strip().isdigit():
+                            elif status == "ok" and self.isfloat(value[0].strip()):
                                 ipmidata.reading = long(value[0].strip())
                                 ipmidata.unit = value[len(value) - 1].strip()
                                 ipmidata.sensor_type = sensor_type
@@ -260,7 +268,7 @@ class ServerMgrIPMIMonitoring():
                 return False
         except Exception as e:
             self.log("error", "Error getting Sesnsor info for: " + str(hostname) + " Error is: " + str(e))
-            raise e
+            raise
 
     def fetch_and_process_chassis(self, hostname, ipmi, ip, username, password):
         ipmi_chassis_data = IpmiChassis_status_info()
@@ -303,7 +311,7 @@ class ServerMgrIPMIMonitoring():
             self.send_ipmi_stats(ip, ipmi_chassis_data, hostname, "ipmi_chassis_data")
         except Exception as e:
             self.log("error", "Error getting chassis data for " + str(hostname) + " : " + str(e.message))
-            raise e
+            raise
 
     def fetch_and_process_disk_info(self, hostname, ip, sshclient):
         disk_list = []
