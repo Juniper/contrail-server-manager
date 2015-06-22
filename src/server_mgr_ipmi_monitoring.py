@@ -77,12 +77,13 @@ class ServerMgrIPMIMonitoring():
     _serverDb = None
     sleep_period = 10
     ssh_access_method = ""
+    log_file = '/opt/contrail/server_manager/logger.conf'
 
     def __init__(self, val, frequency, smgr_ip=None, smgr_port=None, collectors_ip=None, introspect_port=None,
                  rev_tags_dict=None):
         ''' Constructor '''
         self.base_obj = ServerMgrMonBasePlugin()
-        logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
+        logging.config.fileConfig(self.log_file)
         # create logger
         self._monitoring_log = logging.getLogger('MONITORING')
         self.val = val
@@ -260,7 +261,7 @@ class ServerMgrIPMIMonitoring():
                 return False
         except Exception as e:
             self.log("error", "Error getting Sesnsor info for: " + str(hostname) + " Error is: " + str(e))
-            raise e
+            raise
 
     def fetch_and_process_chassis(self, hostname, ipmi, ip, username, password):
         ipmi_chassis_data = IpmiChassis_status_info()

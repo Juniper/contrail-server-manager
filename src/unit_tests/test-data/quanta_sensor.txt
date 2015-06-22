@@ -1,0 +1,63 @@
+ST2300           | Dynamic MC @ 20h  | ok
+MB1_Temp         | 28 degrees C      | ok
+HDDBP_Ambient1   | 17 degrees C      | ok
+HDDBP_Ambient2   | 17 degrees C      | ok
+CPU0_PROC_HOT    | 0x00              | ok
+CPU1_PROC_HOT    | 0x00              | ok
+PVCCP_CPU0_VRHOT | 0x00              | ok
+PVCCP_CPU1_VRHOT | 0x00              | ok
+PVDQ_AB_VRHOT    | 0x00              | ok
+PVDQ_CD_VRHOT    | 0x00              | ok
+PVDQ_EF_VRHOT    | 0x00              | ok
+PVDQ_GH_VRHOT    | 0x00              | ok
+CPU0_MEM01_HOT   | 0x00              | ok
+CPU0_MEM23_HOT   | 0x00              | ok
+CPU1_MEM01_HOT   | 0x00              | ok
+CPU1_MEM23_HOT   | 0x00              | ok
+P5V              | 5.08 Volts        | ok
+P3V3             | 3.37 Volts        | ok
+P12V             | 12.39 Volts       | ok
+P12V_AUX         | 12.33 Volts       | ok
+PVDDQ_AB         | 1.41 Volts        | ok
+PVDDQ_CD         | 1.39 Volts        | ok
+PVDDQ_EF         | 1.42 Volts        | ok
+PVDDQ_GH         | 1.41 Volts        | ok
+CPU0_Vcore       | 0.71 Volts        | ok
+CPU1_Vcore       | 0.77 Volts        | ok
+P1V1_SSB         | 1.15 Volts        | ok
+PDB_FAN1A        | 4700 RPM          | ok
+PDB_FAN4A        | no reading        | ns
+PDB_FAN4B        | no reading        | ns
+CPU0             | 0x00              | ok
+CPU1             | 0x00              | ok
+CPU_IERR         | 0x00              | ok
+MB_HW_Throttle   | 0x00              | ok
+DIMM             | 0x00              | ok
+DIMM Error Log   | 0x00              | ok
+SSB ThermalTrip  | 0x00              | ok
+Top_PSU_Status   | 0x09              | ok
+Bot_PSU_Status   | 0x01              | ok
+PSU_Redundancy   | 0x02              | ok
+PSU_Input_Power  | 0 Watts           | ok
+MB_Type_Error    | 0x00              | ok
+Fan_Table_Error  | 0x00              | ok
+Repeater_Error   | 0x00              | ok
+PDB_Event        | 0x00              | ok
+Watchdog         | 0x00              | ok
+Event Log        | 0x00              | ok
+System Event     | 0x00              | ok
+Critical IRQ     | 0x00              | ok
+POST Error       | 0x00              | ok
+PCI-E Error      | 0x00              | ok
+QPI Error        | 0x00              | ok
+Power Unit       | 0x00              | ok
+SPS FW Health    | Event-Only        | ns
+NM Health        | Event-Only        | ns
+NM Exception     | Event-Only        | ns
+NM Threshold     | Event-Only        | ns
+NM Capabilities  | Event-Only        | ns
+TSOD             | Event-Only        | ns
+MB FRU           | Log FRU @00h 07.0 | ok
+PDB FRU          | Log FRU @01h 15.0 | ok
+BP FRU           | Log FRU @02h 0f.0 | ok
+QME              | Dynamic MC @ 2Ch  | ok
