@@ -18,7 +18,7 @@ from server_mgr_db import ServerMgrDb as db
 DEF_SERVER_DB_LOCATION = "/etc/contrail_smgr/smgr_data.db"
 
 
-class ServerMgrSSHClient():
+class ServerMgrSSHClient(object):
 
     _serverDb = None
     _key_folder = None

@@ -1,0 +1,21 @@
+System Temp      | 28 degrees C      | ok
+CPU Temp         | 0 unspecified     | ok
+FAN 1            | 3825 RPM          | ok
+FAN 4            | disabled          | ns
+Vcore            | 0.89 Volts        | ok
+3.3VCC           | 3.28 Volts        | ok
+12V              | 12.30 Volts       | ok
+VDIMM            | 1.54 Volts        | ok
+5VCC             | 5.02 Volts        | ok
+-12V             | -12.49 Volts      | ok
+VBAT             | 3.17 Volts        | ok
+VSB              | 3.33 Volts        | ok
+AVCC             | 3.30 Volts        | ok
+Chassis Intru    | 0 unspecified     | ok
+PS Status        | 0 unspecified     | nc
+BMC FRU          | Log FRU @00h 00.0 | ok
+ATEN BMC         | Dynamic MC @ 20h  | ok
+NM exception     | Event-Only        | ns
+NM health        | Event-Only        | ns
+NM op cap        | Event-Only        | ns
+NM alert         | Event-Only        | ns
