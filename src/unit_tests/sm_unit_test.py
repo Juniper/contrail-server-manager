@@ -13,6 +13,6 @@ def sm_unit_test_suite():
 
 #Run the Monitoring testsuite when this scrip is run
 if __name__ == '__main__':
-        mySuite = sm_unit_test_suite()
-        runner = unittest.TextTestRunner()
-        runner.run(mySuite)
+    mySuite = sm_unit_test_suite()
+    runner = unittest.TextTestRunner()
+    runner.run(mySuite)

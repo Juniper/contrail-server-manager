@@ -8,10 +8,10 @@ from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_ssh_client import ServerMgrSSHClient
 import verify_result
 
-#This is the class for mocking Server Manager logging    
+#This is the class for mocking Server Manager logging	 
 class mock_logger(object):
     def __init__(self, *args, **kwargs):
-	    return
+        return
 
 #Mock class for ServerManager SSH client connection
 class mock_ServerMgrSSHClient(object):
@@ -20,7 +20,7 @@ class mock_ServerMgrSSHClient(object):
     def exec_command(self, cmd):
         print cmd
 
-#Class for testing the entire monitoring functionality  
+#Class for testing the entire monitoring functionality	
 class TestMonitoring(unittest.TestCase):
     filename = None
     noresponse = False
@@ -30,82 +30,82 @@ class TestMonitoring(unittest.TestCase):
 
     #Mock function for the call_subprocess	
     def mock_subprocess(self,cmd):
-		file_name = './monitoring/test-data/' + self.filename
-		f = open(file_name, 'r')
-		result= f.read()
-		#This is for simulating the case for which there is no response
-		if self.noresponse:
-			return None
-		if self.delayed_response:
-			time.sleep(2)
-		if self.raiseException:
-			time.sleep("3")
-		return result
+        file_name = './monitoring/test-data/' + self.filename
+        f = open(file_name, 'r')
+        result= f.read()
+        #This is for simulating the case for which there is no response
+        if self.noresponse:
+            return None
+        if self.delayed_response:
+            time.sleep(2)
+        if self.raiseException:
+            time.sleep("3")
+        return result
 
-	#Mock function for send_ipmi_stats	
+    #Mock function for send_ipmi_stats	
     def mock_send_ipmi_stats(self,*args, **kwargs):
-		if args[3] == 'ipmi_data':
-			if self.filename == 'sensor/quanta_sensor_expected_output.txt':
-				verify_result.checkQuantaData(self,args[1])
-			elif self.filename == 'sensor/supermicro_sensor_expected_output.txt':
-				verify_result.checkSuperMicroData(self,args[1])
-		elif args[3] == 'ipmi_chassis_data':
-		    if self.filename == 'chassis/chassis_expected_output.txt':
-		        verify_result.checkChassisData(self,args[1])
+        if args[3] == 'ipmi_data':
+            if self.filename == 'sensor/quanta_sensor_expected_output.txt':
+                verify_result.checkQuantaData(self,args[1])
+            elif self.filename == 'sensor/supermicro_sensor_expected_output.txt':
+                verify_result.checkSuperMicroData(self,args[1])
+            elif args[3] == 'ipmi_chassis_data':
+                if self.filename == 'chassis/chassis_expected_output.txt':
+                    verify_result.checkChassisData(self,args[1])
    
     #setup function which sets up environemnt required for unit testing 
     def setUp(self):
         #Mock the ServerMgrlogger class. We will have our own log file
-		flexmock(ServerMgrlogger, __new__=mock_logger)
-		flexmock(ServerMgrSSHClient, __new__=mock_ServerMgrSSHClient)
-		ServerMgrIPMIMonitoring.log_file='fake-logger.conf'
-		self.ipmonitor = ServerMgrIPMIMonitoring(ServerMgrIPMIMonitoring, 10, 10)
-		self.ipmonitor.base_obj.call_subprocess = self.mock_subprocess
-		self.ipmonitor.send_ipmi_stats = self.mock_send_ipmi_stats
+        flexmock(ServerMgrlogger, __new__=mock_logger)
+        flexmock(ServerMgrSSHClient, __new__=mock_ServerMgrSSHClient)
+        ServerMgrIPMIMonitoring.log_file='fake-logger.conf'
+        self.ipmonitor = ServerMgrIPMIMonitoring(ServerMgrIPMIMonitoring, 10, 10)
+        self.ipmonitor.base_obj.call_subprocess = self.mock_subprocess
+        self.ipmonitor.send_ipmi_stats = self.mock_send_ipmi_stats
 
     def tearDown(self):
-		self.ipmonitor = None
-		self.filename = None
-        	self.noresponse = False
-        	self.delayed_response = False
-        	self.raiseException = False
+        self.ipmonitor = None
+        self.filename = None
+        self.noresponse = False
+        self.delayed_response = False
+        self.raiseException = False
 
     def testSensorData(self):
-		supported_sensors = ['FAN|.*_FAN', '^PWR', '.*Temp', '.*_Power']
-		#Simulate correct Qunata sensor info output
-		self.filename = 'sensor/quanta_sensor_expected_output.txt'
-		self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
+        supported_sensors = ['FAN|.*_FAN', '^PWR', '.*Temp', '.*_Power']
+        #Simulate correct Qunata sensor info output
+        self.filename = 'sensor/quanta_sensor_expected_output.txt'
+        self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
 
-		#Simulate correct SuperMicro sensor info output
-		self.filename = 'sensor/supermicro_sensor_expected_output.txt'
-		self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
+        #Simulate correct SuperMicro sensor info output
+        self.filename = 'sensor/supermicro_sensor_expected_output.txt'
+        self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
 
-		#Simulate IPMI2.0 output
-		self.filename = 'sensor/noipmi_output.txt'
-		self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
+        #Simulate IPMI2.0 output
+        self.filename = 'sensor/noipmi_output.txt'
+        self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
 
-		#Simulate wrong output
-		self.filename = 'sensor/sensor_wrongoutput.txt'
-		#Make sure the exception is raised. If the exception is not raised the test case will fail
-		with self.assertRaises(Exception):
-		   self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
+        #Simulate wrong output
+        self.filename = 'sensor/sensor_wrongoutput.txt'
+        #Make sure the exception is raised. If the exception is not raised the test case will fail
+        with self.assertRaises(Exception):
+            self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
 
-		#Simulate no response from device
-		self.noresponse = True
-		self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
+        #Simulate no response from device
+        self.noresponse = True
+        self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
 
-		#Simulate delayed response from the device
-		self.noresponse = False
-		self.delayed_response = True
-		self.filename = 'sensor/quanta_sensor_expected_output.txt'
-		self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
+        #Simulate delayed response from the device
+        self.noresponse = False
+        self.delayed_response = True
+        self.filename = 'sensor/quanta_sensor_expected_output.txt'
+        self.ipmonitor.fetch_and_process_monitoring("dummy", "dummy", "dummy", "dummy", "dummy",supported_sensors)
 
     def testChassisData(self):
-	    self.filename = 'chassis/chassis_expected_output.txt'
+        self.filename = 'chassis/chassis_expected_output.txt'
+        self.ipmonitor.fetch_and_process_chassis("dummy", "dummy", "dummy", "dummy", "dummy")
+        with self.assertRaises(Exception):
+            self.raiseException = True
             self.ipmonitor.fetch_and_process_chassis("dummy", "dummy", "dummy", "dummy", "dummy")
-	    with self.assertRaises(Exception):
-		self.raiseException = True
-            	self.ipmonitor.fetch_and_process_chassis("dummy", "dummy", "dummy", "dummy", "dummy")
 
     def testDiskInfo(self):
         sshclient = ServerMgrSSHClient(None)
@@ -121,6 +121,6 @@ def monitoring_suite():
 
 #Run the Monitoring testsuite when this scrip is run
 if __name__ == '__main__':
-	mySuite = monitoring_suite()
-	runner = unittest.TextTestRunner()
-	runner.run(mySuite)
+    mySuite = monitoring_suite()
+    runner = unittest.TextTestRunner()
+    runner.run(mySuite)
