@@ -5,13 +5,14 @@ sys.path.append(os.path.abspath('../..'))
 from monitoring.monitoring import *
 
 
-#Create a TestSuite for the testing the entire Monitoring functionality
+#Create a TestSuite for the running the unit-test for the entire ServerManger
 def sm_unit_test_suite():
     suite = unittest.TestSuite()
+    #Adding the Monitoring uni-test suite
     suite.addTest(monitoring_suite())
     return suite
 
-#Run the Monitoring testsuite when this scrip is run
+#Run the entire SM unit testsuite when this scrip is run
 if __name__ == '__main__':
     mySuite = sm_unit_test_suite()
     runner = unittest.TextTestRunner()
