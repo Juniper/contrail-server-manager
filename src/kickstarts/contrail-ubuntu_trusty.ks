@@ -161,28 +161,16 @@ service ntp restart
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
-# Enable puppet conf setting to allow custom facts, allow listen from puppet
-# kick and also configure auth.conf file.
+# Enable puppet conf setting to allow custom facts
 echo "[agent]" >> /etc/puppet/puppet.conf
 echo "    pluginsync = true" >> /etc/puppet/puppet.conf
 echo "    ignorecache = true" >> /etc/puppet/puppet.conf
 echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
-echo "    listen = true" >> /etc/puppet/puppet.conf
 echo "    ordering = manifest" >> /etc/puppet/puppet.conf
 echo "    report = true" >> /etc/puppet/puppet.conf
 echo "[main]" >> /etc/puppet/puppet.conf
 echo "runinterval=10" >> /etc/puppet/puppet.conf
 echo "configtimeout=500" >> /etc/puppet/puppet.conf
-
-cat >/tmp/puppet-auth.conf <<EOF
-# Allow puppet kick access
-path    /run
-method  save
-auth    any
-allow   *
-EOF
-cat /etc/puppet/auth.conf >> /tmp/puppet-auth.conf
-cp -f /tmp/puppet-auth.conf /etc/puppet/auth.conf
 
 # Tempprary patch to work around puppet issue of custom facts not working. The custom
 # fact scripts get installed with incorrect permissions (no execute permission). This
