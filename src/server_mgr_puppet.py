@@ -2194,7 +2194,7 @@ $__contrail_quantum_servers__
             if server_id == role_step_tuple[0]:
                 role_step = role_step_tuple[1].replace('-', '_')
                 key = 'contrail::params::enable_' + role_step
-                self._smgr_log.log(self._smgr_log.DEBUG, "role-key: %s" % (key))
+                self._smgr_log.log(self._smgr_log.DEBUG, "role-key: %s %s" % (key, enable))
                 if enable:
                     hiera_data_dict[key] = True
                 else:
