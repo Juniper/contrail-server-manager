@@ -1,0 +1,8 @@
+Linux 3.13.0-32-generic (host05) 	07/07/2015 	_x86_64_	(40 CPU)
+
+avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+           0.03    0.00    0.03    0.00    0.00   99.94
+
+Device:            tps    MB_read/s    MB_wrtn/s    MB_read    MB_wrtn
+sda               0.42         0.00         0.00       3165      10788
+dm-0              0.73         0.00         0.02       1025      58147
