@@ -176,19 +176,6 @@ class VncServerManager():
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
 
-    def _do_puppet_kick(self, host_ip):
-        msg = "Puppet kick trigered for %s" % (host_ip)
-        self._smgr_log.log(self._smgr_log.INFO, msg)
-
-        try:
-            rc = subprocess.check_call(
-                    ["puppet", "kick", "--host", host_ip])
-            # Log, return error if return code is non-null - TBD Abhay
-        except subprocess.CalledProcessError as e:
-            msg = ("put_image: error %d when executing"
-                       "\"%s\"" %(e.returncode, e.cmd))
-            self._smgr_log.log(self._smgr_log.ERROR, msg)
-
     def merge_dict(self, d1, d2):
         for k,v2 in d2.items():
             v1 = d1.get(k) # returns None if v1 has no value for this key
@@ -4148,9 +4135,6 @@ class VncServerManager():
                       'provisioned_id': provision_parameters['package_image_id']}
             self._serverDb.modify_server(update)
 
-            host_ip = provision_parameters['server_ip']
-            # Now kickstart agent run on the target
-            gevent.spawn(self._do_puppet_kick, host_ip)
         except subprocess.CalledProcessError as e:
             msg = ("do_provision_server: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
