@@ -409,49 +409,51 @@ class VncServerManager():
         bottle.route('/defaults', 'GET', self.get_defaults)
 
         #bottle.route('/logs/<filepath:path>', 'GET', self.get_defaults)
-	@route('/logs/<filename:re:.*>')
-	def callback(filename):
+        @route('/logs/<filename:re:.*>')
+        def callback(filename):
             colorinfo = ['<tr style = "background-color:skyblue">','<tr>'] #CSS to color alternate rows
             show_hidden = False
             serve_path = "/var/log/contrail-server-manager/provision"
-	    i=1  #To alternate background color
-	    path = serve_path + filename
-	    html = '''<html>
-		      <head><title>Listing</title>
-		      <style>
-		      
-		      </style>
-		      </head>
-		      <body><a href = '..'>Previous Folder</a><br><hr>
-		      <table border=0>'''
-	    if(os.path.isfile(path)):
-		if(os.path.split(path)[-1][0]=='.' and show_hidden==False): #Allow accessing hidden files?
-		    return "404! Not found."
+            i=1  #To alternate background color
+            path = serve_path + filename
+            html = '''<html>
+            <head><title>Listing</title>
+            <style>
+
+            </style>
+            </head>
+            <body><a href = '..'>Previous Folder</a><br><hr>
+            <table border=0>'''
+            if(os.path.isfile(path)):
+                if(os.path.split(path)[-1][0]=='.' and show_hidden==False): #Allow accessing hidden files?
+                    return "404! Not found."
                 bottle.response.set_header('Content-Type', 'text/plain')
                 with open(serve_path+ filename) as f:  # <-- you'll need the correct path here, possibly including "articles"
                     stat_art = f.read()
-		return stat_art   #serve a file
-	    else:
-		try:
-		    os.chdir(path)
-		    for x in glob.glob('*'):
-			if x==os.path.split(__file__)[-1] or (x[0]=='.' and show_hidden==False):  #Show hidden files?
-			    continue
-			scheme = bottle.request.urlparts[0]	#get the scheme of the requested url
-			host = bottle.request.urlparts[1]	#get the hostname of the requested url
-			if i==0:    #alternate rows are colored
-			    i+=1
-			else:
-			    i=0
-			#just html formatting :D
-			html = html+colorinfo[i]+"<td><a href = '"+scheme+"://"+host+"/logs/"+filename+"/"+x+"'>"+x+"</a><td></tr>"
-		except Exception as e:  #Actually an error accessing the file or switching to the directory
-		    html = "404! Not found."
+                return stat_art   #serve a file
+            else:
+                try:
+                    os.chdir(path)
+                    files = filter(os.path.isfile, glob.glob("*"))
+                    dirs = filter(os.path.isdir, glob.glob("*"))
+                    objs = files + dirs
+                    objs.sort(key=lambda x: os.path.getmtime(x))
+                    for x in objs:
+                        if x==os.path.split(__file__)[-1] or (x[0]=='.' and show_hidden==False):  #Show hidden files?
+                            continue
+                        scheme = bottle.request.urlparts[0]	#get the scheme of the requested url
+                        host = bottle.request.urlparts[1]	#get the hostname of the requested url
+                        if i==0:    #alternate rows are colored
+                            i+=1
+                        else:
+                            i=0
+                        #just html formatting :D
+                        html = html+colorinfo[i]+"<td><a href = '"+scheme+"://"+host+"/logs/"+filename+"/"+x+"'>"+x+"</a><td></tr>"
+                except Exception as e:  #Actually an error accessing the file or switching to the directory
+                    html = "404! Not found."
      
-	    return html+"</table><hr><br><br></body></html>" #Append the remaining html code
-		
+            return html+"</table><hr><br><br></body></html>" #Append the remaining html code
 
-#	    return static_file(filepath, root='/var/lib/puppet/reports')
 
         # REST calls for PUT methods (Create New Records)
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
