@@ -424,6 +424,7 @@ class VncServerManager():
             </head>
             <body><a href = '..'>Previous Folder</a><br><hr>
             <table border=0>'''
+            cwd = os.getcwd()
             if(os.path.isfile(path)):
                 if(os.path.split(path)[-1][0]=='.' and show_hidden==False): #Allow accessing hidden files?
                     return "404! Not found."
@@ -451,7 +452,9 @@ class VncServerManager():
                         html = html+colorinfo[i]+"<td><a href = '"+scheme+"://"+host+"/logs/"+filename+"/"+x+"'>"+x+"</a><td></tr>"
                 except Exception as e:  #Actually an error accessing the file or switching to the directory
                     html = "404! Not found."
-     
+                finally:
+                    os.chdir(cwd) 
+            os.chdir(cwd) 
             return html+"</table><hr><br><br></body></html>" #Append the remaining html code
 
 
