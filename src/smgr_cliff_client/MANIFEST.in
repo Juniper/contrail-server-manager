@@ -1,0 +1,6 @@
+include requirements.txt
+include setup_smgrcliapp.sh
+include smgrcliapp.bash_completion
+include smgrcliapp/sm-client-config.ini
+include contrail_sku.txt
+include contrail_version.txt
