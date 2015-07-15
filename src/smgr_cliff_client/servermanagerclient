@@ -1,0 +1,3 @@
+export SMGR_IP=10.84.30.2
+export SMGR_PORT=8081
+
