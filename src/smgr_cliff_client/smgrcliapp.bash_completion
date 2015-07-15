@@ -1,0 +1,144 @@
+function get_obj_list() {
+  CT="Content-Type:application/json"
+  SMGR_IP=$1
+  SMGR_PORT=$2
+  OBJ=$3
+  ITEM=$4
+  URL="http://$SMGR_IP:$SMGR_PORT/$OBJ?select=$ITEM"
+  CURL_CMD=$(curl -sb -H $CT $URL | python -m json.tool | sed 's/\\\\\//\//g' | sed 's/[{}]//g' | awk -v k="text" '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed 's/[\,]/ /g' | sed 's/\"//g' | grep -w $ITEM | awk '{ sub(/^[^:]*:[:blank:]*/, "", $0); print $0; }' | awk -v ORS=' ' '{ print $1 }' | sed 's/,$/\n/')
+  echo $CURL_CMD
+}
+function get_tag_list() {
+  CT="Content-Type:application/json"
+  SMGR_IP=$1
+  SMGR_PORT=$2
+  URL="http://$SMGR_IP:$SMGR_PORT/tag"
+  CURL_CMD=$(curl -sb -H $CT $URL | python -m json.tool | sed 's/\\\\\//\//g' | sed 's/[{}]//g' | awk -v k="text" '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed 's/[\,]/ /g' | sed 's/\"//g' | awk '{ sub(/^[^:]*:[:blank:]*/, "", $0); print $0; }' | awk -v ORS=' ' '{ print $1 }' | sed 's/,$/\n/')
+  echo $CURL_CMD
+}
+_smgrcliapp()
+{
+  local cur prev words last_chosen_option
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+  _get_comp_words_by_ref -n : cur prev words
+  SMGR_IP=$(awk -F "=" '/listen_ip_addr/ {print $2}' /tmp/sm-client-config.ini)
+  SMGR_PORT=$(awk -F "=" '/listen_port/ {print $2}' /tmp/sm-client-config.ini)
+  # Command data:
+  cmds='-h --help add delete display help provision reimage restart run-inventory status upload-image'
+  cmds_add='-h --help server cluster image tag'
+  cmds_add_server='-h --help -f --file_name'
+  cmds_add_cluster='-h --help -f --file_name'
+  cmds_add_image='-h --help -f --file_name'
+  cmds_add_tag='-h --help -f --file_name'
+  cmds_delete='-h --help server cluster image'
+  cmds_delete_server='-h --help --server_id --mac --ip --cluster_id --tag --where'
+  cmds_delete_cluster='-h --help --cluster_id --where'
+  cmds_delete_image='-h --help --image_id --where'
+  cmds_provision='-h --help --server_id --cluster_id --tag --where --provision_params_file -f --interactive -I --no_confirm -F'
+  cmds_reimage='-h --help --package_image_id -p --no_reboot -n --server_id --cluster_id --tag --where --no_confirm -F'
+  cmds_restart='-h --help --server_id --cluster_id --tag --where --net_boot -n --no_confirm -F'
+  cmds_run_inventory='-h --help --server_id --cluster_id --tag --no_confirm -F'
+  cmds_status='-h --help server'
+  cmds_status_server='-h --help --server_id --cluster_id --tag --where --mac --ip --discovered'
+  cmds_upload_image='-h --help --kickstart --kickseed'
+  cmds_display='-h --help server cluster image tag all monitoring inventory'
+  cmds_display_server='-h --help --server_id --cluster_id --mac --ip --tag --where --select --detail --discovered'
+  cmds_display_cluster='-h --help --cluster_id --where --select --detail'
+  cmds_display_image='-h --help --image_id --where --select --detail'
+  cmds_display_tag='-h --help --where'
+  cmds_display_all='-h --help --detail'
+  cmds_display_monitoring='-h --help --server_id --cluster_id --tag --where'
+  cmds_display_inventory='-h --help --server_id --cluster_id --tag --where'
+  cmds_help='add delete display provision reimage restart run-inventory status upload-image'
+
+  def_options='-@(-detail|-select)'
+  server_options='--server_id'
+  mac_option='--mac'
+  ip_option='--ip'
+  cluster_options='--cluster_id'
+  image_options='--image_id --package_image_id'
+  tag_options='--tag'
+  file_options='--file_name -f --provision_params_file'
+
+  cmd=""
+  words[0]=""
+  completed="${cmds}"
+  last_chosen_option="${@: -1}"
+  sub_option_flag=0
+  for var in "${words[@]:1}"
+  do
+    OBJ=''
+    ITEM=''
+    if [[ ${var} == -* ]] ; then
+      break
+    fi
+    if [ -z "${cmd}" ] ; then
+      if [[ $var == *"-"* ]] ; then
+        var=${var//[-]/_}
+      fi
+      proposed="${var}"
+    else
+      proposed="${cmd}_${var}"
+    fi
+    local i="cmds_${proposed}"
+    local comp="${!i}"
+    if [ -z "${comp}" ] ; then
+      break
+    fi
+    if [[ ${comp} == -* && $last_chosen_option != -* ]] ; then
+      completed="${comp}"
+    else
+      if [[ $server_options =~ $last_chosen_option ]] ; then
+        OBJ='server'
+        ITEM='id'
+      elif [[ $cluster_options =~ $last_chosen_option ]] ; then
+        OBJ='cluster'
+        ITEM='id'
+      elif [[ $image_options =~ $last_chosen_option ]]; then
+        OBJ='image'
+        ITEM='id'
+      elif [[ $mac_option =~ $last_chosen_option ]]; then
+        OBJ='server'
+        ITEM='mac_address'
+      elif [[ $ip_option =~ $last_chosen_option ]]; then
+        OBJ='server'
+        ITEM='ip_address'
+      elif [[ $file_options =~ $last_chosen_option ]]; then
+        OBJ='file'
+        ITEM=''
+      elif [[ $tag_options =~ $last_chosen_option ]]; then
+        OBJ='tag'
+        ITEM=''
+      else
+        OBJ=''
+        ITEM=''
+      fi
+
+      if [[ "$OBJ" != "file" && "$OBJ" != "tag" && "$OBJ" != "" ]] ; then
+        RESP=$(get_obj_list $SMGR_IP $SMGR_PORT $OBJ $ITEM)
+        #echo $SMGR_IP $SMGR_PORT $OBJ $ITEM
+        completed=$RESP
+        break
+      elif [[ "$OBJ" = "tag" ]] ; then
+        RESP=$(get_tag_list $SMGR_IP $SMGR_PORT)
+        completed=$RESP
+        break
+      else
+        completed=""
+        break
+      fi
+
+    fi
+    cmd="${proposed}"
+  done
+  if [ "$OBJ" != "file" ] ; then
+    COMPREPLY=( $(compgen -W "${completed}" -- ${cur}) )
+  elif [ "$OBJ" == "file" ] ; then
+    COMPREPLY=( $( compgen -f -- "$cur" ) $( compgen -d -- "$cur" ) )
+  fi
+  return 0
+}
+complete -F _smgrcliapp smgrcliapp
+
