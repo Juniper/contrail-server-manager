@@ -1769,7 +1769,7 @@ class VncServerManager():
                         "/etc/puppet/environments/" + image_id.replace('-','_'))
                 distutils.dir_util.remove_tree(environment_dir)
                 os.chdir(cwd)
-                return version
+                return version, sequence_provisioning_available
             # end if os.path.isdir
             # Below code is for old versions of contrail (pre-2.0) and old puppet modules.
             # Create modules directory if it does not exist.
