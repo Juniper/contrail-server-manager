@@ -545,10 +545,11 @@ class ServerMgrDb:
             if 'network' in server_data:
                 network_data_str = str(server_data.pop("network", None))
                 server_data['network'] = network_data_str
-            #Add top_of_rack configuration 
+            #Add top_of_rack configuration
             if 'top_of_rack' in server_data:
                 top_of_rack_data_str = str(server_data.pop("top_of_rack", None))
-                server_data['top_of_rack'] = top_of_rack_data_str 
+                server_data['top_of_rack'] = top_of_rack_data_str
+
             #Add contrail
             if 'contrail' in server_data:
                 contrail_data_str = str(server_data.pop("contrail", None))
@@ -838,6 +839,10 @@ class ServerMgrDb:
             if 'contrail' in server_data:
                 contrail_data_str = str(server_data.pop("contrail", None))
                 server_data['contrail'] = contrail_data_str
+            #Add top_of_rack configuration 
+            if 'top_of_rack' in server_data:
+                top_of_rack_data_str = str(server_data.pop("top_of_rack", None))
+                server_data['top_of_rack'] = top_of_rack_data_str
 
             # store tags if any
             server_tags = server_data.pop("tag", None)
