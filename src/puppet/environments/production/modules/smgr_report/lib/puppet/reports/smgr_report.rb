@@ -2,7 +2,7 @@ require 'puppet'
 require 'net/http'
 require 'uri'
 
-Puppet::Reports.register_report(:newreport) do
+Puppet::Reports.register_report(:smgr_report) do
 
 desc <<-DESC
 A new report processor.
