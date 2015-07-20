@@ -449,7 +449,8 @@ class VncServerManager():
                         else:
                             i=0
                         #just html formatting :D
-                        html = html+colorinfo[i]+"<td><a href = '"+scheme+"://"+host+"/logs/"+filename+"/"+x+"'>"+x+"</a><td></tr>"
+                        file_mod_time = time.strftime('%a, %d %b %Y %H:%M:%S +0000"', time.gmtime(os.path.getmtime(x)))
+                        html = html+colorinfo[i]+"<td><a href = '"+scheme+"://"+host+"/logs/"+filename+"/"+x+"'>"+x+"</a></td><td>" + file_mod_time +"</td></tr>"
                 except Exception as e:  #Actually an error accessing the file or switching to the directory
                     html = "404! Not found."
                 finally:
