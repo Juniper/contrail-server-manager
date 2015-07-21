@@ -380,7 +380,7 @@ class ServerMgrIPMIMonitoring():
                         return False
             except Exception as e:
                 self.log("error", "Error getting disk info for " + str(hostname) + " : " + str(e))
-                raise e
+                raise
 
     #This function gets the mounted file system view. This will be the output of the df command
     def fetch_and_process_file_system_view(self, hostname, ip, sshclient):
