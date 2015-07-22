@@ -67,7 +67,7 @@ class ServerMgrlogger:
             ServerMgrlogger._instance = ServerMgrlogger._ServerMgrlogger()
 
     def __new__(cls): # __new__ always a classmethod
-        if not ServerMgrlogger._intance:
+        if not ServerMgrlogger._instance:
             ServerMgrlogger._instance = ServerMgrlogger._ServerMgrlogger()
         return ServerMgrlogger._instance
 
