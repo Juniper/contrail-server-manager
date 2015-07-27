@@ -2134,6 +2134,7 @@ $__contrail_quantum_servers__
         mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
         keystone_admin_token = cluster_params.get("service_token", "contrail123")
         keystone_admin_password = cluster_params.get("keystone_password", "contrail123")
+        heat_encryption_key = cluster_params.get("heat_encryption_key", "notgood but just long enough i think")
         subnet_address = str(IPNetwork(
             openstack_ip + "/" + subnet_mask).network)
         subnet_octets = subnet_address.split(".")
@@ -2152,7 +2153,8 @@ $__contrail_quantum_servers__
             '__keystone_admin_token__': keystone_admin_token,
             '__keystone_admin_password__': keystone_admin_password,
             '__mysql_allowed_hosts__': (', '.join("'" + item + "'" for item in mysql_allowed_hosts)),
-            '__openstack_password__': keystone_admin_password
+            '__openstack_password__': keystone_admin_password,
+            '__heat_encryption_key__': heat_encryption_key
         }
         data = openstack_hieradata.template.safe_substitute(template_vals)
         outfile = open(hiera_filename, 'w')
