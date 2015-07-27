@@ -7,6 +7,10 @@ from server_mgr_exception import ServerMgrException as ServerMgrException
 
 
 class ServerMgrValidations:
+    _serverDb = None
+    def set_serverdb(self, serverdb):
+        self._serverDb = serverdb
+
     def validate_tor_config(self, input_data):
         #self._smgr_log.log(self._smgr_log.DEBUG, "validate input_data=> %s" %(input_data))
         if 'top_of_rack' not in input_data:
@@ -152,6 +156,142 @@ class ServerMgrValidations:
             return (0, "")
         else:
            return (1, "invalid number")
+
+    #The following logic the interface type of servers
+    #Will return single if all the servers are single
+    #Will return multi if all the interfaces are multi
+    #Will return None if you have a combination
+    def get_server_interface_type(self,servers_dict):
+        all_single = False
+        all_multi = False
+        for server in servers_dict:
+            param = eval(server['parameters'])
+            contrail = eval(server['contrail'])
+            if param['interface_name'] and contrail:
+                all_multi = True
+            elif param['interface_name']:
+                all_single = True
+            else:
+                return None
+        #If you have a mix of single and multi interface servers then return None
+        if all_multi and all_single:
+             return None
+        if all_multi:
+             return "MULTI_INTERFACE"
+        return "SINGLE_INTERFACE"
+
+    #This function returns the list of servers with a specific roles assigned to it
+    def get_servers_roles_list(self, servers):
+        openstack_only_list =[]
+        config_only_list= []
+        openstack_config_list= []
+        for server in servers:
+            roles_list = server['roles']
+            #Check if the server has both config and openstack role assigned to it
+            if 'config' and 'openstack' in roles_list:
+                openstack_config_list.append(server)
+            #Check if the server has config role assigned to it
+            elif 'config' in roles_list:
+                config_only_list.append(server)
+            #Check if the server has openstack role assigned to it
+            elif 'openstack' in roles_list:
+                openstack_only_list.append(server)
+        return (openstack_config_list, config_only_list, openstack_only_list) 
+   
+    #Function to get the vips defined for a cluster
+    def get_vips_in_cluster(self,cluster):
+        cluster_params = eval(cluster['parameters'])
+        internal_vip = cluster_params.get('internal_vip')
+        external_vip = cluster_params.get('external_vip')
+        contrail_internal_vip = cluster_params.get('contrail_internal_vip')
+        contrail_external_vip = cluster_params.get('contrail_external_vip')
+        return (internal_vip, external_vip, contrail_internal_vip, contrail_external_vip) 
+
+    #Function to validate vip configuration for a multi interface server
+    def validate_multi_interface_vip(self,cluster, servers):
+        #Get the list of servers with specific roles
+        openstack_config_list, config_only_list, openstack_only_list = self.get_servers_roles_list(servers)
+        #Get the values of all vips in a cluster
+        internal_vip,external_vip,contrail_internal_vip,contrail_external_vip = self.get_vips_in_cluster(cluster)
+        #Validation for nodes configured for both contrail and openstack HA
+        if len(openstack_config_list) > 1:
+            #If no vips are configured then it means no HA is configured. Just skip the validation
+            if internal_vip is None and external_vip is None and contrail_internal_vip is None and contrail_external_vip is None:
+                return
+            #If internal and external vips are specified they should not be equal
+            if internal_vip and external_vip and internal_vip != external_vip:
+                #If contrail internal vip and external vips are specified they should be equal
+                #to the respective internal and external vips
+                if contrail_internal_vip and contrail_external_vip:
+                    if contrail_internal_vip == internal_vip and contrail_internal_vip == external_vip:
+                        return
+                else:
+                    return
+            #If None of the above condition matches it is a failure scenario
+            raise Exception("Both internal and external vips need to be configured and they cannot be same. If contrail internal and external vips are configured they need to be same as the internal and external vips")
+        #Validation for nodes configured only for contrail HA
+        if len(config_only_list) > 1:
+            #If either internal or external vip is specified, return False
+            if internal_vip or external_vip:
+                raise Exception("internal or external vip cannot be specified")
+            #If contrail internal and external vips are specified they should not be equal
+            if contrail_internal_vip and contrail_external_vip and contrail_internal_vip != contrail_external_vip:
+                return 
+            #Failure for all other cases
+            raise Exception("contrail internal and external vip's have to be configured and both cannot be the same")
+        #Validation for nodes configured only for Openstack HA
+        if len(openstack_only_list) > 1:
+            if contrail_internal_vip or contrail_external_vip:
+                raise Execption("contrail internal or external vip cannot be configured")
+            if internal_vip and external_vip and internal_vip != external_vip:
+                return
+            raise Execption("Both internal and external vips have to be configured and they cannot be same")
+
+    #Function to validate vip configuration for a multi interface server
+    def validate_single_interface_vip(self, cluster, servers):
+        #Get the list of servers with specific roles
+        openstack_config_list, config_only_list, openstack_only_list = self.get_servers_roles_list(servers)
+        #Get the values of all vips in a cluster
+        internal_vip,external_vip,contrail_internal_vip,contrail_external_vip = self.get_vips_in_cluster(cluster)
+        #Validation for nodes configured for both contrail and openstack HA
+        if len(openstack_config_list) > 1:
+            if external_vip or contrail_external_vip:
+                raise Execption("external vip or contrail external vip cannot be configured")
+            if internal_vip and contrail_internal_vip and internal_vip != contrail_internal_vip:
+                raise Execption("internal vip and contrail internal vip have to be the same")
+            if internal_vip or contrail_internal_vip:
+                return
+            raise Execption("Only internal vip or contrail internal vip can be configured")
+        #Validation for nodes configured only for contrail HA
+        if len(config_only_list) > 1:
+            if contrail_internal_vip and internal_vip is None and external_vip is None and contrail_external_vip is None:
+                return
+            raise Execption("Only contrail internal vip can be configured")
+        #Validation for nodes configured only for Openstack HA
+        if len(openstack_only_list) > 1:
+            if internal_vip and contrail_internal_vip is None and external_vip is None and contrail_external_vip is None:
+                return
+            raise Execption("Only internal vip can be specified")
+    
+    #Function to do the configuration validation of vips 
+    def validate_vips(self, cluster_id):
+        try:
+            #Get the cluster given the cluster id
+            cluster_list =  self._serverDb.get_cluster({"id": cluster_id}, detail=True) 
+            #Since we are getting the cluster given an id only one cluster will be there in the list
+            cluster = cluster_list[0]
+            match_dict = {"cluster_id": cluster['id']}
+            #Get the list of servers belonging to that cluster
+            servers = self._serverDb.get_server(match_dict, detail=True)
+            #Find out what type of interface do the servers have
+            interface_type = self.get_server_interface_type(servers)
+            if interface_type == 'MULTI_INTERFACE':
+                self.validate_multi_interface_vip(cluster, servers)              
+            elif interface_type == 'SINGLE_INTERFACE':
+                self.validate_single_interface_vip(cluster, servers)
+            return
+        except Exception as e:
+            raise e
 
     def __init__(self):
         self._smgr_log = ServerMgrlogger()

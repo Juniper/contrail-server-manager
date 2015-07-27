@@ -305,6 +305,8 @@ class VncServerManager():
                 "Error adding server tags to server manager DB")
             exit()
 
+        self._serverDb._smgr_validations = self._smgr_validations
+        self._smgr_validations.set_serverdb(serverdb=self._serverDb)
         # Create an instance of cobbler interface class and connect to it.
         try:
             self._smgr_cobbler = ServerMgrCobbler(self._args.server_manager_base_dir,
@@ -3364,6 +3366,8 @@ class VncServerManager():
 
             provision_status['server'] = []
             cluster_id = ret_data['cluster_id']
+            #Validate the vip configurations for the cluster
+            self._smgr_validations.validate_vips(cluster_id)
             puppet_manifest_version = \
                 server_packages[0].get('puppet_manifest_version', '')
             sequence_provisioning_available = \
