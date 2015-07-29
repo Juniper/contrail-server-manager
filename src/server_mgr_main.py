@@ -158,6 +158,12 @@ class VncServerManager():
                       (['post_exec_vnc_galera'], 's'),
                       (['config'], 'p'), (['control'], 'p'), 
                       (['collector'], 'p'), (['webui'], 'p')]
+
+    _role_step_sequence_contrail_ha = [(['keepalived'], 'p'), (['haproxy'], 'p'),
+                      (['database'], 'p'), (['openstack'], 'p'),
+                      (['config'], 'p'), (['control'], 'p'),
+                      (['collector'], 'p'), (['webui'], 'p')]
+
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 'p')]
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 's')]
     _compute_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
@@ -3295,8 +3301,12 @@ class VncServerManager():
             return []
         cluster_id = cluster['id']
         ha = self.is_cluster_ha(cluster)
+
+        contrail_ha = self.is_cluster_contrail_ha(cluster)
         if ha:
             default_role_sequence = self._role_step_sequence_ha
+        elif contrail_ha:
+            default_role_sequence = self._role_step_sequence_contrail_ha
         else:
             default_role_sequence = self._role_sequence
         try:
@@ -3320,6 +3330,8 @@ class VncServerManager():
             if not cluster_role_sequence:
                 if ha:
                     default_sequence = role_sequence_data.get('default_ha', {})
+                elif contrail_ha:
+                    default_sequence = role_sequence_data.get('default_contrail_ha', {})
                 else:
                     default_sequence = role_sequence_data.get('default', {})
                 cluster_role_sequence = default_sequence.get('role_sequence', [])
