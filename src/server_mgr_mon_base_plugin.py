@@ -677,36 +677,36 @@ class ServerMgrMonBasePlugin():
         return return_dict
 
     @staticmethod
-    def get_mon_conf_details():
+    def get_mon_conf_details(self):
         return "Monitoring Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     @staticmethod
-    def get_inv_conf_details():
+    def get_inv_conf_details(self):
         return "Inventory Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     @staticmethod
-    def get_inventory_info():
+    def get_inventory_info(self):
         return "Inventory Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     @staticmethod
-    def get_monitoring_info():
+    def get_monitoring_info(self):
         return "Monitoring Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     @staticmethod
-    def get_monitoring_info_summary():
+    def get_monitoring_info_summary(self):
         return "Monitoring Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
     @staticmethod
-    def run_inventory():
+    def run_inventory(self):
         return "Inventory Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
 
-    def handle_inventory_trigger(self):
+    def handle_inventory_trigger(self, action=None, servers=None):
         self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
         return "Inventory Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
