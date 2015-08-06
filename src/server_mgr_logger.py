@@ -15,12 +15,11 @@ class ServerMgrlogger:
         WARN = "warn"
         ERROR = "error"
         CRITICAL = "critical"
+        log_file = '/opt/contrail/server_manager/logger.conf'
 
         _smgr_log = None   
         def __init__(self):
-            print "Logger init" 
-            logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
-
+            logging.config.fileConfig(self.log_file)
             #create logger
             self._smgr_log = logging.getLogger('SMGR')
 
@@ -34,7 +33,6 @@ class ServerMgrlogger:
             log_dict['log_function_name'] = function_name
             log_dict['log_line'] = lines
             log_dict['log_index'] = index
-            print "Log command"
             try:
                 if level == self.DEBUG:
                     self._smgr_log.debug(msg, extra = log_dict)
@@ -104,13 +102,12 @@ class ServerMgrTransactionlogger:
     SMGR_PROVISION = "SMGR_PROVISION"
     SMGR_REIMAGE = "SMGR_REIMAGE"
     SMGR_REBOOT = "SMGR_REBOOT"
+    log_file = '/opt/contrail/server_manager/logger.conf'
 
     _smgr_trans_log = None
     def __init__(self):
-        print "Transaction Logger init"
-
-        #Create transactio logger
-        logging.config.fileConfig('/opt/contrail/server_manager/logger.conf')
+        #Create transaction logger
+        logging.config.fileConfig(self.log_file)
 
         self._smgr_trans_log = logging.getLogger('TRANSACTION')
 

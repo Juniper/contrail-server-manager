@@ -48,7 +48,6 @@ from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_validations import ServerMgrValidations as ServerMgrValidations
 from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
-from send_mail import send_mail
 import pycurl
 import json
 import xmltodict
@@ -69,7 +68,7 @@ _WEB_PORT = 9001
 _DEF_CFG_DB = 'cluster_server_mgr.db'
 _DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
 _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
-_SERVER_TAGS_FILE = _DEF_SMGR_BASE_DIR + 'tags.ini'
+_SERVER_TAGS_FILE = 'tags.ini'
 _DEF_HTML_ROOT_DIR = '/var/www/html/'
 _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = None
@@ -280,9 +279,9 @@ class VncServerManager():
         self._code_defaults_dict = self._prepare_code_defaults()
 
         # Reads the tags.ini file to get tags mapping (if it exists)
-        if os.path.isfile(_SERVER_TAGS_FILE):
+        if os.path.isfile(self._args.server_manager_base_dir + _SERVER_TAGS_FILE):
             tags_config = ConfigParser.SafeConfigParser()
-            tags_config.read(_SERVER_TAGS_FILE)
+            tags_config.read(self._args.server_manager_base_dir + _SERVER_TAGS_FILE)
             tags_config_dict = dict(tags_config.items("TAGS"))
             for key, value in tags_config_dict.iteritems():
                 if key not in self._tags_list:
@@ -1593,7 +1592,8 @@ class VncServerManager():
             tags_config.add_section('TAGS')
             for key, value in self._tags_dict.iteritems():
                 tags_config.set('TAGS', key, value)
-            with open(_SERVER_TAGS_FILE, 'wb') as configfile:
+            with open(
+                self._args.server_manager_base_dir + _SERVER_TAGS_FILE, 'wb') as configfile:
                 tags_config.write(configfile)
             # Also write the tags to DB
             self._serverDb.add_server_tags(self._tags_dict)
