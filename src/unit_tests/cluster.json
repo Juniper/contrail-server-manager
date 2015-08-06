@@ -1,0 +1,8 @@
+{
+    "cluster": [
+        {
+            "id": "test-cluster",
+            "parameters" : {}
+        }
+    ]
+}

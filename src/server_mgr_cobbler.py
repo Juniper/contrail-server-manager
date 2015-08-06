@@ -9,7 +9,6 @@ import subprocess
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_err import *
-import cobbler.api as capi
 
 _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = ''
@@ -19,7 +18,7 @@ _DEF_BASE_DIR = '/etc/contrail/'
 _CONTRAIL_CENTOS_REPO = 'contrail-centos-repo'
 _CONTRAIL_REDHAT_REPO = 'contrail-redhat-repo'
 
-class ServerMgrCobbler:
+class ServerMgrCobbler(object):
 
     _cobbler_ip = _DEF_COBBLER_IP
     _cobbler_port = _DEF_COBBLER_PORT
