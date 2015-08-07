@@ -132,6 +132,9 @@ apt-get update
 apt-get -y install biosdevname
 apt-get -y install python-netaddr
 apt-get -y install ifenslave=2.4ubuntu1
+# Packages required for inventory
+apt-get -y install sysstat
+apt-get -y install ethtool
 
 # Packages needed to get Inventory and Monitoring Info
 apt-get -y install sysstat

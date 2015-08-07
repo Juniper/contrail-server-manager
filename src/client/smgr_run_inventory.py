@@ -127,4 +127,3 @@ if __name__ == "__main__":
     cgitb.enable(format='text')
     run_inventory(sys.argv[1:])
 # End if __name__
-

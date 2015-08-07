@@ -957,4 +957,3 @@ class ServerMgrIPMIMonitoring():
             except Exception as e:
                 self.log("error", "Exception occured while spawning gevents. Error = " + str(e))
                 pass
-

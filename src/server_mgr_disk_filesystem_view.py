@@ -288,4 +288,3 @@ class file_system_disk_view:
             self.log("error", "Error get_file_system_view function: " + str(e.message))
         return self.file_system_list
 
-

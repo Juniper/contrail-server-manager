@@ -728,4 +728,3 @@ class ServerMgrMonBasePlugin():
     def run(self):
         self._smgr_log.log(self._smgr_log.INFO,
                            "No monitoring API has been configured. Server Environement Info will not be monitored.")
-

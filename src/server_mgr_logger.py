@@ -80,7 +80,7 @@ class ServerMgrTransactionlogger:
     GET_SMGR_CFG_IMAGE = "GET_SMGR_IMAGE"
     GET_SMGR_CFG_STATUS = "GET_SMGR_STATUS"   
     GET_SMGR_CFG_CHASSIS_ID = "GET_SMGR_CHASSIS_ID"   
-    GET_SMGR_CFG_TAG = "GET_SMGR_TAG"   
+    GET_SMGR_CFG_TAG = "GET_SMGR_TAG"
 
     PUT_SMGR_CFG_ALL = "PUT_SMGR_ALL"
     PUT_SMGR_CFG_CLUSTER = "PUT_SMGR_CLUSTER"
@@ -104,6 +104,7 @@ class ServerMgrTransactionlogger:
     SMGR_PROVISION = "SMGR_PROVISION"
     SMGR_REIMAGE = "SMGR_REIMAGE"
     SMGR_REBOOT = "SMGR_REBOOT"
+    SMGR_POLL_DEV = "SMGR_POLL_DEV"
 
     _smgr_trans_log = None
     def __init__(self):

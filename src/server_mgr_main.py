@@ -999,6 +999,8 @@ class VncServerManager():
             validation_data = cluster_fields
         elif type == "IMAGE":
             validation_data = image_fields
+        elif type == "INVENTORY":
+            validation_data = fru_fields
         else:
             validation_data = None
 
@@ -1204,6 +1206,10 @@ class VncServerManager():
                     x.pop(blocked_field, None)
         return {"server": servers}
     # end get_server
+
+    # This call returns information about a provided server. If no server
+    # if provided, information about all the servers in server manager
+    # configuration is returned.
 
     # API Call to list images
     def get_image(self):
@@ -1481,6 +1487,7 @@ class VncServerManager():
                                                                             None)
             abort(404, resp_msg)
 
+
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER)
         msg = "Cluster Add/Modify Success"
@@ -1557,8 +1564,8 @@ class VncServerManager():
                     self._serverDb.modify_server(server)
                     server_fields['primary_keys'] = "['id', 'mac_address']"
                 else:
-                    self.validate_smgr_request("SERVER", "PUT",
-                                               bottle.request, server)
+                    self.validate_smgr_request("SERVER", "PUT", bottle.request,
+                                                                        server)
                     server['status'] = "server_added"
                     server['discovered'] = "false"
                     self._serverDb.add_server(server)
@@ -1675,6 +1682,7 @@ class VncServerManager():
         if len(is_id_allowed) == 0:
             return False
         return True
+
 
     # API Call to add image file to server manager (file is copied at
     # <default_base_path>/images/filename.iso and distro, profile
@@ -2224,8 +2232,7 @@ class VncServerManager():
                 elif match_key:
                     match_dict[match_key] = match_value
 
-            servers = self._serverDb.get_server(
-                match_dict, detail= False)
+            servers = self._serverDb.get_server(match_dict, detail=True)
             self._serverDb.delete_server(match_dict)
             # delete the system entries from cobbler
             for server in servers:
@@ -3666,7 +3673,7 @@ class VncServerManager():
                       live_migration_storage_scope = cluster_params['live_migration_storage_scope']
                   else:
                       pass
-    
+
                 if live_migration_storage_scope == "local" or live_migration_storage_scope == "global":
                     pass
                 else:
@@ -3820,7 +3827,6 @@ class VncServerManager():
     def cleanup(self):
         print "called cleanup"
         self._server_monitoring_obj.cleanup(self._monitoring_base_plugin_obj.monitoring_gevent_thread_obj)
-
     # end cleanup
 
     # Private Methods
