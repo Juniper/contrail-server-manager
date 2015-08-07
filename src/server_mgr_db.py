@@ -839,6 +839,11 @@ class ServerMgrDb:
                 contrail_data_str = str(server_data.pop("contrail", None))
                 server_data['contrail'] = contrail_data_str
 
+            #Add top_of_rack
+            if 'top_of_rack' in server_data:
+                top_of_rack_data_str = str(server_data.pop("top_of_rack", None))
+                server_data['top_of_rack'] = top_of_rack_data_str
+
             # store tags if any
             server_tags = server_data.pop("tag", None)
             if server_tags is not None:

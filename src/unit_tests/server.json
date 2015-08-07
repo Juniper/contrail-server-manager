@@ -1,0 +1,98 @@
+{
+    "server": [
+        {
+            "base_image_id": "", 
+            "cluster_id": "test-cluster", 
+            "contrail": {
+                "control_data_interface": "eth1"
+            }, 
+            "domain": "test.juniper.net", 
+            "gateway": "10.84.51.254", 
+            "host_name": "", 
+            "id": "testserver1", 
+            "ip_address": "10.84.51.12", 
+            "ipmi_address": "10.84.6.62", 
+            "mac_address": "00:25:90:A9:1B:6C", 
+            "network": {
+                "interfaces": [
+                    {
+                        "default_gateway": "10.84.51.254", 
+                        "dhcp": true, 
+                        "ip_address": "10.84.51.12/24", 
+                        "mac_address": "00:25:90:a9:1b:6c", 
+                        "name": "eth1"
+                    }
+                ], 
+                "management_interface": "eth1", 
+                "provisioning": "kickstart"
+            }, 
+            "package_image_id": "", 
+            "parameters": {
+                "interface_name": "eth1"
+            }, 
+            "password": "c0ntrail123", 
+            "roles": [
+                "config", 
+                "control", 
+                "collector", 
+                "database", 
+                "webui", 
+                "openstack", 
+                "compute"
+            ], 
+            "static_ip": "N", 
+            "subnet_mask": "255.255.255.0", 
+            "tag": {
+                "datacenter": "test-dc", 
+                "floor": "test-floor", 
+                "hall": "test-hall", 
+                "rack": "test-rack", 
+                "user_tag": "test-user"
+            }
+        }, 
+        {
+            "base_image_id": "", 
+            "cluster_id": "test-cluster", 
+            "contrail": {
+                "control_data_interface": "eth1"
+            }, 
+            "domain": "test.juniper.net", 
+            "gateway": "10.84.51.254", 
+            "host_name": "", 
+            "id": "testserver2", 
+            "ip_address": "10.84.51.13", 
+            "ipmi_address": "10.84.6.63", 
+            "mac_address": "00:25:90:AA:36:32", 
+            "network": {
+                "interfaces": [
+                    {
+                        "default_gateway": "10.84.51.254", 
+                        "dhcp": true, 
+                        "ip_address": "10.84.51.13/24", 
+                        "mac_address": "00:25:90:aa:36:32", 
+                        "name": "eth1"
+                    }
+                ], 
+                "management_interface": "eth1", 
+                "provisioning": "kickstart"
+            }, 
+            "package_image_id": "", 
+            "parameters": {
+                "interface_name": "eth1"
+            }, 
+            "password": "c0ntrail123", 
+            "roles": [
+                "compute"
+            ], 
+            "static_ip": "N", 
+            "subnet_mask": "255.255.255.0", 
+            "tag": {
+                "datacenter": "test-dc", 
+                "floor": "test-floor", 
+                "hall": "test-hall", 
+                "rack": "test-rack", 
+                "user_tag": "test-user2"
+            } 
+        }
+    ]
+}

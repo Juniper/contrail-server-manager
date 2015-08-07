@@ -63,11 +63,11 @@ class ServerMgrStatusThread(threading.Thread):
         # Connect to the cluster-servers database
         try:
             self._status_serverDb = db(
-                "/etc/contrail_smgr/smgr_data.db")
+                self._smgr_main._args.server_manager_base_dir+self._smgr_main._args.database_name)
         except:
             self._smgr_log.log(self._smgr_log.DEBUG,
                      "Error Connecting to Server Database %s"
-                    % (self._args.smgr_base_dir+self._args.db_name))
+                    % (self._smgr_main._args.server_manager_base_dir+self._smgr_main._args.database_name))
             exit()
 
         #set the status related handlers
