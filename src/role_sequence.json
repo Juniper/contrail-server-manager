@@ -26,6 +26,17 @@
 			      [["webui"], "p"],
 			      [["compute"], "p"]]
     },
+    "default_contrail_ha": {
+            "role_sequence": [[["keepalived"], "p"],
+                              [["haproxy"], "p"],
+                              [["database"], "p"],
+                              [["openstack"], "p"],
+                              [["config"], "p"],
+                              [["control"], "p"],
+                              [["collector"], "p"],
+                              [["webui"], "p"],
+                              [["compute"], "p"]]
+    },
     "cluster": [
         {
             "id": "scale3",
