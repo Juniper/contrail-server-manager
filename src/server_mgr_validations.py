@@ -27,7 +27,7 @@ class ServerMgrValidations:
                            'tunnel_ip_address': 'ip_address', 
                            'switch_name':'hostname',
                            'type': {'fixed': ['ovs']},
-                           'ovs_protocol': {'fixed': ['tcp']},
+                           'ovs_protocol': {'fixed': ['tcp', 'pssl']},
                            'ovs_port':'port',
                            'http_server_port':'port',
                            'vendor_name':'string'}
