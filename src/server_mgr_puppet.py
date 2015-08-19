@@ -1915,6 +1915,29 @@ $__contrail_quantum_servers__
 
         return data
 
+    def generate_tor_certs(self, switch_info, provision_params):
+        tor_name = switch_info['switch_name']
+        tor_vendor_name = switch_info['vendor_name']
+        tor_server_fqdn = provision_params['server_id'] + '.' + provision_params['domain']
+        contrail_module_path = '/etc/contrail_smgr/puppet/ssl/'
+        tor_cert_file = contrail_module_path + 'tor.' + tor_name + '.cert.pem'
+        tor_key_file = contrail_module_path + 'tor.' + tor_name + '.privkey.pem'
+
+        self._smgr_log.log(self._smgr_log.DEBUG, 'module path => %s' % contrail_module_path)
+        if os.path.exists(tor_cert_file) and os.path.exists(tor_key_file):
+            self._smgr_log.log(self._smgr_log.DEBUG, 'cert exists for %s host %s' % (tor_name, tor_server_fqdn))
+            return
+        cert_cmd ='openssl req -new -x509 -days 3650 -sha256 -newkey rsa:4096'\
+            + ' -nodes -subj "/C=US/ST=Global/L=' + tor_name + '/O=' \
+            + tor_vendor_name + '/CN=' + tor_server_fqdn + '" -keyout ' \
+            + tor_key_file + ' -out ' + tor_cert_file
+
+        if not os.path.exists(contrail_module_path):
+            os.makedirs(contrail_module_path)
+        self._smgr_log.log(self._smgr_log.DEBUG, 'ssl_cmd => %s' % cert_cmd)
+
+        subprocess.check_call(cert_cmd, shell=True)
+
     def build_contrail_hiera_file(
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
@@ -2040,6 +2063,8 @@ $__contrail_quantum_servers__
                     for key,value in switch.items():
                         #self._smgr_log.log(self._smgr_log.DEBUG, "switch key=> %s,value => %s" % (key,value))
                         data += '    %s: "%s"\n' % (key,value)
+                        if key == 'ovs_protocol' and value.lower() == 'pssl':
+                            self.generate_tor_certs(switch, provision_params)
 
         if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
