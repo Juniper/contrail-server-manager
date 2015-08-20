@@ -3576,20 +3576,11 @@ class VncServerManager():
                 elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
                     subnet_mask = cluster_params['subnet_mask']
 
-                if len(role_servers['tsn']):
-                   if len(role_servers['toragent']) == 0:
-                      msg = "TSN can only be provisioned when there is a TOR Agent"
+                if 'toragent' in server['roles']:
+                   if not 'tsn' in server['roles']:
+                      msg = "TSN must be configured on node with ToR Agent"
                       raise ServerMgrException(msg)
 
-                if len(role_servers['toragent']):
-                   if len(role_servers['tsn']) == 0:
-                      msg = "TOR Agent can only be provisioned when there is a TSN node"
-                      raise ServerMgrException(msg)
-
-                if len(role_servers['toragent']) > 1:
-                   msg = "Multiple TOR Agents are not allowed"
-                   raise ServerMgrException(msg)
-    
                 if 'toragent' in server['roles']:
                     provision_params['top_of_rack'] = server_tor_config
                     self._smgr_log.log(self._smgr_log.DEBUG, "TOR-AGENT is there")
