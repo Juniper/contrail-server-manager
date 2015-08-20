@@ -1928,7 +1928,7 @@ $__contrail_quantum_servers__
             self._smgr_log.log(self._smgr_log.DEBUG, 'cert exists for %s host %s' % (tor_name, tor_server_fqdn))
             return
         cert_cmd ='openssl req -new -x509 -days 3650 -sha256 -newkey rsa:4096'\
-            + ' -nodes -subj "/C=US/ST=Global/L=' + tor_name + '/O=' \
+            + ' -nodes -text -subj "/C=US/ST=Global/L=' + tor_name + '/O=' \
             + tor_vendor_name + '/CN=' + tor_server_fqdn + '" -keyout ' \
             + tor_key_file + ' -out ' + tor_cert_file
 
