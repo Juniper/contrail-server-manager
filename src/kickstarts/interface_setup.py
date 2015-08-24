@@ -54,6 +54,7 @@ class BaseInterface(object):
         self.gw         = kwargs.get('gw', None)
         self.vlan       = kwargs.get('vlan', None)
         self.dhcp       = kwargs.get('dhcp', None)
+        self.no_restart_network = kwargs.get('no_restart_network', False)
         self.bond_opts  = {'miimon': '100', 'mode': '802.3ad',
                            'xmit_hash_policy': 'layer3+4'}
         try:
@@ -255,7 +256,8 @@ class BaseInterface(object):
 
     def post_conf(self):
         '''Execute commands after after interface configuration'''
-        pass
+        if not self.no_restart_network:
+            self.restart_service()
 
     def pre_conf(self):
         '''Execute commands before interface configuration'''
@@ -476,6 +478,10 @@ def parse_cli(args):
     parser.add_argument('--dhcp',
                         action='store_true',
                         help='DHCP')
+    parser.add_argument('--no-restart-network',
+                        action='store_true',
+                        default=False,
+                        help='Disable network restart after configuring interfaces')
     pargs = parser.parse_args(args)
     if len(args) == 0:
         parser.print_help()
