@@ -40,12 +40,12 @@ EOF
 
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
-deb http://$server/thirdparty_packages/ ./
+deb http://$server:9003/thirdparty_packages/ ./
 EOF
 
 cat >>/etc/apt/sources.list.save <<EOF
 # add repos needed for puppet and its dependencies
-deb http://$server/thirdparty_packages/ ./
+deb http://$server:9003/thirdparty_packages/ ./
 
 # deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ dists/precise/main/binary-i386/
 # deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ dists/precise/restricted/binary-i386/
@@ -155,6 +155,7 @@ echo "    ignorecache = true" >> /etc/puppet/puppet.conf
 echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
 echo "    listen = true" >> /etc/puppet/puppet.conf
 echo "    ordering = manifest" >> /etc/puppet/puppet.conf
+echo "    report = true" >> /etc/puppet/puppet.conf
 echo "[main]" >> /etc/puppet/puppet.conf
 echo "runinterval=10" >> /etc/puppet/puppet.conf
 echo "configtimeout=500" >> /etc/puppet/puppet.conf
