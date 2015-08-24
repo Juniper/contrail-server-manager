@@ -481,6 +481,7 @@ class ServerMgrPuppet:
         # enf if server_control_ip...
 
         data += 'contrail::params::host_roles: %s\n' %(str(provision_params['host_roles']))
+        data += 'contrail::params::tor_ha_config: "%s"\n' %(str(provision_params['tor_ha_config']))
         if 'toragent' in provision_params['host_roles'] :
             tor_config = eval(provision_params.get("top_of_rack", ""))
             #self._smgr_log.log(self._smgr_log.DEBUG, "tor_config => %s" % tor_config)
