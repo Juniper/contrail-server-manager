@@ -3587,8 +3587,26 @@ class VncServerManager():
                 else:
                     self._smgr_log.log(self._smgr_log.DEBUG, "TOR-AGENT is not there")
                     provision_params['top_of_rack'] = ""
+                provision_params['tor_ha_config'] = {}
+                for role_server in role_servers['toragent']:
+                    server_params_compute = eval(role_server['top_of_rack'])
+                    if len(server_params_compute) > 0:
+                        #self._smgr_log.log(self._smgr_log.DEBUG, "TOR1 of %s => %s" % (role_server['id'],server_params_compute))
+                        node_id = role_server['id']
+                        switches = server_params_compute['switches']
+                        provision_params['tor_ha_config'][node_id] = []
+                        #self._smgr_log.log(self._smgr_log.DEBUG, "TOR3 %s => %s" % (server['id'],server_params_compute['switch_name']))
+                        for i in range(len(switches)):
+                            switch_detail = {}
+                            switch_detail['tor_name'] = switches[i]['switch_name']
+                            switch_detail['ovs_port'] = switches[i]['ovs_port']
+                            switch_detail['protocol'] = switches[i]['ovs_protocol']
+                            host_control_ip = self._smgr_puppet.get_control_ip(provision_params, role_server.get('ip_address', ""))
+                            switch_detail['tsn_ip'] = host_control_ip
+                            provision_params['tor_ha_config'][node_id].append(switch_detail)
 
-                self._smgr_log.log(self._smgr_log.DEBUG, "tor config of %s => %s" % (server['id'], server_tor_config))
+                #self._smgr_log.log(self._smgr_log.DEBUG, "tor config of %s => %s" % (server['id'], server_tor_config))
+                self._smgr_log.log(self._smgr_log.DEBUG, "TOR2 %s => %s" % (server['id'], provision_params['tor_ha_config']))
                 if len(role_servers['storage-compute']):
                     msg = "Storage is enabled"
                     storage_status = '1'
