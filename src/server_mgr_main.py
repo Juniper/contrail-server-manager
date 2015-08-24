@@ -41,13 +41,19 @@ from server_mgr_defaults import *
 from server_mgr_err import *
 from server_mgr_status import *
 from server_mgr_db import ServerMgrDb as db
-from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
+try:
+    from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
+except ImportError:
+    pass
+try:
+    from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
+except ImportError:
+    pass
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_validations import ServerMgrValidations as ServerMgrValidations
-from server_mgr_mon_base_plugin import ServerMgrMonBasePlugin
 import pycurl
 import json
 import xmltodict
@@ -70,6 +76,8 @@ _DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
 _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
 _SERVER_TAGS_FILE = 'tags.ini'
 _DEF_HTML_ROOT_DIR = '/var/www/html/'
+_DEF_COBBLER = 'True'
+_DEF_MONITORING = 'True'
 _DEF_COBBLER_IP = '127.0.0.1'
 _DEF_COBBLER_PORT = None
 _DEF_COBBLER_USERNAME = 'cobbler'
@@ -84,7 +92,7 @@ _DEF_SANDESH_LOG_LEVEL = 'SYS_INFO'
 _DEF_ROLE_SEQUENCE_DEF_FILE = _DEF_SMGR_BASE_DIR + 'role_sequence.json'
 _CONTRAIL_CENTOS_REPO = 'contrail-centos-repo'
 _CONTRAIL_REDHAT_REPO = 'contrail-redhat-repo'
-
+_DEF_SMGR_PROVISION_LOGS_DIR = '/var/log/contrail-server-manager/provision/'
 # Temporary variable added to disable use of new puppet framework. This should be removed/enabled
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
 # this variable and it's use when enabling new puppet framework.
@@ -181,6 +189,31 @@ class VncServerManager():
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
 
+    def _is_cobbler_enabled(self, cobbler):
+        if cobbler.lower() == 'true':
+            return True
+        else:
+            return False
+
+    def _is_monitoring_enabled(self, monitoring):
+        if monitoring.lower() == 'true':
+            return True
+        else:
+            return False
+
+    def _do_puppet_kick(self, host_ip):
+        msg = "Puppet kick trigered for %s" % (host_ip)
+        self._smgr_log.log(self._smgr_log.INFO, msg)
+
+        try:
+            rc = subprocess.check_call(
+                    ["puppet", "kick", "--host", host_ip])
+            # Log, return error if return code is non-null - TBD Abhay
+        except subprocess.CalledProcessError as e:
+            msg = ("put_image: error %d when executing"
+                       "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+
     def merge_dict(self, d1, d2):
         for k,v2 in d2.items():
             v1 = d1.get(k) # returns None if v1 has no value for this key
@@ -265,8 +298,6 @@ class VncServerManager():
         except: 
             print "Error Creating ServerMgrValidations object"
 
-
-        self._monitoring_base_plugin_obj = ServerMgrMonBasePlugin()
         if not args_str:
             args_str = sys.argv[1:]
         self._parse_args(args_str)
@@ -312,17 +343,20 @@ class VncServerManager():
 
         # Create an instance of cobbler interface class and connect to it.
         try:
-            self._smgr_cobbler = ServerMgrCobbler(self._args.server_manager_base_dir,
-                                                  self._args.cobbler_ip_address,
-                                                  self._args.cobbler_port,
-                                                  self._args.cobbler_username,
-                                                  self._args.cobbler_password)
+            self._smgr_cobbler = None
+            if self._is_cobbler_enabled(self._args.cobbler):
+                self._smgr_cobbler = ServerMgrCobbler(self._args.server_manager_base_dir,
+                                 self._args.cobbler_ip_address,
+                                 self._args.cobbler_port,
+                                 self._args.cobbler_username,
+                                 self._args.cobbler_password)
             # Copy contrail centos/redhat repo to cobber repos, so that target
             # systems can install and run puppet agent from kickstart.
-            self._smgr_cobbler._init_create_repo(
-                _CONTRAIL_CENTOS_REPO, self._args.server_manager_base_dir)
-            self._smgr_cobbler._init_create_repo(
-                _CONTRAIL_REDHAT_REPO, self._args.server_manager_base_dir)
+            if self._smgr_cobbler:
+                self._smgr_cobbler._init_create_repo(
+                    _CONTRAIL_CENTOS_REPO, self._args.server_manager_base_dir)
+                self._smgr_cobbler._init_create_repo(
+                    _CONTRAIL_REDHAT_REPO, self._args.server_manager_base_dir)
         except:
             print "Error connecting to cobbler"
             exit()
@@ -389,8 +423,8 @@ class VncServerManager():
                 self._create_server_manager_config(self.config_data)
             except Exception as e:
                 print repr(e)
-
-        self._monitoring_base_plugin_obj.initialize_features(sm_args=self._args, serverdb=self._serverDb)
+        if self._is_monitoring_enabled(self._args.monitoring):
+            self._monitoring_base_plugin_obj.initialize_features(sm_args=self._args, serverdb=self._serverDb)
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -406,11 +440,13 @@ class VncServerManager():
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/chassis-id', 'GET', self.get_server_chassis_id)
         bottle.route('/tag', 'GET', self.get_server_tags)
-        bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
-        bottle.route('/InventoryConf', 'GET', self._server_inventory_obj.get_inv_conf_details)
-        bottle.route('/MonitorInfo', 'GET', self._server_monitoring_obj.get_monitoring_info)
-        bottle.route('/MonitorInfoSummary', 'GET', self._server_monitoring_obj.get_monitoring_info_summary)
-        bottle.route('/InventoryInfo', 'GET', self._server_inventory_obj.get_inventory_info)
+        if self._server_monitoring_obj:
+            bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
+            bottle.route('/MonitorInfo', 'GET', self._server_monitoring_obj.get_monitoring_info)
+            bottle.route('/MonitorInfoSummary', 'GET', self._server_monitoring_obj.get_monitoring_info_summary)
+        if self._server_inventory_obj:
+            bottle.route('/InventoryConf', 'GET', self._server_inventory_obj.get_inv_conf_details)
+            bottle.route('/InventoryInfo', 'GET', self._server_inventory_obj.get_inventory_info)
         bottle.route('/defaults', 'GET', self.get_defaults)
 
         #bottle.route('/logs/<filepath:path>', 'GET', self.get_defaults)
@@ -481,12 +517,14 @@ class VncServerManager():
         bottle.route('/image', 'DELETE', self.delete_image)
 
         # REST calls for POST methods
-        bottle.route('/server/reimage', 'POST', self.reimage_server)
+        if self._smgr_cobbler:
+            bottle.route('/server/reimage', 'POST', self.reimage_server)
+            bottle.route('/server/restart', 'POST', self.restart_server)
+            bottle.route('/dhcp_event', 'POST', self.process_dhcp_event)
         bottle.route('/server/provision', 'POST', self.provision_server)
-        bottle.route('/server/restart', 'POST', self.restart_server)
-        bottle.route('/dhcp_event', 'POST', self.process_dhcp_event)
         bottle.route('/interface_created', 'POST', self.interface_created)
-        bottle.route('/run_inventory', 'POST', self._server_inventory_obj.run_inventory)
+     	if self._server_inventory_obj:
+            bottle.route('/run_inventory', 'POST', self._server_inventory_obj.run_inventory)
 
     def get_pipe_start_app(self):
         return self._pipe_start_app
@@ -1574,7 +1612,8 @@ class VncServerManager():
                 server_data['id'] = server.get('id', None)
                 self._serverDb.modify_server_to_new_interface_config(server_data)
             # End of for
-            gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "add", servers)
+            if self._server_inventory_obj:
+                gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "add", servers)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
@@ -1982,8 +2021,9 @@ class VncServerManager():
             cmd = ("rm -f contrail_debs.tgz")
             subprocess.check_call(cmd, shell=True)
             # build repo using createrepo
-            cmd = (
-                "dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
+            cmd = ("cp -v -a /opt/contrail/server_manager/reprepro/conf %s/" % mirror)
+            subprocess.check_call(cmd, shell=True)
+            cmd = ("reprepro includedeb contrail %s/*.deb" % mirror)
             subprocess.check_call(cmd, shell=True)
             # change directory back to original
             os.chdir(cwd)
@@ -2235,12 +2275,14 @@ class VncServerManager():
             self._serverDb.delete_server(match_dict)
             # delete the system entries from cobbler
             for server in servers:
-                if server['id']:
+                if server['id'] and self._smgr_cobbler:
                     self._smgr_cobbler.delete_system(server['id'])
             # Sync the above information
-            self._smgr_cobbler.sync()
+            if self._smgr_cobbler:
+                self._smgr_cobbler.sync()
             # Inventory Delete Info Trigger
-            gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "delete", servers)
+            if self._server_inventory_obj:
+                gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "delete", servers)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
@@ -2299,12 +2341,14 @@ class VncServerManager():
                     self._args.html_root_dir + "contrail/repo/" +
                     image_id, True)
                 # delete repo from cobbler
-                self._smgr_cobbler.delete_repo(image_id)
+                if self._smgr_cobbler:
+                    self._smgr_cobbler.delete_repo(image_id)
             else:
-                # delete corresponding distro from cobbler
-                self._smgr_cobbler.delete_distro(image_id)
-                # Sync the above information
-                self._smgr_cobbler.sync()
+                if self._smgr_cobbler:
+                    # delete corresponding distro from cobbler
+                    self._smgr_cobbler.delete_distro(image_id)
+                    # Sync the above information
+                    self._smgr_cobbler.sync()
                 # remove the file
                 os.remove(self._args.server_manager_base_dir + 'images/' +
                           image_id + '.iso')
@@ -2705,7 +2749,7 @@ class VncServerManager():
                         mem_intfs = self.get_member_interfaces(network_dict,
                                                                member_intfs)
                     device_str+= ("python interface_setup.py \
---device %s --members %s --bond-opts \"%s\" --ip %s\n") % \
+--device %s --members %s --bond-opts \"%s\" --ip %s --no-restart-network\n") % \
                         (name,
             			" ".join(mem_intfs),
 			            json.dumps(bond_opts), ip_addr)
@@ -2714,10 +2758,10 @@ class VncServerManager():
                     if 'mac_address' in intf:
                         name = intf['mac_address'].lower()
                     if dhcp:
-                        device_str+= ("python interface_setup.py --device %s --dhcp\n") % \
+                        device_str+= ("python interface_setup.py --device %s --dhcp --no-restart-network\n") % \
                             (name)
                     else:
-                        device_str+= ("python interface_setup.py --device %s --ip %s\n") % \
+                        device_str+= ("python interface_setup.py --device %s --ip %s --no-restart-network\n") % \
                             (name, ip_addr)
                     execute_script = True
             sh_file_name = "/var/www/html/contrail/config_file/%s.sh" % (server['id'])
@@ -2733,13 +2777,14 @@ class VncServerManager():
         server = {}
         # Since this runs on a separate greenlet, create its own cobbler
         # connection, so that it does not interfere with main thread.
-        cobbler_server = ServerMgrCobbler(
-            self._args.server_manager_base_dir,
-            self._args.cobbler_ip_address,
-            self._args.cobbler_port,
-            self._args.cobbler_username,
-            self._args.cobbler_password)
-
+        cobbler_server = None
+        if self._is_cobbler_enabled(self._args.cobbler):
+            cobbler_server = ServerMgrCobbler(
+                self._args.server_manager_base_dir,
+                self._args.cobbler_ip_address,
+                self._args.cobbler_port,
+                self._args.cobbler_username,
+                self._args.cobbler_password)
         while True:
             try:
                 reimage_item = self._reimage_queue.get()
@@ -3822,7 +3867,8 @@ class VncServerManager():
     # TBD
     def cleanup(self):
         print "called cleanup"
-        self._server_monitoring_obj.cleanup(self._monitoring_base_plugin_obj.monitoring_gevent_thread_obj)
+        if self._server_monitoring_obj:
+            self._server_monitoring_obj.cleanup(self._monitoring_base_plugin_obj.monitoring_gevent_thread_obj)
 
     # end cleanup
 
@@ -3870,6 +3916,8 @@ class VncServerManager():
             'database_name': _DEF_CFG_DB,
             'server_manager_base_dir': _DEF_SMGR_BASE_DIR,
             'html_root_dir': _DEF_HTML_ROOT_DIR,
+            'cobbler': _DEF_COBBLER,
+            'monitoring': _DEF_MONITORING,
             'cobbler_ip_address': _DEF_COBBLER_IP,
             'cobbler_port': _DEF_COBBLER_PORT,
             'cobbler_username': _DEF_COBBLER_USERNAME,
@@ -3932,12 +3980,17 @@ class VncServerManager():
                 "Name of JSON file containing list of cluster and servers,"
                 " default None"))
         self._args = parser.parse_args(remaining_argv)
-        self._server_monitoring_obj = \
-            self._monitoring_base_plugin_obj.parse_monitoring_args(args_str, args, self._args, self._rev_tags_dict,
-                                                                   self._monitoring_base_plugin_obj)
-        self._server_inventory_obj = \
-            self._monitoring_base_plugin_obj.parse_inventory_args(args_str, args, self._args, self._rev_tags_dict,
-                                                                  self._monitoring_base_plugin_obj)
+        self._server_monitoring_obj = None 
+        self._server_inventory_obj = None 
+        if self._is_monitoring_enabled(self._args.monitoring):
+            self._monitoring_base_plugin_obj = ServerMgrMonBasePlugin()
+            self._server_monitoring_obj = \
+                self._monitoring_base_plugin_obj.parse_monitoring_args(args_str, args, self._args, self._rev_tags_dict,
+                                                                       self._monitoring_base_plugin_obj)
+        if self._is_monitoring_enabled(self._args.monitoring):
+            self._server_inventory_obj = \
+                self._monitoring_base_plugin_obj.parse_inventory_args(args_str, args, self._args, self._rev_tags_dict,
+                                                                      self._monitoring_base_plugin_obj)
         self._args.config_file = args.config_file
     # end _parse_args
 
@@ -4059,6 +4112,14 @@ class VncServerManager():
                     self._smgr_log.log(
                         self._smgr_log.DEBUG,
                         cmd + "; ret_code = %d" %(ret_code))
+                    # Remove provision log for the server
+                    cmd = "rm -rf " + _DEF_SMGR_PROVISION_LOGS_DIR + server['id'] + '.' + \
+                            server['domain']
+                    ret_code = subprocess.call(cmd, shell=True)
+                    self._smgr_log.log(
+                        self._smgr_log.DEBUG,
+                        cmd + "; ret_code = %d" %(ret_code))
+
                 # end if
                 if server['ipmi_address']:
                     power_reboot_list.append(

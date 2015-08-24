@@ -40,12 +40,12 @@ EOF
 
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
-deb http://$server/thirdparty_packages/ ./
+deb http://$server:9003/thirdparty_packages/ ./
 EOF
 
 cat >>/etc/apt/sources.list.save <<EOF
 # add repos needed for puppet and its dependencies
-deb http://$server/thirdparty_packages/ ./
+deb http://$server:9003/thirdparty_packages/ ./
 
 # deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ dists/precise/main/binary-i386/
 # deb cdrom:[Ubuntu-Server 12.04 LTS _Precise Pangolin_ - Release amd64 (20120424.1)]/ dists/precise/restricted/binary-i386/

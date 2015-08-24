@@ -108,8 +108,9 @@ class ServerMgrStatusThread(threading.Thread):
                 payload = dict()
                 payload["id"] = server_id
                 self._smgr_log.log(self._smgr_log.DEBUG, "Spawning Gevent for Id: %s" % payload["id"])
-                gevent.spawn(self._base_obj.reimage_run_inventory, self._status_thread_config["listen_ip"],
-                             self._status_thread_config["listen_port"], payload)
+                if self._base_obj:
+                    gevent.spawn(self._base_obj.reimage_run_inventory, self._status_thread_config["listen_ip"],
+                                 self._status_thread_config["listen_port"], payload)
             if server_state == "provision_started":
                 self._smgr_main.update_provision_started_flag(server_id, server_state)
             self._smgr_main.update_provision_role_sequence(server_id,
