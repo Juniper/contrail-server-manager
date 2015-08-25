@@ -1,0 +1,9 @@
+Origin: Debian
+Label: Debian-All
+Suite: contrail-install-repo
+Codename: contrail
+Version: 1.0
+Architectures: amd64
+DebOverride: override
+Components: main
+Description: Contrail Install Repo
