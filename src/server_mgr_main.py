@@ -1932,8 +1932,9 @@ class VncServerManager():
             cmd = ("rm -f contrail_debs.tgz")
             subprocess.check_call(cmd, shell=True)
             # build repo using createrepo
-            cmd = (
-                "dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
+            cmd = ("cp -v -a /opt/contrail/server_manager/reprepro/conf %s/" % mirror)
+            subprocess.check_call(cmd, shell=True)
+            cmd = ("reprepro includedeb contrail %s/*.deb" % mirror)
             subprocess.check_call(cmd, shell=True)
             # change directory back to original
             os.chdir(cwd)
