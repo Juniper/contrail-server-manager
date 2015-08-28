@@ -1,38 +1,33 @@
 #!/bin/bash
 
-setenforce 0
-setsebool -P httpd_can_network_connect_cobbler 1
-iptables -F
-
-echo ""
-echo "Stopping Puppetmaster"
-echo ""
-service puppetmaster stop
+setenforce 0 &> /dev/null
+setsebool -P httpd_can_network_connect_cobbler 1 &> /dev/null
+iptables -F &> /dev/null
 
 echo ""
 echo "Restarting Apache2"
 echo ""
-service apache2 restart
+service apache2 restart &> /dev/null
 
 echo ""
 echo "Restarting Sqlite"
 echo ""
-service sqlite restart
+service sqlite restart &> /dev/null
 
 echo ""
 echo "Restarting Cobbler"
 echo ""
-service cobblerd restart
+service cobblerd restart &> /dev/null
 
 echo ""
 echo "Doing Cobbler Sync"
 echo ""
-cobbler sync
+cobbler sync &> /dev/null
 
 echo ""
 echo "Restarting Xinetd"
 echo ""
-service xinetd restart
+service xinetd restart &> /dev/null
 
 mkdir -p /var/run/contrail-server-manager/
 echo ""
@@ -40,5 +35,3 @@ echo "Starting SMgr"
 echo ""
 nohup /opt/contrail/server_manager/server_mgr_main.py -c /opt/contrail/server_manager/sm-config.ini 0<&- &> /var/run/contrail-server-manager/contrail-server-manager.log&
 
-cd /var/www/html/thirdparty_packages
-dpkg-scanpackages . | gzip -9c > Packages.gz
