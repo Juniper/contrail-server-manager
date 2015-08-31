@@ -1,0 +1,116 @@
+# ******************************************************************
+# Cobbler managed dhcpd.conf file
+#
+# generated from cobbler dhcp.conf template ($date)
+# Do NOT make changes to /etc/dhcpd.conf. Instead, make your changes
+# in /etc/cobbler/dhcp.template, as /etc/dhcpd.conf will be
+# overwritten.
+#
+# ******************************************************************
+
+ddns-update-style interim;
+
+allow booting;
+allow bootp;
+
+ignore client-updates;
+set vendorclass = option vendor-class-identifier;
+
+subnet 10.204.217.0 netmask 255.255.255.0 {
+    option routers              10.204.217.254;
+    option subnet-mask          255.255.255.0;
+    option domain-name-servers  $next_server, 8.8.8.8;
+    option domain-search        "englab.juniper.net", "juniper.net";
+    option domain-name          "englab.juniper.net" ;
+     option ntp-servers         $next_server ;
+     default-lease-time         21600;
+     max-lease-time             43200;
+     next-server                $next_server;
+     filename                   "/pxelinux.0";
+
+     on commit {
+         set clip = binary-to-ascii(10, 8, ".", leased-address);
+         set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "commit", clip, clhw);
+         set ClientHost = pick-first-value(host-decl-name,
+                                           option fqdn.hostname,
+                                          option host-name,
+                                           "none");
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "commit", clip, clhw, ClientHost);
+     }
+
+     on release {
+         set clip = binary-to-ascii(10, 8, ".", leased-address);
+         set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "release", clip, clhw);
+         set ClientHost = pick-first-value(host-decl-name,
+                                           option fqdn.hostname,
+                                           option host-name,
+                                           "none");
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "release", clip, clhw, ClientHost);
+     }
+
+     on expiry {
+         set clip = binary-to-ascii(10, 8, ".", leased-address);
+         set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw);
+         set ClientHost = pick-first-value(host-decl-name,
+                                           option fqdn.hostname,
+                                           option host-name,
+                                           "none");
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw, ClientHost);
+     }
+}
+
+host nodeg31.englab.juniper.net {
+        hardware ethernet 00:25:90:C5:5F:6A;
+        fixed-address 10.204.217.71;
+        option host-name "nodeg31";
+        filename "/pxelinux.0";
+        next-server $next_server;
+}
+
+
+#for dhcp_tag in $dhcp_tags.keys():
+    ## group could be subnet if your dhcp tags line up with your subnets
+    ## or really any valid dhcpd.conf construct ... if you only use the
+    ## default dhcp tag in cobbler, the group block can be deleted for a
+    ## flat configuration
+# group for Cobbler DHCP tag: $dhcp_tag
+group {
+        #for mac in $dhcp_tags[$dhcp_tag].keys():
+            #set iface = $dhcp_tags[$dhcp_tag][$mac]
+    host $iface.name {
+        hardware ethernet $mac;
+        #if $iface.ip_address:
+        fixed-address $iface.ip_address;
+        #end if
+        #if $iface.hostname:
+        option host-name "$iface.hostname";
+        #end if
+        #if $iface.netmask:
+        option subnet-mask $iface.netmask;
+        #end if
+        #if $iface.gateway:
+        option routers $iface.gateway;
+        #end if
+        #if $iface.enable_gpxe:
+        if exists user-class and option user-class = "gPXE" {
+            filename "http://$cobbler_server/cblr/svc/op/gpxe/system/$iface.owne                                                                                                                     r";
+        } else {
+            filename "undionly.kpxe";
+        }
+        #else if $dhcp_tag == "xenserver"
+        filename "pxelinux.0.$iface.distro.name";
+        #else
+        filename "$iface.filename";
+        #end if
+        ## Cobbler defaults to $next_server, but some users
+        ## may like to use $iface.system.server for proxied setups
+        next-server $next_server;
+        ## next-server $iface.next_server;
+    }
+        #end for
+}
+#end for
+
