@@ -1,0 +1,69 @@
+{
+    "cluster": [
+        {
+            "base_image_id": "",
+            "email": "",
+            "id": "test-cluster-01",
+            "package_image_id": "",
+            "parameters": {
+                "analytics_data_ttl": "168",
+                "database_dir": "/home/cassandra",
+                "database_minimum_diskGB": "32",
+                "database_token": "",
+                "domain": "englab.juniper.net",
+                "enable_lbaas": "True",
+                "encapsulation_priority": "MPLSoUDP,MPLSoGRE,VXLAN",
+                "external_bgp": "",
+                "gateway": "10.204.221.46",
+                "haproxy": "disable",
+                "keystone_password": "contrail123",
+                "keystone_tenant": "admin",
+                "keystone_username": "admin",
+                "multi_tenancy": "True",
+                "openstack_mgmt_ip": "",
+                "password": "c0ntrail123",
+                "router_asn": "64512",
+                "subnet_mask": "255.255.255.0",
+                "use_certificates": "False"
+            },
+            "provisioned_id": null
+        },
+        {
+            "base_image_id": "",
+            "email": "",
+            "id": "test-cluster-02",
+            "package_image_id": "",
+            "parameters": {
+                "analytics_data_ttl": "168",
+                "compute_non_mgmt_gway": "",
+                "compute_non_mgmt_ip": "",
+                "database_dir": "/home/cassandra",
+                "database_minimum_diskGB": "32",
+                "database_token": "0",
+                "db_initial_token": "",
+                "domain": "englab.juniper.net",
+                "enable_ceilometer": "True",
+                "enable_lbaas": "True",
+                "encapsulation_priority": "MPLSoUDP,MPLSoGRE,VXLAN",
+                "external_bgp": "",
+                "gateway": "10.204.221.46",
+                "haproxy": "disable",
+                "internal_vip": "",
+                "keystone_password": "contrail123",
+                "keystone_tenant": "admin",
+                "keystone_username": "admin",
+                "multi_tenancy": "True",
+                "openstack_mgmt_ip": "",
+                "openstack_password": "contrail123",
+                "password": "c0ntrail123",
+                "router_asn": "64512",
+                "service_token": "contrail123",
+                "subnet_mask": "255.255.255.240",
+                "use_certificates": "False",
+                "use_certificatess": "False"
+            },
+            "provisioned_id": null
+        }
+    ]
+}
+
