@@ -10,7 +10,7 @@ def sm_unit_test_suite():
     suite = unittest.TestSuite()
     #Adding the Monitoring uni-test suite
     suite.addTest(monitoring_suite())
-    suite.addTest(sm_server_rest_api_suite())
+    suite.addTest(sm_rest_api_suite())
     return suite
 
 #Run the entire SM unit testsuite when this scrip is run
