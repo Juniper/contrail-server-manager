@@ -325,6 +325,8 @@ class Server(object):
                      'restrict -6 ::1\n' \
                      'includefile /etc/ntp/crypto/pw\n' \
                      'keys /etc/ntp/keys' % self.server_manager_ip
+        if self.ip == self.server_manager_ip:
+            ntp_config = ntp_config.replace('server %s' % self.server_manager_ip, 'server 127.127.1.0  iburst maxpoll 9')
         self.exec_cmd(r'echo "%s" >> /etc/ntp.conf' % ntp_config,
                       error_on_fail=True)
 
