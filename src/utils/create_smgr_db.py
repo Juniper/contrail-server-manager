@@ -297,7 +297,6 @@ def new_vns():
                               "use_certs": "False",
                               "multi_tenancy": "False",
                               "encap_priority": "'MPLSoUDP','MPLSoGRE','VXLAN'",
-                              "service_token": "contrail123",
                               "ks_user": "admin",
                               "ks_passwd": "contrail123",
                               "ks_tenant": "admin",
