@@ -260,7 +260,6 @@ class ServerMgrPuppet:
             "redis_password" : ["redis_password", "string"],
             "keystone_ip" : ["keystone_ip", "string"],
             "keystone_password" : ["keystone_admin_password", "string"],
-            "service_token" : ["keystone_service_token", "string"],
             "keystone_username" : ["keystone_admin_user", "string"],
             "keystone_tenant" : ["keystone_admin_tenant", "string"],
             "keystone_service_tenant" : ["keystone_service_tenant", "string"],
@@ -588,7 +587,7 @@ class ServerMgrPuppet:
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
         mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
-        keystone_admin_token = cluster_params.get("service_token", "contrail123")
+        keystone_admin_token = (subprocess.Popen(["openssl", "rand", "-hex", "10"],stdout=subprocess.PIPE).communicate()[0]).rstrip()
         keystone_admin_password = cluster_params.get("keystone_password", "contrail123")
         heat_encryption_key = cluster_params.get("heat_encryption_key", "notgood but just long enough i think")
         subnet_address = str(IPNetwork(

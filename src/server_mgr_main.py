@@ -1497,17 +1497,6 @@ class VncServerManager():
                     cur_cluster["provision_role_sequence"] = {}
                     cur_cluster["provision_role_sequence"]["steps"] = []
                     cur_cluster["provision_role_sequence"]["completed"] = []
-                    service_token = cur_cluster["parameters"].get(
-                        "service_token", "")
-                    if not service_token:
-                        try:
-                            service_token = (subprocess.Popen(
-                                ["openssl", "rand", "-hex", "10"],
-                                stdout=subprocess.PIPE).communicate()[0]).rstrip()
-                        except:
-                            service_token = "contrail123"
-                    cur_cluster["parameters"].update(
-                        {"service_token": service_token})
                     self._smgr_log.log(self._smgr_log.INFO, "Cluster Data %s" % cur_cluster)
                     self._serverDb.add_cluster(cur_cluster)
         except ServerMgrException as e:
@@ -3588,7 +3577,6 @@ class VncServerManager():
                 provision_params['multi_tenancy'] = cluster_params['multi_tenancy']
                 provision_params['router_asn'] = cluster_params['router_asn']
                 provision_params['encapsulation_priority'] = cluster_params['encapsulation_priority']
-                provision_params['service_token'] = cluster_params['service_token']
                 provision_params['keystone_username'] = cluster_params['keystone_username']
                 provision_params['keystone_password'] = cluster_params['keystone_password']
                 provision_params['keystone_tenant'] = cluster_params['keystone_tenant']

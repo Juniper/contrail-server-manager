@@ -42,7 +42,6 @@ object_dict = {
              ("database_token", "initial database token"),
              ("use_certificates", "whether to use certificates for auth (True/False)"),
              ("multi_tenancy", "Openstack multitenancy (True/False)"),
-             ("service_token", "Service token for openstack access"),
              ("keystone_username", "Keystone user name"),
              ("keystone_password", "keystone password"),
              ("keystone_tenant", "keystone tenant name"),

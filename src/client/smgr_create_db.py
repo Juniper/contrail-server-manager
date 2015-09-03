@@ -354,7 +354,6 @@ def new_cluster():
                               "use_certificates": "False",
                               "multi_tenancy": "False",
                               "encapsulation_priority": "'MPLSoUDP','MPLSoGRE','VXLAN'",
-                              "service_token": "contrail123",
                               "keystone_user": "admin",
                               "keystone_password": "contrail123",
                               "keystone_tenant": "admin",

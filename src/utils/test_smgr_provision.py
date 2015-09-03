@@ -126,7 +126,7 @@ class Provision_and_Validate(object):
       password = 'c0ntrail123'
       print password
       cluster_object = open('/tmp/smgr/cluster.json', 'w+')
-      parameters_value = { 'router_asn': '64512', "database_dir": '/home/cassandra', 'database_token': '', 'use_certificates': 'False', 'multi_tenancy': 'True', 'encapsulation_priority': 'MPLSoUDP,MPLSoGRE,VXLAN', 'service_token': 'contrail123', 'keystone_user': 'admin', 'keystone_passwd': 'contrail123', 'keystone_tenant': 'admin', 'openstack_passwd': 'contrail123', 'analytics_data_ttl': '168', "haproxy": "disable", 'subnet_mask': subnetmask, 'gateway': '10.204.'+ octet[2]+ '.254', 'password': password, 'external_bgp': '[]', 'domain': domain } 
+      parameters_value = { 'router_asn': '64512', "database_dir": '/home/cassandra', 'database_token': '', 'use_certificates': 'False', 'multi_tenancy': 'True', 'encapsulation_priority': 'MPLSoUDP,MPLSoGRE,VXLAN', 'keystone_user': 'admin', 'keystone_passwd': 'contrail123', 'keystone_tenant': 'admin', 'openstack_passwd': 'contrail123', 'analytics_data_ttl': '168', "haproxy": "disable", 'subnet_mask': subnetmask, 'gateway': '10.204.'+ octet[2]+ '.254', 'password': password, 'external_bgp': '[]', 'domain': domain } 
       print parameters_value     
       cluster_dict = { "id" : "clustervm", "email": "pbharat@juniper.net", "parameters" : parameters_value }
       print cluster_dict
