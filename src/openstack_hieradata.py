@@ -34,7 +34,6 @@ openstack::rabbitmq::user: 'guest'
 openstack::rabbitmq::password: 'guest'
 
 ######## Keystone
-openstack::keystone::admin_token: '$__keystone_admin_token__'
 openstack::keystone::admin_email: 'test@orgname.com'
 openstack::keystone::admin_password: '$__keystone_admin_password__'
 

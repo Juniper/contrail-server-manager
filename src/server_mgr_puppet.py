@@ -579,10 +579,6 @@ class ServerMgrPuppet:
             self._params_dict['contrail_openstack_mgmt_ip'] = (
                 "\"%s\"" %(contrail_openstack_mgmt_ip_control.replace('"', '')))
         if self._params_dict.get(
-            'contrail_service_token', None) is None:
-            self._params_dict['contrail_service_token'] = (
-                "\"%s\"" %(provision_params["service_token"]))
-        if self._params_dict.get(
             'contrail_ks_admin_passwd', None) is None:
             self._params_dict['contrail_ks_admin_passwd'] = (
                 "\"%s\"" %(provision_params["keystone_password"]))
@@ -841,10 +837,6 @@ $__contrail_disc_backend_servers__
             'contrail_collector_ip', None) is None:
             self._params_dict['contrail_collector_ip'] = (
                 "\"%s\"" %(collector_server_control.replace('"', '')))
-        if self._params_dict.get(
-            'contrail_service_token', None) is None:
-            self._params_dict['contrail_service_token'] = (
-                "\"%s\"" %(provision_params["service_token"]))
         if self._params_dict.get(
             'contrail_ks_admin_user', None) is None:
             self._params_dict['contrail_ks_admin_user'] = (
@@ -1500,10 +1492,6 @@ $__contrail_quantum_servers__
             self._params_dict['contrail_openstack_mgmt_ip'] = (
                 "\"%s\"" %(contrail_openstack_mgmt_ip_control.replace('"', '')))
         if self._params_dict.get(
-            'contrail_service_token', None) is None:
-            self._params_dict['contrail_service_token'] = (
-                "\"%s\"" %(provision_params["service_token"]))
-        if self._params_dict.get(
             'contrail_physical_interface', None) is None:
             self._params_dict['contrail_physical_interface'] = (
                 "\"%s\"" %(provision_params["phy_interface"]))
@@ -1834,7 +1822,6 @@ $__contrail_quantum_servers__
             "redis_password" : ["redis_password", "string"],
             "keystone_ip" : ["keystone_ip", "string"],
             "keystone_password" : ["keystone_admin_password", "string"],
-            "service_token" : ["keystone_service_token", "string"],
             "keystone_username" : ["keystone_admin_user", "string"],
             "keystone_tenant" : ["keystone_admin_tenant", "string"],
             "keystone_service_tenant" : ["keystone_service_tenant", "string"],
@@ -2162,7 +2149,7 @@ $__contrail_quantum_servers__
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
         mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
-        keystone_admin_token = cluster_params.get("service_token", "contrail123")
+        keystone_admin_token = (subprocess.Popen(["openssl", "rand", "-hex", "10"],stdout=subprocess.PIPE).communicate()[0]).rstrip()
         keystone_admin_password = cluster_params.get("keystone_password", "contrail123")
         heat_encryption_key = cluster_params.get("heat_encryption_key", "notgood but just long enough i think")
         subnet_address = str(IPNetwork(
