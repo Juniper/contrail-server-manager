@@ -26,6 +26,7 @@ import paramiko
 import base64
 import shutil
 import string
+import tarfile
 from urlparse import urlparse, parse_qs
 from time import gmtime, strftime, localtime
 import pdb
@@ -1921,6 +1922,12 @@ class VncServerManager():
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
             puppet_manifest_version, sequence_provisioning_available  = self._add_puppet_modules(
                 puppet_modules_tgz_path, image_id)
+            # check if its a new version where repo pinning changes are brought in
+            archive = tarfile.open('./opt/contrail/puppet/contrail-puppet-manifest.tgz', 'r')
+            if './contrail/environment/modules/contrail/files/contrail_repo_preferences' in archive.getnames():
+                repo_pinning = True
+            else:
+                repo_pinning = False
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_debs.tgz .")
             subprocess.check_call(cmd, shell=True)
             cmd = ("rm -rf opt")
@@ -1931,11 +1938,15 @@ class VncServerManager():
             # remove the tgz file itself, not needed any more
             cmd = ("rm -f contrail_debs.tgz")
             subprocess.check_call(cmd, shell=True)
-            # build repo using createrepo
-            cmd = ("cp -v -a /opt/contrail/server_manager/reprepro/conf %s/" % mirror)
-            subprocess.check_call(cmd, shell=True)
-            cmd = ("reprepro includedeb contrail %s/*.deb" % mirror)
-            subprocess.check_call(cmd, shell=True)
+            # build repo using dpkg-scanpackages or reprepro based on repo pinning availability
+            if repo_pinning:
+                cmd = ("cp -v -a /opt/contrail/server_manager/reprepro/conf %s/" % mirror)
+                subprocess.check_call(cmd, shell=True)
+                cmd = ("reprepro includedeb contrail %s/*.deb" % mirror)
+                subprocess.check_call(cmd, shell=True)
+            else:
+                cmd = ("dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
+                subprocess.check_call(cmd, shell=True)
             # change directory back to original
             os.chdir(cwd)
             # cobbler add repo
