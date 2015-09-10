@@ -2044,6 +2044,12 @@ class VncServerManager():
             subprocess.check_call(cmd, shell=True)
             cmd = ("mv ./opt/contrail/contrail_packages/contrail_storage_debs.tgz .")
             subprocess.check_call(cmd, shell=True)
+
+            # check if its a new version where repo pinning changes are brought in
+            if os.path.isfile('./opt/contrail/contrail_packages/.repo_pinning'):
+                repo_pinning = True
+            else:
+                repo_pinning = False
             cmd = ("rm -rf opt")
             subprocess.check_call(cmd, shell=True)
             # untar tgz to get all packages
@@ -2052,10 +2058,18 @@ class VncServerManager():
             # remove the tgz file itself, not needed any more
             cmd = ("rm -f contrail_storage_debs.tgz")
             subprocess.check_call(cmd, shell=True)
-            # build repo using createrepo
-            cmd = (
-                "dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
-            subprocess.check_call(cmd, shell=True)
+
+            # if repo pinning is enabled use reprepo to create the repo
+            if repo_pinning:
+                cmd = ("cp -v -a /opt/contrail/server_manager/reprepro/conf %s/" % mirror)
+                subprocess.check_call(cmd, shell=True)
+                cmd = ("reprepro includedeb contrail %s/*.deb" % mirror)
+                subprocess.check_call(cmd, shell=True)
+            else:
+                cmd = (
+                    "dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
+                subprocess.check_call(cmd, shell=True)
+
             # change directory back to original
             os.chdir(cwd)
             # cobbler add repo
