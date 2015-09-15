@@ -168,6 +168,7 @@ class ServerMgrPuppet:
         data += '    class { \'::contrail::provision_start\' : state => \'provision_started\', stage => \'pre\' }\n'
         # Add common role
         data += '    class { \'::sysctl::base\' : stage => \'first\' }\n'
+        data += '    class { \'::apt\' : stage => \'first\' }\n'
         data += '    class { \'::contrail::profile::common\' : stage => \'first\' }\n'
         # Add keepalived (This class is no-op if vip is not configured.)
         if 'config' in server['roles'] or \
