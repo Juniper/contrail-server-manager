@@ -1,0 +1,6 @@
+include requirements.txt
+include setup_server_manager_client.sh
+include smgrcliapp/sm-client-config.ini
+include contrail_sku.txt
+include contrail_version.txt
+include servermanagerclient
