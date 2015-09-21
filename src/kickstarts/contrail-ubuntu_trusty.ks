@@ -51,7 +51,7 @@ service ssh restart
 #echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
-deb http://$server:9003/thirdparty_packages/ ./
+deb http://puppet/thirdparty_packages/ ./
 EOF
 
 apt-get update
@@ -61,7 +61,7 @@ apt-get -y install puppet
 
 cat >>/etc/apt/sources.list.save <<EOF
 # add repos needed for puppet and its dependencies
-deb http://$server:9003/thirdparty_packages/ ./
+deb http://puppet/thirdparty_packages/ ./
 
 #deb cdrom:[Ubuntu 14.04 _Trusty Tahr_ - Release i386]/ Trusty main restricted
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
