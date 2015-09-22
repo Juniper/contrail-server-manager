@@ -36,8 +36,14 @@ class CommandManager(cliff.commandmanager.CommandManager):
         super(CommandManager, self).__init__(namespace, convert_underscores)
 
     def load_commands(self, namespace):
+        """Load all the commands from an entrypoint"""
+        for ep in pkg_resources.iter_entry_points(namespace):
+            LOG.debug('found command %r', ep.name)
+            cmd_name = (ep.name.replace('_', ' ')
+                        if self.convert_underscores
+                        else ep.name)
+            self.commands[cmd_name] = ep
         self.group_list.append(namespace)
-        return super(CommandManager, self).load_commands(namespace)
 
     def add_command_group(self, group=None):
         """Adds another group of command entrypoints"""

@@ -27,6 +27,12 @@ class SmgrInteractiveApp(InteractiveApp):
             stdout=stdout
         )
 
+    def _complete_prefix(self, prefix):
+        """Returns cliff style commands with a specific prefix."""
+        if not prefix:
+            return [n for n, v in self.command_manager]
+        return [n for n, v in self.command_manager if n.startswith(prefix)]
+
     def completenames(self, text, *ignored):
         completions = cmd2.Cmd.completenames(self, text, *ignored)
         completions += self._complete_prefix(text)
@@ -36,7 +42,7 @@ class SmgrInteractiveApp(InteractiveApp):
     #Overriding this class method with custom auto-completion
     def completedefault(self, text, line, begidx, endidx):
         available_options = dict()
-        #This dictionary classes all the possbile SM options such that only one can be chosen at a time.
+        # This dictionary classes all the possbile SM options such that only one can be chosen at a time.
         available_options["help"] = ['-h', '--help']
         available_options["select"] = ['--select', '--detail']
         available_options["force"] = ['--no_confirm', '-F']
@@ -78,7 +84,7 @@ class SmgrInteractiveApp(InteractiveApp):
                               if (str(line).startswith(n) or str(line) == n)
                               and n in self.command_manager.get_added_commands()][0]
             cmd_factory, cmd_name, sub_argv = self.command_manager.find_command([str(chosen_command)])
-            cmd = cmd_factory(self.parent_app, self.parent_app.options, {})
+            cmd = cmd_factory(self.parent_app, self.parent_app.options)
             cmd.get_parser(cmd_name)
             cmd_dict = cmd.get_command_options()
             chosen_sub_command = None
@@ -227,4 +233,10 @@ class SmgrInteractiveApp(InteractiveApp):
                         ]
                 if len(return_list) > 0:
                     return [x[begidx:] for x in return_list]
+
+    def cmdloop(self):
+        try:
+            self._cmdloop()
+        except Exception as e:
+            self.parent_app.print_error_message_and_quit("\nException caught in interactive mode: " + str(e) + "\n")
 
