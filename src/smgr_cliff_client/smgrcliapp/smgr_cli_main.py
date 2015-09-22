@@ -25,6 +25,7 @@ import ast
 
 class ServerManagerCLI(App):
     log = logging.getLogger(__name__)
+    LOG = log
     smgr_port = None
     smgr_ip = None
     default_config = dict()
@@ -71,21 +72,13 @@ class ServerManagerCLI(App):
             const=0,
             help='suppress output except warnings and errors',
         )
-        if self.deferred_help:
-            parser.add_argument(
-                '-h', '--help',
-                dest='deferred_help',
-                action='store_true',
-                help="show this help message and exit",
-            )
-        else:
-            parser.add_argument(
-                '-h', '--help',
-                action=HelpAction,
-                nargs=0,
-                default=self,  # tricky
-                help="show this help message and exit",
-            )
+        parser.add_argument(
+            '-h', '--help',
+            action=HelpAction,
+            nargs=0,
+            default=self,  # tricky
+            help="show this help message and exit",
+        )
         parser.add_argument(
             '--debug',
             default=False,
@@ -152,7 +145,9 @@ class ServerManagerCLI(App):
     def interact(self):
         # Defer importing .interactive as cmd2 is a slow import
         from interactive import SmgrInteractiveApp
-        self.interpreter = SmgrInteractiveApp(self, self.command_manager, None, None)
+        self.interpreter = SmgrInteractiveApp(parent_app=self,
+                                              command_manager=self.command_manager,
+                                              stdout=self.stdout, stdin=self.stdin)
         self.interpreter.cmdloop()
         return 0
 
@@ -176,8 +171,7 @@ class ServerManagerCLI(App):
             self.prepare_to_run_command(cmd)
             full_name = (cmd_name
                          if self.interactive_mode
-                         else ' '.join([self.NAME, cmd_name])
-            )
+                         else ' '.join([self.NAME, cmd_name]))
             cmd_parser = cmd.get_parser(full_name)
             parsed_args, remainder = cmd_parser.parse_known_args(sub_argv)
             if remainder:

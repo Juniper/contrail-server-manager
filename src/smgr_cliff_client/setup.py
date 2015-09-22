@@ -30,13 +30,15 @@ CONTRAIL_SKU = get_contrail_sku()
 VERSION = CONTRAIL_VERSION + "-" + CONTRAIL_SKU
 
 import setuptools
-from pip import req, download
-from pip.req import parse_requirements
-from pip.download import PipSession
 import ConfigParser
 
-install_reqs = req.parse_requirements("requirements.txt", session=download.PipSession())
-reqs = [str(ir.req) for ir in install_reqs]
+install_reqs = []
+
+for line in open('requirements.txt', 'r'):
+    if not str(line.strip()).startswith("#"):
+        install_reqs.append(line.strip())
+
+reqs = install_reqs
 config = ConfigParser.ConfigParser()
 config.read('setup.cfg')
 
