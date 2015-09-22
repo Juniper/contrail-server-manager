@@ -1,5 +1,4 @@
-pbr>=0.11
-cliff>=1.10.0
+pbr>=0.7.0
+cliff>=1.4.5
 configparser>=3.3
 pyparsing>=2
-#argcomplete>=0.8.9

@@ -48,6 +48,10 @@ class SmgrClientUtils():
             if method == "PUT" or method == "POST" and obj:
                 url = "http://%s:%s/%s" % (
                     ip, port, obj)
+                if match_key and match_value:
+                    args_str += match_key + "=" + match_value
+                if args_str != '':
+                    url += "?" + args_str
             elif method == "GET":
                 if rest_api_params:
                     url = "http://%s:%s/%s" % (ip, port, rest_api_params['object'])
