@@ -37,33 +37,6 @@ class Show(Command):
     def get_command_options(self):
         return self.command_dictionary
 
-    def send_REST_request(self, ip, port, rest_api_params, detail):
-        try:
-            response = StringIO()
-            headers = ["Content-Type:application/json"]
-            url = "http://%s:%s/%s" % (ip, port, rest_api_params['object'])
-            args_str = ''
-            if rest_api_params["select"]:
-                args_str += "select" + "=" \
-                            + urllib.quote_plus(rest_api_params["select"]) + "&"
-            if rest_api_params["match_key"]:
-                args_str += urllib.quote_plus(rest_api_params["match_key"]) + "=" \
-                            + urllib.quote_plus(rest_api_params["match_value"])
-            if detail:
-                args_str += "&detail"
-            if args_str != '':
-                url += "?" + args_str
-            conn = pycurl.Curl()
-            conn.setopt(pycurl.URL, url)
-            conn.setopt(pycurl.HTTPHEADER, headers)
-            conn.setopt(pycurl.HTTPGET, 1)
-            conn.setopt(pycurl.WRITEFUNCTION, response.write)
-            conn.perform()
-            return response.getvalue()
-        except Exception as e:
-            return "Error: " + str(e)
-            # end def send_REST_request
-
     def get_description(self):
         return "Show Details about Objects in Server Manager Database"
 
@@ -350,7 +323,9 @@ class Show(Command):
         elif parsed_args.which == 'all':
             json_format = True
 
-        if json_format:
+        if resp.startswith("Error"):
+            self.app.stdout.write(resp + "\n")
+        elif json_format:
             self.app.stdout.write(str(smgrutils.print_rest_response(resp)) + "\n")
         else:
             table_format_output = smgrutils.convert_json_to_table(parsed_args.which, resp, rest_api_params["select"])

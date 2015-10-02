@@ -14,123 +14,8 @@ import sys
 import ast
 from itertools import izip
 import json
-import readline
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
-import ConfigParser
 from smgr_client_utils import SmgrClientUtils as smgrutils
 from cliff.command import Command
-
-# Below array of dictionary's is used by add_payload
-# function to add payload when user choses to input
-# object parameter values manually instead of providing a
-# json file.
-object_dict = {
-    "cluster": OrderedDict([
-        ("id", "Specify unique id for this cluster"),
-        ("email", "Email id for notifications"),
-        ("base_image_id", "Base image id"),
-        ("package_image_id", "Package id"),
-        ("template", "Template id for cluster"),
-        ("parameters", OrderedDict([
-            ("router_asn", "Router asn value"),
-            ("subnet_mask", "Subnet mask"),
-            ("gateway", "Default gateway for servers in this cluster"),
-            ("password", "Default password for servers in this cluster"),
-            ("domain", "Default domain for servers in this cluster"),
-            ("database_dir", "home directory for cassandra"),
-            ("database_token", "initial database token"),
-            ("use_certificates", "whether to use certificates for auth (True/False)"),
-            ("multi_tenancy", "Openstack multitenancy (True/False)"),
-            ("service_token", "Service token for openstack access"),
-            ("keystone_username", "Keystone user name"),
-            ("keystone_password", "keystone password"),
-            ("keystone_tenant", "keystone tenant name"),
-            ("analytics_data_ttl", "analytics data TTL"),
-            ("osd_bootstrap_key", "OSD Bootstrap Key"),
-            ("admin_key", "Admin Authentication Key"),
-            ("storage_mon_secret", "Storage Monitor Secret Key")]))
-    ]),
-    "server": OrderedDict([
-        ("id", "server id value"),
-        ("host_name", "host name of the server"),
-        ("ip_address", "server ip address"),
-        ("mac_address", "server mac address"),
-        ("roles", "comma-separated list of roles for this server"),
-        ("template", "Template id for server"),
-        ("contrail", OrderedDict([
-            ("control_data_interface", "Name of control_data_interface")
-        ])),
-        ("parameters", OrderedDict([
-            ("interface_name", "Ethernet Interface name"),
-            ("partition", "Use this partition and create lvm"),
-            ("disks", "Storage OSDs (default none)")])),
-        ("network", OrderedDict([
-            ("management_interface", "Name of the management interface"),
-            ("provisioning", "provisioning method"),
-            ("interfaces", list([
-                OrderedDict([
-                    ("name", "name of interface"),
-                    ("ip_address", "ip_address of interface"),
-                    ("mac_address", "mac_address of interface"),
-                    ("default_gateway", "default_gateway of interface"),
-                    ("dhcp", "dhcp status of interface"),
-                    ("type", "Type of interface"),
-                    ("member_interfaces", list([])),
-                    ("bond_options", OrderedDict([
-                        ("miimon", "miimon"),
-                        ("mode", "mode"),
-                        ("xmit_hash_policy", "xmit_hash_policy")
-                    ]))
-                ])
-            ]))
-        ])),
-        ("cluster_id", "cluster id the server belongs to"),
-        ("tag1", "tag value for this tag"),
-        ("tag2", "tag value for this tag"),
-        ("tag3", "tag value for this tag"),
-        ("tag4", "tag value for this tag"),
-        ("tag5", "tag value for this tag"),
-        ("tag6", "tag value for this tag"),
-        ("tag7", "tag value for this tag"),
-        ("subnet_mask", "subnet mask (default use value from cluster table)"),
-        ("gateway", "gateway (default use value from cluster table)"),
-        ("domain", "domain name (default use value from cluster table)"),
-        ("password", "root password (default use value from cluster table)"),
-        ("ipmi_password", "IPMI password"),
-        ("ipmi_username", "IPMI username"),
-        ("ipmi_address", "IPMI address"),
-        ("email", "email id for notifications (default use value from server's cluster)"),
-        ("base_image_id", "Base image id"),
-        ("package_image_id", "Package id")
-    ]),
-    "image": OrderedDict([
-        ("id", "Specify unique image id for this image"),
-        ("version", "Specify version for this image"),
-        ("category", "image/package"),
-        ("template", "Template id for this image"),
-        ("type",
-         "ubuntu/centos/redhat/esxi5.1/esxi5.5/contrail-ubuntu-package/contrail-centos-package/contrail-storage-ubuntu-package"),
-        ("path", "complete path where image file is located on server"),
-        ("parameters", OrderedDict([
-            ("kickstart", "kickstart file for base image"),
-            ("kickseed", "kickseed file for base image")])),
-    ]),
-    "tag": OrderedDict([
-        ("tag1", "Specify tag name for tag1"),
-        ("tag2", "Specify tag name for tag2"),
-        ("tag3", "Specify tag name for tag3"),
-        ("tag4", "Specify tag name for tag4"),
-        ("tag5", "Specify tag name for tag5"),
-        ("tag6", "Specify tag name for tag6"),
-        ("tag7", "Specify tag name for tag7"),
-    ]),
-    "server_keys": "['id','mac_address']",
-    "cluster_keys": "['id']",
-    "image_keys": "['id']"
-}
 
 
 class Add(Command):
@@ -142,6 +27,8 @@ class Add(Command):
     smgr_objects = list()
     smgr_ip = None
     smgr_port = None
+    smgrutils_obj = smgrutils()
+    object_dict = smgrutils_obj.get_object_dict()
 
     def get_command_options(self):
         return self.command_dictionary
@@ -178,7 +65,7 @@ class Add(Command):
         parser_server.add_argument(
             "--file_name", "-f",
             help="json file containing server param values", default=None)
-        for param in object_dict["server"]:
+        for param in self.object_dict["server"]:
             if param not in self.multilevel_param_classes["server"]:
                 parser_server.add_argument(
                     "--" + str(param),
@@ -196,7 +83,7 @@ class Add(Command):
         # Subparser for cluster edit
         parser_cluster = subparsers.add_parser(
             "cluster", help='Create cluster')
-        for param in object_dict["cluster"]:
+        for param in self.object_dict["cluster"]:
             if param not in self.multilevel_param_classes["cluster"]:
                 parser_cluster.add_argument(
                     "--" + str(param),
@@ -210,7 +97,7 @@ class Add(Command):
         # Subparser for image edit
         parser_image = subparsers.add_parser(
             "image", help='Create image')
-        for param in object_dict["image"]:
+        for param in self.object_dict["image"]:
             if param not in self.multilevel_param_classes["image"]:
                 parser_image.add_argument(
                     "--" + str(param),
@@ -276,9 +163,9 @@ class Add(Command):
         default_object["parameters"] = {}
         default_object["tag"] = {}
         for key, value in config_ini_object_defaults:
-            if key in object_dict[obj]:
+            if key in self.object_dict[obj]:
                 default_object[key] = value
-            elif key in object_dict[obj]["parameters"]:
+            elif key in self.object_dict[obj]["parameters"]:
                 default_object["parameters"][key] = value
             elif key in rev_tag_dict:
                 default_object["tag"][key] = value
@@ -447,7 +334,7 @@ class Add(Command):
 
     def add_object(self, obj, parsed_args, remaining_args=None):
         obj_payload = {}
-        top_level_object_params = object_dict[obj].keys()
+        top_level_object_params = self.object_dict[obj].keys()
         multilevel_obj_params = self.multilevel_param_classes[obj]
         for arg in vars(parsed_args):
             if arg in top_level_object_params and arg not in multilevel_obj_params and getattr(parsed_args, arg, None):

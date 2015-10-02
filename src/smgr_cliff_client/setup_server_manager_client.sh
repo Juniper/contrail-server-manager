@@ -10,7 +10,8 @@ fi
 echo $HOST_IP
 mkdir -p /etc/contrail/
 cp /tmp/servermanagerclient /etc/contrail/servermanagerclient
-sed -i "s/listen_ip_addr = .*/listen_ip_addr = $HOST_IP/g" /tmp/sm-client-config.ini
+cp /tmp/sm-client-config.ini /etc/contrail/sm-client-config.ini
+sed -i "s/listen_ip_addr = .*/listen_ip_addr = $HOST_IP/g" /etc/contrail/sm-client-config.ini
 sed -i "s/export SMGR_IP=.*/export SMGR_IP=$HOST_IP/g" /etc/contrail/servermanagerclient
 source /etc/contrail/servermanagerclient
 ln -sbf /opt/contrail/bin/* /usr/bin/

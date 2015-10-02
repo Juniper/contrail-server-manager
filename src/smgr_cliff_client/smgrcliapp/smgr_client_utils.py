@@ -8,22 +8,139 @@ import json
 import urllib
 from prettytable import PrettyTable
 import ast
-import sys
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
 _DEF_SMGR_IP = "127.0.0.1"
 _DEF_SMGR_PORT = 9001
 
-# TODO - Object dict
-# TODO -
+
+# Below array of dictionary's is used by add and edit
+# function to add payload when user choses to input
+# object parameter values manually instead of providing a
+# json file.
+main_object_dict = {
+    "cluster": OrderedDict([
+        ("id", "Specify unique id for this cluster"),
+        ("email", "Email id for notifications"),
+        ("base_image_id", "Base image id"),
+        ("package_image_id", "Package id"),
+        ("template", "Template id for cluster"),
+        ("parameters", OrderedDict([
+            ("router_asn", "Router asn value"),
+            ("subnet_mask", "Subnet mask"),
+            ("gateway", "Default gateway for servers in this cluster"),
+            ("password", "Default password for servers in this cluster"),
+            ("domain", "Default domain for servers in this cluster"),
+            ("database_dir", "home directory for cassandra"),
+            ("database_token", "initial database token"),
+            ("use_certificates", "whether to use certificates for auth (True/False)"),
+            ("multi_tenancy", "Openstack multitenancy (True/False)"),
+            ("service_token", "Service token for openstack access"),
+            ("keystone_username", "Keystone user name"),
+            ("keystone_password", "keystone password"),
+            ("keystone_tenant", "keystone tenant name"),
+            ("analytics_data_ttl", "analytics data TTL"),
+            ("osd_bootstrap_key", "OSD Bootstrap Key"),
+            ("admin_key", "Admin Authentication Key"),
+            ("storage_mon_secret", "Storage Monitor Secret Key")]))
+    ]),
+    "server": OrderedDict([
+        ("id", "server id value"),
+        ("host_name", "host name of the server"),
+        ("ip_address", "server ip address"),
+        ("mac_address", "server mac address"),
+        ("roles", "comma-separated list of roles for this server"),
+        ("template", "Template id for server"),
+        ("contrail", OrderedDict([
+            ("control_data_interface", "Name of control_data_interface")
+        ])),
+        ("parameters", OrderedDict([
+            ("interface_name", "Ethernet Interface name"),
+            ("partition", "Use this partition and create lvm"),
+            ("disks", "Storage OSDs (default none)")])),
+        ("network", OrderedDict([
+            ("management_interface", "Name of the management interface"),
+            ("provisioning", "provisioning method"),
+            ("interfaces", list([
+                OrderedDict([
+                    ("name", "name of interface"),
+                    ("ip_address", "ip_address of interface"),
+                    ("mac_address", "mac_address of interface"),
+                    ("default_gateway", "default_gateway of interface"),
+                    ("dhcp", "dhcp status of interface"),
+                    ("type", "Type of interface"),
+                    ("member_interfaces", list([])),
+                    ("bond_options", OrderedDict([
+                        ("miimon", "miimon"),
+                        ("mode", "mode"),
+                        ("xmit_hash_policy", "xmit_hash_policy")
+                    ]))
+                ])
+            ]))
+        ])),
+        ("cluster_id", "cluster id the server belongs to"),
+        ("tag1", "tag value for this tag"),
+        ("tag2", "tag value for this tag"),
+        ("tag3", "tag value for this tag"),
+        ("tag4", "tag value for this tag"),
+        ("tag5", "tag value for this tag"),
+        ("tag6", "tag value for this tag"),
+        ("tag7", "tag value for this tag"),
+        ("subnet_mask", "subnet mask (default use value from cluster table)"),
+        ("gateway", "gateway (default use value from cluster table)"),
+        ("domain", "domain name (default use value from cluster table)"),
+        ("password", "root password (default use value from cluster table)"),
+        ("ipmi_password", "IPMI password"),
+        ("ipmi_username", "IPMI username"),
+        ("ipmi_address", "IPMI address"),
+        ("email", "email id for notifications (default use value from server's cluster)"),
+        ("base_image_id", "Base image id"),
+        ("package_image_id", "Package id")
+    ]),
+    "image": OrderedDict([
+        ("id", "Specify unique image id for this image"),
+        ("version", "Specify version for this image"),
+        ("category", "image/package"),
+        ("template", "Template id for this image"),
+        ("type",
+         "ubuntu/centos/redhat/esxi5.1/esxi5.5/contrail-ubuntu-package/contrail-centos-package/contrail-storage-ubuntu-package"),
+        ("path", "complete path where image file is located on server"),
+        ("parameters", OrderedDict([
+            ("kickstart", "kickstart file for base image"),
+            ("kickseed", "kickseed file for base image")])),
+    ]),
+    "tag": OrderedDict([
+        ("tag1", "Specify tag name for tag1"),
+        ("tag2", "Specify tag name for tag2"),
+        ("tag3", "Specify tag name for tag3"),
+        ("tag4", "Specify tag name for tag4"),
+        ("tag5", "Specify tag name for tag5"),
+        ("tag6", "Specify tag name for tag6"),
+        ("tag7", "Specify tag name for tag7"),
+    ]),
+    "server_keys": "['id','mac_address']",
+    "cluster_keys": "['id']",
+    "image_keys": "['id']"
+}
+
 
 class SmgrClientUtils():
     smgr_ip = _DEF_SMGR_IP
     smgr_port = _DEF_SMGR_PORT
+    object_dict = main_object_dict
 
     def __init__(self, smgr_ip=None, smgr_port=None):
         if smgr_ip:
             self.smgr_ip = smgr_ip
         if smgr_port:
             self.smgr_port = smgr_port
+
+    # Return object dict
+    def get_object_dict(self):
+        return self.object_dict
 
     #start print_rest_response
     @staticmethod
@@ -132,18 +249,18 @@ class SmgrClientUtils():
             if len(data_dict.keys()) == 1 and obj != "tag":
                 obj_type, obj_value = data_dict.popitem()
                 dict_list = eval(str(obj_value))
-                if obj_type == "server":
-                    return_table = PrettyTable(["id", "ip_address", "mac_address"])
-                    return_table.align["id"] = "l"
-                    for d in dict_list:
-                        d = dict(d)
-                        return_table.add_row([d["id"], d["ip_address"], d["mac_address"]])
-                elif obj_type == "cluster" or obj_type == "image":
-                    return_table = PrettyTable(["id"])
-                    return_table.align["id"] = "l"
-                    for d in dict_list:
-                        d = dict(d)
-                        return_table.add_row([d["id"]])
+                sample_dict = dict(dict_list[0])
+                sameple_dict_key_list = sample_dict.keys()
+                sameple_dict_key_list.remove("id")
+                sameple_dict_key_list = ['id'] + sameple_dict_key_list
+                return_table = PrettyTable(sameple_dict_key_list)
+                return_table.align["id"] = "l"
+                for d in dict_list:
+                    d = dict(d)
+                    dict_val_list = d.values()
+                    dict_val_list.remove(d["id"])
+                    dict_val_list = [d["id"]] + dict_val_list
+                    return_table.add_row(dict_val_list)
             elif obj == "tag":
                 return_table = PrettyTable(["Tag No.", "Tag"])
                 return_table.align["Tag"] = "l"
