@@ -98,7 +98,7 @@ class ServerManagerCLI(App):
                  'Default is 9001'
         )
         parser.add_argument(
-            '--defaults_file',
+            '-c', '--config_file',
             default='/tmp/sm-client-config.ini',
             help='The ini file that specifies the default parameter values for Objects like Cluster, Server, etc.'
                  'Default is /tmp/sm-client-config.ini'
@@ -107,11 +107,15 @@ class ServerManagerCLI(App):
 
     def initialize_app(self, argv):
         self.log.debug('initialize_app')
-        self.defaults_file = getattr(self.options, "defaults_file", "/tmp/sm-client-config.ini")
+        if getattr(self.options, "c", None):
+            self.defaults_file = getattr(self.options, "c", "/etc/contrail/sm-client-config.ini")
+        else:
+            self.defaults_file = getattr(self.options, "config_file", "/etc/contrail/sm-client-config.ini")
 
         try:
             config = ConfigParser.SafeConfigParser()
             config.read([self.defaults_file])
+            self.default_config["smgr"] = dict(config.items("SERVER-MANAGER"))
             self.default_config["server"] = dict(config.items("SERVER"))
             self.default_config["cluster"] = dict(config.items("CLUSTER"))
             self.default_config["tag"] = dict(config.items("TAG"))
@@ -120,6 +124,8 @@ class ServerManagerCLI(App):
                 self.smgr_ip = getattr(self.options, "smgr_ip", None)
             elif env_smgr_ip:
                 self.smgr_ip = env_smgr_ip
+            elif self.default_config["smgr"]["listen_ip_addr"]:
+                self.smgr_ip = self.default_config["smgr"]["listen_ip_addr"]
             else:
                 self.report_missing_config("smgr_ip")
 
@@ -128,11 +134,13 @@ class ServerManagerCLI(App):
                 self.smgr_port = getattr(self.options, "smgr_port", None)
             elif env_smgr_port:
                 self.smgr_port = env_smgr_port
+            elif self.default_config["smgr"]["listen_port"]:
+                self.smgr_port = self.default_config["smgr"]["listen_port"]
             else:
                 self.report_missing_config("smgr_port")
 
         except Exception as e:
-            self.stdout.write("Exception: %s : Error reading config file %s" % (e.message, self.defaults_file))
+            self.stdout.write("Exception: %s : Error reading config file %s\n" % (e.message, self.defaults_file))
 
     def prepare_to_run_command(self, cmd):
         self.log.debug('prepare_to_run_command %s', cmd.__class__.__name__)

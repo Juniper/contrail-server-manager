@@ -10,11 +10,12 @@
 
 import cmd2
 from cliff.interactive import InteractiveApp
-import sys
+import json
 import ast
 from os import listdir
 from os import path
 from smgr_client_utils import SmgrClientUtils as smgrutils
+
 
 class SmgrInteractiveApp(InteractiveApp):
 
@@ -26,6 +27,117 @@ class SmgrInteractiveApp(InteractiveApp):
             stdin=stdin,
             stdout=stdout
         )
+
+    def auto_complete_sub_option(self, chosen_sub_option, chosen_sub_command, line):
+        obj = None
+        files = None
+        smgr_dict = self.parent_app.get_smgr_config()
+        ip = smgr_dict["smgr_ip"]
+        port = smgr_dict["smgr_port"]
+        rest_api_params = None
+        return_list = list()
+        if chosen_sub_option in ['--server_id']:
+            obj = 'server'
+            rest_api_params = {
+                'object': "server",
+                'select': "id"
+            }
+        elif chosen_sub_option in ['--tag']:
+            obj = 'tag'
+            rest_api_params = {
+                'object': "tag",
+                'select': None
+            }
+        elif chosen_sub_option in ['--cluster_id']:
+            obj = 'cluster'
+            rest_api_params = {
+                'object': "cluster",
+                'select': None
+            }
+        elif chosen_sub_option in ['--image_id', '--package_image_id']:
+            obj = 'image'
+            rest_api_params = {
+                'object': "image",
+                'select': None
+            }
+        elif chosen_sub_option in ['--mac']:
+            obj = 'mac'
+            rest_api_params = {
+                'object': "server",
+                'select': "mac_address"
+            }
+        elif chosen_sub_option in ['--ip']:
+            obj = 'ip'
+            rest_api_params = {
+                'object': "server",
+                'select': "ip_address"
+            }
+        elif chosen_sub_option in ['-f', '--filename']:
+            files = [f for f in listdir('.') if path.isfile(f)]
+        rest_api_params["match_key"] = None
+        rest_api_params["match_value"] = None
+        if obj:
+            resp = smgrutils.send_REST_request(ip, port, rest_api_params=rest_api_params, method="GET")
+            if resp:
+                json_dict = ast.literal_eval(str(resp))
+                auto_fill_list = smgrutils.convert_json_to_list(obj=obj, json_resp=json_dict)
+                return_list = [
+                    str(str(line).rsplit(' ', 1)[0] + " " + af_option)
+                    for af_option in auto_fill_list
+                    if str(str(line).rsplit(' ', 1)[0] + " " + af_option).startswith(line)
+                ]
+        elif files:
+            return_list = [
+                str(str(line).rsplit(' ', 1)[0] + " " + f)
+                for f in files
+                if str(str(line).rsplit(' ', 1)[0] + " " + f).startswith(line)
+            ]
+        return return_list
+
+    def auto_complete_command(self, chosen_command, line):
+        obj = None
+        files = None
+        smgr_dict = self.parent_app.get_smgr_config()
+        ip = smgr_dict["smgr_ip"]
+        port = smgr_dict["smgr_port"]
+        rest_api_params = None
+        return_list = list()
+        if chosen_command in ['reimage', 'provision']:
+            obj = 'image'
+            rest_api_params = {
+                'object': "image",
+                'select': "id,category"
+            }
+        else:
+            files = [f for f in listdir('.') if path.isfile(f)]
+        rest_api_params["match_key"] = None
+        rest_api_params["match_value"] = None
+        if obj:
+            resp = smgrutils.send_REST_request(ip, port, rest_api_params=rest_api_params, detail=False, method="GET")
+            if resp:
+                json_dict = ast.literal_eval(resp)
+                new_json_dict = dict()
+                new_json_dict[obj] = list()
+                for data_dict in json_dict[obj]:
+                    new_dict = dict()
+                    data_dict = dict(data_dict)
+                    if (data_dict["category"] == "image" and chosen_command == "reimage") or \
+                            (data_dict["category"] == "package" and chosen_command == "provision"):
+                        new_dict["id"] = data_dict["id"]
+                        new_json_dict[obj].append(new_dict)
+                auto_fill_list = smgrutils.convert_json_to_list(obj=obj, json_resp=new_json_dict)
+                return_list = [
+                    str(str(line).rsplit(' ', 1)[0] + " " + af_option)
+                    for af_option in auto_fill_list
+                    if str(str(line).rsplit(' ', 1)[0] + " " + af_option).startswith(line)
+                ]
+        elif files:
+            return_list = [
+                str(str(line).rsplit(' ', 1)[0] + " " + f)
+                for f in files
+                if str(str(line).rsplit(' ', 1)[0] + " " + f).startswith(line)
+            ]
+        return return_list
 
     def _complete_prefix(self, prefix):
         """Returns cliff style commands with a specific prefix."""
@@ -102,6 +214,8 @@ class SmgrInteractiveApp(InteractiveApp):
                                    for so in cmd_dict[str(chosen_command)]
                                    if str(so).startswith(last_arg)
                                    and so in available_options_list]
+                if len(chosen_sub_option_list) and len(sub_option_list):
+                    sub_option_list += self.auto_complete_command(chosen_command, line)
                 # If line matches some sub_option return the said sub_option or list of sub_options
                 if len(sub_option_list) > 0:
                     return [x[begidx:] for x in sub_option_list]
@@ -136,107 +250,22 @@ class SmgrInteractiveApp(InteractiveApp):
                                    for so in cmd_dict[str(chosen_sub_command)]
                                    if str(so).startswith(last_arg)
                                    and so in available_options_list]
-
+                if len(chosen_sub_option_list) and len(sub_option_list):
+                    sub_option_list += self.auto_complete_command(chosen_command, line)
                 if len(sub_option_list) > 0:
                     return [x[begidx:] for x in sub_option_list]
                 chosen_sub_option = chosen_sub_option_list[-1]
 
             # If some sub_option is chosen and the user presses TAB, the client tries to intelligently autocomplete
             # the statement using a REST call to Smgr to check if the sub_option has a correspoinding object
+            return_list = list()
             if chosen_sub_option:
-                obj = None
-                files = None
-                smgr_dict = self.parent_app.get_smgr_config()
-                ip = smgr_dict["smgr_ip"]
-                port = smgr_dict["smgr_port"]
-                rest_api_params = None
-                if chosen_sub_option in ['--server_id']:
-                    obj = 'server'
-                    rest_api_params = {
-                        'object': "server",
-                        'match_key': None,
-                        'match_value': None,
-                        'select': "id"
-                    }
-                elif chosen_sub_option in ['--tag']:
-                    obj = 'tag'
-                    rest_api_params = {
-                        'object': "tag",
-                        'match_key': None,
-                        'match_value': None,
-                        'select': None
-                    }
-                elif chosen_sub_option in ['--cluster_id']:
-                    obj = 'cluster'
-                    rest_api_params = {
-                        'object': "cluster",
-                        'match_key': None,
-                        'match_value': None,
-                        'select': None
-                    }
-                elif chosen_sub_option in ['--image_id', '--package_image_id']:
-                    obj = 'image'
-                    rest_api_params = {
-                        'object': "image",
-                        'match_key': None,
-                        'match_value': None,
-                        'select': None
-                    }
-                elif chosen_sub_option in ['--mac']:
-                    obj = 'mac'
-                    rest_api_params = {
-                        'object': "server",
-                        'match_key': None,
-                        'match_value': None,
-                        'select': "mac_address"
-                    }
-                elif chosen_sub_option in ['--ip']:
-                    obj = 'ip'
-                    rest_api_params = {
-                        'object': "server",
-                        'match_key': None,
-                        'match_value': None,
-                        'select': "ip_address"
-                    }
-                elif chosen_sub_option in ['-f', '--filename']:
-                    files = [f for f in listdir('.') if path.isfile(f)]
-                return_list = list()
-                if obj:
-                    resp = smgrutils.send_REST_request(ip, port, rest_api_params=rest_api_params, method="GET")
-                    if resp:
-                        json_dict = ast.literal_eval(str(resp))
-                        auto_fill_list = smgrutils.convert_json_to_list(obj=obj, json_resp=json_dict)
-                        if chosen_sub_command:
-                            return_list = [
-                                str(str(line).rsplit(' ', 1)[0] + " " + af_option)
-                                for af_option in auto_fill_list
-                                if str(str(line).rsplit(' ', 1)[0] + " " + af_option).startswith(line)
-                            ]
-                        else:
-                            return_list = [
-                                str(str(line).rsplit(' ', 1)[0] + " " + af_option)
-                                for af_option in auto_fill_list
-                                if str(str(line).rsplit(' ', 1)[0] + " " + af_option).startswith(line)
-                            ]
-                elif files:
-                    if chosen_sub_command:
-                        return_list = [
-                            str(str(line).rsplit(' ', 1)[0] + " " + f)
-                            for f in files
-                            if str(str(line).rsplit(' ', 1)[0] + " " + f).startswith(line)
-                        ]
-                    else:
-                        return_list = [
-                            str(str(line).rsplit(' ', 1)[0] + " " + f)
-                            for f in files
-                            if str(str(line).rsplit(' ', 1)[0] + " " + f).startswith(line)
-                        ]
-                if len(return_list) > 0:
-                    return [x[begidx:] for x in return_list]
+                return_list = self.auto_complete_sub_option(chosen_sub_option, chosen_sub_command, line)
+            if len(return_list) > 0:
+                return [x[begidx:] for x in return_list]
 
     def cmdloop(self):
         try:
             self._cmdloop()
         except Exception as e:
             self.parent_app.print_error_message_and_quit("\nException caught in interactive mode: " + str(e) + "\n")
-
