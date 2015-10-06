@@ -272,8 +272,7 @@ class Server(object):
         return self.exec_cmd('ip addr show %s | grep %s' % (interface, ip))
 
     def exec_setup_interface(self, iface_info, error_on_fail=True):
-        script_path = os.path.abspath(sys.argv[0])
-        iface_script_path = os.path.join(os.path.dirname(script_path), 'interface_setup.py')
+        iface_script_path = '/opt/contrail/bin/interface_setup.py'
         cmd = r'%s ' % iface_script_path
         cmd += r'--device %s --ip %s ' % (iface_info['name'],
                                          iface_info['ip_address'])
@@ -292,11 +291,13 @@ class Server(object):
         return status, output
 
     def setup_interface(self):
-        #sftp_connection = self.connection.open_sftp()
-        #self.exec_cmd('mkdir -p /opt/contrail/bin/')
-        #sftp_connection.put('/var/www/html/kickstarts/interface_setup.py',
-        #                    '/opt/contrail/bin/interface_setup.py')
-        #self.exec_cmd('chmod 755 /opt/contrail/bin/interface_setup.py')
+        script_path = os.path.abspath(sys.argv[0])
+        iface_script_path = os.path.join(os.path.dirname(script_path), 'interface_setup.py')
+        sftp_connection = self.connection.open_sftp()
+        self.exec_cmd('mkdir -p /opt/contrail/bin/')
+        sftp_connection.put(iface_script_path,
+                            '/opt/contrail/bin/interface_setup.py')
+        self.exec_cmd('chmod 755 /opt/contrail/bin/interface_setup.py')
         for iface_info in self.network['interfaces']:
             status, output = self.verify_interface_ip(iface_info['name'],
                                                       iface_info['ip_address'])
