@@ -208,6 +208,9 @@ class Server(object):
         self.preconfig_repos()
         self.install_packages()
         self.setup_interface()
+        # Setup static routes if defined
+        if getattr(self, 'static_routes', None):
+            self.setup_static_routes()
         self.preconfig_ntp_config()
         self.preconfig_puppet_config()
 
@@ -308,8 +311,8 @@ class Server(object):
         cmd = r'%s ' % iface_script_path
         cmd += r'--device %s ' % (static_route['intf'])
         if 'ip' in static_route.keys():
-            cmd += r'--network %s' % static_route['ip']
-        if 'gateway' in static_route.keys():
+            cmd += r'--network %s ' % static_route['ip']
+        if 'gw' in static_route.keys():
             cmd += r'--gw %s ' % static_route['gw']
         if 'netmask' in static_route.keys():
             cmd += r'--netmask %s ' % static_route['netmask']
@@ -317,8 +320,8 @@ class Server(object):
             cmd += r'--vlan %s ' % static_route['vlan']
         status, output = self.exec_cmd(cmd)
         if error_on_fail and status:
-            raise RuntimeError('Setup Interface failed for ' \
-                               'Iface Info (%s)' % static_route)
+            raise RuntimeError('Setup Static Route failed for ' \
+                               'Static Route (%s)' % static_route)
         return status, output
 
     def setup_interface(self):
