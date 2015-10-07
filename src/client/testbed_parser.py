@@ -618,7 +618,7 @@ class ServerJsonGenerator(BaseJsonGenerator):
     def update_static_route_info(self, server_dict, hostobj):
         if getattr(hostobj, 'static_route', None) is None:
             return server_dict
-        # TBD
+        server_dict['static_routes'] = hostobj.static_route
         return server_dict
 
     def update_control_data_info(self, server_dict, hostobj):

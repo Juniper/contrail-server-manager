@@ -90,6 +90,15 @@ class Utils(object):
             hostobj.preconfig()
             hosts.append(hostobj)
 
+    @staticmethod
+    def get_net_size(netmask):
+        netmask_parts = netmask.split('.')
+        binary_str = ''
+        for octet in netmask_parts:
+            binary_str += bin(int(octet))[2:].zfill(8)
+        return str(len(binary_str.rstrip('0')))
+
+
 class Server(object):
     def __init__(self, server_dict, server_manager_ip,
                  server_manager_port=9003):
@@ -199,6 +208,7 @@ class Server(object):
         self.preconfig_repos()
         self.install_packages()
         self.setup_interface()
+        self.setup_static_routes()
         self.preconfig_ntp_config()
         self.preconfig_puppet_config()
 
@@ -271,6 +281,9 @@ class Server(object):
     def verify_interface_ip(self, interface, ip):
         return self.exec_cmd('ip addr show %s | grep %s' % (interface, ip))
 
+    def verify_static_route_ip(self, inet_prefix, device):
+        return self.exec_cmd('ip route show %s | grep %s' % (inet_prefix, device))
+
     def exec_setup_interface(self, iface_info, error_on_fail=True):
         iface_script_path = '/opt/contrail/bin/interface_setup.py'
         cmd = r'%s ' % iface_script_path
@@ -290,6 +303,24 @@ class Server(object):
                                'Iface Info (%s)' % iface_info)
         return status, output
 
+    def exec_setup_static_routes(self, static_route, error_on_fail=True):
+        iface_script_path = "/opt/contrail/bin/staticroute_setup.py"
+        cmd = r'%s ' % iface_script_path
+        cmd += r'--device %s ' % (static_route['intf'])
+        if 'ip' in static_route.keys():
+            cmd += r'--network %s ' % static_route['ip']
+        if 'gw' in static_route.keys():
+            cmd += r'--gw %s ' % static_route['gw']
+        if 'netmask' in static_route.keys():
+            cmd += r'--netmask %s ' % static_route['netmask']
+        if 'vlan' in static_route.keys():
+            cmd += r'--vlan %s ' % static_route['vlan']
+        status, output = self.exec_cmd(cmd)
+        if error_on_fail and status:
+            raise RuntimeError('Setup Interface failed for ' \
+                               'Iface Info (%s)' % static_route)
+        return status, output
+
     def setup_interface(self):
         script_path = os.path.abspath(sys.argv[0])
         iface_script_path = os.path.join(os.path.dirname(script_path), 'interface_setup.py')
@@ -307,6 +338,23 @@ class Server(object):
                                               iface_info['ip_address']))
             else:
                 self.exec_setup_interface(iface_info)
+
+    def setup_static_routes(self):
+        script_path = os.path.abspath(sys.argv[0])
+        staticroute_script_path = os.path.join(os.path.dirname(script_path), 'staticroute_setup.py')
+        sftp_connection = self.connection.open_sftp()
+        self.exec_cmd('mkdir -p /opt/contrail/bin/')
+        sftp_connection.put(staticroute_script_path, '/opt/contrail/bin/staticroute_setup.py')
+        self.exec_cmd('chmod 755 /opt/contrail/bin/staticroute_setup.py')
+        for static_route in self.static_routes:
+            inet_prefix = str(static_route['ip']) + "/" + str(Utils.get_net_size(static_route['netmask']))
+            status, output = self.verify_static_route_ip(inet_prefix, static_route['intf'])
+            if not status:
+                log.warn('Static Route for interface (%s) already configured with ' \
+                         'IP Address (%s)' % (static_route['intf'],
+                                              static_route['ip']))
+            else:
+                self.exec_setup_static_routes(static_route)
 
     def check_ntp_status(self):
         status, output = self.exec_cmd(r'ntpq -pn | grep "%s" ' % self.server_manager_ip)
