@@ -695,6 +695,8 @@ class ClusterJsonGenerator(BaseJsonGenerator):
                                 function=dict.get)
 
         # Update keystone details
+        self.set_if_defined('openstack_admin_password', cluster_dict['parameters'],
+                             destination_variable_name='keystone_password')
         if getattr(self.testsetup, 'keystone', None) is not None:
             self.set_if_defined('admin_user', cluster_dict['parameters'],
                                 source_variable=self.testsetup.keystone,
