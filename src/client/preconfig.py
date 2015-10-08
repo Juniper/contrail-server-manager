@@ -291,7 +291,7 @@ class Server(object):
                                          iface_info['ip_address'])
         if 'member_interfaces' in iface_info.keys():
             cmd += r'--members %s ' % " ".join(iface_info['member_interfaces'])
-        if 'gateway' in iface_info.keys():
+        if iface_info['ip_address'] == self.ip and 'gateway' in iface_info.keys():
             cmd += r'--gw %s ' % iface_info['gateway']
         if 'vlan' in iface_info.keys():
             cmd += r'--vlan %s ' % iface_info['vlan']
