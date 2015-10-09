@@ -53,10 +53,13 @@ class Delete(Command):
         group.add_argument("--tag",
                            help=("tag values for the server to be deleted "
                                  "in t1=v1,t2=v2,... format"))
+        group.add_argument("--discovered",
+                           help=("flag to get list of "
+                                 "newly discovered server(s)"))
         group.add_argument("--where",
                            help=("sql where statement in quotation marks"))
         parser_server.set_defaults(which='server')
-        self.command_dictionary["server"] = ['server_id', 'mac', 'ip', 'cluster_id', 'tag', 'where']
+        self.command_dictionary["server"] = ['server_id', 'mac', 'ip', 'cluster_id', 'tag', 'where', 'discovered']
 
         # Subparser for cluster delete
         parser_cluster = subparsers.add_parser(
@@ -66,9 +69,6 @@ class Delete(Command):
                                           help=("cluster id for cluster to be deleted"))
         parser_cluster_group.add_argument("--where",
                                           help=("sql where statement in quotation marks"))
-        parser_cluster.add_argument("--force", "-f", action="store_true",
-                                    help=("optional parameter to indicate ,"
-                                          "if cluster association to be removed from server"))
         parser_cluster.set_defaults(which='cluster')
         self.command_dictionary["cluster"] = ['cluster_id', 'where', 'f', 'force']
 
@@ -81,6 +81,14 @@ class Delete(Command):
                                   help=("image id for image to be deleted"))
         parser_image.set_defaults(which='image')
         self.command_dictionary["image"] = ['image_id', 'where']
+
+        # Subparser for tag delete
+        parser_tag = subparsers.add_parser(
+            "tag", help='Delete tag')
+        parser_tag.add_argument("--tags",
+                                help="comma separated list of tag indexes to delete. Eg: tag1,tag5")
+        parser_tag.set_defaults(which='tag')
+        self.command_dictionary["tag"] = ['tags']
 
         for key in self.command_dictionary:
             new_dict = dict()
@@ -112,6 +120,9 @@ class Delete(Command):
         elif getattr(parsed_args, "discovered", None):
             rest_api_params['match_key'] = 'discovered'
             rest_api_params['match_value'] = getattr(parsed_args, "discovered", None)
+        elif getattr(parsed_args, "where", None):
+            rest_api_params['match_key'] = 'where'
+            rest_api_params['match_value'] = getattr(parsed_args, "where", None)
         else:
             rest_api_params['match_key'] = None
             rest_api_params['match_value'] = None
@@ -122,7 +133,7 @@ class Delete(Command):
         if getattr(parsed_args, "cluster_id", None):
             match_key = 'id'
             match_value = getattr(parsed_args, "cluster_id", None)
-        elif getattr(parsed_args, "server_id", None):
+        elif getattr(parsed_args, "where", None):
             match_key = 'where'
             match_value = getattr(parsed_args, "where", None)
         else:
@@ -154,6 +165,21 @@ class Delete(Command):
         return rest_api_params
         #end def delete_image
 
+    def delete_tag(self, parsed_args):
+        if getattr(parsed_args, "tags", None):
+            match_key = 'tag'
+            match_value = getattr(parsed_args, "tags", None)
+        else:
+            match_key = ''
+            match_value = ''
+        rest_api_params = {
+            'object': 'tag',
+            'match_key': match_key,
+            'match_value': match_value
+        }
+        return rest_api_params
+        # end def delete_tag
+
     def take_action(self, parsed_args):
         try:
             self.smgr_ip = self.smgr_port = None
@@ -177,15 +203,13 @@ class Delete(Command):
             rest_api_params = self.delete_cluster(parsed_args)
         elif obj == "image":
             rest_api_params = self.delete_image(parsed_args)
+        elif obj == "tag":
+            rest_api_params = self.delete_tag(parsed_args)
 
-        force = False
-        if hasattr(parsed_args, "force"):
-            force = getattr(parsed_args, "force")
         if rest_api_params:
             resp = smgrutils.send_REST_request(self.smgr_ip, self.smgr_port, obj=rest_api_params["object"],
                                               match_key=rest_api_params["match_key"],
                                               match_value=rest_api_params["match_value"],
-                                              force=force,
                                               method="DELETE")
             smgrutils.print_rest_response(resp)
             self.app.stdout.write("\n" + str(smgrutils.print_rest_response(resp)) + "\n")

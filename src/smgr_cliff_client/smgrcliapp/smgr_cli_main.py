@@ -99,9 +99,9 @@ class ServerManagerCLI(App):
         )
         parser.add_argument(
             '-c', '--config_file',
-            default='/tmp/sm-client-config.ini',
+            default='/etc/contrail/sm-client-config.ini',
             help='The ini file that specifies the default parameter values for Objects like Cluster, Server, etc.'
-                 'Default is /tmp/sm-client-config.ini'
+                 'Default is /etc/contrail/sm-client-config.ini'
         )
         return parser
 

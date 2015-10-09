@@ -102,5 +102,9 @@ class RunInventory(Command):
 
         if payload:
             resp = smgrutils.send_REST_request(self.smgr_ip, self.smgr_port, obj="run_inventory",
-                                               match_key=match_key, match_value=match_value, method="POST")
-            self.app.stdout.write("\n" + str(smgrutils.print_rest_response(resp)) + "\n")
+                                               payload=payload, method="POST")
+            if "Error" not in resp:
+                self.app.stdout.write("\n" + str(smgrutils.print_rest_response(resp)) + "\n")
+            else:
+                self.app.stdout.write("\nError Returned:\n" + str(smgrutils.print_rest_response(resp)) +
+                                      "\nPlease check that inventory and monitoring have been configured correctly.\n")

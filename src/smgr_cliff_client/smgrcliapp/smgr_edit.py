@@ -46,8 +46,7 @@ class Edit(Command):
     def get_parser(self, prog_name):
 
         self.smgr_objects = ["server", "cluster", "image", "tag"]
-        self.mandatory_params["server"] = ['id', 'cluster_id', 'mac_address', 'ip_address', 'ipmi_address', 'password',
-                                           'subnet_mask', 'gateway']
+        self.mandatory_params["server"] = ['id', 'mac_address', 'ip_address', 'ipmi_address', 'subnet_mask', 'gateway']
         self.mandatory_params["cluster"] = ['id']
         self.mandatory_params["image"] = ['id', 'category', 'version', 'type', 'path']
         self.mandatory_params["tag"] = []
@@ -68,7 +67,7 @@ class Edit(Command):
             "server", help='Create server')
         parser_server.add_argument(
             "--file_name", "-f",
-            help="json file containing server param values", default=None)
+            help="json file containing server param values", dest="file_name", default=None)
         for param in self.object_dict["server"]:
             if param not in self.multilevel_param_classes["server"]:
                 parser_server.add_argument(
@@ -81,8 +80,10 @@ class Edit(Command):
         parser_tag = subparsers.add_parser(
             "tag", help='Create tags')
         parser_tag.add_argument(
+            "--tags", help="Comma separated list of tag_number=tag_name pairs.", default=None)
+        parser_tag.add_argument(
             "--file_name", "-f",
-            help="json file containing tag values", default=None)
+            help="json file containing tag values", dest="file_name", default=None)
 
         # Subparser for cluster edit
         parser_cluster = subparsers.add_parser(
@@ -96,7 +97,7 @@ class Edit(Command):
                 )
         parser_cluster.add_argument(
             "--file_name", "-f",
-            help="json file containing cluster param values", default=None)
+            help="json file containing cluster param values", dest="file_name", default=None)
 
         # Subparser for image edit
         parser_image = subparsers.add_parser(
@@ -110,10 +111,12 @@ class Edit(Command):
                 )
         parser_image.add_argument(
             "--file_name", "-f",
-            help="json file containing image param values", default=None)
+            help="json file containing image param values", dest="file_name", default=None)
 
         for obj in self.smgr_objects:
             self.command_dictionary[str(obj)] = ['f', 'file_name']
+            if obj == "tag":
+                self.command_dictionary[str(obj)] += ['tags']
         for key in self.command_dictionary:
             new_dict = dict()
             new_dict[key] = [str("--" + s) for s in self.command_dictionary[key] if len(s) > 1]
@@ -135,14 +138,27 @@ class Edit(Command):
             self.smgr_ip, self.smgr_port,
             obj="tag", detail=True, method="GET")
         tag_dict = json.loads(existing_tags)
+        tag_dict_idx_list = [str(key) for key in tag_dict.keys()]
         rev_tag_dict = dict((v, k) for k, v in tag_dict.iteritems())
-        edited_tag_dict = obj_payload["tag"]
-        edited_tags = edited_tag_dict.keys()
-        for tag in edited_tags:
-            if tag not in rev_tag_dict:
-                self.app.print_error_message_and_quit("\nThe tag " + str(tag) +
-                                                      " has been added to server config but hasn't been"
-                                                      " added as a user defined tag. Add this tag first\n\n")
+        allowed_tag_indices = self.object_dict["tag"].keys()
+        if obj == "tag":
+            for tag_idx in obj_payload:
+                if tag_idx not in allowed_tag_indices:
+                    self.app.print_error_message_and_quit("\nThe tag index " + str(tag_idx) +
+                                                          " is not a valid tag index. Please use tags1-7\n\n")
+                elif tag_idx not in tag_dict_idx_list:
+                    self.app.print_error_message_and_quit("\nThe tag " + str(tag_idx) +
+                                                          " with this index hasn't been added, it cannot be edited."
+                                                          "Use the add tag command to add a tag to this index.\n"
+                                                          "List is" + str(tag_dict_idx_list) + "\n")
+        elif obj == "server":
+            edited_tag_dict = obj_payload["tag"]
+            edited_tags = edited_tag_dict.keys()
+            for tag in edited_tags:
+                if tag not in rev_tag_dict:
+                    self.app.print_error_message_and_quit("\nThe tag " + str(tag) +
+                                                          " has been added to server config but hasn't been"
+                                                          " added as a user defined tag. Add this tag first\n\n")
 
     def pairwise(self, iterable):
         a = iter(iterable)
@@ -289,6 +305,14 @@ class Edit(Command):
             self.parse_remaining_args(obj, obj_payload, multilevel_obj_params, remaining_args)
         return obj_payload
 
+    def edit_tag(self, parsed_args, remaining_args=None):
+        tag_payload = {}
+        allowed_tags = self.object_dict["tag"].keys()
+        if hasattr(parsed_args, "tags"):
+            edit_tag_dict = self.process_val(getattr(parsed_args, "tags", None))
+            tag_payload = {k: v for k, v in edit_tag_dict.iteritems() if k in allowed_tags}
+        return tag_payload
+
     def take_action(self, parsed_args, remaining_args=None):
 
         try:
@@ -315,18 +339,25 @@ class Edit(Command):
         try:
             if getattr(parsed_args, "file_name", None) and smgr_obj in self.smgr_objects:
                 payload = json.load(open(parsed_args.file_name))
-                for obj_payload in payload[str(smgr_obj)]:
-                    if "tag" in obj_payload and smgr_obj == "server":
-                        self.verify_edited_tags(smgr_obj, obj_payload)
-                    if "id" not in obj_payload:
-                        self.app.print_error_message_and_quit("No id specified for object being added")
-            elif not getattr(parsed_args, "id", None):
+                if smgr_obj == "tag":
+                    self.verify_edited_tags(smgr_obj, payload)
+                else:
+                    for obj_payload in payload[str(smgr_obj)]:
+                        if "tag" in obj_payload and smgr_obj == "server":
+                            self.verify_edited_tags(smgr_obj, obj_payload)
+                        if "id" not in obj_payload and smgr_obj != "tag":
+                            self.app.print_error_message_and_quit("No id specified for object being added")
+            elif not (getattr(parsed_args, "id", None) or getattr(parsed_args, "mac_address", None)) \
+                    and smgr_obj != "tag":
                 # 1. Check if parsed args has id for object
                 self.app.print_error_message_and_quit(
-                    "\nYou need to specify the id to edit an object (Arguement --id).\n")
+                    "\nYou need to specify the id or mac_address to edit an object (Arguement --id/--mac_address).\n")
             elif smgr_obj not in self.smgr_objects:
                 self.app.print_error_message_and_quit(
                     "\nThe object: " + str(smgr_obj) + " is not a valid one.\n")
+            elif smgr_obj == "tag":
+                payload = self.edit_tag(parsed_args, remaining_args)
+                self.verify_edited_tags(smgr_obj, payload)
             else:
                 payload = {}
                 # 2. Check that id exists for this added object
