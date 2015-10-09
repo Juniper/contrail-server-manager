@@ -208,7 +208,9 @@ class Server(object):
         self.preconfig_repos()
         self.install_packages()
         self.setup_interface()
-        self.setup_static_routes()
+        # Setup static routes if defined
+        if getattr(self, 'static_routes', None):
+            self.setup_static_routes()
         self.preconfig_ntp_config()
         self.preconfig_puppet_config()
 
