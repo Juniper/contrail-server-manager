@@ -764,21 +764,6 @@ class VncServerManager():
                 msg = "role 'tsn' needs role 'compute' in provision file"
                 raise ServerMgrException(msg, ERR_OPR_ERROR)
 
-            if (('storage-compute' in data['roles'])
-                or ('storage-master' in data['roles'])):
-                server_params = data['parameters']
-                if (('storage_repo_id' not in server_params.keys()) or
-                    (server_params['storage_repo_id'] == "")):
-                    msg = ("server parameters needs to have storage_repo_id"
-                          " for storage roles")
-                    raise ServerMgrException(msg, ERR_OPR_ERROR)
-
-            if 'toragent' in data['roles']:
-                status, msg = self._smgr_validations.validate_tor_config(data)
-                self._smgr_log.log(self._smgr_log.DEBUG, "tor_cofnig =>status: %s, msg: %s" %(status, msg))
-                if status != 0:
-                    raise ServerMgrException(msg, ERR_OPR_ERROR)
-   
         return ret_data
 
     def validate_smgr_delete(self, validation_data, request, data = None):
@@ -3717,6 +3702,14 @@ class VncServerManager():
                     msg = "Storage is disabled"
                     storage_status = '0'
                 self._smgr_log.log(self._smgr_log.DEBUG, msg)
+
+                if (('storage-compute' in server['roles'])
+                    or ('storage-master' in server['roles'])):
+                    if (('storage_repo_id' not in server_params.keys()) or
+                        (server_params['storage_repo_id'] == "")):
+                        msg = ("server parameters needs to have storage_repo_id"
+                              " for storage roles")
+                        raise ServerMgrException(msg, ERR_OPR_ERROR)
 
                 # Calculate the total number of disks in the cluster
                 total_osd = int(0)
