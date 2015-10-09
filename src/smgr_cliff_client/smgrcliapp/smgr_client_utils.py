@@ -249,6 +249,8 @@ class SmgrClientUtils():
             if len(data_dict.keys()) == 1 and obj != "tag":
                 obj_type, obj_value = data_dict.popitem()
                 dict_list = eval(str(obj_value))
+                if len(dict_list) == 0:
+                    return []
                 sample_dict = dict(dict_list[0])
                 sameple_dict_key_list = sample_dict.keys()
                 sameple_dict_key_list.remove("id")
@@ -293,7 +295,7 @@ class SmgrClientUtils():
             data_dict = {}
             if isinstance(data_item, dict):
                 data_dict = data_item
-            elif isinstance(data_item, list):
+            elif isinstance(data_item, list) and len(data_item) >= 1:
                 data_dict = data_item[0]
             elif data_item:
                 data_dict[str(select_item)] = data_item
