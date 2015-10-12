@@ -5,10 +5,7 @@
    Name : smgr_status.py
    Author : Abhay Joshi
    Description : This program is a simple cli interface to
-   get server manager configuration objects.
-   Objects can be cluster, server, or image.
-   An optional parameter details is used to indicate if user
-   wants to fetch details of the object.
+   get status of provision or reimage on servers in the server manager DB.
 """
 import argparse
 import pdb
@@ -57,11 +54,8 @@ class Status(Command):
         group.add_argument("--discovered",
                            help=("flag to get list of "
                                  "newly discovered server(s)"))
-        parser_server.add_argument(
-            "--detail", "-d", action='store_true',
-            help="Flag to indicate if details are requested")
 
-        self.command_dictionary["server"] = ['server_id', 'mac', 'ip', 'cluster_id', 'tag', 'discovered', 'detail', 'd']
+        self.command_dictionary["server"] = ['server_id', 'mac', 'ip', 'cluster_id', 'tag', 'discovered']
 
         for key in self.command_dictionary:
             new_dict = dict()
@@ -114,15 +108,13 @@ class Status(Command):
                 self.app.report_missing_config("smgr_port")
         except Exception as e:
             sys.exit("Exception: %s : Error getting smgr config" % e.message)
-        detail = getattr(parsed_args, "detail", None)
 
         rest_api_params = None
         rest_api_params = self.set_server_status(parsed_args)
         if rest_api_params:
             resp = smgrutils.send_REST_request(self.smgr_ip, self.smgr_port, obj="server_status",
                                               match_key=rest_api_params['match_key'],
-                                              match_value=rest_api_params['match_value'],
-                                              detail=detail)
+                                              match_value=rest_api_params['match_value'])
             smgrutils.print_rest_response(resp)
             self.app.stdout.write("\n" + str(smgrutils.print_rest_response(resp)) + "\n")
 
