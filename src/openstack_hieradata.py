@@ -81,7 +81,7 @@ openstack::ceilometer::meteringsecret: ''
 
 ######## Heat
 openstack::heat::password: '$__openstack_password__'
-openstack::heat::encryption_key: ''
+openstack::heat::encryption_key: '$__heat_encryption_key__'
 
 ######## Horizon
 openstack::horizon::secret_key: '$__openstack_password__'
