@@ -537,8 +537,13 @@ class ServerMgrDb:
     def add_cluster(self, cluster_data):
         try:
             # Store cluster_parameters dictionary as a text field
-            cluster_parameters = cluster_data.pop("parameters", None)
-            if cluster_parameters is not None:
+            if 'parameters' in cluster_data:
+                cluster_parameters = cluster_data.pop("parameters")
+                if not cluster_parameters:
+                    cluster_parameters = {}
+                for k, v in cluster_parameters.iteritems():
+                    if v is None:
+                        cluster_parameters.pop(k, None)
                 cluster_data['parameters'] = str(cluster_parameters)
             # Store provision sequence list as a text field
             provision_role_sequence = cluster_data.pop("provision_role_sequence",
@@ -567,7 +572,7 @@ class ServerMgrDb:
 
     def add_server(self, server_data):
         try:
-            if 'mac_address' in server_data:
+            if 'mac_address' in server_data and server_data['mac_address']:
                 server_data['mac_address'] = str(
                     EUI(server_data['mac_address'])).replace("-", ":")
             # Store roles list as a text field
@@ -586,17 +591,26 @@ class ServerMgrDb:
                 server_data['intf_bond'] = str(intf_bond)
             #Add network
             if 'network' in server_data:
-                network_data_str = str(server_data.pop("network", None))
-                server_data['network'] = network_data_str
+                network = server_data.pop('network')
+                if not network:
+                    network = {}
+                for k,v in network.iteritems():
+                    if v is None:
+                        network.pop(k, None)
+                server_data['network'] = str(network)
             #Add top_of_rack configuration 
             if 'top_of_rack' in server_data:
                 top_of_rack_data_str = str(server_data.pop("top_of_rack", None))
                 server_data['top_of_rack'] = top_of_rack_data_str 
             #Add contrail
             if 'contrail' in server_data:
-                contrail_data_str = str(server_data.pop("contrail", None))
-                server_data['contrail'] = contrail_data_str
-
+                contrail = server_data.pop('contrail')
+                if not contrail:
+                    contrail = {}
+                for k,v in contrail.iteritems():
+                    if v is None:
+                        contrail.pop(k, None)
+                server_data['contrail'] = str(contrail)
             # Store email list as text field
             email = server_data.pop("email", None)
             if email:
@@ -609,8 +623,13 @@ class ServerMgrDb:
                 for k,v in server_tags.iteritems():
                     server_data[rev_tags_dict[k]] = v
             # Store server_params dictionary as a text field
-            server_parameters = server_data.pop("parameters", None)
-            if server_parameters is not None:
+            if 'parameters' in server_data:
+                server_parameters = server_data.pop('parameters')
+                if not server_parameters:
+                    server_parameters = {}
+                for k,v in server_parameters.iteritems():
+                    if v is None:
+                        server_parameters.pop(k)
                 server_data['parameters'] = str(server_parameters)
             self._add_row(server_table, server_data)
         except Exception as e:
@@ -763,22 +782,21 @@ class ServerMgrDb:
                 msg = "%s is not valid" % cluster_id
                 self.log_and_raise_exception(msg, ERR_OPR_ERROR)
 
-            db_cluster_params_str = db_cluster[0] ['parameters']
-            db_cluster_params = {}
-            if db_cluster_params_str:
-                db_cluster_params = eval(db_cluster_params_str)
-            if 'uuid' not in db_cluster_params:
-                str_uuid = str(uuid.uuid4())
-                cluster_data["parameters"].update({"uuid":str_uuid})
-            # Store cluster_params dictionary as a text field
-            cluster_params = cluster_data.pop("parameters", {})
-            for k,v in cluster_params.iteritems():
-                if v == '""':
-                    v = ''
-                db_cluster_params[k] = v
-            cluster_params = db_cluster_params
-            if cluster_params is not None:
-                cluster_data['parameters'] = str(cluster_params)
+            # Modify cluster parameters
+            if 'parameters' in cluster_data:
+                cluster_params = cluster_data.pop('parameters')
+                if cluster_params is None:
+                    db_cluster_params = {}
+                else:
+                    db_cluster_params = eval(db_cluster[0].get('parameters', '{}'))
+                    for k,v in cluster_params.iteritems():
+                        if v == '""':
+                            v = ''
+                        if v is None:
+                            db_cluster_params.pop(k, None)
+                        else:
+                            db_cluster_params[k] = v
+                cluster_data['parameters'] = str(db_cluster_params)
 
             # Store email list as text field
             email = cluster_data.pop("email", None)
@@ -873,14 +891,33 @@ class ServerMgrDb:
             if intf_bond:
                 server_data['intf_bond'] = str(intf_bond)
 
-            #Add network
+            #Modify network
             if 'network' in server_data:
-                network_data_str = str(server_data.pop("network", None))
-                server_data['network'] = network_data_str
-            #Add contrail
+                network = server_data.pop('network')
+                if network is None:
+                    db_network = {}
+                else:
+                    db_network = eval(db_server[0].get('network', '{}'))
+                    for k,v in network.iteritems():
+                        if v is None:
+                            db_network.pop(k, None)
+                        else:
+                            db_network[k] = v
+                server_data['network'] = str(db_network)
+
+            #Modify contrail
             if 'contrail' in server_data:
-                contrail_data_str = str(server_data.pop("contrail", None))
-                server_data['contrail'] = contrail_data_str
+                contrail = server_data.pop('contrail')
+                if contrail is None:
+                    db_contrail = {}
+                else:
+                    db_contrail = eval(db_server[0].get('contrail', '{}'))
+                    for k, v in contrail.iteritems():
+                        if v is None:
+                            db_contrail.pop(k)
+                        else:
+                            db_contrail[k] = v
+                server_data['contrail'] = str(db_contrail)
 
             #Add top_of_rack
             if 'top_of_rack' in server_data:
@@ -900,26 +937,22 @@ class ServerMgrDb:
                 public_key = str(server_data.pop("ssh_public_key", None))
                 server_data["ssh_private_key"] = private_key
                 server_data["ssh_public_key"] = public_key
+
             # Store server_params dictionary as a text field
-            server_params = server_data.pop("parameters", None)
-            #if server_params is not None:
-            #    server_data['server_params'] = str(server_params)
-            #check for modify in db server_params
-            #Always Update DB server parmas
-            db_server_params = {}
-            if len(db_server) == 0:
-                msg = ('DB server not found', ERR_OPR_ERROR)
-                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
-               
-            db_server_params_str = db_server[0] ['parameters']
-            if db_server_params_str:
-                db_server_params = eval(db_server_params_str)
-                if server_params:
+            if 'parameters' in server_data:
+                server_params = server_data.pop('parameters')
+                if server_params is None:
+                    db_server_params = {}
+                else:
+                    db_server_params = eval(db_server[0].get('parameters', '{}'))
                     for k,v in server_params.iteritems():
                         if v == '""':
                             v = ''
-                        db_server_params[k] = v
-            server_data['parameters'] = str(db_server_params)
+                        if v is None:
+                            db_server_params.pop(k, None)
+                        else:
+                            db_server_params[k] = v
+                server_data['parameters'] = str(db_server_params)
 
             # Store email list as text field                   
             email = server_data.pop("email", None)
