@@ -1,9 +1,11 @@
 #!/usr/bin/python
 
 import sqlite3 as lite
+import os
 import sys
 import pdb
 import uuid
+import subprocess
 from netaddr import *
 from server_mgr_err import *
 from server_mgr_exception import ServerMgrException as ServerMgrException
@@ -155,9 +157,50 @@ class ServerMgrDb:
                         cluster['parameters'])):
                     self.update_cluster_uuids(cluster)
             self.convert_server_table_to_new_interface()
+
+            self.update_image_table()
         except e:
             raise e
     # End of __init__
+
+    def update_image_version(self, image):
+        #pdb.set_trace()
+        if not image:
+           return
+
+        parameters = image.get('parameters',"")
+        if parameters:
+            parameters = eval(parameters)
+
+        # if version is not there or NO_VERSION (not found) laster time, try
+        # to find the version using dpkg-deb
+        if (parameters and 'version' in parameters and parameters['version'] != ''):
+            # version is already found, no action needed
+            if parameters['version'] != 'NO_VERSION':
+                return
+
+        # only ubuntu packages are processed for finding version
+        if not (image['type'] == 'contrail-storage-ubuntu-package' or image['type'] == 'contrail-ubuntu-package'):
+           return
+
+        # following used for getting details about ubuntu package
+        # dpkg-deb -f /path/to/package.deb Version
+        extn = os.path.splitext(image['path'])[1]
+        image_path = '/etc/contrail_smgr/images/' + image['id'] + extn
+        self._smgr_log.log(self._smgr_log.DEBUG, "update_image_version path : %s" %image_path)
+        version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
+        parameters['version'] = version.strip('\n')
+
+        image['parameters'] = parameters
+        self.modify_image(image)
+    ##End of update_image_version
+
+
+    def update_image_table(self):
+        #pdb.set_trace()
+        images = self.get_image(None, detail=True)
+        for image in images:
+            self.update_image_version(image)
 
     def get_subnet_mask(self, server):
         subnet_mask = server.get('subnet_mask', None)

@@ -1391,9 +1391,13 @@ class VncServerManager():
                         image_params['puppet_manifest_version'] = \
                             puppet_manifest_version
                         image_params['sequence_provisioning_available'] = sequence_provisioning_available
+                        version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
+                        image_params['version'] = version.strip('\n')
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
                             image_id, image_type, image_version, dest)
+                        version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
+                        image_params['version'] = version.strip('\n')
                     else:
                         image_kickstart = image_params.get('kickstart', '')
                         image_kickseed = image_params.get('kickseed', '')
@@ -3444,6 +3448,16 @@ class VncServerManager():
         return role_servers
     #end get_role_servers
 
+    def package_version(self, package_id):
+        version = ''
+        try:
+            package_id, package = self.get_package_image(package_id)
+            version = eval(package['parameters'])['version']
+        except ServerMgrException as e:
+            pass
+        return version
+
+
     # API call to provision server(s) as per roles/roles
     # defined for those server(s). This function creates the
     # puppet manifest file for the server and adds it to site
@@ -3524,6 +3538,7 @@ class VncServerManager():
                 provision_params['sequence_provisioning_available'] = self.is_sequence_provisioning_available(package_image_id)
                 puppet_manifest_version = server_pkg['puppet_manifest_version']
                 provision_params['package_image_id'] = package_image_id
+                provision_params['package_version'] = self.package_version(package_image_id)
                 provision_params['package_type'] = package_type
                 provision_params['puppet_manifest_version'] = puppet_manifest_version
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr

@@ -390,6 +390,8 @@ class ServerMgrPuppet:
         data += 'contrail::params::host_ip: "%s"\n' %(
             self.get_control_ip(provision_params, server.get('ip_address', "")))
 
+        data += 'contrail::params::contrail_version: "%s"\n' %(provision_params['package_version'])
+
         #Upgrade Kernel
         if 'kernel_upgrade' in provision_params and \
             provision_params['kernel_upgrade'] != DEFAULT_KERNEL_UPGRADE :
