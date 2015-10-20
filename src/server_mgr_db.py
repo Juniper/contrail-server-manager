@@ -18,49 +18,37 @@ image_table = 'image_table'
 inventory_table = 'inventory_table'
 server_status_table = 'status_table'
 server_tags_table = 'server_tags_table'
+
 _DUMMY_STR = "DUMMY_STR"
 
 
 class ServerMgrDb:
 
-    _cluster_table_cols = []
-    _server_table_cols = []
-    _image_table_cols = []
-    _status_table_cols = []
-    _server_tags_table_cols = []
-    _inventory_table_cols = []
-
-    # Keep list of table columns
-    def _get_table_columns(self):
-        try:
-            with self._con:
-                cursor = self._con.cursor()
-                cursor.execute(
-                    "SELECT * FROM " +
-                    server_table + " WHERE id=?", (_DUMMY_STR,))
-                self._server_table_cols = [x[0] for x in cursor.description]
-                cursor.execute(
-                    "SELECT * FROM " +
-                    server_tags_table + " WHERE tag_id=?", (_DUMMY_STR,))
-                self._server_tags_table_cols = [x[0] for x in cursor.description]
-                cursor.execute(
-                    "SELECT * FROM " +
-                    image_table + " WHERE id=?", (_DUMMY_STR,))
-                self._image_table_cols = [x[0] for x in cursor.description]
-                cursor.execute("SELECT * FROM " +
-                               cluster_table + " WHERE id=?", (_DUMMY_STR,))
-                self._cluster_table_cols = [x[0] for x in cursor.description]
-                cursor.execute(
-                    "SELECT * FROM " +
-                    server_status_table + " WHERE id=?", (_DUMMY_STR,))
-                self._status_table_cols = [x[0] for x in cursor.description]
-                cursor.execute(
-                    "SELECT * FROM " +
-                    inventory_table + " WHERE id=?", (_DUMMY_STR,))
-                self._inventory_table_cols = [x[0] for x in cursor.description]
-        except Exception as e:
-            raise e
-    # end _get_table_columns
+    # Input: Specify table name by giving the object name and '_table' will be added by
+    # this function while looking for the table
+    # Output: Dict of columns, if table matches. Otherwise, empty list will be returned
+    def get_table_columns(self, table_name):
+        table_columns = {}
+        if not table_name:
+            return table_columns
+        db_table_name = table_name+'_table'
+        with self._con:
+            cursor = self._con.cursor()
+            table_info_cmd = "PRAGMA table_info(%s)" % db_table_name
+            cursor.execute(table_info_cmd)
+            column_info_table = cursor.fetchall()
+            if cursor.description and column_info_table:
+                output_header_info = [x[0] for x in cursor.description]
+                if 'name' in output_header_info and 'type' in output_header_info:
+                    table_columns['header'] = {'column name': 'type'}
+                    name_index = output_header_info.index('name')
+                    type_index = output_header_info.index('type')
+                    columns = {}
+                    for column_info in column_info_table:
+                        columns[str(column_info[name_index])] = str(column_info[type_index])
+                    table_columns['columns'] = columns
+            return table_columns
+    # end get_table_columns
 
     def _add_table_column(self, cursor, table, column, column_type):
         try:
@@ -145,7 +133,6 @@ class ServerMgrDb:
                 self._add_table_column(cursor, server_table, "ssh_public_key", "TEXT")
                 self._add_table_column(cursor, server_table, "ssh_private_key", "TEXT")
 
-            self._get_table_columns()
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
 
             # During init, we check if any of the Cluster in DB are missing any Storage Parameters (Generated UUIDs)

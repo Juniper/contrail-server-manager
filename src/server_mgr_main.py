@@ -441,6 +441,7 @@ class VncServerManager():
         bottle.route('/server_status', 'GET', self.get_server_status)
         bottle.route('/chassis-id', 'GET', self.get_server_chassis_id)
         bottle.route('/tag', 'GET', self.get_server_tags)
+        bottle.route('/columns', 'GET', self.get_table_columns)
         if self._server_monitoring_obj:
             bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
             bottle.route('/MonitorInfo', 'GET', self._server_monitoring_obj.get_monitoring_info)
@@ -565,6 +566,24 @@ class VncServerManager():
         self._smgr_log.log(self._smgr_log.DEBUG, "Config returned: %s" % (config))
         return config
     # end get_server_mgr_config
+
+    def get_table_columns(self):
+        self._smgr_log.log(self._smgr_log.DEBUG, "get_table_columns")
+        query_args = parse_qs(urlparse(request.url).query,
+                              keep_blank_values=True)
+        table_name = query_args.get('table', None)
+        if not table_name:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_TABLE_COLUMNS,
+                                     False)
+            resp_msg = self.form_operartion_data('table not present', ERR_GENERAL_ERROR, None)
+            abort(404, resp_msg)
+        table_columns = self._serverDb.get_table_columns(table_name[0])
+        self._smgr_trans_log.log(bottle.request, 
+                                 self._smgr_trans_log.GET_SMGR_CFG_TABLE_COLUMNS)
+        self._smgr_log.log(self._smgr_log.DEBUG, "Db returned columns for %s: %s" % (table_name[0], table_columns))
+        return table_columns
+    # end get_table_columns    
 
     # REST API call to get sever manager config - configuration of all
     # CLUSTERs, with all servers and roles is returned. This call
