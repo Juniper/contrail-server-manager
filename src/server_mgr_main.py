@@ -1728,13 +1728,23 @@ class VncServerManager():
         image_id = bottle.request.forms.id
         image_version = bottle.request.forms.version
         image_type = bottle.request.forms.type
+        image_category = bottle.request.forms.category
         msg = ""
-        if (image_type not in [
-                "centos", "fedora", "ubuntu",
-                "contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]):
+        if (image_type not in self._image_list):
             msg = "Invalid Image type for %s" % (image_id)
             resp_msg = self.form_operartion_data(msg, ERR_IMG_TYPE_INVALID, None)
             abort(404, resp_msg)
+
+        if (not image_category):
+            if image_type in self._iso_types:
+                image_category = "image"
+            if image_type in self._package_types:
+                image_category = "package"
+        if (image_category not in self._image_category_list):
+            msg = "image category (%s) is not supported" % (image_category)
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg, ERR_OPR_ERROR)
+
         db_images = self._serverDb.get_image(
             {'id' : image_id}, detail=False)
         if db_images:
@@ -1767,9 +1777,13 @@ class VncServerManager():
                 image_params['puppet_manifest_version'] = \
                     puppet_manifest_version
                 image_params['sequence_provisioning_available'] = sequence_provisioning_available
+                version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
+                image_params['version'] = version.strip('\n')
             elif image_type == "contrail-storage-ubuntu-package":
                 self._create_repo(
                     image_id, image_type, image_version, dest)
+                version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
+                image_params['version'] = version.strip('\n')
             else:
                 kickstart_obj = bottle.request.files.get('kickstart', None)
                 kickstart_dest = kickseed_dest = ''
@@ -1795,6 +1809,7 @@ class VncServerManager():
                 'version': image_version,
                 'type': image_type,
                 'path': dest,
+                'category' : image_category,
                 'parameters' : image_params}
             self._serverDb.add_image(image_data)
         except subprocess.CalledProcessError as e:
