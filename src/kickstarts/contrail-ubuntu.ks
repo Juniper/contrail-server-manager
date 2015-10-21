@@ -154,6 +154,7 @@ echo "    ignorecache = true" >> /etc/puppet/puppet.conf
 echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
 echo "    ordering = manifest" >> /etc/puppet/puppet.conf
 echo "    report = true" >> /etc/puppet/puppet.conf
+echo "    stringify_facts = false" >> /etc/puppet/puppet.conf
 echo "[main]" >> /etc/puppet/puppet.conf
 echo "runinterval=10" >> /etc/puppet/puppet.conf
 echo "configtimeout=500" >> /etc/puppet/puppet.conf
