@@ -398,6 +398,7 @@ class Server(object):
                         'usecacheonfailure = false\n' \
                         'ordering = manifest\n' \
                         'report = true\n' \
+                        'stringify_facts = false\n' \
                         '[main]\n' \
                         'runinterval = 10\n' \
                         'configtimeout = 500\n'
