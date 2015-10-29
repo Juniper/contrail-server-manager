@@ -217,9 +217,12 @@ class BaseInterface(object):
                'SUBCHANNELS'   : '1,2,3'
               }
         if not self.vlan:
-            cfg.update({'NETMASK'       : self.netmask,
-                        'IPADDR'        : self.ipaddr
-                       })
+            if self.dhcp:
+                cfg.update({'BOOTPROTO': 'dhcp'})
+            else:
+                cfg.update({'NETMASK'       : self.netmask,
+                            'IPADDR'        : self.ipaddr
+                          })
             if self.gw:
                 cfg['GATEWAY'] = self.gw
         else:
@@ -331,22 +334,44 @@ class UbuntuInterface(BaseInterface):
             fd.flush()
         os.system('sudo cp -f %s %s'%(self.tempfile.name, filename))
 
+    def biosdevname_cmd(self):
+        cmd = 'biosdevname -i %s'
+        output = os.popen('grep "PROGRAM=" /lib/udev/rules.d/71-biosdevname.rules').read()
+        if not output:
+            return cmd
+        program_line_list = output.strip().split(',')
+        for entry in program_line_list:
+            if entry.split('=')[0] == 'PROGRAM':
+                program_cmd = eval(entry.split('=')[1])
+                if 'biosdevname' in program_cmd and '%k' in program_cmd:
+                    return program_cmd.replace("%k", "%s")
+        return cmd
+
     def biosdevname_mapping(self, name):
         biosdev_name = ''
         try:
-            biosdev_name = os.popen('biosdevname -i %s'%(name)).read()
+            biosdev_name = os.popen(self.biosdevname_cmd()%(name)).read()
         except: 
             pass
         biosdev_name = biosdev_name.strip()
         if biosdev_name:
             return biosdev_name
         else:
+            log.info('BiosDevname didnt change the interface name')
+            self.populate_persistent_net_rules(name)
             return name
+
+    def populate_persistent_net_rules(self, name):
+        log.info('Populating persistent net rules for %s'%name)
+        mac_addr = self.get_mac_addr(name)
+        os.popen('MATCHADDR=%s INTERFACE=%s /lib/udev/write_net_rules'%(mac_addr, name)).read()
+#        os.popen('cp /etc/udev/rules.d/70-persistent-net.rules /target/etc/udev/rules.d/70-persistent-net.rules').read()
 
     def pre_conf(self):
         '''Execute commands before interface configuration for Ubuntu'''
         if LooseVersion(VERSION) >= LooseVersion("14.04"):
-            self.device = self.biosdevname_mapping(self.device) 
+            if 'bond' not in self.device.lower():
+                self.device = self.biosdevname_mapping(self.device)
             for i in xrange(len(self.members)):
                 self.members[i] = self.biosdevname_mapping(self.members[i])
             
@@ -427,7 +452,15 @@ class UbuntuInterface(BaseInterface):
         bond_mac = self.get_mac_addr(self.members[0])
         log.info('Creating bond master: %s with Mac Addr: %s' %
                  (self.device, bond_mac))
-        if not self.vlan:
+        if self.vlan:
+            cfg = ['auto %s' %self.device,
+                   'iface %s inet manual' %self.device,
+                   'hwaddress %s' % bond_mac,
+                   'down ip addr flush dev %s' %self.device]
+        elif self.dhcp:
+            cfg = ['auto %s' %self.device,
+                   'iface %s inet dhcp' %self.device]
+        else:
             cfg = ['auto %s' %self.device,
                    'iface %s inet static' %self.device,
                    'address %s' %self.ipaddr,
@@ -435,11 +468,6 @@ class UbuntuInterface(BaseInterface):
                    'hwaddress %s' % bond_mac]
             if self.gw:
                 cfg.append('gateway %s' %self.gw)
-        else:
-            cfg = ['auto %s' %self.device,
-                   'iface %s inet manual' %self.device,
-                   'hwaddress %s' % bond_mac,
-                   'down ip addr flush dev %s' %self.device]
         cfg += self.bond_opts_str.split("\n")
         self.write_network_script(cfg)
         if self.vlan:
