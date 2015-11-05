@@ -14,6 +14,8 @@ openstack::network::external::ippool::end: ''
 openstack::network::external::gateway: ''
 openstack::network::external::dns: ''
 
+openstack::config::neutron_shared_secret : 'XLbZ3ZzRsMoqwRJcFlmrpoc'
+
 ######## Private Neutron Network
 openstack::network::neutron::private: '192.168.0.0/24'
 
