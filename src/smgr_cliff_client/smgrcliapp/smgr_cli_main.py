@@ -118,6 +118,7 @@ class ServerManagerCLI(App):
             self.default_config["smgr"] = dict(config.items("SERVER-MANAGER"))
             self.default_config["server"] = dict(config.items("SERVER"))
             self.default_config["cluster"] = dict(config.items("CLUSTER"))
+            self.default_config["image"] = dict(config.items("IMAGE"))
             self.default_config["tag"] = dict(config.items("TAG"))
             env_smgr_ip = os.environ.get('SMGR_IP')
             if getattr(self.options, "smgr_ip", None):

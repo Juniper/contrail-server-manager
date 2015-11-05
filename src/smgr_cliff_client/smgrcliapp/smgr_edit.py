@@ -6,7 +6,7 @@
    Author : Nitish Krishna
    Description : This program is a simple cli interface to
    edit server manager configuration objects.
-   Objects can be cluster, server, or image.
+   Objects can be cluster or server.
 """
 import logging
 import pdb
@@ -45,14 +45,12 @@ class Edit(Command):
 
     def get_parser(self, prog_name):
 
-        self.smgr_objects = ["server", "cluster", "image", "tag"]
-        self.mandatory_params["server"] = ['id', 'mac_address', 'ip_address', 'ipmi_address', 'subnet_mask', 'gateway']
+        self.smgr_objects = ["server", "cluster", "tag"]
+        self.mandatory_params["server"] = ['id', 'ip_address', 'subnet_mask', 'gateway']
         self.mandatory_params["cluster"] = ['id']
-        self.mandatory_params["image"] = ['id', 'category', 'version', 'type', 'path']
         self.mandatory_params["tag"] = []
-        self.multilevel_param_classes["server"] = ["network", "parameters", "tag", "contrail"]
+        self.multilevel_param_classes["server"] = ["network", "parameters", "contrail"]
         self.multilevel_param_classes["cluster"] = ["parameters"]
-        self.multilevel_param_classes["image"] = ["parameters"]
 
         parser = super(Edit, self).get_parser(prog_name)
         # Process the arguments
@@ -92,26 +90,12 @@ class Edit(Command):
             if param not in self.multilevel_param_classes["cluster"]:
                 parser_cluster.add_argument(
                     "--" + str(param),
-                    help="Parameter " + str(param) + " for the cluster being added",
+                    help="Parameter " + str(param) + " for the cluster being edited",
                     default=None
                 )
         parser_cluster.add_argument(
             "--file_name", "-f",
             help="json file containing cluster param values", dest="file_name", default=None)
-
-        # Subparser for image edit
-        parser_image = subparsers.add_parser(
-            "image", help='Create image')
-        for param in self.object_dict["image"]:
-            if param not in self.multilevel_param_classes["image"]:
-                parser_image.add_argument(
-                    "--" + str(param),
-                    help="Parameter " + str(param) + " for the image being added",
-                    default=None
-                )
-        parser_image.add_argument(
-            "--file_name", "-f",
-            help="json file containing image param values", dest="file_name", default=None)
 
         for obj in self.smgr_objects:
             self.command_dictionary[str(obj)] = ['f', 'file_name']
@@ -346,7 +330,7 @@ class Edit(Command):
                         if "tag" in obj_payload and smgr_obj == "server":
                             self.verify_edited_tags(smgr_obj, obj_payload)
                         if "id" not in obj_payload and smgr_obj != "tag":
-                            self.app.print_error_message_and_quit("No id specified for object being added")
+                            self.app.print_error_message_and_quit("No id specified for object being edited")
             elif not (getattr(parsed_args, "id", None) or getattr(parsed_args, "mac_address", None)) \
                     and smgr_obj != "tag":
                 # 1. Check if parsed args has id for object

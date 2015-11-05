@@ -54,6 +54,9 @@ class Status(Command):
         group.add_argument("--discovered",
                            help=("flag to get list of "
                                  "newly discovered server(s)"))
+        parser_server.add_argument("--json",
+                                   help="To display output in json format",
+                                   action="store_true")
 
         self.command_dictionary["server"] = ['server_id', 'mac', 'ip', 'cluster_id', 'tag', 'discovered']
 
@@ -115,6 +118,10 @@ class Status(Command):
             resp = smgrutils.send_REST_request(self.smgr_ip, self.smgr_port, obj="server_status",
                                               match_key=rest_api_params['match_key'],
                                               match_value=rest_api_params['match_value'])
-            smgrutils.print_rest_response(resp)
-            self.app.stdout.write("\n" + str(smgrutils.print_rest_response(resp)) + "\n")
+            json_format = getattr(parsed_args, "json", False)
+            if json_format:
+                self.app.stdout.write(str(smgrutils.print_rest_response(resp)) + "\n")
+            else:
+                table_format_output = smgrutils.convert_json_to_table(obj="server", json_resp=resp)
+                self.app.stdout.write("\n" + str(smgrutils.print_rest_response(str(table_format_output))) + "\n")
 
