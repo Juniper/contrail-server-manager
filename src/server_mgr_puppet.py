@@ -13,6 +13,7 @@ from netaddr import *
 import string
 import textwrap
 import shutil
+import copy
 import random 
 import tempfile
 import re
@@ -22,6 +23,7 @@ from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
 from contrail_defaults import *
+from contrail_config_defaults import *
 
 
 class ServerMgrPuppet:
@@ -499,6 +501,14 @@ class ServerMgrPuppet:
                         data += '    %s: "%s"\n' % (key,value)
                         if key == 'ovs_protocol' and value.lower() == 'pssl':
                             self.generate_tor_certs(switch, provision_params)
+        # Switch to fill all template configs into yaml file
+        try:
+            if not USE_CONFIG_TEMPLATES:
+                data = self.fill_contrail_config(provision_params, cluster_servers, server, data)
+        except Exception as e:
+            msg = "Failed to fill contrail config. Error reported: " + str(e)
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            return None
 
         if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
@@ -548,6 +558,162 @@ class ServerMgrPuppet:
             site_fh.write(data)
         # end with
     # end def build_contrail_hiera_file
+
+    # Calculate the contrail_config based on previousy calculated (in main) common config params (Replaces params.pp)
+    def calculate_contrail_config(self, common_config_dict):
+        calculated_config_dict = copy.deepcopy(calculated_config)
+
+        if common_config_dict["zookeeper_ip_list"]:
+            calculated_config_dict["zk_ip_list_to_use"] = common_config_dict["zookeeper_ip_list"]
+        else:
+            calculated_config_dict["zk_ip_list_to_use"] = common_config_dict["config_ip_list"]
+
+        calculated_config_dict["zk_ip_port_list_to_use"] = [ip + ":" +
+                                                                     str(common_config_dict["zookeeper_ip_port"])
+                                                                     for ip in
+                                                                     calculated_config_dict["zk_ip_list_to_use"]]
+        calculated_config_dict["zk_ip_port_list_to_use"] = ','.join(
+            calculated_config_dict["zk_ip_port_list_to_use"])
+        calculated_config_dict["collector_ip_port_list"] = [ip + ":8086"
+                                                                     for ip in
+                                                                     common_config_dict["collector_ip_list"]]
+        calculated_config_dict["collector_ip_port_list"] = ' '.join(
+            calculated_config_dict["collector_ip_port_list"])
+
+        if common_config_dict["openstack_mgmt_ip_list"]:
+            calculated_config_dict["openstack_mgmt_ip_list_to_use"] = \
+                common_config_dict["openstack_mgmt_ip_list"]
+        else:
+            calculated_config_dict["openstack_mgmt_ip_list_to_use"] = \
+                common_config_dict["openstack_ip_list"]
+
+        if common_config_dict["keystone_ip"]:
+            calculated_config_dict["keystone_ip_to_use"] = common_config_dict["keystone_ip"]
+        elif common_config_dict["internal_vip"]:
+            calculated_config_dict["keystone_ip_to_use"] = common_config_dict["internal_vip"]
+        else:
+            calculated_config_dict["keystone_ip_to_use"] = common_config_dict["openstack_ip_list"][0]
+
+        if common_config_dict["contrail_internal_vip"]:
+            calculated_config_dict["vip_to_use"] = common_config_dict["contrail_internal_vip"]
+            calculated_config_dict["config_ip_to_use"] = common_config_dict["contrail_internal_vip"]
+            calculated_config_dict["collector_ip_to_use"] = common_config_dict["contrail_internal_vip"]
+            calculated_config_dict["contrail_rabbit_port"] = 5673
+            calculated_config_dict["rest_api_port"] = 9081
+        elif common_config_dict["internal_vip"]:
+            calculated_config_dict["vip_to_use"] = common_config_dict["internal_vip"]
+            calculated_config_dict["config_ip_to_use"] = common_config_dict["internal_vip"]
+            calculated_config_dict["collector_ip_to_use"] = common_config_dict[
+                "internal_vip"]
+            calculated_config_dict["contrail_rabbit_port"] = 5673
+            calculated_config_dict["rest_api_port"] = 9081
+        else:
+            calculated_config_dict["vip_to_use"] = ""
+            calculated_config_dict["config_ip_to_use"] = common_config_dict["config_ip_list"][0]
+            calculated_config_dict["collector_ip_to_use"] = common_config_dict["collector_ip_list"][0]
+            calculated_config_dict["contrail_rabbit_port"] = 5672
+            calculated_config_dict["rest_api_port"] = 8081
+
+        if common_config_dict["internal_vip"]:
+            calculated_config_dict["openstack_ip_to_use"] = common_config_dict["internal_vip"]
+            calculated_config_dict["discovery_ip_to_use"] = common_config_dict["internal_vip"]
+        else:
+            calculated_config_dict["openstack_ip_to_use"] = common_config_dict["openstack_ip_list"][0]
+            calculated_config_dict["discovery_ip_to_use"] = common_config_dict["config_ip_list"][0]
+
+        if common_config_dict["amqp_server_ip"]:
+            calculated_config_dict["amqp_server_to_use"] = common_config_dict["amqp_server_ip"]
+        elif common_config_dict["openstack_manage_amqp"]:
+            calculated_config_dict["amqp_server_to_use"] = \
+                calculated_config_dict["openstack_ip_to_use"]
+
+        common_config_dict["contrail_rabbit_host"] = calculated_config_dict["config_ip_to_use"]
+        calculated_config_dict["cassandra_ip_list"] = [ip + ":" +
+                                                                str(common_config_dict["database_ip_port"])
+                                                                for ip in
+                                                                common_config_dict["database_ip_list"]]
+        calculated_config_dict["cassandra_ip_list"] = ' '.join(
+            calculated_config_dict["cassandra_ip_list"])
+        calculated_config_dict["kafka_broker_list"] = [ip + ":9092"
+                                                                for ip in
+                                                                common_config_dict["database_ip_list"]]
+        calculated_config_dict["kafka_broker_list"] = ' '.join(
+            calculated_config_dict["kafka_broker_list"])
+
+        return calculated_config_dict
+
+    def fill_contrail_config_from_user_config(self, provision_params, cluster_servers, server, common_config_dict):
+        role_ips = {}
+        role_ids = {}
+        role_passwd = {}
+        role_users = {}
+        common_config_dict["host_control_ip"] = \
+            self.get_control_ip(provision_params, server.get('ip_address', ""))
+        for role in ['database', 'config', 'openstack', 'control', 'collector',
+                     'webui', 'compute', 'tsn', 'toragent']:
+            role_ips[role] = [
+                self.get_control_ip(provision_params, x["ip_address"].encode('ascii'))
+                for x in cluster_servers if role in set(eval(x['roles']))]
+            common_config_dict[str(role) + "_ip_list"] = role_ips[role]
+            role_ids[role] = [
+                x["id"].encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
+            common_config_dict[str(role) + "_name_list"] = role_ids[role]
+            role_passwd[role] = [
+                x["password"].encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
+            common_config_dict[str(role) + "_passwd_list"] = role_passwd[role]
+            role_users[role] = [
+                "root".encode('ascii') for x in cluster_servers if role in set(eval(x['roles']))]
+            common_config_dict[str(role) + "_user_list"] = role_users[role]
+
+    # Use Server Manager config hashes to build yaml file text
+    def fill_contrail_config(self, provision_params, cluster_servers, server, data):
+        common_config_dict = {}
+        if "common_config_dict" in provision_params and provision_params["common_config_dict"]:
+            common_config_dict = provision_params["common_config_dict"]
+        else:
+            return
+
+        self.fill_contrail_config_from_user_config(provision_params, cluster_servers,
+                                                   server, common_config_dict)
+
+        calculated_config_dict = self.calculate_contrail_config(common_config_dict)
+
+        filled_role_config_dict_map = {}
+        for role in role_config_list_map:
+            role_config_template_list = role_config_list_map[role]
+            role_config_template_list = globals().get(role_config_template_list)
+            filled_role_config_template_dict = {}
+            for role_config_template in role_config_template_list:
+                role_config_template_dict = copy.deepcopy(globals().get(role_config_template))
+                filled_template = {}
+                for template_section in role_config_template_dict:
+                    role_config_template_section_dict = role_config_template_dict[template_section]
+                    filled_template[template_section] = {}
+                    for key in role_config_template_section_dict:
+                        if isinstance(role_config_template_section_dict[key], dict):
+                            config_key, config_val = role_config_template_section_dict[key].popitem()
+                            if config_key == "common_config" and config_val in common_config_dict:
+                                role_config_template_section_dict[key] = common_config_dict[config_val]
+                            elif config_key == "calculated_config" and \
+                                            config_val in calculated_config_dict:
+                                role_config_template_section_dict[key] = calculated_config_dict[config_val]
+                    filled_template[template_section] = role_config_template_section_dict
+                filled_role_config_template_dict[role_config_template] = filled_template
+            filled_role_config_dict_map[role] = filled_role_config_template_dict
+
+        for role in filled_role_config_dict_map:
+            filled_role_config_template_dict = filled_role_config_dict_map[role]
+            for filled_template_name, filled_template_dict in filled_role_config_template_dict.iteritems():
+                data += 'contrail::params::smgr_'+str(role)+'_'+str(filled_template_name)+':\n'
+                for template_section_name, template_section_vals in filled_template_dict.iteritems():
+                    data += '  %s:\n' % template_section_name
+                    for key, val in template_section_vals.iteritems():
+                        if isinstance(val, list) or val in ['True', 'False', 'true', 'false'] or \
+                                isinstance(val, int) or isinstance(val, float) and val:
+                            data += '    %s: %s\n' % (key, val)
+                        elif val:
+                            data += '    %s: "%s"\n' % (key, val)
+        return data
 
     # Use template to prepare hiera data file for openstack modules. Revisit later to refine.
     def build_openstack_hiera_file(

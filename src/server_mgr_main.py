@@ -39,6 +39,7 @@ from netaddr import *
 import copy
 import distutils.core
 from server_mgr_defaults import *
+from contrail_config_defaults import *
 from server_mgr_err import *
 from server_mgr_status import *
 from server_mgr_db import ServerMgrDb as db
@@ -3899,6 +3900,17 @@ class VncServerManager():
                         raise ServerMgrException(msg)
                     else:
                         pass
+
+                # New method of filling puppet config from yaml instead of templates
+                if not USE_CONFIG_TEMPLATES:
+                    common_config_dict = copy.deepcopy(common_config)
+                    for key in common_config_dict:
+                        if key in provision_params and provision_params[key]:
+                            common_config_dict[key] = provision_params[key]
+                        elif key in cluster_params and cluster_params.get(key, ""):
+                            common_config_dict[key] = cluster_params[key]
+                    provision_params["common_config_dict"] = common_config_dict
+
                 provision_server_entry = {'provision_params' : copy.deepcopy(provision_params),
                                           'server' : copy.deepcopy(server),
                                           'cluster' : copy.deepcopy(cluster),
