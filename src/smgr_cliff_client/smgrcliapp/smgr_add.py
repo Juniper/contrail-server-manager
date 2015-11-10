@@ -42,11 +42,11 @@ class Add(Command):
     def get_parser(self, prog_name):
 
         self.smgr_objects = ["server", "cluster", "image", "tag"]
-        self.mandatory_params["server"] = ['id', 'mac_address', 'ip_address', 'ipmi_address', 'subnet_mask', 'gateway']
+        self.mandatory_params["server"] = ['id', 'mac_address', 'ip_address', 'subnet_mask', 'gateway']
         self.mandatory_params["cluster"] = ['id']
         self.mandatory_params["image"] = ['id', 'category', 'version', 'type', 'path']
         self.mandatory_params["tag"] = []
-        self.multilevel_param_classes["server"] = ["network", "parameters", "tag", "contrail"]
+        self.multilevel_param_classes["server"] = ["network", "parameters", "contrail"]
         self.multilevel_param_classes["cluster"] = ["parameters"]
         self.multilevel_param_classes["image"] = ["parameters"]
 
@@ -165,7 +165,7 @@ class Add(Command):
             return default_object
         default_object["parameters"] = {}
         default_object["tag"] = {}
-        for key, value in config_ini_object_defaults:
+        for key, value in config_ini_object_defaults.iteritems():
             if key in self.object_dict[obj]:
                 default_object[key] = value
             elif key in self.object_dict[obj]["parameters"]:
@@ -201,19 +201,19 @@ class Add(Command):
 
     # end merge_with_defaults
 
-    def verify_added_tags(self, obj, obj_payload):
+    def verify_added_tags(self, smgr_obj, obj_payload):
         existing_tags = smgrutils.send_REST_request(
             self.smgr_ip, self.smgr_port,
             obj="tag", detail=True, method="GET")
         tag_dict = json.loads(existing_tags)
         rev_tag_dict = dict((v, k) for k, v in tag_dict.iteritems())
         allowed_tags = self.object_dict["tag"].keys()
-        if obj == "tag":
+        if smgr_obj == "tag":
             for tag_idx in obj_payload:
                 if tag_idx not in allowed_tags:
                     self.app.print_error_message_and_quit("\nThe tag " + str(tag_idx) +
                                                           " is not a valid tag index. Please use tags1-7\n\n")
-        elif obj == "server":
+        elif smgr_obj == "server":
             added_tag_dict = obj_payload["tag"]
             added_tags = added_tag_dict.keys()
             for tag in added_tags:
@@ -228,7 +228,11 @@ class Add(Command):
 
     def process_val(self, val_set):
         return_dict = dict()
-        if "," in val_set and "=" in val_set:
+        if '[' in val_set and ']' in val_set:
+            list_str = str(val_set)
+            val_list = str(list_str)
+            return val_list
+        elif "," in val_set and "=" in val_set:
             key_val_pairs = str(val_set).split(",")
             for key_val_pair in key_val_pairs:
                 key, val = key_val_pair.split("=")
@@ -363,6 +367,10 @@ class Add(Command):
         for arg in vars(parsed_args):
             if arg in top_level_object_params and arg not in multilevel_obj_params and getattr(parsed_args, arg, None):
                 obj_payload[arg] = self.process_val(getattr(parsed_args, arg, None))
+                if arg == "roles" and isinstance(obj_payload[arg], str):
+                    role_list = list()
+                    role_list.append(obj_payload[arg])
+                    obj_payload[arg] = role_list
         if remaining_args:
             self.parse_remaining_args(obj, obj_payload, multilevel_obj_params, remaining_args)
         return obj_payload
@@ -450,6 +458,8 @@ class Add(Command):
                             mandatory_params_set.difference(added_params_set))) + "\n")
         except ValueError as e:
             self.app.stdout.write("\nError in CLI Format - ValueError: " + str(e) + "\n")
+            self.app.stdout.write("\nError Message: " + str(e.message) + "\n")
+            self.app.stdout.write("\nPayload: " + str(payload) + "\n")
         except Exception as e:
             self.app.stdout.write("\nException here:" + str(e) + "\n")
         if payload:

@@ -145,9 +145,6 @@ class Show(Command):
         parser_all.add_argument(
             "--detail", "-d", action='store_true',
             help="Flag to indicate if details are requested")
-        parser_all.add_argument("--json",
-                                   help="To display output in json format",
-                                   action="store_true")
         parser_all.set_defaults(which='all')
         self.command_dictionary["all"] = ['detail']
 
@@ -179,6 +176,16 @@ class Show(Command):
                                    action="store_true")
         parser_monitoring.set_defaults(which='monitoring')
         self.command_dictionary["monitoring"] = ['server_id', 'cluster_id', 'tag', 'where', 'select']
+
+        # Subparser for columns show
+        parser_columns = subparsers.add_parser(
+            "columns", help="Show all the columns of a particular table in Server Manager DB"
+        )
+        parser_columns.add_argument("--table",
+                                    help="Table name to get the columns. "
+                                         "Chose from: server, cluster, image, inventory, status")
+        parser_columns.set_defaults(which='columns')
+        self.command_dictionary["columns"] = ['table']
 
         for key in self.command_dictionary:
             new_dict = dict()
@@ -273,7 +280,18 @@ class Show(Command):
         }
         return rest_api_params
 
-    #end def show_all
+    #end def show_tag
+
+    def show_columns(self, parsed_args):
+        rest_api_params = {
+            'object': 'columns',
+            'match_key': 'table',
+            'match_value': getattr(parsed_args, "table", None),
+            'select': None
+        }
+        return rest_api_params
+
+    # end def show_columns
 
     def take_action(self, parsed_args):
         detail = getattr(parsed_args, 'detail', None)
@@ -294,6 +312,8 @@ class Show(Command):
             rest_api_params = mon_querying_obj.show_mon_details(parsed_args)
         elif parsed_args.which == 'inventory':
             rest_api_params = inv_querying_obj.show_inv_details(parsed_args)
+        elif parsed_args.which == "columns":
+            rest_api_params = self.show_columns(parsed_args)
 
         try:
             self.smgr_ip = self.smgr_port = None
@@ -321,6 +341,8 @@ class Show(Command):
         if (parsed_args.which == 'monitoring' or parsed_args.which == 'inventory') and not rest_api_params["select"]:
             json_format = True
         elif parsed_args.which == 'all':
+            json_format = True
+        elif parsed_args.which == "columns":
             json_format = True
 
         if resp.startswith("Error"):

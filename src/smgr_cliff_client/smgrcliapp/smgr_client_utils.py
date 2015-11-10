@@ -27,7 +27,6 @@ main_object_dict = {
         ("email", "Email id for notifications"),
         ("base_image_id", "Base image id"),
         ("package_image_id", "Package id"),
-        ("template", "Template id for cluster"),
         ("parameters", OrderedDict([
             ("router_asn", "Router asn value"),
             ("subnet_mask", "Subnet mask"),
@@ -53,7 +52,6 @@ main_object_dict = {
         ("ip_address", "server ip address"),
         ("mac_address", "server mac address"),
         ("roles", "comma-separated list of roles for this server"),
-        ("template", "Template id for server"),
         ("contrail", OrderedDict([
             ("control_data_interface", "Name of control_data_interface")
         ])),
@@ -82,6 +80,7 @@ main_object_dict = {
             ]))
         ])),
         ("cluster_id", "cluster id the server belongs to"),
+        ("tag", "tag dict for server"),
         ("tag1", "tag value for this tag"),
         ("tag2", "tag value for this tag"),
         ("tag3", "tag value for this tag"),
@@ -104,9 +103,8 @@ main_object_dict = {
         ("id", "Specify unique image id for this image"),
         ("version", "Specify version for this image"),
         ("category", "image/package"),
-        ("template", "Template id for this image"),
         ("type",
-         "ubuntu/centos/redhat/esxi5.1/esxi5.5/contrail-ubuntu-package/contrail-centos-package/contrail-storage-ubuntu-package"),
+         "ubuntu/redhat/esxi5.1/esxi5.5/contrail-ubuntu-package/contrail-storage-ubuntu-package"),
         ("path", "complete path where image file is located on server"),
         ("parameters", OrderedDict([
             ("kickstart", "kickstart file for base image"),
@@ -166,7 +164,7 @@ class SmgrClientUtils():
                 url = "http://%s:%s/%s" % (
                     ip, port, obj)
                 if match_key and match_value:
-                    args_str += match_key + "=" + match_value
+                    args_str += urllib.quote_plus(match_key) + "=" + urllib.quote_plus(match_value)
                 if args_str != '':
                     url += "?" + args_str
             elif method == "GET":
@@ -182,7 +180,7 @@ class SmgrClientUtils():
                 elif obj:
                     url = "http://%s:%s/%s" % (ip, port, obj)
                 if match_key and match_value:
-                    args_str += match_key + "=" + match_value
+                    args_str += urllib.quote_plus(match_key) + "=" + urllib.quote_plus(match_value)
                 if force:
                     args_str += "&force"
                 if detail:
@@ -193,7 +191,7 @@ class SmgrClientUtils():
                 if obj:
                     url = "http://%s:%s/%s" % (ip, port, obj)
                 if match_key and match_value:
-                    args_str += match_key + "=" + match_value
+                    args_str += urllib.quote_plus(match_key) + "=" + urllib.quote_plus(match_value)
                 if force:
                     args_str += "&force"
                 if args_str != '':
@@ -202,7 +200,8 @@ class SmgrClientUtils():
                 return None
             conn = pycurl.Curl()
             conn.setopt(pycurl.URL, url)
-            conn.setopt(pycurl.HTTPHEADER, headers)
+            if obj != "image/upload":
+                conn.setopt(pycurl.HTTPHEADER, headers)
             if method == "POST" and payload:
                 conn.setopt(pycurl.POST, 1)
                 conn.setopt(pycurl.POSTFIELDS, '%s' % json.dumps(payload))
@@ -218,7 +217,7 @@ class SmgrClientUtils():
             elif method == "DELETE":
                 conn.setopt(pycurl.CUSTOMREQUEST, "delete")
             conn.setopt(pycurl.WRITEFUNCTION, response.write)
-            conn.setopt(pycurl.TIMEOUT, 30)
+            conn.setopt(pycurl.TIMEOUT, 40)
             conn.perform()
             return response.getvalue()
         except Exception as e:
@@ -244,7 +243,10 @@ class SmgrClientUtils():
     @staticmethod
     def convert_json_to_table(obj, json_resp, select_item=None):
         if obj != "monitoring" and obj != "inventory":
-            data_dict = dict(ast.literal_eval(str(json_resp)))
+            try:
+                data_dict = json.loads(str(json_resp))
+            except Exception as e:
+                return "Exception found: " + str(e)
             return_table = None
             if len(data_dict.keys()) == 1 and obj != "tag":
                 obj_type, obj_value = data_dict.popitem()
@@ -253,15 +255,16 @@ class SmgrClientUtils():
                     return []
                 sample_dict = dict(dict_list[0])
                 sameple_dict_key_list = sample_dict.keys()
-                sameple_dict_key_list.remove("id")
-                sameple_dict_key_list = ['id'] + sameple_dict_key_list
+                if "id" in sameple_dict_key_list:
+                    sameple_dict_key_list.remove("id")
+                    sameple_dict_key_list = ['id'] + sameple_dict_key_list
                 return_table = PrettyTable(sameple_dict_key_list)
-                return_table.align["id"] = "l"
                 for d in dict_list:
                     d = dict(d)
                     dict_val_list = d.values()
-                    dict_val_list.remove(d["id"])
-                    dict_val_list = [d["id"]] + dict_val_list
+                    if "id" in d and d["id"] in dict_val_list:
+                        dict_val_list.remove(d["id"])
+                        dict_val_list = [d["id"]] + dict_val_list
                     return_table.add_row(dict_val_list)
             elif obj == "tag":
                 return_table = PrettyTable(["Tag No.", "Tag"])
@@ -272,23 +275,27 @@ class SmgrClientUtils():
                         tag = data_dict[key]
                         return_table.add_row([tag_no, tag])
         else:
-            dict_list = list(ast.literal_eval(json_resp))
+            try:
+                dict_list = list(json.loads(str(json_resp)))
+            except Exception as e:
+                return "Exception found: " + str(e)
             data_item = None
-            if len(dict_list) == 1:
-                sample_server_dict = dict(dict_list[0])
-                for key, val in sample_server_dict.iteritems():
-                    if key == "ServerMonitoringInfo" or key == "ServerInventoryInfo" and select_item in val:
-                        data_item = val[select_item]
-            elif len(dict_list) == 0:
+            if len(dict_list) == 0:
                 error_msg = "No matching objects found for the query"
                 return error_msg
-            elif len(dict_list) >= 2:
-                sample_server_dict = {}
-                for test_dict in dict_list:
-                    for key, val in test_dict.iteritems():
-                        if key == "ServerMonitoringInfo" or key == "ServerInventoryInfo" and select_item in val:
+            elif len(dict_list) >= 1:
+                sample_server_dict = dict(dict_list[0])
+                for key, val in sample_server_dict.iteritems():
+                    if key == "ServerMonitoringInfo" or key == "ServerInventoryInfo":
+                        if select_item in val:
                             sample_server_dict[key] = val
                             data_item = val[select_item]
+                        elif "," in select_item:
+                            select_item_list = select_item.split(",")
+                            data_item = {}
+                            for item in select_item_list:
+                                if item in val:
+                                    data_item[item] = val[item]
             if not data_item:
                 error_msg = str(select_item) + " isn't found for the server(s) you requested"
                 return error_msg
@@ -320,8 +327,15 @@ class SmgrClientUtils():
                         data_dict_list = list(data_info_dict[select_item])
                         for data_dict in data_dict_list:
                             data_dict = dict(data_dict)
-                            for key, val in sorted(data_dict.iteritems()):
-                                val_list.append(val)
+                            val_list = list()
+                            val_list.append(server_id)
+                            for key in key_list[1:]:
+                                val = data_dict.get(key)
+                                if val:
+                                    val_list.append(val)
+                                else:
+                                    val_list.append("N/A")
+                            return_table.add_row(val_list)
                     else:
                         for x in range(len(key_list)-1):
                             val_list.append("N/A")
@@ -349,17 +363,29 @@ class SmgrClientUtils():
                         data_dict_list = list(server_dict["ServerInventoryInfo"][select_item])
                         for data_dict in data_dict_list:
                             data_dict = dict(data_dict)
-                            for key, val in sorted(data_dict.iteritems()):
-                                val_list.append(val)
+                            val_list = list()
+                            val_list.append(server_id)
+                            for key in key_list[1:]:
+                                val = data_dict.get(key)
+                                if val:
+                                    val_list.append(val)
+                                else:
+                                    val_list.append("N/A")
+                            return_table.add_row(val_list)
                     else:
                         for x in range(len(key_list) - 1):
                             val_list.append("N/A")
-                    return_table.add_row(val_list)
+                        return_table.add_row(val_list)
                 else:
                     val_list = list()
                     val_list.append(server_id)
                     if select_item in data_info_dict:
                         val_list.append(data_info_dict[str(select_item)])
+                    elif "," in select_item:
+                        select_item_list = select_item.split(",")
+                        for item in select_item_list:
+                            if item in data_info_dict and item in key_list:
+                                val_list.append(data_info_dict[str(item)])
                     else:
                         val_list.append("N/A")
                     return_table.add_row(val_list)
