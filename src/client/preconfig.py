@@ -57,7 +57,7 @@ class Utils(object):
         parser.add_argument('--server-manager-ip',
                             required=True,
                             help='IP Address of Server Manager Node')
-        parser.add_argument('--server-manager-port',
+        parser.add_argument('--server-manager-repo-port',
                             default=9003,
                             help='Port Number of Server Manager Node which hosts repos')
         parser.add_argument('--log-file',
@@ -85,7 +85,7 @@ class Utils(object):
         server_json = json.loads(contents)
         for host_dict in server_json['server']:
             hostobj = Server(host_dict, args.server_manager_ip,
-                             args.server_manager_port)
+                             args.server_manager_repo_port)
             hostobj.connect()
             hostobj.preconfig()
             hosts.append(hostobj)
@@ -101,10 +101,10 @@ class Utils(object):
 
 class Server(object):
     def __init__(self, server_dict, server_manager_ip,
-                 server_manager_port=9003):
+                 server_manager_repo_port=9003):
         self.server_dict = server_dict
         self.server_manager_ip = server_manager_ip
-        self.server_manager_port = server_manager_port
+        self.server_manager_repo_port = server_manager_repo_port
         self.connection = paramiko.SSHClient()
         self.connection_timeout = 5
         self.username = 'root'
@@ -251,7 +251,7 @@ class Server(object):
             self.exec_cmd('echo %s >> /etc/apt/apt.conf' % apt_auth, error_on_fail=True)
 
     def preconfig_repos(self):
-        repo_entry = r'deb http://%s:%s/thirdparty_packages/ ./' % (self.server_manager_ip, self.server_manager_port)
+        repo_entry = r'deb http://%s:%s/thirdparty_packages/ ./' % (self.server_manager_ip, self.server_manager_repo_port)
         repo_entry_verify = r'%s.*\/thirdparty_packages' % self.server_manager_ip
         status, output = self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify)
         if status:
