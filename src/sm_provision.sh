@@ -13,6 +13,7 @@ exec &> >(tee -a "$log_file")
 
 # Prep
 eval SCRIPT_PATH=$(dirname $0)
+SCRIPT_PATH=$(cd $SCRIPT_PATH; pwd)
 start_time=$(date +"%s")
 space="    "
 arrow="---->"
