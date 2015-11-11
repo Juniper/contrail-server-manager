@@ -211,7 +211,7 @@ class SmgrInteractiveApp(InteractiveApp):
             available_options["force"] = ['--no_confirm', '-F']
             available_options["file"] = ['-f', '--file_name', '--provision_params_file']
             available_options["obj_select"] = ['--server_id', '--cluster_id', '--tag', '--where',
-                                               '--image_id', '--mac', '--ip', '--discovered']
+                                               '--image_id', '--mac', '--ip', '--discovered', '--table']
             available_options["package"] = ['--package_image_id', '-p']
             available_options["interactive"] = ['--interactive', '-I']
             available_options["reboot"] = ['--no_reboot', '-n']
@@ -260,6 +260,12 @@ class SmgrInteractiveApp(InteractiveApp):
                         last_arg = ""
                     if len(chosen_sub_option_list) > 0 and last_arg != chosen_sub_option_list[-1] and line[-1] == " ":
                         last_arg = ""
+                    if chosen_command == "upload-image":
+                        cmd_mandatory_args_dict = cmd.get_mandatory_options()
+                        available_mandatory_options = \
+                            set(cmd_mandatory_args_dict[chosen_command]).difference(chosen_sub_option_set)
+                        cmd_dict[chosen_command] += [x for x in available_mandatory_options]
+                        available_options_list += [x for x in available_mandatory_options]
 
                     sub_option_list = [str(str(line).rsplit(' ', 1)[0] + " " + so)
                                        for so in cmd_dict[str(chosen_command)]

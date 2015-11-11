@@ -90,13 +90,13 @@ class Restart(Command):
         if getattr(parsed_args, "server_id", None):
             match_key = 'id'
             match_value = getattr(parsed_args, "server_id", None)
-        elif getattr(parsed_args, "server_id", None):
+        elif getattr(parsed_args, "cluster_id", None):
             match_key = 'cluster_id'
             match_value = getattr(parsed_args, "cluster_id", None)
-        elif getattr(parsed_args, "cluster_id", None):
+        elif getattr(parsed_args, "tag", None):
             match_key = 'tag'
             match_value = getattr(parsed_args, "tag", None)
-        elif getattr(parsed_args, "tag", None):
+        elif getattr(parsed_args, "where", None):
             match_key = 'where'
             match_value = getattr(parsed_args, "where", None)
         else:
