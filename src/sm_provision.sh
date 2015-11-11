@@ -13,6 +13,7 @@ exec &> >(tee -a "$log_file")
 
 # Prep
 eval SCRIPT_PATH=$(dirname $0)
+SCRIPT_PATH=$(cd $SCRIPT_PATH; pwd)
 start_time=$(date +"%s")
 space="    "
 arrow="---->"
@@ -229,10 +230,17 @@ if [ "$DEFAULT_DOMAIN" != "" ] && [ -f /opt/contrail/server_manager/client/sm-cl
 fi
 
 # Retrieve info from json files
-cd $PROVISION_DIR && read IMAGE_ID IMAGE_VERSION IMAGE_TYPE <<< $(python -c "import json;\                                                                                                                           fid = open('image.json', 'r');\                                                                                                                    contents = fid.read();\                                                                                                                            cjson = json.loads(contents);\                                                                                                                     fid.close();\
-                                                                  print cjson['image'][0]['id'],\                                                                                                                          cjson['image'][0]['version'],\
+cd $PROVISION_DIR && read IMAGE_ID IMAGE_VERSION IMAGE_TYPE <<< $(python -c "import json;\
+                                                                  fid = open('image.json', 'r');\
+                                                                  contents = fid.read();\
+                                                                  cjson = json.loads(contents);\
+                                                                  fid.close();\
+                                                                  print cjson['image'][0]['id'],\
+                                                                        cjson['image'][0]['version'],\
                                                                         cjson['image'][0]['type']")
-cd $PROVISION_DIR && CLUSTER_ID=$(python -c "import json;\                                                                                                                           fid = open('cluster.json', 'r');\
+
+cd $PROVISION_DIR && CLUSTER_ID=$(python -c "import json;\
+                                  fid = open('cluster.json', 'r');\
                                   data = json.load(fid);\
                                   fid.close();\
                                   print data['cluster'][0]['id']")
