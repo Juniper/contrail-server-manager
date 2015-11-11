@@ -56,6 +56,7 @@ class CommandManager(cliff.commandmanager.CommandManager):
 
     def get_added_commands(self):
         command_list = []
+        default_command_list = ['quit', 'exit', 'help']
         group_list = self.get_command_groups()
         for ns in group_list:
             for ep in pkg_resources.iter_entry_points(ns):
@@ -63,6 +64,7 @@ class CommandManager(cliff.commandmanager.CommandManager):
                             if self.convert_underscores
                             else ep.name)
                 command_list.append(cmd_name)
+        command_list += default_command_list
         return command_list
 
 
