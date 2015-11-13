@@ -203,7 +203,6 @@ class ServerMgrPuppet:
             else:
                 data += '    include ::contrail::profile::config\n'
 
-        data += '    include ::contrail::profile::config\n'
         # Add controller role.
         if 'control' in server['roles']:
             data += '    include ::contrail::profile::controller\n'
@@ -211,11 +210,11 @@ class ServerMgrPuppet:
         if 'collector' in server['roles']:
             data += '    include ::contrail::profile::collector\n'
         # Add config provision role.
- #       if 'config' in server['roles']:
-        data += '    class { \'::contrail::profile::provision\' : stage => \'last\' }\n'
+        if 'config' in server['roles']:
+            data += '    class { \'::contrail::profile::provision\' : stage => \'last\' }\n'
         # Add compute role
-#        if 'compute' in server['roles']:
-        data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
+        if 'compute' in server['roles']:
+            data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
         # Add Tsn Role
         if 'tsn' in server['roles']:
             data += '    class { \'::contrail::profile::tsn\' :  stage => \'tsn\' }\n'
