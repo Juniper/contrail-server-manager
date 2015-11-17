@@ -3642,6 +3642,17 @@ class VncServerManager():
                 else:
                     provision_params['kernel_version'] = DEFAULT_KERNEL_VERSION
 
+                if 'contrail_amqp_ip_list' in cluster_params and cluster_params['contrail_amqp_ip_list']:
+                    provision_params['contrail_amqp_ip_list'] = cluster_params['contrail_amqp_ip_list']
+
+                if 'contrail_amqp_port' in cluster_params and cluster_params['contrail_amqp_port']:
+                    provision_params['contrail_amqp_port'] = cluster_params['contrail_amqp_port']
+
+                if 'openstack_amqp_ip_list' in cluster_params and cluster_params['openstack_amqp_ip_list']:
+                    provision_params['openstack_amqp_ip_list'] = cluster_params['openstack_amqp_ip_list']
+
+                if 'openstack_amqp_port' in cluster_params and cluster_params['openstack_amqp_port']:
+                    provision_params['openstack_amqp_port'] = cluster_params['openstack_amqp_port']
 
                 provision_params['haproxy'] = cluster_params['haproxy']
 
