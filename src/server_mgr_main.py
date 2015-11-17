@@ -3642,6 +3642,12 @@ class VncServerManager():
                 else:
                     provision_params['kernel_version'] = DEFAULT_KERNEL_VERSION
 
+                if 'amqp_ip_list' in server_params and server_params['amqp_ip_list']:
+                    provision_params['amqp_ip_list'] = server_params['amqp_ip_list']
+
+                if 'amqp_port' in server_params and server_params['amqp_port']:
+                    provision_params['amqp_port'] = server_params['amqp_port']
+
 
                 provision_params['haproxy'] = cluster_params['haproxy']
 

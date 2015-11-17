@@ -409,6 +409,13 @@ class ServerMgrPuppet:
             data += 'contrail::params::uuid: "%s"\n' %(
                 cluster_params.get('uuid', ""))
 
+        #User can pass AMQP Server List and AMQP Port
+        if 'amqp_ip_list' in provision_params:
+            amqp_ip_list = provision_params['amqp_ip_list']
+            data += 'contrail::params::amqp_ip_list: "%s"\n' % (str(amqp_ip_list))
+        if 'amqp_port' in provision_params:
+            data += 'contrail::params::amqp_port: "%s"\n' % (provision_params.get('amqp_port', 5672))
+
         data += self.add_contrail_upgrade(server, provision_params)
 
         role_ips = {}
