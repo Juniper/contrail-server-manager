@@ -83,7 +83,8 @@ calculated_config = {
     "rest_api_port": "",
     "cassandra_ip_list": "",
     "kafka_broker_list": "",
-    "zk_ip_port_list_to_use": ""
+    "zk_ip_port_list_to_use": "",
+    "memcache_servers" : ""
 }
 controller_config_list = ['contrail_keystone_auth_conf', 'contrail_analytics_api_conf', 'contrail_collector_conf',
                           'contrail_query_engine_conf', 'contrail_snmp_collector_conf', 'contrail_snmp_collector_ini',
@@ -159,7 +160,7 @@ contrail_keystone_auth_conf = {
             "common_config": "keystone_insecure_flag"
         },
         "memcached_servers": {
-            "common_config": "memcached_servers"
+            "calculated_config": "memcached_servers"
         }
     }
 }

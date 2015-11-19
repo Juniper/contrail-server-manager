@@ -562,6 +562,10 @@ class ServerMgrPuppet:
     def calculate_contrail_config(self, common_config_dict):
         calculated_config_dict = copy.deepcopy(calculated_config)
 
+        ## if multi_tenancy is false, we don't want option to there.
+        if 'multi_tenancy' in common_config_dict.keys() and common_config_dict['multi_tenancy'].lower() == 'true':
+            calculated_config_dict["memcached_servers"] = '127.0.0.1:11211'
+
         if common_config_dict["zookeeper_ip_list"]:
             calculated_config_dict["zk_ip_list_to_use"] = common_config_dict["zookeeper_ip_list"]
         else:
