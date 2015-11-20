@@ -233,29 +233,26 @@ contrail_collector_conf = {
         "kafka_broker_list": {
             "calculated_config": "kafka_broker_list"
         },
-        "host_ip": {
-            "common_config": "host_ip"
-        },
         "http_server_port": 8089,
         "log_file": "/var/log/contrail/contrail-collector.log",
         "log_local": 1,
         "log_level": "SYS_NOTICE",
-        "log_category": "*",
+        #"log_category": "*",
         "log_files_count": 10,
-        "log_file_size": 1048576,
+        #"log_file_size": 1048576,
         "syslog_port": {
             "common_config": "analytics_syslog_port"
         },
-        "sflow_port": 6343,
+        #"sflow_port": 6343,
     },
     "COLLECTOR": {
         "port": 8086,
-        "server": "0.0.0.0",
-        "protobuf_port": 3333,
+        #"server": "0.0.0.0",
+        #"protobuf_port": 3333,
 
     },
     "DISCOVERY": {
-        "port": 5998,
+        #"port": 5998,
         "server": {
             "calculated_config": "config_ip_to_use"
         }
@@ -271,6 +268,9 @@ contrail_collector_conf = {
 
 contrail_query_engine_conf = {
     "DEFAULT": {
+        "hostip": {
+            "common_config": "host_control_ip"
+        },
         "analytics_data_ttl": {
             "common_config": "analytics_data_ttl"
         },
@@ -278,23 +278,20 @@ contrail_query_engine_conf = {
             "calculated_config": "cassandra_ip_list"
         },
         "collectors": "127.0.0.1:8086",
-        "host_ip": {
-            "common_config": "host_control_ip"
-        },
         "log_file": "/var/log/contrail/contrail-query-engine.log",
         "log_local": 1,
         "log_level": "SYS_NOTICE",
-        "log_category": "*",
+        #"log_category": "*",
         "log_files_count": 10,
-        "log_file_size": 1048576,
-        "log_disable": 0,
-        "test_mode": 0
+        #"log_file_size": 1048576,
+        #"log_disable": 0,
+        #"test_mode": 0
     },
     "DISCOVERY": {
-        "port": 5998,
-        "server": {
-            "calculated_config": "discovery_ip_to_use"
-        },
+        #"port": 5998,
+        #"server": {
+            #"calculated_config": "discovery_ip_to_use"
+        #},
     },
     "REDIS": {
         "port": 6379,
@@ -310,7 +307,7 @@ contrail_snmp_collector_conf = {
         "log_file": "/var/log/contrail/contrail-snmp-collector.log",
         "log_local": 1,
         "log_level": "SYS_NOTICE",
-        "log_category": "*",
+        #"log_category": "*",
         "scan_frequency": {
             "common_config": "snmp_scan_frequency"
         },
@@ -354,11 +351,11 @@ contrail_analytics_nodemgr_conf = {
         },
         "port": 5998
     },
-    "COLLECTOR": {
-        "server_list": {
-            "calculated_config": "collector_ip_port_list"
-        }
-    }
+    #"COLLECTOR": {
+        #"server_list": {
+            #"calculated_config": "collector_ip_port_list"
+        #}
+    #}
 }
 
 contrail_alarm_gen_conf = {
@@ -367,7 +364,7 @@ contrail_alarm_gen_conf = {
         #"log_file": "/var/log/contrail/contrail-alarm-gen.log",
         #"log_local": 1,
         #"log_level": "SYS_NOTICE",
-        "log_category": "*",
+        #"log_category": "*",
         "kafka_broker_list": {
             "calculated_config": "kafka_broker_list"
         },
