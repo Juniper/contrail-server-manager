@@ -170,51 +170,34 @@ class ServerMgrPuppet:
         data += '    class { \'::sysctl::base\' : stage => \'first\' }\n'
         data += '    class { \'::apt\' : stage => \'first\' }\n'
         data += '    class { \'::contrail::profile::common\' : stage => \'first\' }\n'
-        # Add keepalived (This class is no-op if vip is not configured.)
-        if 'config' in server['roles'] or \
-           'openstack' in server['roles']:
-            data += '    include ::contrail::profile::keepalived\n'
-        # Add haproxy (for config node)
-        if 'config' in server['roles'] or \
-           'openstack' in server['roles']:
-            data += '    include ::contrail::profile::haproxy\n'
-        # Add database role.
-        if 'database' in server['roles']:
-            data += '    include ::contrail::profile::database\n'
-        # Add webui role.
-        if 'webui' in server['roles']:
-            data += '    include ::contrail::profile::webui\n'
-        # Add openstack role.
-        if 'openstack' in server['roles']:
-            if cluster_params.get("internal_vip", "") != "" or \
-                cluster_params.get("contrail_internal_vip", "") != "" :
-                data += '    class { \'::contrail::profile::openstack_controller\': } ->\n'
-                if 'config' in server['roles']:
-                    data += '    class { \'::contrail::ha_config\': } ->\n'
-                else:
-                    data += '    class { \'::contrail::ha_config\': }\n'
-            else:
-                data += '    include ::contrail::profile::openstack_controller\n'
-        # Add config role.
-        if 'config' in server['roles']:
-            if cluster_params.get("internal_vip", "") != "" or \
-                cluster_params.get("contrail_internal_vip", "") != "" :
-                data += '    class { \'::contrail::profile::config\': }\n'
-            else:
-                data += '    include ::contrail::profile::config\n'
+        #Include all roles manifest,Each manifest will execute only if that host
+        #is configured to have a role.
+        #Uninstall manifest will get executed when host_roles doesnt have that
+        #role and contrail_roles[] facts has that role.
+        #This implies that a role which is not configured is present on
+        #the target and uninstall manifest will get executed.
 
-        # Add controller role.
-        if 'control' in server['roles']:
-            data += '    include ::contrail::profile::controller\n'
-        # Add collector role.
-        if 'collector' in server['roles']:
-            data += '    include ::contrail::profile::collector\n'
+        # Add keepalived (This class is no-op if vip is not configured.)
+        data += '    include ::contrail::profile::keepalived\n'
+        # Add haproxy (for config node)
+        data += '    include ::contrail::profile::haproxy\n'
+        # Add database role.
+        data += '    include ::contrail::profile::database\n'
+        # Add webui role.
+        data += '    include ::contrail::profile::webui\n'
+        # Add openstack role.
+        data += '    include ::contrail::profile::openstack_controller\n'
+        # Add ha_config role.
+        data += '    include ::contrail::ha_config\n'
         # Add config provision role.
-        if 'config' in server['roles']:
-            data += '    class { \'::contrail::profile::provision\' : stage => \'last\' }\n'
+        data += '    include ::contrail::profile::config\n'
+        # Add controller role.
+        data += '    include ::contrail::profile::controller\n'
+        # Add collector role.
+        data += '    include ::contrail::profile::collector\n'
         # Add compute role
-        if 'compute' in server['roles']:
-            data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
+        data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
+
         # Add Tsn Role
         if 'tsn' in server['roles']:
             data += '    class { \'::contrail::profile::tsn\' :  stage => \'tsn\' }\n'
