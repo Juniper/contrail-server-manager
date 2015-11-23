@@ -217,7 +217,9 @@ cd $PROVISION_DIR && /opt/contrail/server_manager/client/testbed_parser.py --tes
 echo "$arrow Pre provision checks to make sure setup is ready for contrail provisioning"
 # Precheck the targets to make sure that, ready for contrail provisioning
 SERVER_MGR_IP=$(grep listen_ip_addr /opt/contrail/server_manager/sm-config.ini | grep -Po "listen_ip_addr = \K.*")
-cd $PROVISION_DIR && /opt/contrail/server_manager/client/preconfig.py --server-json server.json --server-manager-ip ${SERVER_MGR_IP}
+cd $PROVISION_DIR && /opt/contrail/server_manager/client/preconfig.py --server-json server.json \
+                                                                      --server-manager-ip ${SERVER_MGR_IP} \
+                                                                      --server-manager-repo-port 80
 
 # Remove contrail local repo if any
 if [[ $LOCAL_REPO_MOUNTED -eq 1 ]]; then

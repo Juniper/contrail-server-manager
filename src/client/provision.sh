@@ -104,7 +104,9 @@ cd $PROVISION_DIR && $SCRIPT_PATH/testbed_parser.py --testbed ${TESTBED} --contr
 echo "$arrow Pre provision checks to make sure setup is ready for contrail provisioning"
 # Precheck the targets to make sure that, ready for contrail provisioning
 SERVER_MGR_IP=$(grep listen_ip_addr /opt/contrail/server_manager/sm-config.ini | grep -Po "listen_ip_addr = \K.*")
-cd $PROVISION_DIR && $SCRIPT_PATH/preconfig.py --server-json server.json --server-manager-ip ${SERVER_MGR_IP}
+cd $PROVISION_DIR && $SCRIPT_PATH/preconfig.py --server-json server.json \
+                                               --server-manager-ip ${SERVER_MGR_IP} \
+                                               --server-manager-repo-port 80
 
 # Retrieve info from json files
 cd $PROVISION_DIR && read IMAGE_ID IMAGE_VERSION IMAGE_TYPE <<< $(python -c "import json;\
