@@ -31,6 +31,7 @@ LOCAL_REPO_DIR=/opt/contrail/contrail_local_repo
 CLUSTER_ID="cluster_auto_$RANDOM"
 NO_SM_MON=""
 NO_SM_WEBUI=""
+SM_WEBUI_PORT=9003
 
 function usage()
 {
@@ -46,6 +47,7 @@ function usage()
     echo -e "\t-nr|--no-local-repo"
     echo -e "\t-nm|--no-sm-mon"
     echo -e "\t-nw|--no-sm-webui"
+    echo -e "\t-swp|--sm-webui-port"
     echo -e "\t-cid|--cluster-id <cluster-id>"
     echo ""
 }
@@ -83,6 +85,9 @@ while [[ $# > 0 ]]
         ;;
         -nw|--no-sm-webui)
         NO_SM_WEBUI="--nowebui"
+        ;;
+        -swp|--sm-webui-port)
+        SM_WEBUI_PORT="$2"
         ;;
         -cp|--no-cleanup-puppet-agent)
         CLEANUP_PUPPET_AGENT="cleanup_puppet_agent"
@@ -205,6 +210,12 @@ if [ "$INSTALL_SM_LITE" != "" ]; then
    ./setup.sh --all --smlite ${NO_SM_MON} ${NO_SM_WEBUI}
    popd >> $log_file 2>&1
 fi 
+
+if [ -f /etc/contrail/config.global.sm.js ]; then
+  echo "$space$arrow Changing SM Webui Port to $SM_WEBUI_PORT"
+  sed -i "s|config.https_port =.*|config.https_port = ${SM_WEBUI_PORT}|g" /etc/contrail/config.global.sm.js
+  service supervisor-webui-sm restart >> $log_file 2>&1
+fi
 
 echo "$space$arrow Convert testbed.py to server manager entities"
 # Convert testbed.py to server manager object json files
