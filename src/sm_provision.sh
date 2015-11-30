@@ -213,7 +213,7 @@ fi
 
 if [ -f /etc/contrail/config.global.sm.js ]; then
   echo "$space$arrow Changing SM Webui Port to $SM_WEBUI_PORT"
-  sed -i "s|config.https_port =.*|config.https_port = ${SM_WEBUI_PORT}|g" /etc/contrail/config.global.sm.js
+  sed -i "s|config.https_port =.*|config.https_port = '${SM_WEBUI_PORT}';|g" /etc/contrail/config.global.sm.js
   service supervisor-webui-sm restart >> $log_file 2>&1
 fi
 
