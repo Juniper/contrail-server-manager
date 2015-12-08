@@ -2764,10 +2764,8 @@ class VncServerManager():
             network_dict = eval(network)
             mgmt_intf = network_dict['management_interface']
             interface_list = network_dict["interfaces"]
-            i = 0
             device_str = "#!/bin/bash\n"
             for intf in interface_list:
-                i += 1
                 name = intf['name']
                 ip_addr = intf.get('ip_address', None)
                 if ip_addr is None:
@@ -2781,14 +2779,12 @@ class VncServerManager():
                 #form string
                 if type and type.lower() == 'bond':
                     bond_opts = intf.get('bond_options', {})
-                    member_intfs = intf.get('member_interfaces', [])
-                    if member_intfs:
-                        mem_intfs = self.get_member_interfaces(network_dict,
-                                                               member_intfs)
+                    member_intfs = self.get_member_interfaces(network_dict,
+                                                              intf.get('member_interfaces', []))
                     device_str+= ("python interface_setup.py \
 --device %s --members %s --bond-opts \"%s\" --ip %s --no-restart-network\n") % \
                         (name,
-            			" ".join(mem_intfs),
+            			" ".join(member_intfs),
 			            json.dumps(bond_opts), ip_addr)
                     execute_script = True
                 else:
