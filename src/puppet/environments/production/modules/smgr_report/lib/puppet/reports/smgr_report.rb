@@ -38,6 +38,10 @@ DESC
         puts "Catalog for server not found."
         return
       end
+      if msg.include? "Caught TERM; calling stop"
+        puts "Puppet agent exited"
+        return
+      end
       log_data += resource + ":" + msg + "\n"
     end
     File.open(destination,"w") do |f|
@@ -48,10 +52,11 @@ DESC
       puts "puppet run failed"
       client_fqdn = client.split(".")
       client_hostname = client_fqdn[0]
+      print "log data =" + log_data +"\n"
 
       http = Net::HTTP.new(hostname, 9002)
 
-      response = http.send_request('PUT', '/server_status?server_id=' + hostname + '&state=puppet_failed')
+      response = http.send_request('PUT', '/server_status?server_id=' + client_hostname + '&state=puppet_failed')
       puts "response code is " + response.code
       if response.code != "200"
         puts "Error posting puppet status"
