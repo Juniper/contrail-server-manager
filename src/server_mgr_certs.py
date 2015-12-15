@@ -14,17 +14,15 @@ _DEF_CERT_LOCATION = '/etc/contrail_smgr/puppet/ssl/'
 _DEF_CERT_LOG = '/var/log/contrail-server-manager/smgrcerts.log'
 
 class ServerMgrCerts():
-    def __init__(self, cert_location=_DEF_CERT_LOCATION, log_file=_DEF_CERT_LOG, 
+    def __init__(self, cert_location=_DEF_CERT_LOCATION, log_file=_DEF_CERT_LOG,
+                 log_level = logging.DEBUG,
                  db=None):
-        self._smgr_db = db
         Cmd.local_exec('mkdir -p %s' % (cert_location), error_on_fail=True)
         self._smgr_cert_location = cert_location
         self._smgr_ca_private_key = None
         self._smgr_ca_cert = None
-        log_level = [logging.ERROR, logging.WARN, \
-                         logging.INFO, logging.DEBUG]
         CertsLogger.initialize_logger(log_file=log_file,
-                            log_level=log_level[3])
+                            log_level=log_level)
 
     def create_sm_ca_cert(self, force=False):
         sm_ca_private_key = self._smgr_cert_location + 'sm_ca.key'
