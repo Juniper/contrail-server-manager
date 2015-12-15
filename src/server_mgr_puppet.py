@@ -18,6 +18,7 @@ import tempfile
 import re
 import openstack_hieradata
 import yaml
+from server_mgr_err import *
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
@@ -277,7 +278,8 @@ class ServerMgrPuppet:
             "external_bgp" : ["external_bgp", "string"],
             "use_certificates" : ["use_certs", "boolean"],
             "contrail_logoutput" : ["contrail_logoutput", "boolean"],
-            "enable_ceilometer": ["enable_ceilometer", "boolean"]
+            "enable_ceilometer": ["enable_ceilometer", "boolean"],
+            "xmpp_auth_enabled": ["xmpp_auth_enabled", "boolean"]
         }
 
         data = ''
