@@ -1,0 +1,50 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+# Sample debian/rules that uses debhelper.
+# This file was originally written by Joey Hess and Craig Small.
+# As a special exception, when this file is copied by dh-make into a
+# dh-make output file, you may use that output file without restriction.
+# This special exception was added by Craig Small in version 0.37 of dh-make.
+# Uncomment this to turn on verbose mode.
+export DH_VERBOSE=1
+SPEC_DIR := $(shell pwd)
+SB_TOP := $(shell pwd | sed -re "s/(.*)\/build\/debian(.*)/\1/")
+export DISTRIB_RELEASE = $(shell grep -Po "DISTRIB_RELEASE=\K.*" /etc/lsb-release)
+
+export BUILDTIME := $(shell date -u +%y%m%d%H%M)
+export buildroot := $(SB_TOP)/build/debian/contrail-puppet/debian/build/
+export _contrailopt := /opt/contrail
+
+SRC_VER := $(shell cat $(SB_TOP)/controller/src/base/version.info)
+
+BUILDTAG =
+TGZ_FILE =
+ifdef TAG
+BUILDTAG = $(SRC_VER)-$(TAG)
+else
+BUILDTAG = $(SRC_VER)-$(BUILDTIME)
+endif
+
+%:
+	dh $@ --tmpdir=$(buildroot) --destdir=$(SB_TOP)/build/debian
+
+override_dh_auto_build:
+	cat debian/changelog.in | sed 's,BUILDTAG,$(BUILDTAG),g' > debian/changelog
+
+override_dh_builddeb:
+	dh_builddeb -- -Zgzip
+
+override_dh_auto_install:
+	# Setup directories
+	@echo "making deb for contrail-puppet"
+	install -d -m 755 $(buildroot)
+	install -d -m 755 $(buildroot)$(_contrailopt)
+	install -d -m 755 $(buildroot)$(_contrailopt)/puppet
+	# Install puppet manifests
+	tar -cvzf $(SB_TOP)/build/contrail-puppet-manifest.tgz -C $(SB_TOP)/tools/puppet .
+	install -p -m 755 $(SB_TOP)/build/contrail-puppet-manifest.tgz $(buildroot)$(_contrailopt)/puppet/contrail-puppet-manifest.tgz
+
+override_dh_shlibdeps:
+
+override_dh_usrlocal:
+
