@@ -1,0 +1,6 @@
+contrail-puppet (BUILDTAG) npchandran; urgency=low
+
+  [npchandran]
+  * Introducing the Package
+
+ -- npchandran <npchandran@juniper.net>  Mon, 26 Oct 2015 8:00:11 +0800
