@@ -14,11 +14,11 @@ import glob
 import sys
 import re
 import datetime
-import subprocess
 import json
 import argparse
 from gevent import monkey
 monkey.patch_all(thread=not 'unittest' in sys.modules)
+import subprocess
 import bottle
 from bottle import route, run, request, abort
 import ConfigParser
@@ -42,6 +42,7 @@ from server_mgr_defaults import *
 from server_mgr_err import *
 from server_mgr_status import *
 from server_mgr_db import ServerMgrDb as db
+from server_mgr_certs import ServerMgrCerts
 try:
     from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 except ImportError:
@@ -392,6 +393,10 @@ class VncServerManager():
             self._smgr_log.log(self._smgr_log.ERROR,
                      "Error starting the status thread")
             exit()
+
+        # Generate SM Certs
+        self._smgr_certs = ServerMgrCerts()
+        sm_private_key, sm_cert = self._smgr_certs.create_sm_ca_cert()
 
         # Read the JSON file, validate for correctness and add the entries to
         # our DB.
@@ -2320,6 +2325,7 @@ class VncServerManager():
             # Inventory Delete Info Trigger
             if self._server_inventory_obj:
                 gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "delete", servers)
+            self._smgr_certs.delete_server_cert(server)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
@@ -3612,6 +3618,8 @@ class VncServerManager():
                 provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
                 provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
                 provision_params['phy_interface'] = server_params['interface_name']
+                if 'xmpp_auth_enabled' in cluster_params:
+                    provision_params['xmpp_auth_enabled'] = cluster_params['xmpp_auth_enabled']
                 if 'contrail' in server:
                     provision_params['contrail_params']  = server['contrail']
                 if 'gateway' in server and server['gateway']:
@@ -4314,7 +4322,7 @@ class VncServerManager():
                 server,
                 cluster,
                 cluster_servers)
-
+            self._smgr_certs.create_server_cert(server)
             # Update Server table with provisioned id
             update = {'id': provision_parameters['server_id'],
                       'provisioned_id': provision_parameters['package_image_id']}

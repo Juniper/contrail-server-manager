@@ -25,8 +25,8 @@ class ServerMgrCerts():
                             log_level=log_level)
 
     def create_sm_ca_cert(self, force=False):
-        sm_ca_private_key = self._smgr_cert_location + 'sm_ca.key'
-        sm_ca_cert = self._smgr_cert_location + 'sm_ca.cert'
+        sm_ca_private_key = self._smgr_cert_location + 'ca-cert-privkey.pem'
+        sm_ca_cert = self._smgr_cert_location + 'ca-cert.pem'
         if not force and os.path.isfile(sm_ca_private_key) and os.path.isfile(sm_ca_cert):
             self._smgr_ca_private_key = sm_ca_private_key
             self._smgr_ca_cert = sm_ca_cert
@@ -40,7 +40,7 @@ class ServerMgrCerts():
         return sm_ca_private_key, sm_ca_cert
 
     def create_server_cert(self, server, force=False):
-        server_private_key = self._smgr_cert_location + server['id'] + '.key'
+        server_private_key = self._smgr_cert_location + server['id'] + '-privkey.pem'
         server_csr = self._smgr_cert_location + server['id'] + '.csr'
         server_pem = self._smgr_cert_location + server['id'] + '.pem'
         if not force and os.path.isfile(server_private_key) and os.path.isfile(server_pem):
@@ -53,7 +53,7 @@ class ServerMgrCerts():
         return server_private_key, server_csr, server_pem
 
     def delete_server_cert(self, server):
-        server_private_key = self._smgr_cert_location + server['id'] + '.key'
+        server_private_key = self._smgr_cert_location + server['id'] + '-privkey.pem'
         server_csr = self._smgr_cert_location + server['id'] + '.csr'
         server_pem = self._smgr_cert_location + server['id'] + '.pem'
         if os.path.isfile(server_private_key):
