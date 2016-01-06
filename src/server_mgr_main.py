@@ -1415,7 +1415,17 @@ class VncServerManager():
                         image_params['puppet_manifest_version'] = \
                             puppet_manifest_version
                         image_params['sequence_provisioning_available'] = sequence_provisioning_available
-                        version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
+                        #Get the file type
+                        cmd = 'file %s'%image_path
+                        output = subprocess.check_output(cmd, shell=True)
+                        #Check if the package is a tgz or deb and get its version
+                        if output and 'gzip compressed data' in output:
+                            mirror = self._args.html_root_dir+"contrail/repo/"+image_id
+                            tmp_img_path = 'ls '+ mirror + '/contrail-setup_*'
+                            tmp_pkg = subprocess.check_output(tmp_img_path, shell=True)
+                            version = subprocess.check_output(['dpkg-deb', '-f',tmp_pkg.strip(),'Version'])
+                        else:
+                            version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
                         image_params['version'] = version.strip('\n')
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
@@ -2007,6 +2017,7 @@ class VncServerManager():
     def _create_deb_repo(
         self, image_id, image_type, image_version, dest):
         puppet_manifest_version = ""
+        tgz_image = False
         try:
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
@@ -2020,30 +2031,50 @@ class VncServerManager():
                 dest, mirror)
             subprocess.check_call(cmd, shell=True)
             # Extract .tgz of other packages from the repo
-            cmd = (
-                "dpkg -x %s . > /dev/null" %(dest))
+            cmd = 'file %s'%dest
+            output = subprocess.check_output(cmd, shell=True)
+            #If the package is tgz or debian extract it appropriately
+            if output:
+                if 'Debian binary package' in output:
+                    cmd = (
+                        "dpkg -x %s . > /dev/null" %(dest))
+                elif 'gzip compressed data' in output:
+                    cmd = ("tar xvzf %s > /dev/null" %(dest))
+                    tgz_image = True
             subprocess.check_call(cmd, shell=True)
             # Handle the puppet manifests in this package.
-            puppet_modules_tgz_path = mirror + \
-                "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
+            #If tgz, then extract the debian package within the tgz and get the puppet manifest tgz
+            if tgz_image:
+                tmpdirname = tempfile.mkdtemp()
+                cmd = ("dpkg-deb -x $(ls contrail-puppet_*.deb) %s" %(tmpdirname))
+                subprocess.check_call(cmd, shell=True)
+                puppet_modules_tgz_path = tmpdirname + "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
+            else:
+                puppet_modules_tgz_path = mirror + \
+                    "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
             puppet_manifest_version, sequence_provisioning_available  = self._add_puppet_modules(
                 puppet_modules_tgz_path, image_id)
             # check if its a new version where repo pinning changes are brought in
-            archive = tarfile.open('./opt/contrail/puppet/contrail-puppet-manifest.tgz', 'r')
+            if tgz_image:
+                archive = tarfile.open(puppet_modules_tgz_path, 'r')
+            else:
+                archive = tarfile.open('./opt/contrail/puppet/contrail-puppet-manifest.tgz', 'r')
             if './contrail/environment/modules/contrail/files/contrail_repo_preferences' in archive.getnames():
                 repo_pinning = True
             else:
                 repo_pinning = False
-            cmd = ("mv ./opt/contrail/contrail_packages/contrail_debs.tgz .")
-            subprocess.check_call(cmd, shell=True)
-            cmd = ("rm -rf opt")
-            subprocess.check_call(cmd, shell=True)
-            # untar tgz to get all packages
-            cmd = ("tar xvzf contrail_debs.tgz > /dev/null")
-            subprocess.check_call(cmd, shell=True)
-            # remove the tgz file itself, not needed any more
-            cmd = ("rm -f contrail_debs.tgz")
-            subprocess.check_call(cmd, shell=True)
+            if not tgz_image:
+                cmd = ("mv ./opt/contrail/contrail_packages/contrail_debs.tgz .")
+                subprocess.check_call(cmd, shell=True)
+            if not tgz_image:
+                cmd = ("rm -rf opt")
+                subprocess.check_call(cmd, shell=True)
+                # untar tgz to get all packages
+                cmd = ("tar xvzf contrail_debs.tgz > /dev/null")
+                subprocess.check_call(cmd, shell=True)
+                # remove the tgz file itself, not needed any more
+                cmd = ("rm -f contrail_debs.tgz")
+                subprocess.check_call(cmd, shell=True)
             # build repo using dpkg-scanpackages or reprepro based on repo pinning availability
             if repo_pinning:
                 cmd = ("cp -v -a /opt/contrail/server_manager/reprepro/conf %s/" % mirror)
@@ -2053,6 +2084,9 @@ class VncServerManager():
             else:
                 cmd = ("dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
                 subprocess.check_call(cmd, shell=True)
+            #delete the tmpdirectory created for extracting puppet debian file
+            if 'gzip compressed data' in output:
+                shutil.rmtree(tmpdirname)
             # change directory back to original
             os.chdir(cwd)
             # cobbler add repo
