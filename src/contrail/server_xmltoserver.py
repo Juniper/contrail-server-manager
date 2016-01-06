@@ -17,11 +17,32 @@ def convert_xml_to_json(input_file, output_file):
     for server in servers_list:
     	smgr_server = {}
 	smgr_server['id'] = server['hostname']
-	smgr_server['mac_address'] = server['mac']
-    	smgr_server['ip_address'] = server['ipaddr']
-    	server_params = {}
-    	server_params['interface_name'] = 'eth1'
-    	smgr_server['parameters'] = server_params
+        network = {}
+        network['interfaces'] = []
+        interface = {}
+        interface['ip_address'] = server['ipaddr'] + '/24'
+        interface['mac_addres'] = server['mac']
+        interface['name'] = 'eth1'
+        interface['type'] = 'physical'
+        ip_addr_list = server['ipaddr'].split('.')
+        ip_addr_list[3] = '254'
+        interface['default_gateway'] = '.'.join(ip_addr_list)
+        interface['dhcp'] = True
+        network['interfaces'].append(interface)
+        network['management_interface'] = interface['name']
+        contrail = {}
+        contrail['control_data_interface'] = interface['name']
+        tag = {}
+        tag['datacenter'] = 'contrail_lab'
+        tag['floor'] = 'floor_6'
+        tag['row'] = 'row_' + server['row']
+        tag['rack'] = 'rack_' + server['rack']
+        tag['userid'] = server['reserved']
+        smgr_server['network'] = network
+        smgr_server['contrail'] = contrail
+        smgr_server['tag'] = tag
+        smgr_server['password'] = 'c0ntrail123'
+        smgr_server['domain'] = 'contrail.juniper.net'
     	smgr_server['ipmi_address'] = server['ipmi']
     	smgr_server_dict['server'].append(smgr_server)
 

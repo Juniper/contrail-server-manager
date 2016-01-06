@@ -5,8 +5,8 @@
         <ipaddr>10.84.17.2</ipaddr>
         <ipmi>10.84.6.215</ipmi>
         <rack>A3</rack>
-        <rack_row>15</rack_row>
-        <userid>pmiriyala</userid>
+        <row>15</row>
+        <reserved>pmiriyala</reserved>
         <mac>00:25:90:a5:3b:34</mac>
         <role>Setup 5</role>
         <model_num>SUPERMICRO X9SCL/X9SCM</model_num>
@@ -24,8 +24,8 @@
         <ipaddr>10.84.17.3</ipaddr>
         <ipmi>10.84.6.216</ipmi>
         <rack>A3</rack>
-        <rack_row>16</rack_row>
-        <userid>pmiriyala</userid>
+        <row>16</row>
+        <reserved>pmiriyala</reserved>
         <mac>00:25:90:a4:24:46</mac>
         <role>Setup 5</role>
         <model_num>SUPERMICRO X9SCL/X9SCM</model_num>
@@ -43,8 +43,8 @@
         <ipaddr>10.84.17.4</ipaddr>
         <ipmi>10.84.6.218</ipmi>
         <rack>A3</rack>
-        <rack_row>18</rack_row>
-        <userid>pmiriyala</userid>
+        <row>18</row>
+        <reserved>pmiriyala</reserved>
         <mac>00:25:90:7e:12:b8</mac>
         <role>Setup 5</role>
         <model_num>SUPERMICRO X9SCL/X9SCM</model_num>
