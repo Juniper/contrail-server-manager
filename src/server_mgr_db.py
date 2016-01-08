@@ -8,6 +8,7 @@ import uuid
 import subprocess
 from netaddr import *
 from server_mgr_err import *
+from server_mgr_utils import *
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 
@@ -523,6 +524,8 @@ class ServerMgrDb:
 
     def add_cluster(self, cluster_data):
         try:
+            # covert all unicode strings in dict
+            cluster_data = ServerMgrUtil.convert_unicode(cluster_data)
             # Store cluster_parameters dictionary as a text field
             if 'parameters' in cluster_data:
                 cluster_parameters = cluster_data.pop("parameters")
@@ -559,6 +562,8 @@ class ServerMgrDb:
 
     def add_server(self, server_data):
         try:
+            # covert all unicode strings in dict
+            server_data = ServerMgrUtil.convert_unicode(server_data)
             if 'mac_address' in server_data and server_data['mac_address']:
                 server_data['mac_address'] = str(
                     EUI(server_data['mac_address'])).replace("-", ":")
@@ -680,6 +685,8 @@ class ServerMgrDb:
 
     def add_image(self, image_data):
         try:
+            # covert all unicode strings in dict
+            image_data = ServerMgrUtil.convert_unicode(image_data)
             # Store image_parameters dictionary as a text field
             image_parameters = image_data.pop("parameters", None)
             if image_parameters is not None:
@@ -759,6 +766,8 @@ class ServerMgrDb:
 
     def modify_cluster(self, cluster_data):
         try:
+            # covert all unicode strings in dict
+            cluster_data = ServerMgrUtil.convert_unicode(cluster_data)
             cluster_id = cluster_data.get('id', None)
             if not cluster_id:
                 raise Exception("No cluster id specified")
@@ -803,6 +812,8 @@ class ServerMgrDb:
 
     def modify_image(self, image_data):
         try:
+            # covert all unicode strings in dict
+            image_data = ServerMgrUtil.convert_unicode(image_data)
             image_id = image_data.get('id', None)
             if not image_id:
                 raise Exception("No image id specified")
@@ -828,6 +839,8 @@ class ServerMgrDb:
     # End of modify_image
 
     def modify_server(self, server_data):
+        # covert all unicode strings in dict
+        server_data = ServerMgrUtil.convert_unicode(server_data)
         db_server = None
         if 'mac_address' in server_data.keys() and \
                  server_data['mac_address'] != None:
