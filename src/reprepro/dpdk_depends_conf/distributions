@@ -1,0 +1,9 @@
+Origin: Debian
+Label: Debian-All
+Suite: contrail-dpdk-depends
+Codename: contrail-dpdk-depends
+Version: 1.0
+Architectures: amd64
+DebOverride: override
+Components: main
+Description: Contrail DPDK depends

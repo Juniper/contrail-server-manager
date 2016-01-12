@@ -2080,6 +2080,23 @@ class VncServerManager():
                 subprocess.check_call(cmd, shell=True)
                 cmd = ("reprepro includedeb contrail %s/*.deb" % mirror)
                 subprocess.check_call(cmd, shell=True)
+                #create dpdk-depends repo
+                dpdk_depends_pkg_list = glob.glob('%s/dpdk-depends*.deb' % mirror)
+
+                if len(dpdk_depends_pkg_list) :
+                    cmd = ("mkdir -p %s/dpdk_depends" % mirror)
+                    subprocess.check_call(cmd, shell=True)
+                    cmd = ("cp -v -a %s %s/dpdk_depends/" % ( dpdk_depends_pkg_list[0], mirror))
+                    subprocess.check_call(cmd, shell=True)
+                    cmd = (
+                        "dpkg -x %s/dpdk_depends/dpdk*.deb %s/dpdk_depends > /dev/null" %(mirror, mirror ))
+                    subprocess.check_call(cmd, shell=True)
+                    cmd = ("cp -R -v -a /opt/contrail/server_manager/reprepro/dpdk_depends_conf %s/dpdk_depends/conf" % mirror)
+                    subprocess.check_call(cmd, shell=True)
+
+                    cmd = ("reprepro includedeb contrail-dpdk-depends %s/dpdk_depends/opt/contrail/contrail_install_repo_dpdk/*.deb" % mirror)
+                    dpdk_repo_dir = "%s/dpdk_depends" % (mirror)
+                    subprocess.check_call(cmd, cwd= dpdk_repo_dir, shell=True)
             else:
                 cmd = ("dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz")
                 subprocess.check_call(cmd, shell=True)
@@ -3695,6 +3712,22 @@ class VncServerManager():
                     provision_params['kernel_version'] = cluster_params['kernel_version']
                 else:
                     provision_params['kernel_version'] = DEFAULT_KERNEL_VERSION
+
+                #DPDK Hugepages
+                if 'huge_pages' in server_params and server_params['huge_pages']:
+                    provision_params['huge_pages'] = server_params['huge_pages']
+                elif 'huge_pages' in cluster_params and cluster_params['huge_pages']:
+                    provision_params['huge_pages'] = cluster_params['huge_pages']
+                else:
+                    provision_params['huge_pages'] = ""
+
+                #DPDK Coremask
+                if 'coremask' in server_params and server_params['coremask']:
+                    provision_params['coremask'] = server_params['coremask']
+                elif 'coremask' in cluster_params and cluster_params['coremask']:
+                    provision_params['coremask'] = cluster_params['coremask']
+                else:
+                    provision_params['coremask'] = ""
 
 
                 provision_params['haproxy'] = cluster_params['haproxy']
