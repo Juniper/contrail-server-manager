@@ -3517,6 +3517,22 @@ class VncServerManager():
         return role_servers
     #end get_role_servers
 
+    def package_sku(self, package_id):
+        ## as of now, default assumption is juno
+        sku = 'juno'
+        try:
+            package_id, package = self.get_package_image(package_id)
+            params = eval(package['parameters'])
+            if params and 'sku' in params and params['sku'] != '' :
+              sku = params['sku']
+        except ServerMgrException as e:
+            pass
+        if sku not in  ['icehouse', 'juno', 'kilo']:
+           msg = ("Unknown sku for package, supported sku's are 'icehouse',"
+                  "'juno', 'kilo'")
+           raise ServerMgrException(msg, ERR_OPR_ERROR)
+        return sku
+
     def package_version(self, package_id):
         version = ''
         try:
@@ -3608,6 +3624,7 @@ class VncServerManager():
                 puppet_manifest_version = server_pkg['puppet_manifest_version']
                 provision_params['package_image_id'] = package_image_id
                 provision_params['package_version'] = self.package_version(package_image_id)
+                provision_params['package_sku'] = self.package_sku(package_image_id)
                 provision_params['package_type'] = package_type
                 provision_params['puppet_manifest_version'] = puppet_manifest_version
                 provision_params['server_mgr_ip'] = self._args.listen_ip_addr
