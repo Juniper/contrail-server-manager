@@ -394,6 +394,18 @@ class ServerMgrPuppet:
             data += 'contrail::params::uuid: "%s"\n' %(
                 cluster_params.get('uuid', ""))
 
+        if 'huge_pages' in provision_params and \
+            provision_params['huge_pages'] != DEFAULT_HUGE_PAGES :
+            data += 'contrail::params::huge_pages: "%s"\n' %(
+                provision_params.get('huge_pages', DEFAULT_HUGE_PAGES))
+
+        if 'core_mask' in provision_params and \
+            provision_params['core_mask'] != DEFAULT_CORE_MASK :
+            data += 'contrail::params::core_mask: "%s"\n' %(
+                provision_params.get('core_mask', DEFAULT_CORE_MASK))
+
+
+
         data += self.add_contrail_upgrade(server, provision_params)
 
         role_ips = {}
