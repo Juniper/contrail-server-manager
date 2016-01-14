@@ -251,8 +251,8 @@ class Server(object):
             self.exec_cmd('echo %s >> /etc/apt/apt.conf' % apt_auth, error_on_fail=True)
 
     def preconfig_repos(self):
-        repo_entry = r'deb http://%s:%s/thirdparty_packages/ ./' % (self.server_manager_ip, self.server_manager_repo_port)
-        repo_entry_verify = r'%s.*\/thirdparty_packages' % self.server_manager_ip
+        repo_entry = r'deb http://%s:%s/thirdparty_packages/ ./' % ('puppet', self.server_manager_repo_port)
+        repo_entry_verify = r'%s.*\/thirdparty_packages' % 'puppet'
         status, output = self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify)
         if status:
             log.info('/etc/apt/sources.list has no thirdparty_packages '
