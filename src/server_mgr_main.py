@@ -43,6 +43,7 @@ from server_mgr_err import *
 from server_mgr_status import *
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_certs import ServerMgrCerts
+from server_mgr_utils import *
 try:
     from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 except ImportError:
@@ -2884,7 +2885,8 @@ class VncServerManager():
                         role_sequence = reimage_item[3]
                         for server in provision_server_list:
                             self._do_provision_server(server['provision_params'], server['server'],
-                                server['cluster'], server['cluster_servers'])
+                                server['cluster'], server['cluster_servers'],
+                                server['package'], server['serverDb'])
                             self._smgr_log.log(self._smgr_log.DEBUG, "provision processed from queue")
                         # Update cluster with role_sequence and apply sequence first step
                         # If no role_sequence present, just update cluster with it.
@@ -2993,6 +2995,44 @@ class VncServerManager():
                 servers.append(server)
         return servers
 
+    # Function to get control interface for a specified server.
+    def get_control_interface(self, server):
+        contrail = server.get('contrail', "{}")
+        if contrail and eval(contrail):
+            contrail_dict = eval(contrail)
+            control_data_intf = contrail_dict.get('control_data_interface', "")
+            interface_list = self.get_interfaces(server)
+            intf_dict = {}
+            control_ip = interface_list[control_data_intf] ['ip']
+            control_mask = interface_list[control_data_intf] ['mask']
+            control_gway = interface_list[control_data_intf].get('d_gw', "")
+            ip_prefix = "%s/%s" %(control_ip, control_mask)
+            ip_obj = IPNetwork(ip_prefix)
+            intf_dict[control_data_intf] = {
+                "ip_address" : str(ip_obj),
+                "gateway" : str(control_gway)
+            }
+            return str(intf_dict)
+        else:
+            return (server['intf_control'])
+    # end def get_control_interface
+
+    # Function to get control interface for a specified server.
+    def get_control_ip(self, server):
+        control_intf = self.get_control_interface(server)
+        if control_intf:
+            return str(IPNetwork(control_intf['ip_address']).ip)
+        return server['ip_address']
+    # end def get_control_ip
+
+    # Function to get control gateway for a specified server.
+    def get_control_gateway(self, server):
+        control_intf = self.get_control_interface(server)
+        if control_intf:
+            return str(IPNetwork(control_intf['gateway']).ip)
+        return ''
+    # end def get_control_gateway
+
     #Function to get control section for all servers
     # belonging to the same VN
     # If 'contrail' block ins present, use the new interface configuration
@@ -3000,25 +3040,8 @@ class VncServerManager():
     def get_control_net(self, cluster_servers):
         server_control_list = {}
         for server in cluster_servers:
-            contrail = server.get('contrail', "{}")
-            if contrail and eval(contrail):
-		contrail_dict = eval(contrail)
-		control_data_intf = contrail_dict.get('control_data_interface', "")
-		interface_list = self.get_interfaces(server)
-		intf_dict = {}
-		control_ip = interface_list[control_data_intf] ['ip']
-		control_mask = interface_list[control_data_intf] ['mask']
-		control_gway = interface_list[control_data_intf].get('d_gw', "")
- 		ip_prefix = "%s/%s" %(control_ip, control_mask)
-		ip_obj = IPNetwork(ip_prefix)
-		intf_dict[control_data_intf] = {
-                    "ip_address" : str(ip_obj),
-                    "gateway" : str(control_gway)
-                }
-	        server_control_list[server['ip_address']] = str(intf_dict)
-            else:
-                intf_control = server['intf_control']
-                server_control_list[server['ip_address']] = intf_control
+            server_control_list[server['ip_address']] = self.get_control_interface(
+                server)
         return server_control_list
 
     # Function to get map server name to server ip
@@ -3542,6 +3565,200 @@ class VncServerManager():
             pass
         return version
 
+    def storage_get_control_network_mask(
+        self, server, cluster, role_servers, cluster_servers):
+        role_ips_dict = {}
+        for key, value in role_servers.iteritems():
+            role_ips_dict[key] = [x.get("ip_address", "") for x in value]
+        cluster_params = cluster.get('parameters', {})
+        server_params = server.get('parameters', {})
+        openstack_ip = ''
+        self_ip = server.get("ip_address", "")
+        if openstack_ip is None or openstack_ip == '':
+            if self_ip in role_ips_dict['openstack']:
+                openstack_ip = self_ip
+            else:
+                openstack_ip = role_ips_dict['openstack'][0]
+
+        subnet_mask = server.get("subnet_mask", "")
+        if not subnet_mask:
+            subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
+
+        subnet_address = str(IPNetwork(
+            openstack_ip + "/" + subnet_mask).network)
+
+        intf_control = {}
+        if (self.get_control_net(cluster_servers))[openstack_ip]:
+            intf_control = eval((self.get_control_net(cluster_servers))[openstack_ip])
+
+        for intf,values in intf_control.items():
+            if intf:
+                return '"' + str(IPNetwork(values['ip_address']).network) + '/'+ str(IPNetwork(values['ip_address']).prefixlen) + '"'
+            else:
+                return '"' + str(IPNetwork(provision_params['server_ip']).network) + '/'+ str(IPNetwork(provision_params['server_ip']).prefixlen) + '"'
+
+        return '"' + str(IPNetwork(subnet_address).network) + '/'+ str(IPNetwork(subnet_address).prefixlen) + '"'
+    # end storage_get_control_network_mask
+
+    def build_calculated_cluster_params(
+            self, server, cluster, role_servers, cluster_servers, package):
+        # if parameters are already calculated, nothing to do, return.
+        cluster_params = cluster.get("params", {})
+        server_params = server.get("params", {})
+        package_params = package.get("params", {})
+        if 'calc_params' in cluster:
+            return
+        contrail_params = {}
+        openstack_params = {}
+        # contrail_repo_name and contrail_repo_type
+        contrail_params['contrail_repo_name'] = [package.get('id', '')]
+        contrail_params['contrail_repo_type'] = [package.get('type', '')]
+        roles = eval(server.get("roles", "[]"))
+        if (('storage-compute' in roles) or
+            ('storage-master' in roles)):
+            contrail_params['contrail_repo_name'].append(
+                server_params.get("storage_repo_id", ""))
+            contrail_params['contrail_repo_type'].append(
+                "contrail-ubuntu-storage-repo")
+        my_uuid = cluster_params.get(
+            "uuid", str(uuid.uuid4()).encode("utf-8"))
+        contrail_params['uuid'] = my_uuid
+        for role, servers in role_servers.iteritems():
+            role_ctl_ip = [(self.get_control_ip(x)) for x in servers]
+            role_ip = [x.get("ip_address", "") for x in servers]
+            role_id = [x.get("id", "") for x in servers]
+            role_passwd = [x.get("password", "") for x in servers]
+            role_user = ["root" for x in servers]
+                    
+            # special case - convert role name for collector to analytics
+            if role == "collector":
+                role = "analytics"
+            if role != "openstack":
+                contrail_params[role] = {}
+                contrail_params[role][role + "_ip_list"] = role_ip
+                contrail_params[role][role + "_name_list"] = role_id
+                contrail_params[role][role + "_passwd_list"] = role_passwd
+                contrail_params[role][role + "_user_list"] = role_user
+            else:
+                openstack_params[role + "_ip_list"] = role_ip
+                openstack_params[role + "_name_list"] = role_id
+                openstack_params[role + "_passwd_list"] = role_passwd
+                openstack_params[role + "_user_list"] = role_ip
+                openstack_params['openstack_mgmt_ip_list'] = role_ip
+        # top_of_rack related config tbd....
+        # Storage parameters..
+        contrail_params['storage'] = {}
+        total_osd = int(0)
+        num_storage_hosts = int(0)
+        live_migration = "disable"
+        live_migration_host = ""
+        live_migration_ip = ""
+        live_migration_storage_scope = "local"
+        for role_server in role_servers['storage-compute']:
+            server_params_compute = eval(role_server['parameters'])
+            if 'disks' in server_params_compute and len(server_params_compute['disks']) > 0:
+                total_osd += len(server_params_compute['disks'])
+                num_storage_hosts += 1
+
+        if 'live_migration' in cluster_params.keys() and cluster_params['live_migration'] == "enable":
+            if (('live_migration_nfs_vm_host' in cluster_params.keys()) and 
+                (cluster_params['live_migration_nfs_vm_host']) and 
+                (len(cluster_params['live_migration_nfs_vm_host']) > 0)) :
+                live_migration = "enable"
+                live_migration_host = cluster_params['live_migration_nfs_vm_host']
+            else:
+                live_migration = "disable"
+                live_migration_host = ""
+
+        contrail_params['storage']['storage_num_osd'] = total_osd
+        contrail_params['storage']['storage_num_hosts'] = num_storage_hosts
+        storage_virsh_uuid = cluster_params.get(
+            "storage_virsh_uuid", str(uuid.uuid4()).encode("utf-8"))
+        contrail_params['storage']['storage_virsh_uuid'] = storage_virsh_uuid
+        contrail_params['storage']['storage_enabled'] = (len(role_servers['storage-compute']) != 0)
+        storage_mon_host_ip_set = set()
+        storage_mon_hostname_set = set()
+        storage_chassis_config_set = set()
+        for x in role_servers['storage-compute']:
+            storage_mon_host_ip_set.add(self.get_control_ip(x))
+            storage_mon_hostname_set.add(x['id'])
+            if x['id'] == live_migration_host: 
+                live_migration_ip = self.get_control_ip(x)
+            server_params_compute = eval(x['parameters'])
+            if server_params_compute.get('storage_chassis_id', ""):
+                storage_chassis_id = [x['id'], ':', server_params_compute['storage_chassis_id']]
+                storage_host_chassis = ''.join(storage_chassis_id)
+                storage_chassis_config_set.add(storage_host_chassis)
+        for x in role_servers['storage-master']:
+            storage_mon_host_ip_set.add(self.get_control_ip(x))
+            storage_mon_hostname_set.add(x['id'])
+
+        contrail_params['storage']['live_migration_ip'] = live_migration_ip 
+        contrail_params['storage']['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
+        contrail_params['storage']['storage_hostnames'] = list(storage_mon_hostname_set)
+        contrail_params['storage']['storage_chassis_config'] = list(storage_chassis_config_set)
+        control_network = self.storage_get_control_network_mask(
+            server, cluster, role_servers, cluster_servers)
+        contrail_params['storage']['storage_cluster_network'] = control_network
+        contrail_params = ServerMgrUtil.convert_unicode(contrail_params)
+        openstack_params = ServerMgrUtil.convert_unicode(openstack_params)
+        cluster['calc_params'] = {
+            "contrail": contrail_params,
+            "openstack": openstack_params
+        }
+    # end build_calculated_cluster_params
+
+    def build_calculated_server_params(
+            self, server, cluster, role_servers, package):
+        # if parameters are already calculated, nothing to do, return.
+        if 'calc_params' in server:
+            return
+        contrail_params = {}
+        provisioned_id = server.get("provisioned_id", "")
+        if ((provisioned_id) and
+            (provisioned_id != package.get('id', ""))):
+            contrail_params['contrail_upgrade'] = False
+        server_control_ip = self.get_control_ip(server)
+        server_control_gateway = self.get_control_gateway(server)
+        contrail_params['host_ip'] = server_control_ip
+        role_id = [x.get("id", "") for x in role_servers['openstack']]
+        contrail_params['sync_db'] = (server['id'] == role_id[0])
+        contrail_params['host_roles'] = [ x for x in eval(server['roles']) ]
+        if (server_control_ip and
+           (server_control_ip != server['ip_address'])):
+            contrail_params['host_non_mgmt_ip'] = server_control_ip
+            contrail_params['host_non_mgmt_gateway'] = server_control_gateway
+        contrail_params = ServerMgrUtil.convert_unicode(contrail_params)
+        server['calc_params'] = {
+            "contrail": contrail_params
+        }
+        return server
+    # end build_calculated_server_params
+
+    def build_calculated_package_params(
+            self, server, cluster, package):
+        if 'calc_params' in package:
+            return
+        contrail_params = {}
+        contrail_params['contrail_version'] = package.get("version", "")
+        contrail_params = ServerMgrUtil.convert_unicode(contrail_params)
+        package['calc_params'] = {
+            "contrail": contrail_params
+        }
+    # end build_calculated_package_params
+
+    def build_calculated_provision_params(
+            self, server, cluster, role_servers, cluster_servers, package):
+        # Build cluster calculated parameters
+        self.build_calculated_cluster_params(
+            server, cluster, role_servers, cluster_servers, package)
+        # Build server calculated parameters
+        self.build_calculated_server_params(
+            server, cluster, role_servers, package)
+        # Build package calculated parameters
+        self.build_calculated_package_params(
+            server, cluster, package)
+    # end build_calculated_provision_params
 
     # API call to provision server(s) as per roles/roles
     # defined for those server(s). This function creates the
@@ -3596,13 +3813,21 @@ class VncServerManager():
             for server_pkg in server_packages:
                 server = server_pkg['server']
                 package_image_id = server_pkg['package_image_id']
+                package_image_id, package = self.get_package_image(
+                    package_image_id)
                 package_type = server_pkg['package_type']
-                server_params = eval(server['parameters'])
+                if "parameters" in package:
+                    package["parameters"] = eval(package["parameters"])
+                if "parameters" in server:
+                    server["parameters"] = eval(server["parameters"])
+                server_params = server.get('parameters', {})
                 server_tor_config = server['top_of_rack']
                 cluster = self._serverDb.get_cluster(
                     {"id" : server['cluster_id']},
                     detail=True)[0]
-                cluster_params = eval(cluster['parameters'])
+                if "parameters" in cluster:
+                    cluster["parameters"] = eval(cluster["parameters"])
+                cluster_params = cluster.get('parameters', {})
                 # Get all the servers belonging to the CLUSTER that this server
                 # belongs too.
                 cluster_servers = self._serverDb.get_server(
@@ -3618,345 +3843,358 @@ class VncServerManager():
                         role_ips[role] = [x["ip_address"] for x in role_servers[role]]
                         role_ids[role] = [x["id"] for x in role_servers[role]]
 
+                # If cluster has new format for providing provisioning parameters, call the new method, else follow
+                # thru the below long code. The old code is kept for compatibility and can be removed once we are
+                # fully on new format.
                 provision_params = {}
-                provision_params['sequence_provisioning'] = sequence_provisioning
-                provision_params['sequence_provisioning_available'] = self.is_sequence_provisioning_available(package_image_id)
-                puppet_manifest_version = server_pkg['puppet_manifest_version']
-                provision_params['package_image_id'] = package_image_id
-                provision_params['package_version'] = self.package_version(package_image_id)
-                provision_params['package_sku'] = self.package_sku(package_image_id)
-                provision_params['package_type'] = package_type
-                provision_params['puppet_manifest_version'] = puppet_manifest_version
-                provision_params['server_mgr_ip'] = self._args.listen_ip_addr
-                provision_params['roles'] = role_ips
-                provision_params['role_ids'] = role_ids
-                provision_params['server_id'] = server['id']
-                if server['domain']:
-                    provision_params['domain'] = server['domain']
+                if "provision" in cluster_params:
+                    self.build_calculated_provision_params(
+                        server, cluster, role_servers, cluster_servers, package)
                 else:
+                    # This code in else can be removed when we stop supporting old format parameters for cluster and server.
+		    provision_params['sequence_provisioning'] = sequence_provisioning
+		    provision_params['sequence_provisioning_available'] = self.is_sequence_provisioning_available(package_image_id)
+		    puppet_manifest_version = server_pkg['puppet_manifest_version']
+		    provision_params['package_image_id'] = package_image_id
+		    provision_params['package_version'] = self.package_version(package_image_id)
+                    provision_params['package_sku'] = self.package_sku(package_image_id)
+		    provision_params['package_type'] = package_type
+		    provision_params['puppet_manifest_version'] = puppet_manifest_version
+		    provision_params['server_mgr_ip'] = self._args.listen_ip_addr
+		    provision_params['roles'] = role_ips
+		    provision_params['role_ids'] = role_ids
+		    provision_params['server_id'] = server['id']
+		    if server['domain']:
+			provision_params['domain'] = server['domain']
+		    else:
                         provision_params['domain'] = cluster_params['domain']
 
-                provision_params['rmq_master'] = role_ids['config'][0]
-                provision_params['uuid'] = cluster_params['uuid']
-                provision_params['smgr_ip'] = self._args.listen_ip_addr
-                if role_ids['config'][0] == server['id']:
-                        provision_params['is_rmq_master'] = "yes"
-                else:
-                    provision_params['is_rmq_master'] = "no"
-                provision_params['intf_control'] = ""
-                provision_params['intf_bond'] = ""
-                provision_params['intf_data'] = ""
-                if 'intf_control' in server:
-                    provision_params['intf_control'] = server['intf_control']
-                if 'intf_data' in server:
-                    provision_params['intf_data'] = server['intf_data']
-                if 'intf_bond' in server:
-                    provision_params['intf_bond'] = server['intf_bond']
-                provision_params['control_net'] = self.get_control_net(cluster_servers)
-                provision_params['interface_list'] = self.get_interfaces(server)
-                provision_params['server_ip'] = server['ip_address']
-                provision_params['database_dir'] = cluster_params['database_dir']
-                provision_params['database_token'] = cluster_params['database_token']
-                provision_params['openstack_mgmt_ip'] = ''
-                provision_params['openstack_passwd'] = ''
-                provision_params['use_certificates'] = cluster_params['use_certificates']
-                provision_params['multi_tenancy'] = cluster_params['multi_tenancy']
-                provision_params['router_asn'] = cluster_params['router_asn']
-                provision_params['encapsulation_priority'] = cluster_params['encapsulation_priority']
-                provision_params['keystone_username'] = cluster_params['keystone_username']
-                provision_params['keystone_password'] = cluster_params['keystone_password']
-                provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
-                provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
-                provision_params['phy_interface'] = server_params['interface_name']
-                if 'xmpp_auth_enabled' in cluster_params:
-                    provision_params['xmpp_auth_enabled'] = cluster_params['xmpp_auth_enabled']
-                if 'contrail' in server:
-                    provision_params['contrail_params']  = server['contrail']
-                if 'gateway' in server and server['gateway']:
-                    provision_params['server_gway'] = server['gateway']
-                elif 'gateway' in cluster_params and cluster_params['gateway']:
-                    provision_params['server_gway'] = cluster_params['gateway']
-                else:
-                    provision_params['server_gway'] = ''
-                if 'rsyslog_params' in cluster_params:
-                    cluster_params['rsyslog_params'] = cluster_params['rsyslog_params'].encode("ascii")
-                    cluster_params['rsyslog_params'] = ast.literal_eval(cluster_params['rsyslog_params'])
-                    provision_params['rsyslog_params'] = cluster_params['rsyslog_params']
-                if 'kernel_upgrade' in server_params and server_params['kernel_upgrade']:
-                    provision_params['kernel_upgrade'] = server_params['kernel_upgrade']
-                elif 'kernel_upgrade' in cluster_params and cluster_params['kernel_upgrade']:
-                    provision_params['kernel_upgrade'] = cluster_params['kernel_upgrade']
-                else:
-                    provision_params['kernel_upgrade'] = DEFAULT_KERNEL_UPGRADE
+		    provision_params['rmq_master'] = role_ids['config'][0]
+		    provision_params['uuid'] = cluster_params['uuid']
+		    provision_params['smgr_ip'] = self._args.listen_ip_addr
+		    server['parameters']['smgr_ip'] = self._args.listen_ip_addr
+		    if role_ids['config'][0] == server['id']:
+			    provision_params['is_rmq_master'] = "yes"
+		    else:
+			provision_params['is_rmq_master'] = "no"
+		    provision_params['intf_control'] = ""
+		    provision_params['intf_bond'] = ""
+		    provision_params['intf_data'] = ""
+		    if 'intf_control' in server:
+			provision_params['intf_control'] = server['intf_control']
+		    if 'intf_data' in server:
+			provision_params['intf_data'] = server['intf_data']
+		    if 'intf_bond' in server:
+			provision_params['intf_bond'] = server['intf_bond']
+		    provision_params['control_net'] = self.get_control_net(cluster_servers)
+		    provision_params['interface_list'] = self.get_interfaces(server)
+		    provision_params['server_ip'] = server['ip_address']
+		    provision_params['database_dir'] = cluster_params['database_dir']
+		    provision_params['database_token'] = cluster_params['database_token']
+		    provision_params['openstack_mgmt_ip'] = ''
+		    provision_params['openstack_passwd'] = ''
+		    provision_params['use_certificates'] = cluster_params['use_certificates']
+		    provision_params['multi_tenancy'] = cluster_params['multi_tenancy']
+		    provision_params['router_asn'] = cluster_params['router_asn']
+		    provision_params['encapsulation_priority'] = cluster_params['encapsulation_priority']
+		    provision_params['keystone_username'] = cluster_params['keystone_username']
+		    provision_params['keystone_password'] = cluster_params['keystone_password']
+		    provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
+		    provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
+		    provision_params['phy_interface'] = server_params['interface_name']
+		    if 'xmpp_auth_enabled' in cluster_params:
+			provision_params['xmpp_auth_enabled'] = cluster_params['xmpp_auth_enabled']
+		    if 'contrail' in server:
+			provision_params['contrail_params']  = server['contrail']
+		    if 'gateway' in server and server['gateway']:
+			provision_params['server_gway'] = server['gateway']
+		    elif 'gateway' in cluster_params and cluster_params['gateway']:
+			provision_params['server_gway'] = cluster_params['gateway']
+		    else:
+			provision_params['server_gway'] = ''
+		    if 'rsyslog_params' in cluster_params:
+			cluster_params['rsyslog_params'] = cluster_params['rsyslog_params'].encode("ascii")
+			cluster_params['rsyslog_params'] = ast.literal_eval(cluster_params['rsyslog_params'])
+			provision_params['rsyslog_params'] = cluster_params['rsyslog_params']
+		    if 'kernel_upgrade' in server_params and server_params['kernel_upgrade']:
+			provision_params['kernel_upgrade'] = server_params['kernel_upgrade']
+		    elif 'kernel_upgrade' in cluster_params and cluster_params['kernel_upgrade']:
+			provision_params['kernel_upgrade'] = cluster_params['kernel_upgrade']
+		    else:
+			provision_params['kernel_upgrade'] = DEFAULT_KERNEL_UPGRADE
 
-                if 'kernel_version' in server_params and server_params['kernel_version']:
-                    provision_params['kernel_version'] = server_params['kernel_version']
-                elif 'kernel_version' in cluster_params and cluster_params['kernel_version']:
-                    provision_params['kernel_version'] = cluster_params['kernel_version']
-                else:
-                    provision_params['kernel_version'] = DEFAULT_KERNEL_VERSION
+		    if 'kernel_version' in server_params and server_params['kernel_version']:
+			provision_params['kernel_version'] = server_params['kernel_version']
+		    elif 'kernel_version' in cluster_params and cluster_params['kernel_version']:
+			provision_params['kernel_version'] = cluster_params['kernel_version']
+		    else:
+			provision_params['kernel_version'] = DEFAULT_KERNEL_VERSION
 
 
-                provision_params['haproxy'] = cluster_params['haproxy']
+		    provision_params['haproxy'] = cluster_params['haproxy']
 
-                if 'setup_interface' in server_params.keys():
-                    provision_params['setup_interface'] = \
-                                                    server_params['setup_interface']
-                else:
-                     provision_params['setup_interface'] = "No"
+		    if 'setup_interface' in server_params.keys():
+			provision_params['setup_interface'] = \
+							server_params['setup_interface']
+		    else:
+			 provision_params['setup_interface'] = "No"
 
-                provision_params['haproxy'] = cluster_params['haproxy']
-                if 'execute_script' in server_params.keys():
-		            provision_params['execute_script'] = server_params['execute_script']
-                else:
-                    provision_params['execute_script'] = ""
+		    provision_params['haproxy'] = cluster_params['haproxy']
+		    if 'execute_script' in server_params.keys():
+				provision_params['execute_script'] = server_params['execute_script']
+		    else:
+			provision_params['execute_script'] = ""
 
-                if 'esx_server' in server_params.keys():
-                    provision_params['esx_uplink_nic'] = server_params['esx_uplink_nic']
-                    provision_params['esx_fab_vswitch'] = server_params['esx_fab_vswitch']
-                    provision_params['esx_vm_vswitch'] = server_params['esx_vm_vswitch']
-                    provision_params['esx_fab_port_group'] = server_params['esx_fab_port_group']
-                    provision_params['esx_vm_port_group'] = server_params['esx_vm_port_group']
-                    provision_params['vm_deb'] = server_params['vm_deb'] if server_params.has_key('vm_deb') else ""
-                    provision_params['esx_vmdk'] = server_params['esx_vmdk']
-                    esx_servers = self._serverDb.get_server(
-                        {'id' : server_params['esx_server']},
-                        detail=True)
-                    esx_server = esx_servers[0]
-                    provision_params['esx_ip'] = esx_server['ip_address']
-                    provision_params['esx_username'] = "root"
-                    provision_params['esx_password'] = esx_server['password']
-                    provision_params['esx_server'] = esx_server
-                    provision_params['server_mac'] = server['mac_address']
-                    provision_params['password'] = server['password']
-                    if 'datastore' in server_params.keys():
-                        provision_params['datastore'] = server_params['datastore']
-                    else:
-                        provision_params['datastore'] = "/vmfs/volumes/datastore1"
-                else:
-                   provision_params['esx_uplink_nic'] = ""
-                   provision_params['esx_fab_vswitch'] = ""
-                   provision_params['esx_vm_vswitch'] = ""
-                   provision_params['esx_fab_port_group'] = ""
-                   provision_params['esx_vm_port_group'] = ""
-                   provision_params['esx_vmdk'] = ""
-                   provision_params['esx_ip'] = ""
-                   provision_params['esx_username'] = ""
-                   provision_params['esx_password'] = ""
+		    if 'esx_server' in server_params.keys():
+			provision_params['esx_uplink_nic'] = server_params['esx_uplink_nic']
+			provision_params['esx_fab_vswitch'] = server_params['esx_fab_vswitch']
+			provision_params['esx_vm_vswitch'] = server_params['esx_vm_vswitch']
+			provision_params['esx_fab_port_group'] = server_params['esx_fab_port_group']
+			provision_params['esx_vm_port_group'] = server_params['esx_vm_port_group']
+			provision_params['vm_deb'] = server_params['vm_deb'] if server_params.has_key('vm_deb') else ""
+			provision_params['esx_vmdk'] = server_params['esx_vmdk']
+			esx_servers = self._serverDb.get_server(
+			    {'id' : server_params['esx_server']},
+			    detail=True)
+			esx_server = esx_servers[0]
+			provision_params['esx_ip'] = esx_server['ip_address']
+			provision_params['esx_username'] = "root"
+			provision_params['esx_password'] = esx_server['password']
+			provision_params['esx_server'] = esx_server
+			provision_params['server_mac'] = server['mac_address']
+			provision_params['password'] = server['password']
+			if 'datastore' in server_params.keys():
+			    provision_params['datastore'] = server_params['datastore']
+			else:
+			    provision_params['datastore'] = "/vmfs/volumes/datastore1"
+		    else:
+		       provision_params['esx_uplink_nic'] = ""
+		       provision_params['esx_fab_vswitch'] = ""
+		       provision_params['esx_vm_vswitch'] = ""
+		       provision_params['esx_fab_port_group'] = ""
+		       provision_params['esx_vm_port_group'] = ""
+		       provision_params['esx_vmdk'] = ""
+		       provision_params['esx_ip'] = ""
+		       provision_params['esx_username'] = ""
+		       provision_params['esx_password'] = ""
 
-                if interface_created:
-                    provision_params['setup_interface'] = "No"
+		    if interface_created:
+			provision_params['setup_interface'] = "No"
 
-                if 'region_name' in cluster_params.keys():
-                    provision_params['region_name'] = cluster_params['region_name']
-                else:
-                    provision_params['region_name'] = "RegionOne"
-                if 'execute_script' in server_params.keys():
-                    provision_params['execute_script'] = server_params['execute_script']
-                else:
-                    provision_params['execute_script'] = ""
-                if 'external_bgp' in cluster_params.keys():
-                    provision_params['external_bgp'] = cluster_params['external_bgp']
-                else:
-                    provision_params['external_bgp'] = ""
+		    if 'region_name' in cluster_params.keys():
+			provision_params['region_name'] = cluster_params['region_name']
+		    else:
+			provision_params['region_name'] = "RegionOne"
+		    if 'execute_script' in server_params.keys():
+			provision_params['execute_script'] = server_params['execute_script']
+		    else:
+			provision_params['execute_script'] = ""
+		    if 'external_bgp' in cluster_params.keys():
+			provision_params['external_bgp'] = cluster_params['external_bgp']
+		    else:
+			provision_params['external_bgp'] = ""
 
-                # Storage role params
+		    # Storage role params
 
-                if 'subnet_mask' in server and server['subnet_mask']:
-                    subnet_mask = server['subnet_mask']
-                elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
-                    subnet_mask = cluster_params['subnet_mask']
+		    if 'subnet_mask' in server and server['subnet_mask']:
+			subnet_mask = server['subnet_mask']
+		    elif 'subnet_mask' in cluster_params and cluster_params['subnet_mask']:
+			subnet_mask = cluster_params['subnet_mask']
 
-                if 'toragent' in server['roles']:
-                   if not 'tsn' in server['roles']:
-                      msg = "TSN must be configured on node with ToR Agent"
-                      raise ServerMgrException(msg)
+		    if 'toragent' in server['roles']:
+		       if not 'tsn' in server['roles']:
+			  msg = "TSN must be configured on node with ToR Agent"
+			  raise ServerMgrException(msg)
 
-                if 'toragent' in server['roles']:
-                    provision_params['top_of_rack'] = server_tor_config
-                    self._smgr_log.log(self._smgr_log.DEBUG, "TOR-AGENT is there")
-                else:
-                    self._smgr_log.log(self._smgr_log.DEBUG, "TOR-AGENT is not there")
-                    provision_params['top_of_rack'] = ""
-                provision_params['tor_ha_config'] = {}
-                for role_server in role_servers['toragent']:
-                    server_params_compute = eval(role_server['top_of_rack'])
-                    if len(server_params_compute) > 0:
-                        #self._smgr_log.log(self._smgr_log.DEBUG, "TOR1 of %s => %s" % (role_server['id'],server_params_compute))
-                        node_id = role_server['id']
-                        switches = server_params_compute['switches']
-                        provision_params['tor_ha_config'][node_id] = []
-                        #self._smgr_log.log(self._smgr_log.DEBUG, "TOR3 %s => %s" % (server['id'],server_params_compute['switch_name']))
-                        for i in range(len(switches)):
-                            switch_detail = {}
-                            switch_detail['tor_name'] = switches[i]['switch_name']
-                            switch_detail['ovs_port'] = switches[i]['ovs_port']
-                            switch_detail['protocol'] = switches[i]['ovs_protocol']
-                            host_control_ip = self._smgr_puppet.get_control_ip(provision_params, role_server.get('ip_address', ""))
-                            switch_detail['tsn_ip'] = host_control_ip
-                            provision_params['tor_ha_config'][node_id].append(switch_detail)
+		    if 'toragent' in server['roles']:
+			provision_params['top_of_rack'] = server_tor_config
+			self._smgr_log.log(self._smgr_log.DEBUG, "TOR-AGENT is there")
+		    else:
+			self._smgr_log.log(self._smgr_log.DEBUG, "TOR-AGENT is not there")
+			provision_params['top_of_rack'] = ""
+		    provision_params['tor_ha_config'] = {}
+		    for role_server in role_servers['toragent']:
+			server_params_compute = eval(role_server['top_of_rack'])
+			if len(server_params_compute) > 0:
+			    #self._smgr_log.log(self._smgr_log.DEBUG, "TOR1 of %s => %s" % (role_server['id'],server_params_compute))
+			    node_id = role_server['id']
+			    switches = server_params_compute['switches']
+			    provision_params['tor_ha_config'][node_id] = []
+			    #self._smgr_log.log(self._smgr_log.DEBUG, "TOR3 %s => %s" % (server['id'],server_params_compute['switch_name']))
+			    for i in range(len(switches)):
+				switch_detail = {}
+				switch_detail['tor_name'] = switches[i]['switch_name']
+				switch_detail['ovs_port'] = switches[i]['ovs_port']
+				switch_detail['protocol'] = switches[i]['ovs_protocol']
+				host_control_ip = self._smgr_puppet.get_control_ip(provision_params, role_server.get('ip_address', ""))
+				switch_detail['tsn_ip'] = host_control_ip
+				provision_params['tor_ha_config'][node_id].append(switch_detail)
 
-                #self._smgr_log.log(self._smgr_log.DEBUG, "tor config of %s => %s" % (server['id'], server_tor_config))
-                self._smgr_log.log(self._smgr_log.DEBUG, "TOR2 %s => %s" % (server['id'], provision_params['tor_ha_config']))
-                if len(role_servers['storage-compute']):
-                    msg = "Storage is enabled"
-                    storage_status = '1'
-                else:
-                    msg = "Storage is disabled"
-                    storage_status = '0'
-                self._smgr_log.log(self._smgr_log.DEBUG, msg)
+		    #self._smgr_log.log(self._smgr_log.DEBUG, "tor config of %s => %s" % (server['id'], server_tor_config))
+		    self._smgr_log.log(self._smgr_log.DEBUG, "TOR2 %s => %s" % (server['id'], provision_params['tor_ha_config']))
+		    if len(role_servers['storage-compute']):
+			msg = "Storage is enabled"
+			storage_status = '1'
+		    else:
+			msg = "Storage is disabled"
+			storage_status = '0'
+		    self._smgr_log.log(self._smgr_log.DEBUG, msg)
 
-                if (('storage-compute' in server['roles'])
-                    or ('storage-master' in server['roles'])):
-                    if (('storage_repo_id' not in server_params.keys()) or
-                        (server_params['storage_repo_id'] == "")):
-                        msg = ("server parameters needs to have storage_repo_id"
-                              " for storage roles")
-                        raise ServerMgrException(msg, ERR_OPR_ERROR)
+		    if (('storage-compute' in server['roles'])
+			or ('storage-master' in server['roles'])):
+			if (('storage_repo_id' not in server_params.keys()) or
+			    (server_params['storage_repo_id'] == "")):
+			    msg = ("server parameters needs to have storage_repo_id"
+				  " for storage roles")
+			    raise ServerMgrException(msg, ERR_OPR_ERROR)
 
-                # Calculate the total number of disks in the cluster
-                total_osd = int(0)
-                num_storage_hosts = int(0)
-                live_migration = "disable"
-                live_migration_host = ""
-                live_migration_ip = ""
-                live_migration_storage_scope = "local"
-                for role_server in role_servers['storage-compute']:
-                    server_params_compute = eval(role_server['parameters'])
-                    if 'disks' in server_params_compute and len(server_params_compute['disks']) > 0:
-                        total_osd += len(server_params_compute['disks'])
-                        num_storage_hosts += 1
-                    else:
-                        pass
+		    # Calculate the total number of disks in the cluster
+		    total_osd = int(0)
+		    num_storage_hosts = int(0)
+		    live_migration = "disable"
+		    live_migration_host = ""
+		    live_migration_ip = ""
+		    live_migration_storage_scope = "local"
+		    for role_server in role_servers['storage-compute']:
+			server_params_compute = eval(role_server['parameters'])
+			if 'disks' in server_params_compute and len(server_params_compute['disks']) > 0:
+			    total_osd += len(server_params_compute['disks'])
+			    num_storage_hosts += 1
+			else:
+			    pass
 
-                if 'live_migration' in cluster_params.keys() and cluster_params['live_migration'] == "enable":
-                  if 'live_migration_nfs_vm_host' in cluster_params.keys() and cluster_params['live_migration_nfs_vm_host'] and len(cluster_params['live_migration_nfs_vm_host']) > 0 :
-                      live_migration = "enable"
-                      live_migration_host = cluster_params['live_migration_nfs_vm_host']
-                  else:
-                      live_migration = "disable"
-                      live_migration_host = ""
+		    if 'live_migration' in cluster_params.keys() and cluster_params['live_migration'] == "enable":
+		      if 'live_migration_nfs_vm_host' in cluster_params.keys() and cluster_params['live_migration_nfs_vm_host'] and len(cluster_params['live_migration_nfs_vm_host']) > 0 :
+			  live_migration = "enable"
+			  live_migration_host = cluster_params['live_migration_nfs_vm_host']
+		      else:
+			  live_migration = "disable"
+			  live_migration_host = ""
 
-                  if 'live_migration_storage_scope' in cluster_params.keys() and cluster_params['live_migration_storage_scope']:
-                      live_migration_storage_scope = cluster_params['live_migration_storage_scope']
-                  else:
-                      pass
-    
-                if live_migration_storage_scope == "local" or live_migration_storage_scope == "global":
-                    pass
-                else:
-                    msg = "Invalid Live Migration Storage Scope (local/global are valid)"
-                    raise ServerMgrException(msg)
-    
-    
-                provision_params['live_migration_storage_scope'] = live_migration_storage_scope
-                provision_params['contrail-storage-enabled'] = storage_status
-                provision_params['subnet-mask'] = subnet_mask
-                provision_params['host_roles'] = [ x.encode('ascii') for x in eval(server['roles']) ]
-                provision_params['storage_num_osd'] = total_osd
-                provision_params['storage_fsid'] = cluster_params['storage_fsid']
-                provision_params['storage_virsh_uuid'] = cluster_params['storage_virsh_uuid']
-                provision_params['num_storage_hosts'] = num_storage_hosts
-                provision_params['live_migration_host'] = live_migration_host
-                provision_params['live_migration_ip'] = ""
-                if len(role_servers['storage-compute']):
-                    if len(role_servers['storage-master']) == 0:
-                        msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
-                        raise ServerMgrException(msg)
-                    if 'storage_mon_secret' in cluster_params.keys() and cluster_params['storage_mon_secret']:
-                        if len(cluster_params['storage_mon_secret']) == 40:
-                            provision_params['storage_mon_secret'] = cluster_params['storage_mon_secret']
-                        else:
-                            msg = "Storage Monitor Secret Key is the wrong length"
-                            raise ServerMgrException(msg)
-                    else:
-                        provision_params['storage_mon_secret'] = ""
-                    if 'osd_bootstrap_key' in cluster_params.keys() and cluster_params['osd_bootstrap_key']:
-                        if len(cluster_params['osd_bootstrap_key']) == 40:
-                            provision_params['osd_bootstrap_key'] = cluster_params['osd_bootstrap_key']
-                        else:
-                            msg = "OSD Bootstrap Key is the wrong length"
-                            raise ServerMgrException(msg)
-                    else:
-                        provision_params['osd_bootstrap_key'] = ""
-                    if 'admin_key' in cluster_params.keys() and cluster_params['admin_key']:
-                        if len(cluster_params['admin_key']) == 40:
-                            provision_params['admin_key'] = cluster_params['admin_key']
-                        else:
-                            msg = "Admin Key is the wrong length"
-                            raise ServerMgrException(msg)
-                    else:
-                        provision_params['admin_key'] = ""
-                    if 'disks' in server_params and server_params['disks'] and total_osd > 0:
-                        provision_params['storage_server_disks'] = []
-                        provision_params['storage_server_disks'].extend(server_params['disks'])
+		      if 'live_migration_storage_scope' in cluster_params.keys() and cluster_params['live_migration_storage_scope']:
+			  live_migration_storage_scope = cluster_params['live_migration_storage_scope']
+		      else:
+			  pass
+	
+		    if live_migration_storage_scope == "local" or live_migration_storage_scope == "global":
+			pass
+		    else:
+			msg = "Invalid Live Migration Storage Scope (local/global are valid)"
+			raise ServerMgrException(msg)
+	
+	
+		    provision_params['live_migration_storage_scope'] = live_migration_storage_scope
+		    provision_params['contrail-storage-enabled'] = storage_status
+		    provision_params['subnet-mask'] = subnet_mask
+		    provision_params['host_roles'] = [ x.encode('ascii') for x in eval(server['roles']) ]
+		    provision_params['storage_num_osd'] = total_osd
+		    provision_params['storage_fsid'] = cluster_params['storage_fsid']
+		    provision_params['storage_virsh_uuid'] = cluster_params['storage_virsh_uuid']
+		    provision_params['num_storage_hosts'] = num_storage_hosts
+		    provision_params['live_migration_host'] = live_migration_host
+		    provision_params['live_migration_ip'] = ""
+		    if len(role_servers['storage-compute']):
+			if len(role_servers['storage-master']) == 0:
+			    msg = "Storage nodes can only be provisioned when there is also a Storage-Manager node"
+			    raise ServerMgrException(msg)
+			if 'storage_mon_secret' in cluster_params.keys() and cluster_params['storage_mon_secret']:
+			    if len(cluster_params['storage_mon_secret']) == 40:
+				provision_params['storage_mon_secret'] = cluster_params['storage_mon_secret']
+			    else:
+				msg = "Storage Monitor Secret Key is the wrong length"
+				raise ServerMgrException(msg)
+			else:
+			    provision_params['storage_mon_secret'] = ""
+			if 'osd_bootstrap_key' in cluster_params.keys() and cluster_params['osd_bootstrap_key']:
+			    if len(cluster_params['osd_bootstrap_key']) == 40:
+				provision_params['osd_bootstrap_key'] = cluster_params['osd_bootstrap_key']
+			    else:
+				msg = "OSD Bootstrap Key is the wrong length"
+				raise ServerMgrException(msg)
+			else:
+			    provision_params['osd_bootstrap_key'] = ""
+			if 'admin_key' in cluster_params.keys() and cluster_params['admin_key']:
+			    if len(cluster_params['admin_key']) == 40:
+				provision_params['admin_key'] = cluster_params['admin_key']
+			    else:
+				msg = "Admin Key is the wrong length"
+				raise ServerMgrException(msg)
+			else:
+			    provision_params['admin_key'] = ""
+			if 'disks' in server_params and server_params['disks'] and total_osd > 0:
+			    provision_params['storage_server_disks'] = []
+			    provision_params['storage_server_disks'].extend(server_params['disks'])
 
-                storage_mon_host_ip_set = set()
-                storage_mon_hostname_set = set()
-                storage_chassis_config_set = set()
-                for x in role_servers['storage-compute']:
-                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
-                    storage_mon_hostname_set.add(x['id'])
-                    if x['id'] == live_migration_host: 
-                        live_migration_ip = self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"')
-                        self._smgr_log.log(self._smgr_log.DEBUG, "live-M ip = %s" % live_migration_ip)
-                        provision_params['live_migration_ip'] = live_migration_ip
-                    server_params_compute = eval(x['parameters'])
-                    if 'storage_chassis_id' in server_params_compute.keys() and server_params_compute['storage_chassis_id']:
-                        storage_chassis_id = [x['id'], ':', server_params_compute['storage_chassis_id']]
-                        storage_host_chassis = ''.join(storage_chassis_id)
-                        storage_chassis_config_set.add(storage_host_chassis)
-                for x in role_servers['storage-master']:
-                    storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
-                    storage_mon_hostname_set.add(x['id'])
+		    storage_mon_host_ip_set = set()
+		    storage_mon_hostname_set = set()
+		    storage_chassis_config_set = set()
+		    for x in role_servers['storage-compute']:
+			storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
+			storage_mon_hostname_set.add(x['id'])
+			if x['id'] == live_migration_host: 
+			    live_migration_ip = self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"')
+			    self._smgr_log.log(self._smgr_log.DEBUG, "live-M ip = %s" % live_migration_ip)
+			    provision_params['live_migration_ip'] = live_migration_ip
+			server_params_compute = eval(x['parameters'])
+			if 'storage_chassis_id' in server_params_compute.keys() and server_params_compute['storage_chassis_id']:
+			    storage_chassis_id = [x['id'], ':', server_params_compute['storage_chassis_id']]
+			    storage_host_chassis = ''.join(storage_chassis_id)
+			    storage_chassis_config_set.add(storage_host_chassis)
+		    for x in role_servers['storage-master']:
+			storage_mon_host_ip_set.add(self._smgr_puppet.get_control_ip(provision_params, x["ip_address"]).strip('"'))
+			storage_mon_hostname_set.add(x['id'])
 
-                provision_params['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
-                provision_params['storage_hostnames'] = list(storage_mon_hostname_set)
-                provision_params['storage_chassis_config'] = list(storage_chassis_config_set)
+		    provision_params['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
+		    provision_params['storage_hostnames'] = list(storage_mon_hostname_set)
+		    provision_params['storage_chassis_config'] = list(storage_chassis_config_set)
 
-                # Multiple Repo support
-                if 'storage_repo_id' in server_params.keys() and server_params['storage_repo_id']:
-                    images = self.get_image()
-                    image_ids = dict()
-                    for image in images['image']:
-                        match_dict = dict()
-                        match_dict["id"] = image['id']
-                        cur_image = self._serverDb.get_image(match_dict, None, detail=True)
-                        if cur_image is not None:
-                            image_ids[image['id']] = cur_image[0]['type']
-                        else:
-                            msg = "No images found"
-                            self.log_and_raise_exception(msg)
-                    if server_params['storage_repo_id'] in image_ids:
-                        if image_ids[server_params['storage_repo_id']] == 'contrail-storage-ubuntu-package':
-                                provision_params['storage_repo_id'] = server_params['storage_repo_id']
-                        else:
-                            msg = "Storage repo id specified doesn't match a contrail storage package"
-                            raise ServerMgrException(msg)
-                    else:
-                        msg = "Storage repo id specified doesn't match any of the image ids"
-                        raise ServerMgrException(msg)
-                else:
-                    provision_params['storage_repo_id'] = ""
+		    # Multiple Repo support
+		    if 'storage_repo_id' in server_params.keys() and server_params['storage_repo_id']:
+			images = self.get_image()
+			image_ids = dict()
+			for image in images['image']:
+			    match_dict = dict()
+			    match_dict["id"] = image['id']
+			    cur_image = self._serverDb.get_image(match_dict, None, detail=True)
+			    if cur_image is not None:
+				image_ids[image['id']] = cur_image[0]['type']
+			    else:
+				msg = "No images found"
+				self.log_and_raise_exception(msg)
+			if server_params['storage_repo_id'] in image_ids:
+			    if image_ids[server_params['storage_repo_id']] == 'contrail-storage-ubuntu-package':
+				    provision_params['storage_repo_id'] = server_params['storage_repo_id']
+			    else:
+				msg = "Storage repo id specified doesn't match a contrail storage package"
+				raise ServerMgrException(msg)
+			else:
+			    msg = "Storage repo id specified doesn't match any of the image ids"
+			    raise ServerMgrException(msg)
+		    else:
+			provision_params['storage_repo_id'] = ""
 
-                # Storage manager restrictions
-                if len(role_servers['storage-master']):
-                    if len(role_servers['storage-master']) > 1:
-                        # if HA is configured, there may be more than 1 storage-master
-                        if cluster_params.get("internal_vip", "") == "" :
-                            msg = "There can only be only one node with the role 'storage-master'"
-                            raise ServerMgrException(msg)
-                        else:
-                            pass
-                    elif len(role_servers['storage-compute']) == 0:
-                        msg = "Storage manager node needs Storage nodes to also be provisioned"
-                        raise ServerMgrException(msg)
-                    else:
-                        pass
+		    # Storage manager restrictions
+		    if len(role_servers['storage-master']):
+			if len(role_servers['storage-master']) > 1:
+			    # if HA is configured, there may be more than 1 storage-master
+			    if cluster_params.get("internal_vip", "") == "" :
+				msg = "There can only be only one node with the role 'storage-master'"
+				raise ServerMgrException(msg)
+			    else:
+				pass
+			elif len(role_servers['storage-compute']) == 0:
+			    msg = "Storage manager node needs Storage nodes to also be provisioned"
+			    raise ServerMgrException(msg)
+			else:
+			    pass
+                    #end if (role_servers['storage-master'])
+                # end else of "provision" in cluster_params
                 provision_server_entry = {'provision_params' : copy.deepcopy(provision_params),
                                           'server' : copy.deepcopy(server),
                                           'cluster' : copy.deepcopy(cluster),
-                                          'cluster_servers' : copy.deepcopy(cluster_servers)}
+                                          'cluster_servers' : copy.deepcopy(cluster_servers),
+                                          'package' : copy.deepcopy(package),
+                                          'serverDb' : self._serverDb}
                 provision_server_list.append(provision_server_entry)
                 self._smgr_log.log(self._smgr_log.DEBUG, "%s added in the provision server list" %server['ip_address'])
                 server_status = {}
@@ -4364,18 +4602,21 @@ class VncServerManager():
     # Internal private call to provision server. This is called by REST API
     # provision_server and provision_cluster
     def _do_provision_server(
-        self, provision_parameters, server, cluster, cluster_servers):
+        self, provision_parameters, server,
+        cluster, cluster_servers, package, serverDb):
         try:
             # Now call puppet to provision the server.
             self._smgr_puppet.provision_server(
                 provision_parameters,
                 server,
                 cluster,
-                cluster_servers)
+                cluster_servers,
+                package,
+                serverDb)
             self._smgr_certs.create_server_cert(server)
             # Update Server table with provisioned id
-            update = {'id': provision_parameters['server_id'],
-                      'provisioned_id': provision_parameters['package_image_id']}
+            update = {'id': server['id'],
+                      'provisioned_id': package.get('id', '')}
             self._serverDb.modify_server(update)
 
         except subprocess.CalledProcessError as e:

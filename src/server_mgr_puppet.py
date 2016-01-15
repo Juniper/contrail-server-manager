@@ -69,8 +69,8 @@ class ServerMgrPuppet:
     def storage_get_control_network_mask(self, provision_params,
         server, cluster):
         role_ips_dict = provision_params['roles']
-        cluster_params = eval(cluster['parameters'])
-        server_params = eval(server['parameters'])
+        cluster_params = cluster.get('parameters', {})
+        server_params = server.get('parameters', {})
         #openstack_ip = cluster_params.get("internal_vip", None)
         openstack_ip = ''
         self_ip = server.get("ip_address", "")
@@ -137,11 +137,9 @@ class ServerMgrPuppet:
     # end def delete_node_entry
 
     def add_node_entry(
-        self, site_file, provision_params,
+        self, site_file, server_fqdn,
         server, cluster, cluster_servers):
-        cluster_params = eval(cluster['parameters'])
-        server_fqdn = provision_params['server_id'] + "." + \
-            provision_params['domain']
+        cluster_params = cluster.get('parameters', {})
         data = ''
         data += "node \'%s\' {\n" %server_fqdn
         # Add Stage relationships
@@ -286,35 +284,35 @@ class ServerMgrPuppet:
             raise ServerMgrException(msg, ERR_OPR_ERROR)         
     # end add cluster_parameters
 
-    def initiate_esx_contrail_vm(self, provision_params):
-        if 'esx_server' in provision_params.keys():
-            self._smgr_log.log(self._smgr_log.DEBUG, "esx_server")
-            #call scripts to provision esx
-            vm_params = {}
-            vm_params['vm'] = "ContrailVM"
-            vm_params['vmdk'] = "ContrailVM"
-            vm_params['datastore'] = provision_params['datastore']
-            vm_params['eth0_mac'] = provision_params['server_mac']
-            vm_params['eth0_ip'] = provision_params['server_ip']
-            vm_params['eth0_pg'] = provision_params['esx_fab_port_group']
-            vm_params['eth0_vswitch'] = provision_params['esx_fab_vswitch']
-            vm_params['eth0_vlan'] = None
-            vm_params['eth1_vswitch'] = provision_params['esx_vm_vswitch']
-            vm_params['eth1_pg'] = provision_params['esx_vm_port_group']
-            vm_params['eth1_vlan'] = "4095"
-            vm_params['uplink_nic'] = provision_params['esx_uplink_nic']
-            vm_params['uplink_vswitch'] = provision_params['esx_fab_vswitch']
-            vm_params['server'] = provision_params['esx_ip']
-            vm_params['username'] = provision_params['esx_username']
-            vm_params['password'] = provision_params['esx_password']
-            vm_params['thindisk'] =  provision_params['esx_vmdk']
-            vm_params['smgr_ip'] = provision_params['smgr_ip'];
-            vm_params['domain'] =  provision_params['domain']
-            vm_params['vm_password'] = provision_params['password']
-            vm_params['vm_server'] = provision_params['server_id']
-            vm_params['vm_deb'] = provision_params['vm_deb']
-            out = ContrailVM(vm_params)
-            self._smgr_log.log(self._smgr_log.DEBUG, "ContrilVM:" %(out))
+    def initiate_esx_contrail_vm(self, server, esx_server):
+        self._smgr_log.log(self._smgr_log.DEBUG, "esx_server")
+        #call scripts to provision esx
+        server_params = server.get("parameters", {})
+        vm_params = {}
+        vm_params['vm'] = "ContrailVM"
+        vm_params['vmdk'] = "ContrailVM"
+        vm_params['datastore'] = server_params.get('datastore', "/vmfs/volumes/datastore1")
+        vm_params['eth0_mac'] = server.get('mac_address', '')
+        vm_params['eth0_ip'] = server.get('ip_address', '')
+        vm_params['eth0_pg'] = server_params.get('esx_fab_port_group', '')
+        vm_params['eth0_vswitch'] = server_params.get('esx_fab_vswitch', '')
+        vm_params['eth0_vlan'] = None
+        vm_params['eth1_vswitch'] = server_params.get('esx_vm_vswitch', '')
+        vm_params['eth1_pg'] = server_params.get('esx_vm_port_group', '')
+        vm_params['eth1_vlan'] = "4095"
+        vm_params['uplink_nic'] = server_params.get('esx_uplink_nic', '')
+        vm_params['uplink_vswitch'] = server_params.get('esx_fab_vswitch', '')
+        vm_params['server'] = esx_server.get('esx_ip', '')
+        vm_params['username'] = 'root'
+        vm_params['password'] = esx_server.get('esx_password', '')
+        vm_params['thindisk'] =  server_params.get('esx_vmdk', '')
+        vm_params['smgr_ip'] = server_params.get('smgr_ip', '');
+        vm_params['domain'] =  server_params.get('domain', '')
+        vm_params['vm_password'] = server_params.get('password', '')
+        vm_params['vm_server'] = server_params.get('id', '')
+        vm_params['vm_deb'] = server_params.get('vm_deb', '')
+        out = ContrailVM(vm_params)
+        self._smgr_log.log(self._smgr_log.DEBUG, "ContrilVM:" %(out))
     # end initiate_esx_contrail_vm
 
     def add_contrail_upgrade(
@@ -356,16 +354,14 @@ class ServerMgrPuppet:
     def build_contrail_hiera_file(
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
-        cluster_params = eval(cluster['parameters'])
+        cluster_params = cluster.get('parameters', {})
         # By default, sequence provisioning is On.
         sequence_provisioning = provision_params['sequence_provisioning']
         sequence_provisioning_available = provision_params['sequence_provisioning_available']
-        server_params = eval(server['parameters'])
+        server_params = server.get('parameters', {})
         data = ''
         package_ids = [provision_params.get('package_image_id', "").encode('ascii')]
         package_types = [provision_params.get('package_type', "").encode('ascii')]
-        if 'esx_server' in provision_params and 'compute' in provision_params['host_roles']:
-            self.initiate_esx_contrail_vm(provision_params)
 	if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             package_ids.append(provision_params.get('storage_repo_id', "").encode('ascii'))
             package_types.append("contrail-ubuntu-storage-repo".encode('ascii'))
@@ -534,52 +530,133 @@ class ServerMgrPuppet:
         # end with
     # end def build_contrail_hiera_file
 
+    def add_params_from_dict(self, in_dict, prefix=''):
+        out_dict = {}
+        if not(isinstance(in_dict, dict)):
+            return out_dict
+        for key, value in in_dict.iteritems():
+            new_prefix = str("::".join(x for x in (prefix, key) if x))
+            if (isinstance(value, dict) and
+                (not value.get("literal", False))):
+                out_dict.update(self.add_params_from_dict(
+                    value, new_prefix))
+            else:
+                out_dict[new_prefix] = value
+        return out_dict
+    # end add_params_from_dict
+
+    def add_cluster_provisioning_params(self, cluster):
+        cluster_parameters = cluster.get("parameters", {})
+        provision_params = cluster_parameters.get("provision", {})
+        return self.add_params_from_dict(provision_params)
+    # end of add_cluster_provisioning_params
+
+    def add_server_provisioning_params(self, server):
+        server_parameters = server.get("parameters", {})
+        provision_params = server_parameters.get("provision", {})
+        return self.add_params_from_dict(provision_params)
+    # end of add_server_provisioning_params
+
+    def add_package_provisioning_params(self, package):
+        package_parameters = package.get("parameters", {})
+        provision_params = package_parameters.get("provision", {})
+        return self.add_params_from_dict(provision_params)
+    # end of add_package_provisioning_params
+
+    def add_cluster_calculated_params(self, cluster):
+        provision_params = cluster.get("calc_params", {})
+        return self.add_params_from_dict(provision_params)
+    # end of add_cluster_calculated_params
+
+    def add_server_calculated_params(self, server):
+        provision_params = server.get("calc_params", {})
+        return self.add_params_from_dict(provision_params)
+    # end of add_server_calculated_params
+
+    def add_package_calculated_params(self, package):
+        provision_params = package.get("calc_params", {})
+        return self.add_params_from_dict(provision_params)
+    # end of add_package_calculated_params
+
+    def add_sequencing_params(self, cluster, package):
+        cluster_params = cluster.get('parameters', {})
+        package_params = package.get('parameters', {})
+        sequence_provisioning_available = package_params.get(
+            'sequence_provisioning_available', False)
+        sequence_provisioning = cluster_params.get(
+            'sequence_provisioning', True)
+        sequencing_params = {}
+        if sequence_provisioning_available and sequence_provisioning:
+            sequencing_params['contrail'] = {}
+            sequencing_params['contrail']['sequencing'] = {}
+            sequencing_params['contrail']['sequencing']['enable_post_provision'] = False
+            sequencing_params['contrail']['sequencing']['enable_pre_exec_vnc_galera'] = False
+            sequencing_params['contrail']['sequencing']['enable_post_exec_vnc_galera'] = False
+            sequencing_params['contrail']['sequencing']['enable_keepalived'] = False
+            sequencing_params['contrail']['sequencing']['enable_haproxy'] = False
+            sequencing_params['contrail']['sequencing']['enable_sequence_provisioning'] = True
+            sequencing_params['contrail']['sequencing']['enable_provision_started'] = True
+            sequencing_params['contrail']['sequencing']['enable_storage_master'] = False
+            sequencing_params['contrail']['sequencing']['enable_storage_compute'] = False
+            for role in ['database', 'config', 'openstack',
+                         'control', 'collector',
+                         'webui', 'compute', 'tsn', 'toragent']:
+                sequencing_params['contrail']['sequencing'][
+                    'enable_'+role] = False
+        return self.add_params_from_dict(sequencing_params)
+    # end add_sequencing_params
+
+    def build_contrail_hiera_file_new(
+        self, hiera_filename, server,
+        cluster, cluster_servers, package):
+        cluster_params = cluster.get('parameters', {})
+        # By default, sequence provisioning is On.
+        server_params = server.get('parameters', {})
+        hiera_params = {}
+        hiera_params.update(self.add_cluster_calculated_params(cluster))
+        hiera_params.update(self.add_server_calculated_params(server))
+        hiera_params.update(self.add_package_calculated_params(server))
+        hiera_params.update(self.add_cluster_provisioning_params(cluster))
+        hiera_params.update(self.add_server_provisioning_params(server))
+        hiera_params.update(self.add_package_provisioning_params(server))
+        hiera_params.update(self.add_sequencing_params(
+            cluster, package))
+        # Dump the hiera_params in yaml file.
+        data = yaml.dump(hiera_params, default_style='\'', indent=4)
+        with open(hiera_filename, "w") as hiera_fh:
+            hiera_fh.write(data)
+    # end def build_contrail_hiera_file_new
+
     # Use template to prepare hiera data file for openstack modules. Revisit later to refine.
     def build_openstack_hiera_file(
         self, hiera_filename, provision_params,
         server, cluster, cluster_servers):
-        mysql_allowed_hosts = []
-        role_ips_dict = provision_params['roles']
-        cluster_params = eval(cluster['parameters'])
-        server_params = eval(server['parameters'])
-        # Get all values needed to fill he template.
+        cluster_params = cluster.get('parameters', {})
+        server_params = server.get('parameters', {})
+        # Get all values needed to fill the template.
         self_ip = server.get("ip_address", "")
-        openstack_ip = cluster_params.get("internal_vip", None)
-        contrail_internal_vip = cluster_params.get("contrail_internal_vip", None)
-        contrail_external_vip = cluster_params.get("contrail_external_vip", None)
-        external_vip = cluster_params.get("external_vip", None)
 
-        if contrail_internal_vip != None and contrail_internal_vip != "":
-            mysql_allowed_hosts.append(contrail_internal_vip)
-        if contrail_external_vip != None and contrail_external_vip != "":
-            mysql_allowed_hosts.append(contrail_external_vip)
-        if external_vip != None and external_vip != "":
-            mysql_allowed_hosts.append(external_vip)
-
-
-        os_ip_list =  [self.get_control_ip(provision_params, x["ip_address"].encode('ascii')) \
-                    for x in cluster_servers if 'openstack' in set(eval(x['roles']))]
-
-        config_ip_list =  [self.get_control_ip(provision_params, x["ip_address"].encode('ascii')) \
-                    for x in cluster_servers if 'config' in set(eval(x['roles']))]
-
-        if openstack_ip != None and openstack_ip != "":
-            mysql_allowed_hosts.append(openstack_ip)
-        mysql_allowed_hosts = list(set(mysql_allowed_hosts + os_ip_list + config_ip_list + role_ips_dict['config'] + role_ips_dict['openstack'] ))
-
-        if openstack_ip is None or openstack_ip == '':
-            if self_ip in role_ips_dict['openstack']:
-                openstack_ip = self_ip
-            else:
-                openstack_ip = role_ips_dict['openstack'][0]
+        openstack_ips = [x["ip_address"] for x in cluster_servers if "openstack" in eval(server.get('roles', '[]'))]
+        if self_ip in openstack_ips:
+            openstack_ip = self_ip
+        else:
+            openstack_ip = openstack_ips[0] 
         
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
-        mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
+
+        provision_params = cluster_params.get("provision", {})
+        openstack_params = provision_params.get("openstack", {})
+        if openstack_params:
+            mysql_root_password = openstack_params.get("mysql_root_password", "c0ntrail123")
+            keystone_admin_password = openstack_params.get("keystone_password", "contrail123")
+            heat_encryption_key = openstack_params.get("heat_encryption_key", "notgood but just long enough i think")
+        else:
+            mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
+            keystone_admin_password = cluster_params.get("keystone_password", "contrail123")
+            heat_encryption_key = cluster_params.get("heat_encryption_key", "notgood but just long enough i think")
         keystone_admin_token = (subprocess.Popen(["openssl", "rand", "-hex", "10"],stdout=subprocess.PIPE).communicate()[0]).rstrip()
-        keystone_admin_password = cluster_params.get("keystone_password", "contrail123")
-        heat_encryption_key = cluster_params.get("heat_encryption_key", "notgood but just long enough i think")
         subnet_address = str(IPNetwork(
             openstack_ip + "/" + subnet_mask).network)
         subnet_octets = subnet_address.split(".")
@@ -597,7 +674,6 @@ class ServerMgrPuppet:
             '__mysql_service_password__': mysql_root_password,
             '__keystone_admin_token__': keystone_admin_token,
             '__keystone_admin_password__': keystone_admin_password,
-            '__mysql_allowed_hosts__': (', '.join("'" + item + "'" for item in mysql_allowed_hosts)),
             '__openstack_password__': keystone_admin_password,
             '__heat_encryption_key__': heat_encryption_key
         }
@@ -609,14 +685,25 @@ class ServerMgrPuppet:
 
     def build_hiera_files(
         self, hieradata_dir, provision_params,
-        server, cluster, cluster_servers):
-        server_fqdn = provision_params['server_id'] + "." + \
-            provision_params['domain']
+        server, cluster, cluster_servers, package, serverDb):
+        server_params = server.get("parameters", {})
+        cluster_params = cluster.get("parameters", {})
+        domain = server.get('domain', '')
+        if not domain:
+            domain = cluster_params.get('domain', '')
+        server_fqdn = server['id'] + "." + domain
         contrail_hiera_file = hieradata_dir + server_fqdn + \
             "-contrail.yaml"
-        self.build_contrail_hiera_file(
-            contrail_hiera_file, provision_params, server,
-            cluster, cluster_servers)
+        # if cluster parameters has provision key, use new way of building Hiera file, else
+        # continue with old way.
+        if ("provision" in cluster_params):
+            self.build_contrail_hiera_file_new(
+                contrail_hiera_file, server,
+                cluster, cluster_servers, package)
+        else:
+            self.build_contrail_hiera_file(
+                contrail_hiera_file, provision_params, server,
+                cluster, cluster_servers)
         openstack_hiera_file = hieradata_dir + server_fqdn + \
             "-openstack.yaml"
         self.build_openstack_hiera_file(
@@ -641,49 +728,55 @@ class ServerMgrPuppet:
             if server_id == role_step_tuple[0]:
                 role_step = role_step_tuple[1].replace('-', '_')
                 key = 'contrail::params::enable_' + role_step
+                key = 'contrail::sequencing::enable_' + role_step
                 self._smgr_log.log(self._smgr_log.DEBUG, "role-key: %s %s" % (key, enable))
                 if enable:
                     hiera_data_dict[key] = True
                 else:
                     hiera_data_dict[key] = False
-        data = ''
-        for key, value in hiera_data_dict.iteritems():
-            if isinstance(value, str):
-                data = data + str(key) + ': ' + '"%s"\n' %(str(value))
-            else:
-                data = data + str(key) + ': ' + str(value) + '\n'
-        if data:
-            hiera_data_fp = open(hiera_file, 'w')
-            hiera_data_fp.write(data)
-            hiera_data_fp.close()
+        data = yaml.dump(hiera_data_dict, default_style='\'', indent=4)
+        with open(hiera_file, "w") as hiera_fh:
+            hiera_fh.write(data)
     # end modify_server_hiera_data
 
     def new_provision_server(
-        self, provision_params, server, cluster, cluster_servers):
-        server_fqdn = provision_params['server_id'] + "." + \
-            provision_params['domain']
-        env_name = provision_params['puppet_manifest_version']
+        self, provision_params, server, cluster, cluster_servers, package, serverDb):
+        server_params = server.get("parameters", {})
+        cluster_params = cluster.get("parameters", {})
+        package_params = package.get("parameters", {})
+        domain = server.get('domain', '')
+        if not domain:
+            domain = cluster_params.get('domain', '')
+        server_fqdn = server['id'] + "." + domain
+        env_name = package_params.get('puppet_manifest_version',"")
         env_name = env_name.replace('-', '_')
         site_file = self.puppet_directory + "environments/" + \
             env_name + "/manifests/site.pp"
         hieradata_dir = self.puppet_directory + "environments/" + \
             env_name + "/hieradata/"
+        # Start contail VM if running compute on esx_server.
+        if 'compute' in eval(server['roles']):
+            esx_server_id = server_params.get('esx_server', None)
+            if esx_server_id:
+                esx_servers = serverDb.get_server(
+                    {'id' : server_params['esx_server']}, detail=True)
+                esx_server = esx_servers[0]
+                if esx_server:
+                    self.initiate_esx_contrail_vm(server, esx_server)
         # Build Hiera data for the server
         self.build_hiera_files(
             hieradata_dir, provision_params,
-            server, cluster, cluster_servers)
+            server, cluster, cluster_servers, package, serverDb)
         # Create an entry for this node in site.pp.
         # First, delete any existing entry and then add a new one.
         self.delete_node_entry(site_file, server_fqdn)
         # Now add a new node entry
         self.add_node_entry(
-            site_file, provision_params, server, cluster, cluster_servers)
+            site_file, server_fqdn, server, cluster, cluster_servers)
 
         # Add entry for the server to environment mapping in 
         # node_mapping.json file.
-        self.update_node_map_file(provision_params['server_id'],
-                                  provision_params['domain'],
-                                  env_name)
+        self.update_node_map_file(server_fqdn, env_name)
     # end def new_provision_server
 
     # Function to remove puppet files and entries created when provisioning the server. This is called
@@ -692,7 +785,7 @@ class ServerMgrPuppet:
         server_fqdn = server_id + "." + server_domain
         # Remove node to environment mapping from node_mapping.json file.
 	node_env_dict = {}
-        env_name = self.update_node_map_file(server_id, server_domain, None)
+        env_name = self.update_node_map_file(server_fqdn, None)
         if env_name is None:
             return
         # Remove server node entry from site.pp.
@@ -716,12 +809,11 @@ class ServerMgrPuppet:
     # env_name value specified will be updated to the map file.
     # env_name could be valid one or invalid manifest.
     #        invalid valid manifest is used to turn off the agent puppet run
-    # server_id and domain are required for both update and delete of an entry
-    def update_node_map_file(self, server_id, server_domain, env_name):
-        if not server_id or not server_domain:
+    # server_fqdn is required for both update and delete of an entry
+    def update_node_map_file(self, server_fqdn, env_name):
+        if not server_fqdn:
             return None
 
-        server_fqdn = server_id + "." + server_domain
         node_env_map_file = self.smgr_base_dir+self._node_env_map_file
         
         try:
@@ -766,17 +858,21 @@ class ServerMgrPuppet:
     # end is_new_provisioning
 
     def provision_server(
-        self, provision_params, server, cluster, cluster_servers):
+        self, provision_params, server,
+        cluster, cluster_servers, package,
+        serverDb):
 
         # The new way to create necessary puppet manifest files and parameters data.
         # The existing method is kept till the new method is well tested and confirmed
         # to be working.
-        puppet_manifest_version = provision_params.get(
+        package_params = package.get("parameters", {})
+        puppet_manifest_version = package_params.get(
             'puppet_manifest_version', "")
         environment = puppet_manifest_version.replace('-','_')
         if self.is_new_provisioning(puppet_manifest_version):
             self.new_provision_server(
-                provision_params, server, cluster, cluster_servers)
+                provision_params, server,
+                cluster, cluster_servers, package, serverDb)
         else:
             # old puppet manifests not supported anymore, log message
             # and return
