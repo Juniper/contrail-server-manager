@@ -262,7 +262,7 @@ class ServerMgrPuppet:
             "use_certificates" : ["use_certs", "boolean"],
             "contrail_logoutput" : ["contrail_logoutput", "boolean"],
             "enable_ceilometer": ["enable_ceilometer", "boolean"],
-            "xmpp_auth_enabled": ["xmpp_auth_enabled", "boolean"]
+            "xmpp_auth_enable": ["xmpp_auth_enable", "boolean"]
         }
 
         data = ''
