@@ -1,0 +1,19 @@
+{
+    "image": [
+        {
+            "category": "package",
+            "id": "image_3_00_2693",
+            "path": "/home/abhay/contrail/contrail-install-packages_3.0-2693~juno_all.deb",
+            "type": "contrail-ubuntu-package",
+            "version": "image-3-00-2693",
+            "parameters" : {
+                "provision": {
+                    "contrail": {
+                        "contrail_version": "image-3-00-2693",
+                        "package_sku": "juno"
+                    }
+                }
+            }
+        }
+    ]
+}
