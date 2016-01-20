@@ -203,6 +203,7 @@ class Server(object):
 
     def preconfig(self):
         self.set_os_version()
+        self.preconfig_verify_domain()
         self.preconfig_hosts_file()
         self.preconfig_unauthenticated_packages()
         self.preconfig_repos()
@@ -242,6 +243,12 @@ class Server(object):
     def preconfig_hosts_file(self):
         self.verify_puppet_host()
         self.verify_setup_hostname()
+
+    def preconfig_verify_domain(self):
+        if self.domain == "":
+            log.error('Domain name is not configured. ' \
+                      'All target nodes has to be setup with proper domain name')
+            raise RuntimeError('Domain name is not configured for (%s)' % self.ip)
 
     def preconfig_unauthenticated_packages(self):
         apt_auth = r'APT::Get::AllowUnauthenticated \"true\"\;'
