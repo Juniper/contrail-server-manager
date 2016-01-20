@@ -10,6 +10,7 @@ import paramiko
 import os
 import re
 import shutil
+import socket
 import sys
 from tempfile import mkdtemp
 
@@ -400,9 +401,17 @@ class TestSetup(Testbed):
         self.set_host_ids()
         self.set_hosts()
 
+    def get_host_ip_from_hostid(self, host_id):
+        username, host_ip = host_id.split('@')
+        # Quick check for IPv4 address
+        if not re.match(r'^([\d]{1,3}\.){3}[\d]{1,3}$', host_ip.strip()):
+            log.debug('Retrieve IP address of host (%s)' % host_ip)
+            host_ip = socket.gethostbyname(host_ip)
+        return username, host_ip
+
     def set_hosts(self):
         for host_id in self.host_ids:
-            username, host_ip = host_id.split('@')
+            username, host_ip = self.get_host_ip_from_hostid(host_id)
             password = self.passwords.get(host_id, None)
             if password is None:
                 raise RuntimeError('No Password defined for Host ID (%s)' % host_id)
