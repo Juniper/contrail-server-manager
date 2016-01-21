@@ -3916,33 +3916,10 @@ class VncServerManager():
 		    provision_params['control_net'] = self.get_control_net(cluster_servers)
 		    provision_params['interface_list'] = self.get_interfaces(server)
 		    provision_params['server_ip'] = server['ip_address']
-		    provision_params['database_dir'] = cluster_params['database_dir']
-		    provision_params['database_token'] = cluster_params['database_token']
-		    provision_params['openstack_mgmt_ip'] = ''
-		    provision_params['openstack_passwd'] = ''
-		    provision_params['use_certificates'] = cluster_params['use_certificates']
-		    provision_params['multi_tenancy'] = cluster_params['multi_tenancy']
-		    provision_params['router_asn'] = cluster_params['router_asn']
-		    provision_params['encapsulation_priority'] = cluster_params['encapsulation_priority']
-		    provision_params['keystone_username'] = cluster_params['keystone_username']
-		    provision_params['keystone_password'] = cluster_params['keystone_password']
-		    provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
-		    provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
-		    provision_params['phy_interface'] = server_params['interface_name']
 		    if 'xmpp_auth_enabled' in cluster_params:
 			provision_params['xmpp_auth_enabled'] = cluster_params['xmpp_auth_enabled']
 		    if 'contrail' in server:
 			provision_params['contrail_params']  = server['contrail']
-		    if 'gateway' in server and server['gateway']:
-			provision_params['server_gway'] = server['gateway']
-		    elif 'gateway' in cluster_params and cluster_params['gateway']:
-			provision_params['server_gway'] = cluster_params['gateway']
-		    else:
-			provision_params['server_gway'] = ''
-		    if 'rsyslog_params' in cluster_params:
-			cluster_params['rsyslog_params'] = cluster_params['rsyslog_params'].encode("ascii")
-			cluster_params['rsyslog_params'] = ast.literal_eval(cluster_params['rsyslog_params'])
-			provision_params['rsyslog_params'] = cluster_params['rsyslog_params']
 		    if 'kernel_upgrade' in server_params and server_params['kernel_upgrade']:
 			provision_params['kernel_upgrade'] = server_params['kernel_upgrade']
 		    elif 'kernel_upgrade' in cluster_params and cluster_params['kernel_upgrade']:
@@ -3956,21 +3933,6 @@ class VncServerManager():
 			provision_params['kernel_version'] = cluster_params['kernel_version']
 		    else:
 			provision_params['kernel_version'] = DEFAULT_KERNEL_VERSION
-
-
-		    provision_params['haproxy'] = cluster_params['haproxy']
-
-		    if 'setup_interface' in server_params.keys():
-			provision_params['setup_interface'] = \
-							server_params['setup_interface']
-		    else:
-			 provision_params['setup_interface'] = "No"
-
-		    provision_params['haproxy'] = cluster_params['haproxy']
-		    if 'execute_script' in server_params.keys():
-				provision_params['execute_script'] = server_params['execute_script']
-		    else:
-			provision_params['execute_script'] = ""
 
 		    if 'esx_server' in server_params.keys():
 			provision_params['esx_uplink_nic'] = server_params['esx_uplink_nic']
@@ -4005,17 +3967,6 @@ class VncServerManager():
 		       provision_params['esx_username'] = ""
 		       provision_params['esx_password'] = ""
 
-		    if interface_created:
-			provision_params['setup_interface'] = "No"
-
-		    if 'region_name' in cluster_params.keys():
-			provision_params['region_name'] = cluster_params['region_name']
-		    else:
-			provision_params['region_name'] = "RegionOne"
-		    if 'execute_script' in server_params.keys():
-			provision_params['execute_script'] = server_params['execute_script']
-		    else:
-			provision_params['execute_script'] = ""
 		    if 'external_bgp' in cluster_params.keys():
 			provision_params['external_bgp'] = cluster_params['external_bgp']
 		    else:
