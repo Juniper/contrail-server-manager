@@ -636,7 +636,7 @@ class ServerMgrPuppet:
         # Get all values needed to fill the template.
         self_ip = server.get("ip_address", "")
 
-        openstack_ips = [x["ip_address"] for x in cluster_servers if "openstack" in eval(server.get('roles', '[]'))]
+        openstack_ips = [x["ip_address"] for x in cluster_servers if "openstack" in eval(x.get('roles', '[]'))]
         if self_ip in openstack_ips:
             openstack_ip = self_ip
         else:
