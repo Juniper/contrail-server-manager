@@ -122,8 +122,9 @@ class ServerMgrStatusThread(threading.Thread):
                 domain = self._status_serverDb.get_server_domain(server_id)
                 environment_name = 'TurningOffPuppetAgent__' + time_str
                 if domain:
-                    self._smgr_puppet.update_node_map_file(server_id,
-                                                       domain, environment_name)
+                    server_fqdn = server_id + "." + domain
+                    self._smgr_puppet.update_node_map_file(
+                        server_fqdn, environment_name)
             if server_state in email_events:
                 self.send_status_mail(server_id, message, message)
         except Exception as e:

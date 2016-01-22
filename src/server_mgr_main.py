@@ -3604,22 +3604,29 @@ class VncServerManager():
             self, server, cluster, role_servers, cluster_servers, package):
         # if parameters are already calculated, nothing to do, return.
         cluster_params = cluster.get("params", {})
+        cluster_contrail_prov_params = (
+            cluster_params.get("provision", {})).get("contrail", {})
+        cluster_openstack_prov_params = (
+            cluster_params.get("provision", {})).get("openstack", {})
         server_params = server.get("params", {})
+        server_contrail_prov_params = (
+            server_params.get("provision", {})).get("contrail", {})
         package_params = package.get("params", {})
+        package_contrail_prov_params = (
+            package_params.get("provision", {})).get("contrail", {})
         if 'calc_params' in cluster:
             return
         contrail_params = {}
         openstack_params = {}
         # contrail_repo_name and contrail_repo_type
         contrail_params['contrail_repo_name'] = [package.get('id', '')]
-        contrail_params['contrail_repo_type'] = [package.get('type', '')]
         roles = eval(server.get("roles", "[]"))
         if (('storage-compute' in roles) or
             ('storage-master' in roles)):
-            contrail_params['contrail_repo_name'].append(
-                server_params.get("storage_repo_id", ""))
-            contrail_params['contrail_repo_type'].append(
-                "contrail-ubuntu-storage-repo")
+            storage_repo = (server_contrail_prov_params.get(
+                    "storage", {})).get("storage_repo_id", "")
+            if storage_repo:
+                contrail_params['contrail_repo_name'].append(storage_repo)
         my_uuid = cluster_params.get(
             "uuid", str(uuid.uuid4()).encode("utf-8"))
         contrail_params['uuid'] = my_uuid
@@ -3647,11 +3654,8 @@ class VncServerManager():
                 openstack_params['openstack_mgmt_ip_list'] = role_ip
         #end for
         # Build mysql_allowed_hosts list
-        provision_params = cluster_params.get("provision", {})
-        provision_contrail_params = provision_params.get("contrail", {})
-        contrail_ha_params = provision_contrail_params.get("ha", {})
-        openstack_params = provision_params.get("openstack", {})
-        openstack_ha_params = openstack_params.get("ha", {})
+        contrail_ha_params = cluster_contrail_prov_params.get("ha", {})
+        openstack_ha_params = cluster_openstack_prov_params.get("ha", {})
         mysql_allowed_hosts = []
         internal_vip = openstack_ha_params.get("internal_vip", None)
         if internal_vip:
@@ -3673,56 +3677,58 @@ class VncServerManager():
                set(mysql_allowed_hosts + os_ip_list + config_ip_list + os_ctl_ip_list + config_ctl_ip_list ))
         # top_of_rack related config tbd....
         # Storage parameters..
+        cluster_storage_params = cluster_contrail_prov_params.get("storage", {})
+        server_storage_params = server_contrail_prov_params.get("storage", {})
         contrail_params['storage'] = {}
         total_osd = int(0)
         num_storage_hosts = int(0)
-        live_migration = "disable"
-        live_migration_host = ""
+        storage_mon_host_ip_set = set()
+        storage_mon_hostname_set = set()
+        storage_chassis_config_set = set()
+        live_migration_host = cluster_storage_params.get(
+            "live_migration_host", "")
         live_migration_ip = ""
-        live_migration_storage_scope = "local"
         for role_server in role_servers['storage-compute']:
-            server_params_compute = eval(role_server['parameters'])
-            if 'disks' in server_params_compute and len(server_params_compute['disks']) > 0:
-                total_osd += len(server_params_compute['disks'])
+            storage_params = (((
+                    role_server.get("parameters", {})).get(
+                        "provision", {})).get(
+                            "contrail", {})).get(
+                                "storage", {})
+            if (('storage_osd_disks' in storage_params) and
+                (len(storage_params['storage_osd_disks']) > 0)):
+                total_osd += len(storage_params['storage_osd_disks'])
                 num_storage_hosts += 1
-
-        if 'live_migration' in cluster_params.keys() and cluster_params['live_migration'] == "enable":
-            if (('live_migration_nfs_vm_host' in cluster_params.keys()) and 
-                (cluster_params['live_migration_nfs_vm_host']) and 
-                (len(cluster_params['live_migration_nfs_vm_host']) > 0)) :
-                live_migration = "enable"
-                live_migration_host = cluster_params['live_migration_nfs_vm_host']
-            else:
-                live_migration = "disable"
-                live_migration_host = ""
+            # end if
+            storage_mon_host_ip_set.add(self.get_control_ip(role_server))
+            storage_mon_hostname_set.add(role_server['id'])
+            if role_server['id'] == live_migration_host: 
+                live_migration_ip = self.get_control_ip(role_server)
+            if storage_params.get('storage_chassis_id', ""):
+                storage_host_chassis = (
+                    role_server['id'] + ':' + storage_params['storage_chassis_id'])
+                storage_chassis_config_set.add(storage_host_chassis)
+            # end if
+        # end for
+        for x in role_servers['storage-master']:
+            storage_mon_host_ip_set.add(self.get_control_ip(x))
+            storage_mon_hostname_set.add(x['id'])
+        # end for
 
         contrail_params['storage']['storage_num_osd'] = total_osd
         contrail_params['storage']['storage_num_hosts'] = num_storage_hosts
+        storage_fsid = cluster_params.get(
+            "storage_fsid", str(uuid.uuid4()).encode("utf-8"))
+        contrail_params['storage']['storage_fsid'] = storage_fsid
         storage_virsh_uuid = cluster_params.get(
             "storage_virsh_uuid", str(uuid.uuid4()).encode("utf-8"))
         contrail_params['storage']['storage_virsh_uuid'] = storage_virsh_uuid
         contrail_params['storage']['storage_enabled'] = (len(role_servers['storage-compute']) != 0)
-        storage_mon_host_ip_set = set()
-        storage_mon_hostname_set = set()
-        storage_chassis_config_set = set()
-        for x in role_servers['storage-compute']:
-            storage_mon_host_ip_set.add(self.get_control_ip(x))
-            storage_mon_hostname_set.add(x['id'])
-            if x['id'] == live_migration_host: 
-                live_migration_ip = self.get_control_ip(x)
-            server_params_compute = eval(x['parameters'])
-            if server_params_compute.get('storage_chassis_id', ""):
-                storage_chassis_id = [x['id'], ':', server_params_compute['storage_chassis_id']]
-                storage_host_chassis = ''.join(storage_chassis_id)
-                storage_chassis_config_set.add(storage_host_chassis)
-        for x in role_servers['storage-master']:
-            storage_mon_host_ip_set.add(self.get_control_ip(x))
-            storage_mon_hostname_set.add(x['id'])
-
         contrail_params['storage']['live_migration_ip'] = live_migration_ip 
+        contrail_params['storage']['storage_ip_list'] = list(storage_mon_host_ip_set)
         contrail_params['storage']['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
         contrail_params['storage']['storage_hostnames'] = list(storage_mon_hostname_set)
-        contrail_params['storage']['storage_chassis_config'] = list(storage_chassis_config_set)
+        if ('storage-master' in roles):
+            contrail_params['storage']['storage_chassis_config'] = list(storage_chassis_config_set)
         control_network = self.storage_get_control_network_mask(
             server, cluster, role_servers, cluster_servers)
         contrail_params['storage']['storage_cluster_network'] = control_network
@@ -3744,7 +3750,7 @@ class VncServerManager():
         provisioned_id = server.get("provisioned_id", "")
         if ((provisioned_id) and
             (provisioned_id != package.get('id', ""))):
-            contrail_params['contrail_upgrade'] = False
+            contrail_params['contrail_upgrade'] = True
         server_control_ip = self.get_control_ip(server)
         server_control_gateway = self.get_control_gateway(server)
         contrail_params['host_ip'] = server_control_ip
