@@ -478,20 +478,27 @@ class ServerMgrPuppet:
         # enf if server_control_ip...
 
         data += 'contrail::params::host_roles: %s\n' %(str(provision_params['host_roles']))
-        data += 'contrail::params::tor_ha_config: "%s"\n' %(str(provision_params['tor_ha_config']))
         if 'toragent' in provision_params['host_roles'] :
-            tor_config = eval(provision_params.get("top_of_rack", ""))
-            #self._smgr_log.log(self._smgr_log.DEBUG, "tor_config => %s" % tor_config)
-            switch_list = tor_config.get('switches', "")
-            if switch_list:
-                data += 'contrail::params::top_of_rack:\n'
+            tor_config = provision_params.get("tor_ha_config", "")
+            data += 'contrail::params::tor_ha_config:\n'
+            for host_tor_config in tor_config.keys():
+              data += '  %s:\n' %(host_tor_config)
+              switch_list = tor_config[host_tor_config].get('switches', "")
+              tsn_ip = tor_config[host_tor_config].get('tsn_ip', "")
+              if switch_list:
                 for  switch in switch_list:
-                    data += '  %s%s:\n' %(switch['switch_name'],switch['id'])
+                    data += '    %s%s:\n' %(switch['switch_name'],switch['id'])
+                    data += '      tsn_ip: "%s"\n' % (tsn_ip)
                     for key,value in switch.items():
-                        #self._smgr_log.log(self._smgr_log.DEBUG, "switch key=> %s,value => %s" % (key,value))
-                        data += '    %s: "%s"\n' % (key,value)
+                        data += '      %s: "%s"\n' % (key,value)
                         if key == 'ovs_protocol' and value.lower() == 'pssl':
                             self.generate_tor_certs(switch, provision_params)
+                        #end pssl condition
+                    #end key,value for loop
+                #end switch for loop
+              #end switch_list if condition
+            #end tor_config loop
+        #end toragent in host_roles
 
         if 'storage-compute' in provision_params['host_roles'] or 'storage-master' in provision_params['host_roles']:
             ## Storage code
