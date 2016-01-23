@@ -21,7 +21,9 @@
                             "database",
                             "config" ],
                         "storage": {
-                            "storage_osd_disks": ""
+                            "storage_repo_id": "",
+                            "storage_osd_disks": [],
+                            "storage_chassis_id":""
                         }
                     }
                 }
