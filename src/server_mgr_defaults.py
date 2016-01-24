@@ -10,8 +10,7 @@ server_fields = {
     "mac_address": "",
     "ip_address": "",
     "parameters": """{
-                    'interface_name': '',
-                    'partition': ''
+                    'interface_name': ''
                     }""",
     "roles": [],
     "cluster_id": "",
@@ -43,23 +42,6 @@ cluster_fields = {
     "base_image_id": "",
     "package_image_id": "",
     "parameters": """{
-                'router_asn': '64512',
-                'database_dir': '/home/cassandra',
-                'database_token': '0',
-                'openstack_mgmt_ip': '',
-                'use_certificates': 'False',
-                'multi_tenancy': 'True',
-                'encapsulation_priority': 'MPLSoUDP,MPLSoGRE,VXLAN',
-                'keystone_username': 'admin',
-                'keystone_password': 'c0ntrail123',
-                'keystone_tenant': 'admin',
-                'analytics_data_ttl': '168',
-                'haproxy': 'disable',
-                'subnet_mask': '255.255.255.0',
-                'gateway': '10.204.221.46',
-                'password': 'c0ntrail123',
-                'external_bgp': '',
-                'domain': 'contrail.juniper.net'
                 }"""
 }
 
