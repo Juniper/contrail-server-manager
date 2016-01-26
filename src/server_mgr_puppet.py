@@ -775,13 +775,11 @@ class ServerMgrPuppet:
             self._smgr_log.log(self._smgr_log.DEBUG, "role-tuple: %s = %s" % (role_step_tuple[0], role_step_tuple[1]))
             if server_id == role_step_tuple[0]:
                 role_step = role_step_tuple[1].replace('-', '_')
-                key = 'contrail::params::enable_' + role_step
                 key = 'contrail::sequencing::enable_' + role_step
+                if key not in hiera_data_dict:
+                    key = 'contrail::params::enable_' + role_step
                 self._smgr_log.log(self._smgr_log.DEBUG, "role-key: %s %s" % (key, enable))
-                if enable:
-                    hiera_data_dict[key] = True
-                else:
-                    hiera_data_dict[key] = False
+                hiera_data_dict[key] = enable
         data = yaml.dump(hiera_data_dict, default_style='\'', indent=4)
         with open(hiera_file, "w") as hiera_fh:
             hiera_fh.write(data)
