@@ -3961,8 +3961,6 @@ class VncServerManager():
 		    provision_params['keystone_tenant'] = cluster_params['keystone_tenant']
 		    provision_params['analytics_data_ttl'] = cluster_params['analytics_data_ttl']
 		    provision_params['phy_interface'] = server_params['interface_name']
-		    if 'xmpp_auth_enabled' in cluster_params:
-			provision_params['xmpp_auth_enabled'] = cluster_params['xmpp_auth_enabled']
 		    if 'contrail' in server:
 			provision_params['contrail_params']  = server['contrail']
 		    if 'gateway' in server and server['gateway']:
