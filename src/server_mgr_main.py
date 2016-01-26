@@ -1428,6 +1428,9 @@ class VncServerManager():
                         else:
                             version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
                         image_params['version'] = version.strip('\n')
+                        #find sku of package (juno/kilo/liberty)
+                        package_sku = self.find_package_sku(image_id)
+                        image_params['sku'] = package_sku
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
                             image_id, image_type, image_version, dest)
@@ -3566,20 +3569,29 @@ class VncServerManager():
         return role_servers
     #end get_role_servers
 
+    def find_package_sku(self, image_id):
+        nova_api_package = self._args.html_root_dir+"contrail/repo/"+image_id + '/nova-api_*.deb'
+        cmd = 'dpkg-deb -f ' + nova_api_package.encode("ascii") + ' Version'
+        version = subprocess.check_output(cmd, shell=True)
+        if version != '' :
+            self._smgr_log.log(self._smgr_log.DEBUG, "version of nova-api : %s" %version)
+            # we need to find openstack version now, sample version string
+            # version='1:2015.1.2-0ubuntu2~cloud0.1contrail'
+
+            return version
+        else:
+          msg = ("find_package_sku: unable to find version from package")
+          raise ServerMgrException(msg, ERR_OPR_ERROR)
+    
     def package_sku(self, package_id):
         ## as of now, default assumption is juno
         sku = 'juno'
         try:
             package_id, package = self.get_package_image(package_id)
-            params = eval(package['parameters'])
-            if params and 'sku' in params and params['sku'] != '' :
-              sku = params['sku']
+            sku = eval(package['parameters'])['sku']
         except ServerMgrException as e:
+            self._smgr_log.log(self._smgr_log.DEBUG, "exception for sku %s" %e)
             pass
-        if sku not in  ['icehouse', 'juno', 'kilo']:
-           msg = ("Unknown sku for package, supported sku's are 'icehouse',"
-                  "'juno', 'kilo'")
-           raise ServerMgrException(msg, ERR_OPR_ERROR)
         return sku
 
     def package_version(self, package_id):
@@ -3588,6 +3600,7 @@ class VncServerManager():
             package_id, package = self.get_package_image(package_id)
             version = eval(package['parameters'])['version']
         except ServerMgrException as e:
+            self._smgr_log.log(self._smgr_log.DEBUG, "exception for version %s" %e)
             pass
         return version
 
