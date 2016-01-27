@@ -3045,17 +3045,17 @@ class VncServerManager():
 
     # Function to get control interface for a specified server.
     def get_control_ip(self, server):
-        control_intf = self.get_control_interface(server)
-        if control_intf:
-            return str(IPNetwork(control_intf['ip_address']).ip)
+        control_intf = eval(self.get_control_interface(server))
+        for key, value in control_intf.iteritems():
+            return str(IPNetwork(value['ip_address']).ip)
         return server['ip_address']
     # end def get_control_ip
 
     # Function to get control gateway for a specified server.
     def get_control_gateway(self, server):
-        control_intf = self.get_control_interface(server)
-        if control_intf:
-            return str(IPNetwork(control_intf['gateway']).ip)
+        control_intf = eval(self.get_control_interface(server))
+        for key, value in control_intf.iteritems():
+            return str(IPNetwork(value['gateway']).ip)
         return ''
     # end def get_control_gateway
 
@@ -3626,6 +3626,32 @@ class VncServerManager():
         return '"' + str(IPNetwork(subnet_address).network) + '/'+ str(IPNetwork(subnet_address).prefixlen) + '"'
     # end storage_get_control_network_mask
 
+    def build_tor_ha_config(self, server, cluster, role_servers):
+        tor_ha_config = {}
+        tor_ha_config['literal'] = True
+        domain = server.get('domain', '')
+        if not domain:
+            domain = (cluster.get('parameters', {})).get('domain', '')
+        for toragent_server in role_servers['toragent']:
+            tor_config = eval(toragent_server['top_of_rack'])
+            if len(tor_config) > 0:
+                tsn_ip = self.get_control_ip(toragent_server)
+                node_id = toragent_server['id']
+                tor_ha_config[node_id]= {}
+                for switch in tor_config.get("switches", []):
+                    key = switch['switch_name'] + switch['id']
+                    tor_ha_config[node_id][key] = switch
+                    tor_ha_config[node_id][key]['tsn_ip'] = tsn_ip
+                    if ((switch.get(
+                        'ovs_protocol', "")).lower() == "pssl"):
+                        self._smgr_puppet.generate_tor_certs(
+                            switch, server['id'], domain)
+                # end for switch
+            # end if len...
+        # end for toragent_server
+        return tor_ha_config
+    # end build_tor_ha_config
+
     def build_calculated_cluster_params(
             self, server, cluster, role_servers, cluster_servers, package):
         # if parameters are already calculated, nothing to do, return.
@@ -3701,7 +3727,11 @@ class VncServerManager():
         config_ip_list = [x.get("ip_address", "") for x in role_servers["config"]]
         mysql_allowed_hosts = list(
                set(mysql_allowed_hosts + os_ip_list + config_ip_list + os_ctl_ip_list + config_ctl_ip_list ))
-        # top_of_rack related config tbd....
+        # top_of_rack related config
+        contrail_params['ha'] = {
+            'tor_ha_config': self.build_tor_ha_config(
+                server, cluster, role_servers)
+        }
         # Storage parameters..
         cluster_storage_params = cluster_contrail_prov_params.get("storage", {})
         server_storage_params = server_contrail_prov_params.get("storage", {})
