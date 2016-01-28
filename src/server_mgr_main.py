@@ -1798,6 +1798,8 @@ class VncServerManager():
                 image_params['sequence_provisioning_available'] = sequence_provisioning_available
                 version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
                 image_params['version'] = version.strip('\n')
+                package_sku = self.find_package_sku(image_id)
+                image_params['sku'] = package_sku
             elif image_type == "contrail-storage-ubuntu-package":
                 self._create_repo(
                     image_id, image_type, image_version, dest)
@@ -3588,7 +3590,7 @@ class VncServerManager():
         sku = 'juno'
         try:
             package_id, package = self.get_package_image(package_id)
-            sku = eval(package['parameters'])['sku']
+            sku = eval(package['parameters']).get('sku', "juno")
         except ServerMgrException as e:
             self._smgr_log.log(self._smgr_log.DEBUG, "exception for sku %s" %e)
             pass
@@ -3598,7 +3600,7 @@ class VncServerManager():
         version = ''
         try:
             package_id, package = self.get_package_image(package_id)
-            version = eval(package['parameters'])['version']
+            version = eval(package['parameters']).get('version', '')
         except ServerMgrException as e:
             self._smgr_log.log(self._smgr_log.DEBUG, "exception for version %s" %e)
             pass
