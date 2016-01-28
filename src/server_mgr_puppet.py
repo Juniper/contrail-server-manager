@@ -329,10 +329,10 @@ class ServerMgrPuppet:
 
         return data
 
-    def generate_tor_certs(self, switch_info, provision_params):
+    def generate_tor_certs(self, switch_info, server_id, domain):
         tor_name = switch_info['switch_name']
         tor_vendor_name = switch_info['vendor_name']
-        tor_server_fqdn = provision_params['server_id'] + '.' + provision_params['domain']
+        tor_server_fqdn = server_id + '.' + domain
         contrail_module_path = '/etc/contrail_smgr/puppet/ssl/'
         tor_cert_file = contrail_module_path + 'tor.' + tor_name + '.cert.pem'
         tor_key_file = contrail_module_path + 'tor.' + tor_name + '.privkey.pem'
@@ -493,7 +493,9 @@ class ServerMgrPuppet:
                     for key,value in switch.items():
                         data += '      %s: "%s"\n' % (key,value)
                         if key == 'ovs_protocol' and value.lower() == 'pssl':
-                            self.generate_tor_certs(switch, provision_params)
+                            self.generate_tor_certs(
+                                switch, provision_params['server_id'],
+                                provision_params['domain'])
                         #end pssl condition
                     #end key,value for loop
                 #end switch for loop
@@ -557,7 +559,7 @@ class ServerMgrPuppet:
         for key, value in in_dict.iteritems():
             new_prefix = str("::".join(x for x in (prefix, key) if x))
             if (isinstance(value, dict) and
-                (not value.get("literal", False))):
+                (not value.pop("literal", False))):
                 out_dict.update(self.add_params_from_dict(
                     value, new_prefix))
             else:
