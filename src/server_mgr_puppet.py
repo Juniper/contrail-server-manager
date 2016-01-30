@@ -552,7 +552,7 @@ class ServerMgrPuppet:
         # end with
     # end def build_contrail_hiera_file
 
-    def add_params_from_dict(self, in_dict, prefix=''):
+    def add_params_from_dict(self, in_dict, package, prefix=''):
         out_dict = {}
         if not(isinstance(in_dict, dict)):
             return out_dict
@@ -561,43 +561,48 @@ class ServerMgrPuppet:
             if (isinstance(value, dict) and
                 (not value.pop("literal", False))):
                 out_dict.update(self.add_params_from_dict(
-                    value, new_prefix))
+                    value, package, new_prefix))
             else:
-                out_dict[new_prefix] = value
+                package_params = package.get("parameters", {})
+                if (package_params.get('puppet_version', 0.0) >= 3.0):
+                    prefix_to_use = new_prefix
+                else:
+                    prefix_to_use = "contrail::params::" + key
+                out_dict[prefix_to_use] = value
         return out_dict
     # end add_params_from_dict
 
-    def add_cluster_provisioning_params(self, cluster):
+    def add_cluster_provisioning_params(self, cluster, package):
         cluster_parameters = cluster.get("parameters", {})
         provision_params = cluster_parameters.get("provision", {})
-        return self.add_params_from_dict(provision_params)
+        return self.add_params_from_dict(provision_params, package)
     # end of add_cluster_provisioning_params
 
-    def add_server_provisioning_params(self, server):
+    def add_server_provisioning_params(self, server, package):
         server_parameters = server.get("parameters", {})
         provision_params = server_parameters.get("provision", {})
-        return self.add_params_from_dict(provision_params)
+        return self.add_params_from_dict(provision_params, package)
     # end of add_server_provisioning_params
 
     def add_package_provisioning_params(self, package):
         package_parameters = package.get("parameters", {})
         provision_params = package_parameters.get("provision", {})
-        return self.add_params_from_dict(provision_params)
+        return self.add_params_from_dict(provision_params, package)
     # end of add_package_provisioning_params
 
-    def add_cluster_calculated_params(self, cluster):
+    def add_cluster_calculated_params(self, cluster, package):
         provision_params = cluster.get("calc_params", {})
-        return self.add_params_from_dict(provision_params)
+        return self.add_params_from_dict(provision_params, package)
     # end of add_cluster_calculated_params
 
-    def add_server_calculated_params(self, server):
+    def add_server_calculated_params(self, server, package):
         provision_params = server.get("calc_params", {})
-        return self.add_params_from_dict(provision_params)
+        return self.add_params_from_dict(provision_params, package)
     # end of add_server_calculated_params
 
     def add_package_calculated_params(self, package):
         provision_params = package.get("calc_params", {})
-        return self.add_params_from_dict(provision_params)
+        return self.add_params_from_dict(provision_params, package)
     # end of add_package_calculated_params
 
     def add_sequencing_params(self, cluster, package):
@@ -607,25 +612,29 @@ class ServerMgrPuppet:
             'sequence_provisioning_available', False)
         sequence_provisioning = cluster_params.get(
             'sequence_provisioning', True)
+        if (package_params.get('puppet_version', 0.0) >= 3.0):
+            key = "sequencing"
+        else:
+            key = "params"
         sequencing_params = {}
         if sequence_provisioning_available and sequence_provisioning:
             sequencing_params['contrail'] = {}
-            sequencing_params['contrail']['sequencing'] = {}
-            sequencing_params['contrail']['sequencing']['enable_post_provision'] = False
-            sequencing_params['contrail']['sequencing']['enable_pre_exec_vnc_galera'] = False
-            sequencing_params['contrail']['sequencing']['enable_post_exec_vnc_galera'] = False
-            sequencing_params['contrail']['sequencing']['enable_keepalived'] = False
-            sequencing_params['contrail']['sequencing']['enable_haproxy'] = False
-            sequencing_params['contrail']['sequencing']['enable_sequence_provisioning'] = True
-            sequencing_params['contrail']['sequencing']['enable_provision_started'] = True
-            sequencing_params['contrail']['sequencing']['enable_storage_master'] = False
-            sequencing_params['contrail']['sequencing']['enable_storage_compute'] = False
+            sequencing_params['contrail'][key] = {}
+            sequencing_params['contrail'][key]['enable_post_provision'] = False
+            sequencing_params['contrail'][key]['enable_pre_exec_vnc_galera'] = False
+            sequencing_params['contrail'][key]['enable_post_exec_vnc_galera'] = False
+            sequencing_params['contrail'][key]['enable_keepalived'] = False
+            sequencing_params['contrail'][key]['enable_haproxy'] = False
+            sequencing_params['contrail'][key]['enable_sequence_provisioning'] = True
+            sequencing_params['contrail'][key]['enable_provision_started'] = True
+            sequencing_params['contrail'][key]['enable_storage_master'] = False
+            sequencing_params['contrail'][key]['enable_storage_compute'] = False
             for role in ['database', 'config', 'openstack',
                          'control', 'collector',
                          'webui', 'compute', 'tsn', 'toragent']:
-                sequencing_params['contrail']['sequencing'][
+                sequencing_params['contrail'][key][
                     'enable_'+role] = False
-        return self.add_params_from_dict(sequencing_params)
+        return self.add_params_from_dict(sequencing_params, package)
     # end add_sequencing_params
 
     def build_contrail_hiera_file_new(
@@ -635,12 +644,12 @@ class ServerMgrPuppet:
         # By default, sequence provisioning is On.
         server_params = server.get('parameters', {})
         hiera_params = {}
-        hiera_params.update(self.add_cluster_calculated_params(cluster))
-        hiera_params.update(self.add_server_calculated_params(server))
-        hiera_params.update(self.add_package_calculated_params(server))
-        hiera_params.update(self.add_cluster_provisioning_params(cluster))
-        hiera_params.update(self.add_server_provisioning_params(server))
-        hiera_params.update(self.add_package_provisioning_params(server))
+        hiera_params.update(self.add_cluster_calculated_params(cluster, package))
+        hiera_params.update(self.add_server_calculated_params(server, package))
+        hiera_params.update(self.add_package_calculated_params(package))
+        hiera_params.update(self.add_cluster_provisioning_params(cluster, package))
+        hiera_params.update(self.add_server_provisioning_params(server, package))
+        hiera_params.update(self.add_package_provisioning_params(package))
         hiera_params.update(self.add_sequencing_params(
             cluster, package))
         # Dump the hiera_params in yaml file.

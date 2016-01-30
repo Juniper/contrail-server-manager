@@ -1411,11 +1411,13 @@ class VncServerManager():
                             msg =  ("Id given %s,Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
                             self.log_and_raise_exception(msg)
 
-                        puppet_manifest_version, sequence_provisioning_available  = self._create_repo(
+                        puppet_manifest_version, sequence_provisioning_available, puppet_version  = self._create_repo(
                             image_id, image_type, image_version, dest)
                         image_params['puppet_manifest_version'] = \
                             puppet_manifest_version
                         image_params['sequence_provisioning_available'] = sequence_provisioning_available
+                        if puppet_version not in image_params:
+                            image_params['puppet_version'] = puppet_version
                         #Get the file type
                         cmd = 'file %s'%image_path
                         output = subprocess.check_output(cmd, shell=True)
@@ -1791,11 +1793,13 @@ class VncServerManager():
                     msg =  ("Id given %s, Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
                     self.log_and_raise_exception(msg)
 
-                puppet_manifest_version, sequence_provisioning_available = self._create_repo(
+                puppet_manifest_version, sequence_provisioning_available, puppet_version = self._create_repo(
                     image_id, image_type, image_version, dest)
                 image_params['puppet_manifest_version'] = \
                     puppet_manifest_version
                 image_params['sequence_provisioning_available'] = sequence_provisioning_available
+                if puppet_version not in image_params:
+                    image_params['puppet_version'] = puppet_version
                 version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
                 image_params['version'] = version.strip('\n')
             elif image_type == "contrail-storage-ubuntu-package":
@@ -1882,6 +1886,20 @@ class VncServerManager():
             sequence_provisioning_available = \
                 os.path.isfile('sequence_provisioning_available')
 
+            # Get puppet manifests version (stored in version file along with manifests)
+            puppet_version = 0.0
+            if os.path.isfile('version'):
+                data = ''
+                with open('version', 'r') as versionfile:
+                    data=versionfile.read().replace('\n', '')
+                # end with
+                try:
+                    puppet_version = float(data)
+                except:
+                    puppet_version = 0.0
+                # end except
+            # end with
+
             # If the untarred file list has environment directory, copy it's
             # contents to /etc/puppet/environments. This is where the new
             # restructured contrail puppet labs modules are going to be
@@ -1896,7 +1914,7 @@ class VncServerManager():
                         "/etc/puppet/environments/" + image_id.replace('-','_'))
                 distutils.dir_util.remove_tree(environment_dir)
                 os.chdir(cwd)
-                return version, sequence_provisioning_available
+                return version, sequence_provisioning_available, puppet_version
             # end if os.path.isdir
             # Below code is for old versions of contrail (pre-2.0) and old puppet modules.
             # Create modules directory if it does not exist.
@@ -1939,7 +1957,7 @@ class VncServerManager():
                     version, filelist))
             subprocess.check_call(cmd, shell=True)
             os.chdir(cwd)
-            return version, sequence_provisioning_available
+            return version, sequence_provisioning_available, puppet_version
         except subprocess.CalledProcessError as e:
             shutil.rmtree(tmpdirname) # delete directory
             msg = ("add_puppet_modules: error %d when executing"
@@ -1980,7 +1998,7 @@ class VncServerManager():
             # Handle the puppet manifests in this package.
             puppet_modules_tgz_path = mirror + \
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
-            puppet_manifest_version, sequence_provisioning_available  = self._add_puppet_modules(
+            puppet_manifest_version, sequence_provisioning_available, puppet_version  = self._add_puppet_modules(
                 puppet_modules_tgz_path, image_id)
             # Extract .tgz of other packages from the repo
             cmd = (
@@ -2005,7 +2023,7 @@ class VncServerManager():
             # cobbler add repo
             self._smgr_cobbler.create_repo(
                 image_id, mirror)
-            return puppet_manifest_version, sequence_provisioning_available
+            return puppet_manifest_version, sequence_provisioning_available, puppet_version
         except subprocess.CalledProcessError as e:
             msg = ("create_yum_repo: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
@@ -2080,7 +2098,7 @@ class VncServerManager():
             else:
                 puppet_modules_tgz_path = mirror + \
                     "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
-            puppet_manifest_version, sequence_provisioning_available  = self._add_puppet_modules(
+            puppet_manifest_version, sequence_provisioning_available, puppet_version  = self._add_puppet_modules(
                 puppet_modules_tgz_path, image_id)
             # check if its a new version where repo pinning changes are brought in
             if tgz_image:
@@ -2123,7 +2141,7 @@ class VncServerManager():
             # will need to revisit and make it work for ubuntu - Abhay
             # self._smgr_cobbler.create_repo(
             #     image_id, mirror)
-            return puppet_manifest_version, sequence_provisioning_available
+            return puppet_manifest_version, sequence_provisioning_available, puppet_version
         except subprocess.CalledProcessError as e:
             msg = ("create_deb_repo: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
@@ -2205,13 +2223,14 @@ class VncServerManager():
     def _create_repo(
         self, image_id, image_type, image_version, dest):
         puppet_manifest_version = ""
+        puppet_version = 0.0
         sequence_provisioning_available = False
         try:
             if (image_type == "contrail-centos-package"):
-                puppet_manifest_version, sequence_provisioning_available  = self._create_yum_repo(
+                puppet_manifest_version, sequence_provisioning_available, puppet_version  = self._create_yum_repo(
                     image_id, image_type, image_version, dest)
             elif (image_type == "contrail-ubuntu-package"):
-                puppet_manifest_version, sequence_provisioning_available  = self._create_deb_repo(
+                puppet_manifest_version, sequence_provisioning_available, puppet_version  = self._create_deb_repo(
                     image_id, image_type, image_version, dest)
             elif (image_type == "contrail-storage-ubuntu-package"):
                 self._create_storage_deb_repo(
@@ -2219,7 +2238,7 @@ class VncServerManager():
 
             else:
                 pass
-            return puppet_manifest_version, sequence_provisioning_available
+            return puppet_manifest_version, sequence_provisioning_available, puppet_version
         except Exception as e:
             raise(e)
     # end _create_repo
@@ -3026,7 +3045,7 @@ class VncServerManager():
 
     # Function to get control interface for a specified server.
     def get_control_interface(self, server):
-        contrail = server.get('contrail', "{}")
+        contrail = server.get('contrail', "")
         if contrail and eval(contrail):
             contrail_dict = eval(contrail)
             control_data_intf = contrail_dict.get('control_data_interface', "")
@@ -3043,7 +3062,10 @@ class VncServerManager():
             }
             return str(intf_dict)
         else:
-            return (server['intf_control'])
+            intf_control = server['intf_control']
+            if intf_control is None:
+                intf_control = "{}"
+            return intf_control
     # end def get_control_interface
 
     # Function to get control interface for a specified server.
