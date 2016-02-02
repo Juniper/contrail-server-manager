@@ -261,7 +261,11 @@ class ServerMgrPuppet:
             "contrail_logoutput" : ["contrail_logoutput", "boolean"],
             "enable_ceilometer": ["enable_ceilometer", "boolean"],
             "xmpp_dns_auth_enable": ["xmpp_dns_auth_enable", "boolean"],
-            "xmpp_auth_enable": ["xmpp_auth_enable", "boolean"]
+            "xmpp_auth_enable": ["xmpp_auth_enable", "boolean"],
+            "contrail_amqp_ip_list": ["contrail_amqp_ip_list", "array"],
+            "contrail_amqp_port": ["contrail_amqp_port", "integer"],
+            "openstack_amqp_ip_list": ["openstack_amqp_ip_list", "array"],
+            "openstack_amqp_port": ["openstack_amqp_port", "integer"]
         }
 
         data = ''
