@@ -238,8 +238,10 @@ if [[ $LOCAL_REPO_MOUNTED -eq 1 ]]; then
 fi
 
 echo "$arrow Adding server manager objects to server manager database"
-if [ "$DEFAULT_DOMAIN" != "" ] && [ -f /opt/contrail/server_manager/client/sm-client-config.ini ]; then
-   sed -i "s|domain =.*|domain = ${DEFAULT_DOMAIN}|g" /opt/contrail/server_manager/client/sm-client-config.ini
+if grep -q domain /opt/contrail/server_manager/client/sm-client-config.ini; then
+   sed -i "s|domain.*=*|domain = ${DEFAULT_DOMAIN}|g" /opt/contrail/server_manager/client/sm-client-config.ini
+else
+   sed -i "/^\[CLUSTER\]/a domain = ${DEFAULT_DOMAIN}" /opt/contrail/server_manager/client/sm-client-config.ini
 fi
 
 # Retrieve info from json files
