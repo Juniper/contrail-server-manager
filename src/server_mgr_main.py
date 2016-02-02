@@ -3707,8 +3707,10 @@ class VncServerManager():
             return
         contrail_params = {}
         openstack_params = {}
-        # contrail_repo_name and contrail_repo_type
+        # contrail_repo_name
         contrail_params['contrail_repo_name'] = [package.get('id', '')]
+        # contrail_repo_type (not used by 3.0 code, maintained for pre-3.0)
+        contrail_params['contrail_repo_type'] = [package.get('type', '')]
         roles = eval(server.get("roles", "[]"))
         if (('storage-compute' in roles) or
             ('storage-master' in roles)):
@@ -3716,6 +3718,8 @@ class VncServerManager():
                     "storage", {})).get("storage_repo_id", "")
             if storage_repo:
                 contrail_params['contrail_repo_name'].append(storage_repo)
+                contrail_params['contrail_repo_type'].append(
+                    "contrail-ubuntu-storage-repo".encode('utf-8'))
         my_uuid = cluster_params.get(
             "uuid", str(uuid.uuid4()).encode("utf-8"))
         contrail_params['uuid'] = my_uuid
@@ -3727,7 +3731,8 @@ class VncServerManager():
             role_user = ["root" for x in servers]
                     
             # special case - convert role name for collector to analytics
-            if role == "collector":
+            if ((role == "collector") and
+                (package_params.get('puppet_version', 0.0) >= 3.0)):
                 role = "analytics"
             if role != "openstack":
                 contrail_params[role] = {}
