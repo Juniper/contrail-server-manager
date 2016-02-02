@@ -138,7 +138,7 @@ class ServerMgrPuppet:
 
     def add_node_entry(
         self, site_file, server_fqdn,
-        server, cluster, cluster_servers):
+        server, cluster, cluster_servers, puppet_version):
         cluster_params = cluster.get('parameters', {})
         data = ''
         data += "node \'%s\' {\n" %server_fqdn
@@ -194,6 +194,9 @@ class ServerMgrPuppet:
         data += '    include ::contrail::profile::controller\n'
         # Add collector role.
         data += '    include ::contrail::profile::collector\n'
+        # Add config provision role.
+        if ((puppet_version < 3.0) and ('config' in server['roles'])):
+            data += '    class { \'::contrail::profile::provision\' : stage => \'last\' }\n'
         # Add compute role
         data += '    class { \'::contrail::profile::compute\' : stage => \'compute\' }\n'
 
@@ -829,7 +832,8 @@ class ServerMgrPuppet:
         self.delete_node_entry(site_file, server_fqdn)
         # Now add a new node entry
         self.add_node_entry(
-            site_file, server_fqdn, server, cluster, cluster_servers)
+            site_file, server_fqdn, server, cluster, cluster_servers,
+            package_params.get("puppet_version", 0.0))
 
         # Add entry for the server to environment mapping in 
         # node_mapping.json file.
