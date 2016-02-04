@@ -15,8 +15,7 @@ DESC
     print "host: " + self.host + "\n"
     print "status: " + self.status+ "\n"
     hostname = Socket.gethostname
-    cur_time = Time.now.utc.iso8601.gsub('-', '').gsub(':', '')
-
+    cur_time=Time.now.strftime("%d-%m-%Y_%H:%M:%S")
     print "Server Hostname:" + hostname + "\n"
     print "Server cur_time:" + cur_time+ "\n"
     log_dir = "/var/log/contrail-server-manager/provision"
@@ -30,6 +29,7 @@ DESC
     logs.each do |item|
       resource = item.source
       msg = item.message
+      time = item.time.strftime("%d-%m-%Y_%H:%M:%S")
       if msg.include? "TurningOffPuppetAgent__"
         puts "Puppet agent Turned Off."
         return
@@ -42,7 +42,7 @@ DESC
         puts "Puppet agent exited"
         return
       end
-      log_data += resource + ":" + msg + "\n"
+      log_data += time + ":" + resource + ":" + msg + "\n"
     end
     File.open(destination,"w") do |f|
       f.write(log_data)
@@ -56,6 +56,8 @@ DESC
 
       http = Net::HTTP.new(hostname, 9002)
 
+      log_path = client +"/" +file + "\n"
+      print "http://" + hostname + ":9001/logs/"+ log_path + "\n"
       response = http.send_request('PUT', '/server_status?server_id=' + client_hostname + '&state=puppet_failed')
       puts "response code is " + response.code
       if response.code != "200"
