@@ -739,23 +739,30 @@ class ImageJsonGenerator(BaseJsonGenerator):
                                                  **kwargs)
         self.dict_data = {"image": []}
         self.package_types = {'deb': 'package', 'rpm': 'package',
-                             'iso': 'image', 'tgz': 'tgz',
+                             'iso': 'image', 'tgz': 'package',
                              'tar.gz': 'tgz'}
 
     def get_version(self, package_file):
         version = ''
         # only rpm or deb version can be retrieved
-        if not (package_file.endswith('.rpm') or package_file.endswith('.deb')):
+        if not (package_file.endswith('.rpm') or package_file.endswith('.deb') or package_file.endswith('.tgz')):
             return ""
         if self.testsetup.os_type[0] in ['centos', 'fedora', 'redhat', 'centoslinux']:
             cmd = "rpm -qp --queryformat '%%{VERSION}-%%{RELEASE}\\n' %s" % package_file
         elif self.testsetup.os_type[0] in ['ubuntu']:
-            cmd = "dpkg-deb -f %s Version" % package_file
+            package_name = os.path.basename(package_file)
+            if package_name.endswith('.tgz'):
+                exp = re.compile("[0-9].*")
+                for m in exp.finditer(package_name):
+                   match_index = m.span()[0]
+                version = package_name[match_index:-4]
+            else:
+                cmd = "dpkg-deb -f %s Version" % package_file
+                pid = os.popen(cmd)
+                version = pid.read().strip()
+                pid.flush()
         else:
             raise Exception("ERROR: UnSupported OS Type (%s)" % self.testsetup.os_type)
-        pid = os.popen(cmd)
-        version = pid.read().strip()
-        pid.flush()
         return version
 
     def get_category(self, package_file):
@@ -769,7 +776,7 @@ class ImageJsonGenerator(BaseJsonGenerator):
         package_type = package_type.replace('_', '-').replace('-packages', '')
         if package_file.endswith('.rpm'):
             dist = 'centos'
-        elif package_file.endswith('.deb'):
+        elif package_file.endswith('.deb') or package_file.endswith('.tgz'):
             dist = 'ubuntu'
         else:
             log.debug('Only deb or rpm packages are supported. Received (%s)' % package_file)

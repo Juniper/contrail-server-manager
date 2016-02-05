@@ -170,8 +170,16 @@ function mount_contrail_local_repo()
 
     if [ $exit_status != 0 ]; then
         mkdir -p $LOCAL_REPO_DIR
-        dpkg -x $CONTRAIL_PKG $LOCAL_REPO_DIR >> $log_file 2>&1 
-        (cd $LOCAL_REPO_DIR && tar xfz opt/contrail/contrail_packages/*.tgz >> $log_file 2>&1)
+        file_type=$(file $CONTRAIL_PKG | cut -f2 -d' ')
+        if [ "$file_type" == "Debian" ]; then
+           dpkg -x $CONTRAIL_PKG $LOCAL_REPO_DIR >> $log_file 2>&1
+           (cd $LOCAL_REPO_DIR && tar xfz opt/contrail/contrail_packages/*.tgz >> $log_file 2>&1)
+        elif [ "$file_type" == "gzip" ]; then
+           tar xzf $CONTRAIL_PKG -C $LOCAL_REPO_DIR >> $log_file 2>&1
+        else
+           echo "ERROR: $CONTRAIL_PKG: Invalid package"
+           exit 2
+        fi
         (cd $LOCAL_REPO_DIR && DEBIAN_FRONTEND=noninteractive dpkg -i binutils_*.deb dpkg-dev_*.deb libdpkg-perl_*.deb make_*.deb patch_*.deb >> $log_file 2>&1)
         (cd $LOCAL_REPO_DIR && dpkg-scanpackages . | gzip -9c > Packages.gz | >> $log_file 2>&1)
         datetime_string=$(date +%Y_%m_%d__%H_%M_%S)
