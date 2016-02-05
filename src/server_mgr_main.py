@@ -3692,15 +3692,15 @@ class VncServerManager():
     def build_calculated_cluster_params(
             self, server, cluster, role_servers, cluster_servers, package):
         # if parameters are already calculated, nothing to do, return.
-        cluster_params = cluster.get("params", {})
+        cluster_params = cluster.get("parameters", {})
         cluster_contrail_prov_params = (
             cluster_params.get("provision", {})).get("contrail", {})
         cluster_openstack_prov_params = (
             cluster_params.get("provision", {})).get("openstack", {})
-        server_params = server.get("params", {})
+        server_params = server.get("parameters", {})
         server_contrail_prov_params = (
             server_params.get("provision", {})).get("contrail", {})
-        package_params = package.get("params", {})
+        package_params = package.get("parameters", {})
         package_contrail_prov_params = (
             package_params.get("provision", {})).get("contrail", {})
         if 'calc_params' in cluster:
@@ -3830,6 +3830,7 @@ class VncServerManager():
         control_network = self.storage_get_control_network_mask(
             server, cluster, role_servers, cluster_servers)
         contrail_params['storage']['storage_cluster_network'] = control_network
+        # Build openstack parameters for openstack modules
         contrail_params = ServerMgrUtil.convert_unicode(contrail_params)
         openstack_params = ServerMgrUtil.convert_unicode(openstack_params)
         cluster['calc_params'] = {

@@ -2,8 +2,8 @@
 :backends:
   - yaml
 :hierarchy:
-  - "%{::clientcert}-openstack"
   - "%{::clientcert}-contrail"
+  - "%{::clientcert}-openstack"
 
 :yaml:
 # datadir is empty here, so hiera uses its defaults:
