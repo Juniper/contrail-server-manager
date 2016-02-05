@@ -608,12 +608,20 @@ class ServerJsonGenerator(BaseJsonGenerator):
         self.dict_data = {"server": []}
 
     def _initialize(self, hostobj):
+         # set kernel upgrade 'yes' by default
+         kernel_upgrade_flag = self.testsetup.testbed.env.get('kernel_upgrade', True)
+         if kernel_upgrade_flag:
+             kernel_upgrade = 'yes'
+         else:
+             kernel_upgrade = 'no'
         server_dict = {"id": hostobj.hostname,
                        "roles": hostobj.roles,
                        "cluster_id": self.cluster_id,
                        "password": hostobj.password,
                        "domain": hostobj.domain_name,
-                       "parameters": {},
+                        "parameters": {
+                            "kernel_upgrade" : kernel_upgrade,
+                            },
                        "network": {
                            "management_interface": hostobj.interface,
                            "provisioning": "kickstart",
