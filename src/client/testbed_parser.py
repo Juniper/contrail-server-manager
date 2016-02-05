@@ -438,13 +438,14 @@ class TestSetup(Testbed):
 
     def update_testbed(self):
         self.set_testbed_ostype()
-        self.update_host_roles()
+        self.set_host_params()
         self.update_host_ostypes()
-        self.update_host_hypervisor()
-        self.update_host_bond_info()
-        self.update_host_control_data()
-        self.update_host_static_route()
-        self.update_host_vrouter_params()
+        self.update_host_roles()
+        #self.update_host_hypervisor()
+        #self.update_host_bond_info()
+        #self.update_host_control_data()
+        #self.update_host_static_route()
+        #self.update_host_vrouter_params()
 
     def import_testbed_variables(self):
         for key, value in self.testbed.__dict__.items():
@@ -495,6 +496,21 @@ class TestSetup(Testbed):
 
     def set_testbed_ostype(self):
         self.os_type = self.get_testbed_ostype()
+
+    def set_host_params(self):
+        '''Set hostobj params  with its params defined in testbed.py only if
+           they're not initialized already
+        '''
+        dict_objs = [key for key in self.__dict__.keys() if isinstance(self.__dict__[key], dict)]
+        for dict_obj in dict_objs:
+            # skip adding hosts attribue to hosts
+            # we know roledefs never contain host definitions
+            if dict_obj == 'hosts' or dict_obj == 'roledefs':
+                continue
+            for key in self.__dict__[dict_obj].keys():
+              if key in self.hosts.keys():
+                  if getattr(self.hosts[key], dict_obj, None) is None:
+                      setattr(self.hosts[key], dict_obj, self.__dict__[dict_obj][key])
 
     @is_defined('ostypes')
     def update_host_ostypes(self):
@@ -597,6 +613,7 @@ class ServerJsonGenerator(BaseJsonGenerator):
                        "cluster_id": self.cluster_id,
                        "password": hostobj.password,
                        "domain": hostobj.domain_name,
+                       "parameters": {},
                        "network": {
                            "management_interface": hostobj.interface,
                            "provisioning": "kickstart",
@@ -655,11 +672,28 @@ class ServerJsonGenerator(BaseJsonGenerator):
         server_dict = self.update_static_route_info(server_dict, hostobj)
         return server_dict
 
+    def update_parameters_info(self, server_dict, hostobj):
+        # disks
+        if getattr(hostobj, 'storage_node_config', None):
+            if 'disks' in hostobj.storage_node_config.keys() and \
+               'journal' in  hostobj.storage_node_config.keys():
+                journal = hostobj.storage_node_config['journal'][0]
+                disks = hostobj.storage_node_config['disks']
+                server_dict['parameters']['disks'] = ["%s:%s" % (disk, journal) \
+                    for disk in hostobj.storage_node_config['disks'] \
+                    for journal in hostobj.storage_node_config['journal']]
+            elif 'disks' in hostobj.storage_node_config.keys():
+                server_dict['parameters']['disks'] = hostobj.storage_node_config['disks']
+            else:
+                log.warn("No disks defined in storage_node_config")
+        return server_dict
+
     def update(self):
         for host_id in self.testsetup.hosts:
             hostobj = self.testsetup.hosts[host_id]
             server_dict = self._initialize(hostobj)
             server_dict = self.update_network_details(server_dict, hostobj)
+            server_dict = self.update_parameters_info(server_dict, hostobj)
             self.dict_data['server'].append(server_dict)
 
     def generate_json_file(self):
@@ -688,6 +722,7 @@ class ClusterJsonGenerator(BaseJsonGenerator):
                             destination_variable_name='database_minimum_diskGB',
                             to_string=True)
         self.set_if_defined('ext_routers', cluster_dict['parameters'])
+
         # Update ha details
         if getattr(self.testsetup, 'ha', None) is not None:
             self.set_if_defined('internal_vip',cluster_dict['parameters'],
@@ -700,6 +735,18 @@ class ClusterJsonGenerator(BaseJsonGenerator):
                                 source_variable=self.testsetup.ha,
                                 function=dict.get)
             self.set_if_defined('nfs_glance_path',cluster_dict['parameters'],
+                                source_variable=self.testsetup.ha,
+                                function=dict.get)
+            self.set_if_defined('internal_virtual_router_id',cluster_dict['parameters'],
+                                source_variable=self.testsetup.ha,
+                                function=dict.get)
+            self.set_if_defined('external_virtual_router_id',cluster_dict['parameters'],
+                                source_variable=self.testsetup.ha,
+                                function=dict.get)
+            self.set_if_defined('contrail_internal_virtual_router_id',cluster_dict['parameters'],
+                                source_variable=self.testsetup.ha,
+                                function=dict.get)
+            self.set_if_defined('contrail_external_virtual_router_id',cluster_dict['parameters'],
                                 source_variable=self.testsetup.ha,
                                 function=dict.get)
 
@@ -723,6 +770,13 @@ class ClusterJsonGenerator(BaseJsonGenerator):
             self.set_if_defined('service_token', cluster_dict['parameters'],
                                 function=dict.get,
                                 source_variable=self.testsetup.openstack)
+        # Storage params
+        ceph_nfs_livem = getattr(self.testsetup, 'ceph_nfs_livem', None)
+        if ceph_nfs_livem is not None and ceph_nfs_livem is True:
+            cluster_dict['parameters']['live_migration'] = 'enable'
+        ceph_nfs_livem_host = getattr(self.testsetup, 'ceph_nfs_livem_host', None)
+        if ceph_nfs_livem_host:
+            cluster_dict['parameters']['live_migration_nfs_vm_host'] = self.testsetup.hosts[ceph_nfs_livem_host].hostname
 
         return cluster_dict
 
@@ -786,6 +840,7 @@ class ImageJsonGenerator(BaseJsonGenerator):
         replacables = ['.', '-', '~']
         for r_item, item  in zip(['_'] * len(replacables), replacables):
             image_id = image_id.replace(item, r_item)
+        image_id = package_type + '_' + image_id
 
         image_dict = {
             "id": "image_%s" % image_id,
