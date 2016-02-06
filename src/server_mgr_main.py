@@ -1800,7 +1800,14 @@ class VncServerManager():
                 image_params['sequence_provisioning_available'] = sequence_provisioning_available
                 if puppet_version not in image_params:
                     image_params['puppet_version'] = puppet_version
-                version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
+                package_name = os.path.basename(dest)
+                if package_name.endswith('.tgz'):
+                    exp = re.compile("[0-9].*")
+                    for m in exp.finditer(package_name):
+                        match_index = m.span()[0]
+                        version = package_name[match_index:-4]
+                else:
+                    version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
                 image_params['version'] = version.strip('\n')
                 package_sku = self.find_package_sku(image_id)
                 image_params['sku'] = package_sku
@@ -2453,11 +2460,16 @@ class VncServerManager():
                         msg)
             image = images[0]
             image_id = image['id']
+            package = os.path.basename(image['path'])
             if ((image['type'] == 'contrail-ubuntu-package') or
                 (image['type'] == 'contrail-centos-package') or
                 (image['type'] == 'contrail-storage-ubuntu-package')):
+                if package.endswith('.tgz'):
+                    extn = '.tgz'
+                else:
+                    extn = '.deb'
                 ext_dir = {
-                    "contrail-ubuntu-package" : ".deb",
+                    "contrail-ubuntu-package" : extn,
                     "contrail-centos-package": ".rpm",
                     "contrail-storage-ubuntu-package": ".deb"}
                 os.remove(self._args.server_manager_base_dir + 'images/' +
