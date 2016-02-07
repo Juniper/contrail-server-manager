@@ -3649,11 +3649,10 @@ class VncServerManager():
         server_params = server.get('parameters', {})
         openstack_ip = ''
         self_ip = server.get("ip_address", "")
-        if openstack_ip is None or openstack_ip == '':
-            if self_ip in role_ips_dict['openstack']:
-                openstack_ip = self_ip
-            else:
-                openstack_ip = role_ips_dict['openstack'][0]
+        if self_ip in role_ips_dict['openstack']:
+            openstack_ip = self_ip
+        else:
+            openstack_ip = role_ips_dict['openstack'][0]
 
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
@@ -3670,7 +3669,7 @@ class VncServerManager():
             if intf:
                 return '"' + str(IPNetwork(values['ip_address']).network) + '/'+ str(IPNetwork(values['ip_address']).prefixlen) + '"'
             else:
-                return '"' + str(IPNetwork(provision_params['server_ip']).network) + '/'+ str(IPNetwork(provision_params['server_ip']).prefixlen) + '"'
+                return '"' + str(IPNetwork(server['ip_address']).network) + '/'+ str(IPNetwork(server['ip_address']).prefixlen) + '"'
 
         return '"' + str(IPNetwork(subnet_address).network) + '/'+ str(IPNetwork(subnet_address).prefixlen) + '"'
     # end storage_get_control_network_mask
@@ -3799,8 +3798,10 @@ class VncServerManager():
             "live_migration_host", "")
         live_migration_ip = ""
         for role_server in role_servers['storage-compute']:
-            storage_params = (((
-                    role_server.get("parameters", {})).get(
+            role_server_params = eval(
+                role_server.get("parameters", "{}"))
+            storage_params = ((
+                    role_server_params.get(
                         "provision", {})).get(
                             "contrail", {})).get(
                                 "storage", {})
