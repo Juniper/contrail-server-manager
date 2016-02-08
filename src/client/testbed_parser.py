@@ -122,6 +122,7 @@ class Host(object):
         self.password = password
         self.host_id = '%s@%s' % (username, ip)
         self.timeout = kwargs.get('timeout', 5)
+        self.dpdk_config = {}
 
     def __del__(self):
         log.info('Disconnecting...')
@@ -446,6 +447,7 @@ class TestSetup(Testbed):
         #self.update_host_control_data()
         #self.update_host_static_route()
         #self.update_host_vrouter_params()
+        self.update_hosts_dpdk_info()
 
     def import_testbed_variables(self):
         for key, value in self.testbed.__dict__.items():
@@ -696,12 +698,23 @@ class ServerJsonGenerator(BaseJsonGenerator):
                 log.warn("No disks defined in storage_node_config")
         return server_dict
 
+    def update_dpdk_info(self, server_dict, hostobj):
+        server_dict['parameters'] = {}
+        if hostobj.dpdk_config and \
+            hostobj.dpdk_config.get('huge_pages', ''):
+            server_dict['parameters']['huge_pages'] = hostobj.dpdk_config['huge_pages']
+        if hostobj.dpdk_config and \
+            hostobj.dpdk_config.get('coremask', ''):
+            server_dict['parameters']['core_mask'] = hostobj.dpdk_config['coremask']
+        return server_dict
+
     def update(self):
         for host_id in self.testsetup.hosts:
             hostobj = self.testsetup.hosts[host_id]
             server_dict = self._initialize(hostobj)
             server_dict = self.update_network_details(server_dict, hostobj)
             server_dict = self.update_parameters_info(server_dict, hostobj)
+            server_dict = self.update_dpdk_info(server_dict, hostobj)
             self.dict_data['server'].append(server_dict)
 
     def generate_json_file(self):
