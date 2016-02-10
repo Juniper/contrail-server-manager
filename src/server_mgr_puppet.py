@@ -570,12 +570,13 @@ class ServerMgrPuppet:
                 out_dict.update(self.add_params_from_dict(
                     value, package, new_prefix))
             else:
+                # For pre3.0 contrail, we need to generate hiera data
+                # in contrail::params::... format too. This code should
+                # be removed when we stop supporting old format contrail (pre-3.0)
                 package_params = package.get("parameters", {})
-                if (package_params.get('puppet_version', 0.0) >= 3.0):
-                    prefix_to_use = new_prefix
-                else:
-                    prefix_to_use = "contrail::params::" + key
-                out_dict[prefix_to_use] = value
+                if (package_params.get('puppet_version', 0.0) < 3.0):
+                    out_dict["contrail::params::" + key] = value
+                out_dict[new_prefix] = value
         return out_dict
     # end add_params_from_dict
 
