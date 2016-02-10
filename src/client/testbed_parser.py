@@ -742,7 +742,8 @@ class ClusterJsonGenerator(BaseJsonGenerator):
         self.set_if_defined('minimum_diskGB', cluster_dict['parameters'],
                             destination_variable_name='database_minimum_diskGB',
                             to_string=True)
-        self.set_if_defined('ext_routers', cluster_dict['parameters'])
+        self.set_if_defined('ext_routers', cluster_dict['parameters'],
+                            destination_variable_name='external_bgp')
 
         # Update ha details
         if getattr(self.testsetup, 'ha', None) is not None:
