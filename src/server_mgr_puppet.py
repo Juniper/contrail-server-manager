@@ -723,16 +723,6 @@ class ServerMgrPuppet:
                set(mysql_allowed_hosts + os_ip_list + config_ip_list + role_ips_dict['config'] + role_ips_dict['openstack'] ))
         # end else openstack_params
         keystone_admin_token = (subprocess.Popen(["openssl", "rand", "-hex", "10"],stdout=subprocess.PIPE).communicate()[0]).rstrip()
-        subnet_address = str(IPNetwork(
-            openstack_ip + "/" + subnet_mask).network)
-        subnet_octets = subnet_address.split(".")
-        if subnet_octets[3] == "0":
-            subnet_octets[3] = "%"
-            if subnet_octets[2] == "0":
-                subnet_octets[2] = "%"
-                if subnet_octets[1] == "0":
-                    subnet_octets[1] = "%"
-        #mysql_allowed_hosts = openstack_ip 
         template_vals = {
             '__openstack_ip__': openstack_ip,
             '__subnet_mask__': subnet_mask,

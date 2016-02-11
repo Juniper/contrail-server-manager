@@ -3844,6 +3844,62 @@ class VncServerManager():
             server, cluster, role_servers, cluster_servers)
         contrail_params['storage']['storage_cluster_network'] = control_network
         # Build openstack parameters for openstack modules
+        self_ip = server.get("ip_address", "")
+        openstack_ips = [x["ip_address"] for x in cluster_servers if "openstack" in eval(x.get('roles', '[]'))]
+        if self_ip in openstack_ips:
+            openstack_ip = self_ip
+        else:
+            openstack_ip = openstack_ips[0]
+        subnet_mask = server.get("subnet_mask", "")
+        if not subnet_mask:
+            subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
+        net_and_mask = openstack_ip + "/" + subnet_mask
+        mysql_root_password = "c0ntrail123"
+        keystone_admin_password = "contrail123"
+        keystone_admin_token = "contrail123"
+        heat_encryption_key = cluster_params.get("heat_encryption_key", "notgood but just long enough i think")
+        openstack_params['network'] = {
+            "api": net_and_mask,
+            "external": net_and_mask,
+            "management": net_and_mask,
+            "data": net_and_mask,
+        }
+        openstack_params['controller'] = {
+            "address": {
+                 "api": openstack_ip,
+                 "management": openstack_ip
+             }
+        }
+        openstack_params['storage'] = {
+            "address": {
+                 "api": openstack_ip,
+                 "management": openstack_ip
+             }
+        }
+        openstack_params['mysql'] = {
+             "root_password": mysql_root_password,
+             "service_password": mysql_root_password,
+             "allowed_hosts": ['localhost', '127.0.0.1'] + mysql_allowed_hosts
+        }
+        openstack_params['keystone'] = {
+             "admin_token": keystone_admin_token,
+             "admin_password": keystone_admin_password
+        }
+        openstack_params['glance'] = {"password": keystone_admin_password}
+        openstack_params['cinder'] = {"password": keystone_admin_password}
+        openstack_params['swift'] = {"password": keystone_admin_password}
+        openstack_params['nova'] = {"password": keystone_admin_password}
+        openstack_params['horizon'] = {"password": keystone_admin_password}
+        openstack_params['neutron'] = {"password": keystone_admin_password}
+        openstack_params['heat'] = {
+            "password": keystone_admin_password,
+            "encryption_key": heat_encryption_key
+        }
+        openstack_params['ceilometer'] = {
+            "password": keystone_admin_password,
+            "mongo": {"password": keystone_admin_password}
+        }
+
         contrail_params = ServerMgrUtil.convert_unicode(contrail_params)
         openstack_params = ServerMgrUtil.convert_unicode(openstack_params)
         cluster['calc_params'] = {
