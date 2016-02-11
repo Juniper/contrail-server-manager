@@ -219,6 +219,17 @@ class ServerMgrPuppet:
         # end with
     # end def add_node_entry
 
+    def add_node_entry_new(
+        self, site_file, server_fqdn):
+        data = "node \'%s\' {\n" %server_fqdn
+        data += "   class { '::contrail::contrail_all': }\n"
+        data += "}\n"
+        with open(site_file, "a") as site_fh:
+            site_fh.write(data)
+        # end with
+        os.chmod(site_file, 0644)
+    # end def add_node_entry_new
+
     def add_cluster_parameters(self, cluster_params):
         cluster_params_mapping = {
             "uuid" : ["uuid", "string"],
@@ -826,9 +837,14 @@ class ServerMgrPuppet:
         # First, delete any existing entry and then add a new one.
         self.delete_node_entry(site_file, server_fqdn)
         # Now add a new node entry
-        self.add_node_entry(
-            site_file, server_fqdn, server, cluster, cluster_servers,
-            package_params.get("puppet_version", 0.0))
+        puppet_version = package_params.get("puppet_version", 0.0)
+        if (puppet_version >= 3.0):
+            self.add_node_entry_new(
+                site_file, server_fqdn)
+        else:
+            self.add_node_entry(
+                site_file, server_fqdn, server,
+                cluster, cluster_servers, puppet_version)
 
         # Add entry for the server to environment mapping in 
         # node_mapping.json file.
