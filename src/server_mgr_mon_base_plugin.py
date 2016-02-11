@@ -33,6 +33,8 @@ import ast
 from gevent import monkey
 monkey.patch_all(thread=not 'unittest' in sys.modules)
 from threading import Thread
+from bottle import route, run, request, abort
+from server_mgr_err import *
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_ssh_client import ServerMgrSSHClient
@@ -676,35 +678,35 @@ class ServerMgrMonBasePlugin():
         self._smgr_log.log(self._smgr_log.DEBUG, "Created server dictionary.")
         return return_dict
 
-    @staticmethod
     def get_mon_conf_details(self):
-        return "Monitoring Parameters haven't been configured.\n" \
-               "Reset the configuration correctly and restart Server Manager.\n"
+        resp = self.return_error("Monitoring Parameters haven't been configured.\n"
+                                 "Reset the configuration correctly and restart Server Manager.\n")
+        abort(404, resp)
 
-    @staticmethod
     def get_inv_conf_details(self):
-        return "Inventory Parameters haven't been configured.\n" \
-               "Reset the configuration correctly and restart Server Manager.\n"
+        resp = self.return_error("Inventory Parameters haven't been configured.\n"
+                                 "Reset the configuration correctly and restart Server Manager.\n")
+        abort(404, resp)
 
-    @staticmethod
     def get_inventory_info(self):
-        return "Inventory Parameters haven't been configured.\n" \
-               "Reset the configuration correctly and restart Server Manager.\n"
+        resp = self.return_error("Inventory Parameters haven't been configured.\n"
+                                 "Reset the configuration correctly and restart Server Manager.\n")
+        abort(404, resp)
 
-    @staticmethod
     def get_monitoring_info(self):
-        return "Monitoring Parameters haven't been configured.\n" \
-               "Reset the configuration correctly and restart Server Manager.\n"
+        resp = self.return_error("Monitoring Parameters haven't been configured.\n"
+                                 "Reset the configuration correctly and restart Server Manager.\n")
+        abort(404, resp)
 
-    @staticmethod
     def get_monitoring_info_summary(self):
-        return "Monitoring Parameters haven't been configured.\n" \
-               "Reset the configuration correctly and restart Server Manager.\n"
+        resp = self.return_error("Monitoring Parameters haven't been configured.\n"
+                                 "Reset the configuration correctly and restart Server Manager.\n")
+        abort(404, resp)
 
-    @staticmethod
     def run_inventory(self):
-        return "Inventory Parameters haven't been configured.\n" \
-               "Reset the configuration correctly and restart Server Manager.\n"
+        resp = self.return_error("Inventory Parameters haven't been configured.\n"
+                                 "Reset the configuration correctly and restart Server Manager.\n")
+        abort(404, resp)
 
     def handle_inventory_trigger(self, action=None, servers=None):
         self._smgr_log.log(self._smgr_log.INFO, "Inventory of added servers will not be read.")
@@ -722,6 +724,15 @@ class ServerMgrMonBasePlugin():
                            "No cleanup needed.\n")
         return "Inventory Parameters haven't been configured.\n" \
                "Reset the configuration correctly and restart Server Manager.\n"
+
+    def return_error(self, msg, ret_code=ERR_GENERAL_ERROR, data=None):
+        self._smgr_log.log(self._smgr_log.ERROR, msg)
+        return_data = dict()
+        return_data['return_code'] = ret_code
+        return_data['return_msg'] = msg
+        return_data['return_data'] = data
+        resp = json.dumps(return_data, sort_keys=True, indent=4)
+        return resp
 
     # A place-holder run function that the Server Monitor defaults to in the absence of a configured
     # monitoring API layer to use.
