@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+from netaddr import IPNetwork
 
 # Testbed Converter Version
 __version__ = '1.0'
@@ -130,9 +131,16 @@ class Server(object):
 
     def set_mgmt_ip_address(self, ):
         self.set_mgmt_interface()
+        self.sm = False
         for iface_dict in self.network['interfaces']:
-            if iface_dict['name'] == self.mgmt_iface:
-                self.ip, self.cidr = iface_dict['ip_address'].split('/')
+            if iface_dict['ip_address']:
+               ip = str(IPNetwork(iface_dict['ip_address']).ip)
+               cidr = str(IPNetwork(iface_dict['ip_address']).prefixlen)
+               if iface_dict['name'] == self.mgmt_iface:
+                   self.ip, self.cidr = ip, cidr
+               if ip == self.server_manager_ip:
+                   self.sm = True
+
 
     def connect(self):
         self.set_mgmt_ip_address()
@@ -422,7 +430,7 @@ class Server(object):
 
     def remove_puppet_ssl(self):
         log.info('Remove puppet ssl for non-server-manager node')
-        if self.ip != self.server_manager_ip:
+        if not self.sm:
             if self.domain:
                 fqdn = '%s.%s' % (self.id, self.domain)
             else:

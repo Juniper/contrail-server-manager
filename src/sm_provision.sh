@@ -24,6 +24,9 @@ SOURCES_LIST="sources_list"
 TESTBED="testbed.py"
 DEFAULT_DOMAIN=""
 CONTRAIL_PKG=""
+CONTRAIL_STORAGE_PKG=""
+STORAGE_KEYS_INI=""
+HOSTIP=""
 INSTALL_SM_LITE="install_sm_lite"
 CLEANUP_PUPPET_AGENT=""
 NO_LOCAL_REPO=1
@@ -40,6 +43,8 @@ function usage()
     echo "$0"
     echo -e "\t-h --help"
     echo -e "\t-c|--contrail-package <pkg>"
+    echo -e "\t-cs|--contrail-storage-package <pkg>"
+    echo -e "\t-sk|--storage-keys-ini-file <file>"
     echo -e "\t-t|--testbed <testbed.py>"
     echo -e "\t-d|--default-domain <domain name>"
     echo -e  "\t-ni|--no-install-sm-lite"
@@ -48,6 +53,7 @@ function usage()
     echo -e "\t-nm|--no-sm-mon"
     echo -e "\t-nw|--no-sm-webui"
     echo -e "\t-swp|--sm-webui-port"
+    echo -e "\t-ip|--hostip"
     echo -e "\t-cid|--cluster-id <cluster-id>"
     echo ""
 }
@@ -64,6 +70,14 @@ while [[ $# > 0 ]]
     case $key in
         -c|--contrail-package)
         CONTRAIL_PKG="$2"
+        shift # past argument
+        ;;
+        -cs|--contrail-storage-package)
+        CONTRAIL_STORAGE_PKG="$2"
+        shift # past argument
+        ;;
+        -sk|--storage-keys-ini-file)
+        STORAGE_KEYS_INI="$2"
         shift # past argument
         ;;
         -t|--testbed)
@@ -94,6 +108,10 @@ while [[ $# > 0 ]]
         ;;
         -cid|--cluster-id)
         CLUSTER_ID="$2"
+        shift # past argument
+        ;;
+        -ip|--hostip)
+        HOSTIP="$2"
         shift # past argument
         ;;
         -h|--help)
@@ -128,6 +146,10 @@ function get_real_path ()
 # Update with real path
 CONTRAIL_PKG=$(get_real_path $CONTRAIL_PKG)
 TESTBED=$(get_real_path $TESTBED)
+
+if [ -f "$CONTRAIL_STORAGE_PKG" ]; then
+    CONTRAIL_STORAGE_PKG=$(get_real_path $CONTRAIL_STORAGE_PKG)
+fi
 
 function unmount_contrail_local_repo()
 {
@@ -215,7 +237,11 @@ if [ "$INSTALL_SM_LITE" != "" ]; then
 
    echo "$arrow Install server manager without cobbler option"
    pushd /opt/contrail/contrail_server_manager >> $log_file 2>&1
-   ./setup.sh --all --smlite ${NO_SM_MON} ${NO_SM_WEBUI}
+   optional_args=""
+   if [ ! -z "$HOSTIP" ]; then
+       optional_args="--hostip=$HOSTIP"
+   fi
+   ./setup.sh --all --smlite ${NO_SM_MON} ${NO_SM_WEBUI} $optional_args
    popd >> $log_file 2>&1
 fi 
 
@@ -228,8 +254,15 @@ fi
 echo "$space$arrow Convert testbed.py to server manager entities"
 # Convert testbed.py to server manager object json files
 optional_args=""
+if [ ! -z "$CONTRAIL_STORAGE_PKG" ]; then
+    optional_args="--contrail-storage-packages ${CONTRAIL_STORAGE_PKG}"
+fi
+if [ ! -z "$STORAGE_KEYS_INI" ]; then
+    STORAGE_KEYS_INI=$(python -c "import os; import sys; print(os.path.abspath(sys.argv[1]))" $STORAGE_KEYS_INI)
+    optional_args="$optional_args --storage-keys-ini-file $STORAGE_KEYS_INI"
+fi
 if [ ! -z "$CLUSTER_ID" ]; then
-    optional_args="--cluster-id $CLUSTER_ID"
+    optional_args="$optional_args --cluster-id $CLUSTER_ID"
 fi
 cd $PROVISION_DIR && /opt/contrail/server_manager/client/testbed_parser.py --testbed ${TESTBED} --contrail-packages ${CONTRAIL_PKG} $optional_args
 
