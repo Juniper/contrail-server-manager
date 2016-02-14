@@ -691,7 +691,7 @@ class ServerJsonGenerator(BaseJsonGenerator):
         self.set_if_defined('gw', control_data_dict,
                             source_variable=hostobj.control_data,
                             function=dict.get,
-                            destination_variable_name='gateway')
+                            destination_variable_name='default_gateway')
         self.set_if_defined('vlan', control_data_dict,
                             source_variable=hostobj.control_data,
                             function=dict.get)
