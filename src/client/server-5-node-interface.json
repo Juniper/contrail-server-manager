@@ -17,7 +17,7 @@
             "control_data_network": {
                "eth1": {
                     "ip_address": "192.168.100.1/24",
-                    "gateway": ""
+                    "default_gateway": ""
                 }
             },
             "ipmi_address": "10.207.25.151"
@@ -39,7 +39,7 @@
             "control_data_network": {
                "bond0": {
                     "ip_address": "192.168.100.2/24",
-                    "gateway": ""
+                    "default_gateway": ""
                 }
             },
             "bond_interface": {
@@ -68,7 +68,7 @@
             "control": {
                "eth1": {
                     "ip_address": "192.168.100.3/24",
-                    "gateway": ""
+                    "default_gateway": ""
                 }
             },
             "ipmi_address": "10.207.25.87"
@@ -91,7 +91,7 @@
             "control": {
                "eth1": {
                     "ip_address": "192.168.100.4/24",
-                    "gateway": ""
+                    "default_gateway": ""
                 }
             },
             "ipmi_address": "10.207.25.89"
@@ -113,7 +113,7 @@
             "control": {
                "eth1": {
                     "ip_address": "192.168.100.5/24",
-                    "gateway": ""
+                    "default_gateway": ""
                 }
             },
             "ipmi_address": "10.207.25.154"
