@@ -22,6 +22,8 @@ start_time=$(date +"%s")
 TESTBED="testbed.py"
 DEFAULT_DOMAIN=""
 CONTRAIL_PKG=""
+CONTRAIL_STORAGE_PKG=""
+STORAGE_KEYS_INI=""
 CLUSTER_ID="cluster_auto_$RANDOM"
 NO_SM_MON=""
 NO_SM_WEBUI=""
@@ -35,6 +37,8 @@ function usage()
     echo -e "\t-h --help"
     echo -e "\t-c|--contrail-package <pkg>"
     echo -e "\t-t|--testbed <testbed.py>"
+    echo -e "\t-cs|--contrail-storage-package <pkg>"
+    echo -e "\t-sk|--storage-keys-ini-file <file>"
     echo -e "\t-cid|--cluster-id <cluster-id>"
     echo ""
 }
@@ -58,6 +62,14 @@ while [[ $# > 0 ]]; do
         ;;
         -cid|--cluster-id)
         CLUSTER_ID="$2"
+        shift # past argument
+        ;;
+        -cs|--contrail-storage-package)
+        CONTRAIL_STORAGE_PKG="$2"
+        shift # past argument
+        ;;
+        -sk|--storage-keys-ini-file)
+        STORAGE_KEYS_INI="$2"
         shift # past argument
         ;;
         -h|--help)
@@ -96,8 +108,15 @@ TESTBED=$(get_real_path $TESTBED)
 echo "$space$arrow Convert testbed.py to server manager entities"
 # Convert testbed.py to server manager object json files
 optional_args=""
+if [ ! -z "$CONTRAIL_STORAGE_PKG" ]; then
+    optional_args="--contrail-storage-packages ${CONTRAIL_STORAGE_PKG}"
+fi
+if [ ! -z "$STORAGE_KEYS_INI" ]; then
+    STORAGE_KEYS_INI=$(python -c "import os; import sys; print(os.path.abspath(sys.argv[1]))" $STORAGE_KEYS_INI)
+    optional_args="--storage-keys-ini-file $STORAGE_KEYS_INI"
+fi
 if [ ! -z "$CLUSTER_ID" ]; then
-    optional_args="--cluster-id $CLUSTER_ID"
+    optional_args="$optional_args --cluster-id $CLUSTER_ID"
 fi
 cd $PROVISION_DIR && $SCRIPT_PATH/testbed_parser.py --testbed ${TESTBED} --contrail-packages ${CONTRAIL_PKG} $optional_args
 

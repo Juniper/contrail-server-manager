@@ -12,6 +12,7 @@ import re
 import shutil
 import socket
 import sys
+import ConfigParser
 from tempfile import mkdtemp
 
 # Testbed Converter Version
@@ -72,6 +73,9 @@ class Utils(object):
                             default=[],
                             help='Absolute path to Contrail Storage Package file, '\
                                  'Multiple files can be separated with space')
+        parser.add_argument('--storage-keys-ini-file',
+                            default=None,
+                            help='Provide storage keys for storage cluster creation')
         parser.add_argument('--cluster-id',
                             action='store',
                             default=None,
@@ -91,6 +95,9 @@ class Utils(object):
             cliargs.contrail_storage_packages = [('contrail_storage_packages', pkg_file) \
                 for pkg_file in Utils.get_abspath(*Utils.is_file_exists(*cliargs.contrail_storage_packages))]
 
+        if cliargs.storage_keys_ini_file:
+            cliargs.storage_keys_ini_file = Utils.get_abspath(*Utils.is_file_exists(cliargs.storage_keys_ini_file))[0]
+
         # update log level and log file
         log_level = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
         cliargs.v = cliargs.v if cliargs.v <= 3 else 3
@@ -98,13 +105,27 @@ class Utils(object):
         return cliargs
 
     @staticmethod
+    def get_section_from_ini_file(file_name, section):
+        section_items = {}
+        if not file_name:
+            return section_items
+        ini_config = ConfigParser.SafeConfigParser()
+        ini_config.read(file_name)
+        if section in ini_config.sections():
+            section_items = dict(ini_config.items(section))
+        return section_items
+
+    @staticmethod
     def converter(args):
         testsetup = TestSetup(testbed=args.testbed, cluster_id=args.cluster_id)
         testsetup.connect()
         testsetup.update()
-        server_json = ServerJsonGenerator(testsetup=testsetup)
+        server_json = ServerJsonGenerator(testsetup=testsetup, 
+                                          storage_packages=args.contrail_storage_packages)
         server_json.generate_json_file()
-        cluster_json = ClusterJsonGenerator(testsetup=testsetup)
+        storage_keys = Utils.get_section_from_ini_file(args.storage_keys_ini_file, 'STORAGE-KEYS')
+        cluster_json = ClusterJsonGenerator(testsetup=testsetup, 
+                                            storage_keys=storage_keys)
         cluster_json.generate_json_file()
         package_files = args.contrail_packages + args.contrail_storage_packages
         image_json = ImageJsonGenerator(testsetup=testsetup,
@@ -571,6 +592,7 @@ class BaseJsonGenerator(object):
         name = kwargs.get('name', 'contrail')
         abspath = kwargs.get('abspath', None)
         self.package_files = kwargs.get('package_files', None)
+        self.storage_package_files = kwargs.get('storage_packages', None)
         self.jsonfile = abspath or '%s.json' % name
         self.cluster_id = self.testsetup.cluster_id or "cluster"
         self.dict_data = {}
@@ -696,10 +718,19 @@ class ServerJsonGenerator(BaseJsonGenerator):
                 server_dict['parameters']['disks'] = hostobj.storage_node_config['disks']
             else:
                 log.warn("No disks defined in storage_node_config")
+            if 'chassis' in hostobj.storage_node_config.keys():
+                server_dict['parameters']['storage_chassis_id'] = hostobj.storage_node_config['chassis']
+        if getattr(hostobj, 'roles', None) and self.storage_package_files:
+            if 'storage-master' in hostobj.roles or \
+               'storage-compute' in hostobj.roles:
+               package_type, package_file = self.storage_package_files[0]
+               version = ImageUtils.get_version(package_file, self.testsetup.os_type)
+               image_id = ImageUtils.get_image_id(version, package_type)
+               server_dict['parameters']['storage_repo_id'] = image_id
         return server_dict
 
+
     def update_dpdk_info(self, server_dict, hostobj):
-        server_dict['parameters'] = {}
         if hostobj.dpdk_config and \
             hostobj.dpdk_config.get('huge_pages', ''):
             server_dict['parameters']['huge_pages'] = hostobj.dpdk_config['huge_pages']
@@ -725,6 +756,7 @@ class ClusterJsonGenerator(BaseJsonGenerator):
     def __init__(self, testsetup, **kwargs):
         kwargs.update([('name', kwargs.get('name', 'cluster'))])
         super(ClusterJsonGenerator, self).__init__(testsetup=testsetup, **kwargs)
+        self.storage_keys = kwargs.get('storage_keys', None)
         self.dict_data = {"cluster": []}
 
     def _initialize(self):
@@ -744,6 +776,17 @@ class ClusterJsonGenerator(BaseJsonGenerator):
                             to_string=True)
         self.set_if_defined('ext_routers', cluster_dict['parameters'],
                             destination_variable_name='external_bgp')
+
+        # Update storage keys
+        self.set_if_defined('storage_mon_secret', cluster_dict['parameters'],
+                            source_variable=self.storage_keys,
+                            function=dict.get)
+        self.set_if_defined('osd_bootstrap_key', cluster_dict['parameters'],
+                            source_variable=self.storage_keys,
+                            function=dict.get)
+        self.set_if_defined('admin_key', cluster_dict['parameters'],
+                            source_variable=self.storage_keys,
+                            function=dict.get)
 
         # Update ha details
         if getattr(self.testsetup, 'ha', None) is not None:
@@ -807,25 +850,16 @@ class ClusterJsonGenerator(BaseJsonGenerator):
         self.dict_data['cluster'].append(cluster_dict)
         self.generate()
 
-class ImageJsonGenerator(BaseJsonGenerator):
-    def __init__(self, testsetup, package_files, **kwargs):
-        kwargs.update([('name', kwargs.get('name', 'image'))])
-        super(ImageJsonGenerator, self).__init__(testsetup=testsetup,
-                                                 package_files=package_files,
-                                                 **kwargs)
-        self.dict_data = {"image": []}
-        self.package_types = {'deb': 'package', 'rpm': 'package',
-                             'iso': 'image', 'tgz': 'package',
-                             'tar.gz': 'tgz'}
-
-    def get_version(self, package_file):
+class ImageUtils(object):
+    @staticmethod
+    def get_version(package_file, os_type):
         version = ''
         # only rpm or deb version can be retrieved
         if not (package_file.endswith('.rpm') or package_file.endswith('.deb') or package_file.endswith('.tgz')):
             return ""
-        if self.testsetup.os_type[0] in ['centos', 'fedora', 'redhat', 'centoslinux']:
+        if os_type[0] in ['centos', 'fedora', 'redhat', 'centoslinux']:
             cmd = "rpm -qp --queryformat '%%{VERSION}-%%{RELEASE}\\n' %s" % package_file
-        elif self.testsetup.os_type[0] in ['ubuntu']:
+        elif os_type[0] in ['ubuntu']:
             package_name = os.path.basename(package_file)
             if package_name.endswith('.tgz'):
                 exp = re.compile("[0-9].*")
@@ -838,8 +872,29 @@ class ImageJsonGenerator(BaseJsonGenerator):
                 version = pid.read().strip()
                 pid.flush()
         else:
-            raise Exception("ERROR: UnSupported OS Type (%s)" % self.testsetup.os_type)
+            raise Exception("ERROR: UnSupported OS Type (%s)" % os_type)
         return version
+
+    @staticmethod
+    def get_image_id(image_id, package_type):
+        replacables = ['.', '-', '~']
+        for r_item, item  in zip(['_'] * len(replacables), replacables):
+            image_id = image_id.replace(item, r_item)
+        image_id = package_type + '_' + image_id
+        return "image_%s" % image_id
+
+
+
+class ImageJsonGenerator(BaseJsonGenerator):
+    def __init__(self, testsetup, package_files, **kwargs):
+        kwargs.update([('name', kwargs.get('name', 'image'))])
+        super(ImageJsonGenerator, self).__init__(testsetup=testsetup,
+                                                 package_files=package_files,
+                                                 **kwargs)
+        self.dict_data = {"image": []}
+        self.package_types = {'deb': 'package', 'rpm': 'package',
+                             'iso': 'image', 'tgz': 'package',
+                             'tar.gz': 'tgz'}
 
     def get_category(self, package_file):
         category = 'package'
@@ -865,14 +920,10 @@ class ImageJsonGenerator(BaseJsonGenerator):
         return md5sum.split()[0]
 
     def _initialize(self, package_file, package_type):
-        image_id = version = self.get_version(package_file)
-        replacables = ['.', '-', '~']
-        for r_item, item  in zip(['_'] * len(replacables), replacables):
-            image_id = image_id.replace(item, r_item)
-        image_id = package_type + '_' + image_id
-
+        version = ImageUtils.get_version(package_file, self.testsetup.os_type)
+        image_id = ImageUtils.get_image_id(version, package_type)
         image_dict = {
-            "id": "image_%s" % image_id,
+            "id": image_id,
             "category": self.get_category(package_file),
             "version": version,
             "type": self.get_package_type(package_file, package_type),
