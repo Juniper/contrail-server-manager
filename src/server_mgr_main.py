@@ -1401,10 +1401,6 @@ class VncServerManager():
                         msg = "image not found at %s" % \
                                                 (image_path)
                         raise ServerMgrException(msg, ERR_OPR_ERROR)
-                    extn = os.path.splitext(image_path)[1]
-                    dest = self._args.server_manager_base_dir + 'images/' + \
-                        image_id + extn
-                    subprocess.check_call(["cp", "-f", image_path, dest])
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") ):
                         if not self.validate_package_id(image_id):
@@ -1412,7 +1408,7 @@ class VncServerManager():
                             self.log_and_raise_exception(msg)
 
                         puppet_manifest_version, sequence_provisioning_available, puppet_version  = self._create_repo(
-                            image_id, image_type, image_version, dest)
+                            image_id, image_type, image_version, image_path)
                         image_params['puppet_manifest_version'] = \
                             puppet_manifest_version
                         image_params['sequence_provisioning_available'] = sequence_provisioning_available
@@ -1435,7 +1431,7 @@ class VncServerManager():
                         image_params['sku'] = package_sku
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
-                            image_id, image_type, image_version, dest)
+                            image_id, image_type, image_version, image_path)
                         version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
                         image_params['version'] = version.strip('\n')
                     else:
@@ -1460,7 +1456,7 @@ class VncServerManager():
                                                   kickseed_dest])
                         image_params['kickstart'], image_params['kickseed'] = \
                                     self._add_image_to_cobbler(image_id, image_type,
-                                    image_version, dest,
+                                    image_version, image_path,
                                     kickstart_dest, kickseed_dest)
                     image_data = {
                         'id': image_id,
@@ -1844,6 +1840,8 @@ class VncServerManager():
                 'category' : image_category,
                 'parameters' : image_params}
             self._serverDb.add_image(image_data)
+            # Removing the package/image from /etc/contrail_smgr/images/ after it has been added
+            os.remove(dest)
         except subprocess.CalledProcessError as e:
             msg = ("upload_image: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
@@ -2472,8 +2470,9 @@ class VncServerManager():
                     "contrail-ubuntu-package" : extn,
                     "contrail-centos-package": ".rpm",
                     "contrail-storage-ubuntu-package": ".deb"}
-                os.remove(self._args.server_manager_base_dir + 'images/' +
-                          image_id + ext_dir[image['type']])
+                if os.path.isfile(self._args.server_manager_base_dir + 'images/' + image_id + ext_dir[image['type']]):
+                    os.remove(self._args.server_manager_base_dir + 'images/' +
+                              image_id + ext_dir[image['type']])
 
                 # remove repo dir
                 shutil.rmtree(
@@ -2489,8 +2488,9 @@ class VncServerManager():
                     # Sync the above information
                     self._smgr_cobbler.sync()
                 # remove the file
-                os.remove(self._args.server_manager_base_dir + 'images/' +
-                          image_id + '.iso')
+                if os.path.isfile(self._args.server_manager_base_dir + 'images/' + image_id + '.iso'):
+                        os.remove(self._args.server_manager_base_dir + 'images/' +
+                                  image_id + '.iso')
                 # Remove the tree copied under cobbler.
                 dir_path = self._args.html_root_dir + \
                     'contrail/images/' + image_id
