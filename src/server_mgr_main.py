@@ -2479,6 +2479,19 @@ class VncServerManager():
                 shutil.rmtree(
                     self._args.html_root_dir + "contrail/repo/" +
                     image_id, True)
+                # remove puppet modules
+                # new contrail packages manifests dir
+                puppet_manifest_dir = "/etc/puppet/environments/" + image_id.replace('-', '_')
+                if os.path.isdir(puppet_manifest_dir):
+                    shutil.rmtree(
+                        puppet_manifest_dir, True
+                    )
+                # old contrail packages manifests dir
+                puppet_manifest_old_dir = "/etc/puppet/environments/contrail_" + image_id
+                if os.path.isdir(puppet_manifest_old_dir):
+                    shutil.rmtree(
+                        puppet_manifest_old_dir, True
+                    )
                 # delete repo from cobbler
                 if self._smgr_cobbler:
                     self._smgr_cobbler.delete_repo(image_id)
