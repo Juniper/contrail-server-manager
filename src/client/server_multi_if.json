@@ -130,7 +130,7 @@
                     {
                         "name": "bond0",
                         "type": "bond",
-                        "gateway": "192.168.100.254", 
+                        "default_gateway": "192.168.100.254", 
                         "ip_address": "192.168.100.1/24",
                         "bond_options": {"miimon": "100", "mode": "802.3ad","xmit_hash_policy": "layer3+4"},
                         "member_interfaces": ["eth1", "eth2", "eth3", "eth4"]
