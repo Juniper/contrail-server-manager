@@ -3868,6 +3868,7 @@ class VncServerManager():
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
         net_and_mask = openstack_ip + "/" + subnet_mask
         mysql_root_password = "c0ntrail123"
+        mysql_service_password = "c0ntrail123"
         keystone_admin_password = "contrail123"
         keystone_admin_token = "contrail123"
         heat_encryption_key = cluster_params.get("heat_encryption_key", "notgood but just long enough i think")
@@ -3891,7 +3892,7 @@ class VncServerManager():
         }
         openstack_params['mysql'] = {
              "root_password": mysql_root_password,
-             "service_password": mysql_root_password,
+             "service_password": mysql_service_password,
              "allowed_hosts": ['localhost', '127.0.0.1'] + mysql_allowed_hosts
         }
         openstack_params['keystone'] = {

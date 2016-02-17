@@ -835,6 +835,10 @@ class ClusterJsonGenerator(BaseJsonGenerator):
             self.set_if_defined('service_token', cluster_dict['parameters'],
                                 function=dict.get,
                                 source_variable=self.testsetup.openstack)
+            self.set_if_defined('service_dbpass', cluster_dict['parameters'],
+                                function=dict.get,
+                                source_variable=self.testsetup.openstack,
+                                destination_variable_name='mysql_service_password')
         # Storage params
         ceph_nfs_livem = getattr(self.testsetup, 'ceph_nfs_livem', None)
         if ceph_nfs_livem is not None and ceph_nfs_livem is True:

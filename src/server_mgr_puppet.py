@@ -700,6 +700,7 @@ class ServerMgrPuppet:
         openstack_params = new_provision_params.get("openstack", {})
         if new_provision_params:
             mysql_root_password = openstack_params.get("mysql_root_password", "c0ntrail123")
+            mysql_service_password = openstack_params.get("mysql_service_password", "c0ntrail123")
             keystone_admin_password = openstack_params.get("keystone_password", "contrail123")
             heat_encryption_key = openstack_params.get("heat_encryption_key", "notgood but just long enough i think")
             mysql_allowed_hosts = openstack_params.get("mysql_allowed_hosts", [])
@@ -709,6 +710,7 @@ class ServerMgrPuppet:
             # end if
         else:
             mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
+            mysql_service_password = cluster_params.get("mysql_service_password", "c0ntrail123")
             keystone_admin_password = cluster_params.get("keystone_password", "contrail123")
             heat_encryption_key = cluster_params.get("heat_encryption_key", "notgood but just long enough i think")
             # Calculate list of hosts with mysql access granted.
@@ -738,7 +740,7 @@ class ServerMgrPuppet:
             '__openstack_ip__': openstack_ip,
             '__subnet_mask__': subnet_mask,
             '__mysql_root_password__': mysql_root_password,
-            '__mysql_service_password__': mysql_root_password,
+            '__mysql_service_password__': mysql_service_password,
             '__keystone_admin_token__': keystone_admin_token,
             '__keystone_admin_password__': keystone_admin_password,
             '__mysql_allowed_hosts__': (', '.join("'" + item + "'" for item in mysql_allowed_hosts)),
