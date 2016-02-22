@@ -529,11 +529,14 @@ class ServerMgrDb:
             # Store cluster_parameters dictionary as a text field
             if 'parameters' in cluster_data:
                 cluster_parameters = cluster_data.pop("parameters")
+                remove = []
                 if not cluster_parameters:
                     cluster_parameters = {}
                 for k, v in cluster_parameters.iteritems():
                     if v is None:
-                        cluster_parameters.pop(k, None)
+                        remove.append(k)
+                for k in remove:
+                    cluster_parameters.pop(k, None) 
                 cluster_data['parameters'] = str(cluster_parameters)
             # Store provision sequence list as a text field
             provision_role_sequence = cluster_data.pop("provision_role_sequence",
