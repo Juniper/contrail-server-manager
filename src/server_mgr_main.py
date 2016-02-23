@@ -88,6 +88,7 @@ _DEF_COBBLER_PASSWORD = 'cobbler'
 _DEF_IPMI_USERNAME = 'ADMIN'
 _DEF_IPMI_PASSWORD = 'ADMIN'
 _DEF_IPMI_TYPE = 'ipmilan'
+_DEF_IPMI_INTERFACE = None
 _DEF_PUPPET_DIR = '/etc/puppet/'
 _DEF_COLLECTORS_IP = "['127.0.0.1:8086']"
 _DEF_INTROSPECT_PORT = 8107
@@ -2786,6 +2787,9 @@ class VncServerManager():
                 reimage_parameters['ipmi_password'] = server.get('ipmi_password')
                 if not reimage_parameters['ipmi_password']:
                     reimage_parameters['ipmi_password'] = self._args.ipmi_password
+                reimage_parameters['ipmi_interface'] = server.get('ipmi_interface')
+                if not reimage_parameters['ipmi_interface']:
+                    reimage_parameters['ipmi_interface'] = self._args.ipmi_interface
                 reimage_parameters['ipmi_address'] = server.get(
                     'ipmi_address', '')
                 reimage_parameters['partition'] = server_parameters.get('partition', '')
@@ -4481,6 +4485,7 @@ class VncServerManager():
             'ipmi_username': _DEF_IPMI_USERNAME,
             'ipmi_password': _DEF_IPMI_PASSWORD,
             'ipmi_type': _DEF_IPMI_TYPE,
+            'ipmi_interface': _DEF_IPMI_INTERFACE,
             'puppet_dir': _DEF_PUPPET_DIR,
             'collectors': _DEF_COLLECTORS_IP,
             'http_introspect_port': _DEF_INTROSPECT_PORT,
@@ -4770,7 +4775,8 @@ class VncServerManager():
                 reimage_parameters.get('ipmi_address',''),
                 base_image, self._args.listen_ip_addr,
                 reimage_parameters.get('partition', ''),
-                reimage_parameters.get('config_file', None))
+                reimage_parameters.get('config_file', None),
+                reimage_parameters.get('ipmi_interface',self._args.ipmi_interface))
         except Exception as e:
             msg = "Server %s reimaged failed" % reimage_parameters['server_id']
             self._smgr_log.log(self._smgr_log.ERROR, msg)
