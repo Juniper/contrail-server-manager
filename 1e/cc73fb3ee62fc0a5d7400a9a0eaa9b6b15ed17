@@ -1,0 +1,9 @@
+Verified+2: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: prasad miriyala <pmiriyala@juniper.net>
+Code-Review+2: prasad miriyala <pmiriyala@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Tue, 23 Feb 2016 08:31:15 -0800
+Reviewed-on: https://review.opencontrail.org/17588
+Project: Juniper/contrail-server-manager
+Branch: refs/heads/master
