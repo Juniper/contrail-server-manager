@@ -75,6 +75,7 @@ object_dict = {
         ("ipmi_password", "IPMI password"),
         ("ipmi_username", "IPMI username"),
         ("ipmi_address", "IPMI address"),
+        ("ipmi_interface", "IPMI interface"),
         ("email", "email id for notifications (default use value from server's cluster)"),
         ("base_image_id", "Base image id"),
         ("package_image_id", "Package id")
