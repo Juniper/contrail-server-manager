@@ -242,7 +242,7 @@ class ServerMgrCobbler(object):
                       ifname, enc_passwd, server_license, esx_nicname,
                       power_type, power_user, power_pass, power_address,
                       base_image, server_ip, partition=None,
-                      node_cfg = None):
+                      node_cfg = None, ipmi_interface='lan'):
         try:
             # Validate cobbler token
             self._validate_token(self._token)
@@ -307,6 +307,7 @@ class ServerMgrCobbler(object):
             ks_metadata += ' ip_address=' + ip
             ks_metadata += ' system_name=' + system_name
             ks_metadata += ' system_domain=' + system_domain
+            ks_metadata += ' ipmi_interface=' + ipmi_interface
             if partition:
                 ks_metadata += ' partition=' + partition
             else:

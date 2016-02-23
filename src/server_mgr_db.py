@@ -133,6 +133,7 @@ class ServerMgrDb:
                 self._add_table_column(cursor, server_table, "contrail", "TEXT")
                 self._add_table_column(cursor, server_table, "ssh_public_key", "TEXT")
                 self._add_table_column(cursor, server_table, "ssh_private_key", "TEXT")
+                self._add_table_column(cursor, server_table, "ipmi_interface", "TEXT")
 
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
 
