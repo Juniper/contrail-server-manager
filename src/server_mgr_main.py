@@ -1423,11 +1423,14 @@ class VncServerManager():
                             tmp_img_path = 'ls '+ mirror + '/contrail-setup_*'
                             tmp_pkg = subprocess.check_output(tmp_img_path, shell=True)
                             version = subprocess.check_output(['dpkg-deb', '-f',tmp_pkg.strip(),'Version'])
+                        elif output and 'RPM' in output:
+                            sm = ServerMgrUtil()
+                            version = sm.get_package_version(os.path.basename(image_path))
                         else:
                             version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
                         image_params['version'] = version.strip('\n')
                         #find sku of package (juno/kilo/liberty)
-                        package_sku = self.find_package_sku(image_id)
+                        package_sku = self.find_package_sku(image_id, image_type)
                         image_params['sku'] = package_sku
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
@@ -1797,7 +1800,7 @@ class VncServerManager():
                 if puppet_version not in image_params:
                     image_params['puppet_version'] = puppet_version
                 package_name = os.path.basename(dest)
-                if package_name.endswith('.tgz'):
+                if package_name.endswith('.tgz') or package_name.endswith('.rpm'):
                     exp = re.compile("[0-9].*")
                     for m in exp.finditer(package_name):
                         match_index = m.span()[0]
@@ -1805,7 +1808,7 @@ class VncServerManager():
                 else:
                     version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
                 image_params['version'] = version.strip('\n')
-                package_sku = self.find_package_sku(image_id)
+                package_sku = self.find_package_sku(image_id, image_type)
                 image_params['sku'] = package_sku
             elif image_type == "contrail-storage-ubuntu-package":
                 self._create_repo(
@@ -3618,10 +3621,17 @@ class VncServerManager():
         return role_servers
     #end get_role_servers
 
-    def find_package_sku(self, image_id):
-        nova_api_package = self._args.html_root_dir+"contrail/repo/"+image_id + '/nova-api_*.deb'
-        cmd = 'dpkg-deb -f ' + nova_api_package.encode("ascii") + ' Version'
-        version = subprocess.check_output(cmd, shell=True)
+    def find_package_sku(self, image_id, image_type):
+        if image_type == "contrail-ubuntu-package":
+            nova_api_package = self._args.html_root_dir+"contrail/repo/"+image_id + '/nova-api_*.deb'
+            cmd = 'dpkg-deb -f ' + nova_api_package.encode("ascii") + ' Version'
+            version = subprocess.check_output(cmd, shell=True)
+        elif image_type == "contrail-centos-package":
+            nova_api_package = self._args.html_root_dir+"contrail/repo/"+image_id + '/openstack-nova-api-*.rpm'
+            cmd = 'ls ' + nova_api_package.encode("ascii")
+            package_name = subprocess.check_output(cmd, shell=True)
+            sm = ServerMgrUtil()
+            version = sm.get_package_version(os.path.basename(package_name))
         if version != '' :
             self._smgr_log.log(self._smgr_log.DEBUG, "version of nova-api : %s" %version)
             # we need to find openstack version now, sample version string
