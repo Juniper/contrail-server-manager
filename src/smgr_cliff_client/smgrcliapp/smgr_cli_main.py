@@ -48,12 +48,7 @@ class ServerManagerCLI(App):
             **argparse_kwargs
         )
         parser.add_argument(
-            '--version',
-            action='version',
-            version='%(prog)s {0}'.format(version),
-        )
-        parser.add_argument(
-            '-v', '--verbose',
+            '--verbose',
             action='count',
             dest='verbose_level',
             default=self.DEFAULT_VERBOSE_LEVEL,
@@ -184,7 +179,7 @@ class ServerManagerCLI(App):
             cmd_parser = cmd.get_parser(full_name)
             parsed_args, remainder = cmd_parser.parse_known_args(sub_argv)
             if remainder:
-                result = cmd.run(parsed_args, remainder)
+                self.print_error_message_and_quit("The following arguments are not valid: " + str(remainder) + "\n")
             else:
                 result = cmd.run(parsed_args)
         except Exception as err:
