@@ -217,7 +217,7 @@ class SmgrClientUtils():
             elif method == "DELETE":
                 conn.setopt(pycurl.CUSTOMREQUEST, "delete")
             conn.setopt(pycurl.WRITEFUNCTION, response.write)
-            conn.setopt(pycurl.TIMEOUT, 40)
+            conn.setopt(pycurl.TIMEOUT, 120)
             conn.perform()
             return response.getvalue()
         except Exception as e:
