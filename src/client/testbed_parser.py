@@ -605,6 +605,7 @@ class BaseJsonGenerator(object):
         source_variable = kwargs.get('source_variable', self.testsetup)
         function = kwargs.get('function', getattr)
         to_string = kwargs.get('to_string', True)
+        to_lower = kwargs.get('to_lower', False)
         log.debug('Adding Variable (%s)' % destination_variable_name)
         log.debug('Source Variable: (%s) Destination Variable: (%s) ' \
                   'Source Variable Name (%s) Destination Variable Name (%s) ' \
@@ -615,7 +616,11 @@ class BaseJsonGenerator(object):
         log.debug('Retrieved Value (%s)' % value)
         if value is not None:
             if to_string:
-                value = str(value)
+                if to_lower:
+                    value = str(value).lower()
+                else:
+                    value = str(value)
+
             destination_variable[destination_variable_name] = value
 
     def generate(self):
@@ -777,6 +782,14 @@ class ClusterJsonGenerator(BaseJsonGenerator):
         self.set_if_defined('ext_routers', cluster_dict['parameters'],
                             destination_variable_name='external_bgp')
 
+        # xmpp params
+        self.set_if_defined('xmpp_auth_enable', cluster_dict['parameters'], to_lower=True)
+        self.set_if_defined('xmpp_dns_auth_enable', cluster_dict['parameters'], to_lower=True)
+        # lbass params
+        self.set_if_defined('enable_lbaas', cluster_dict['parameters'], to_lower=True)
+        # ceilometer params
+        self.set_if_defined('enable_ceilometer', cluster_dict['parameters'], to_lower=True)
+            
         # Update storage keys
         self.set_if_defined('storage_mon_secret', cluster_dict['parameters'],
                             source_variable=self.storage_keys,
