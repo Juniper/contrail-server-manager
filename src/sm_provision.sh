@@ -34,7 +34,7 @@ LOCAL_REPO_DIR=/opt/contrail/contrail_local_repo
 CLUSTER_ID="cluster_auto_$RANDOM"
 NO_SM_MON=""
 NO_SM_WEBUI=""
-SM_WEBUI_PORT=9003
+SM_WEBUI_PORT=""
 
 function usage()
 {
@@ -245,7 +245,8 @@ if [ "$INSTALL_SM_LITE" != "" ]; then
    popd >> $log_file 2>&1
 fi 
 
-if [ -f /etc/contrail/config.global.sm.js ]; then
+if [ -f /etc/contrail/config.global.sm.js ]  && [ "$SM_WEBUI_PORT" != "" ]
+then
   echo "$space$arrow Changing SM Webui Port to $SM_WEBUI_PORT"
   sed -i "s|config.https_port =.*|config.https_port = '${SM_WEBUI_PORT}';|g" /etc/contrail/config.global.sm.js
   service supervisor-webui-sm restart >> $log_file 2>&1
