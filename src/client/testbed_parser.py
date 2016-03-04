@@ -14,6 +14,7 @@ import socket
 import sys
 import ConfigParser
 from tempfile import mkdtemp
+from collections import defaultdict
 
 # Testbed Converter Version
 __version__ = '1.0'
@@ -463,6 +464,7 @@ class TestSetup(Testbed):
         self.set_host_params()
         self.update_host_ostypes()
         self.update_host_roles()
+        self.update_tor_agent_info()
         #self.update_host_hypervisor()
         #self.update_host_bond_info()
         #self.update_host_control_data()
@@ -663,6 +665,34 @@ class ServerJsonGenerator(BaseJsonGenerator):
                                 }  ]
                             }
                         }
+        #Get the top of rack entries from testbed.py and append it to the server_dict dictionary
+        if getattr(hostobj, 'tor_agent', None) is not None:
+            tor_dict = {}
+            switch_list = []
+            #Go through the list of tor agents
+            for toragent in hostobj.tor_agent:
+                switchdict = {}
+                #Get the host for which tor is applicable
+                if toragent['tor_tsn_ip'] == hostobj.ip:
+                    #Convert the key entries so that SM json likes it
+                    self.set_if_defined('tor_agent_id', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='id')
+                    self.set_if_defined('tor_ip', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='ip_address')
+                    self.set_if_defined('tor_tunnel_ip', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='tunnel_ip_address')
+                    self.set_if_defined('tor_type', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='type')
+                    self.set_if_defined('tor_ovs_port', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='ovs_port')
+                    self.set_if_defined('tor_ovs_protocol', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='ovs_protocol')
+                    self.set_if_defined('tor_name', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='switch_name')
+                    self.set_if_defined('tor_vendor_name', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='vendor_name')
+                    self.set_if_defined('tor_product_name', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='product_name')
+                    self.set_if_defined('tor_agent_http_server_port', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='http_server_port')
+                    self.set_if_defined('tor_agent_ovs_ka', switchdict, source_variable=toragent, function=dict.get, destination_variable_name='keepalive_time')
+                    switch_list.append(switchdict)
+            if len(switch_list) > 0:
+                switch_dict = defaultdict(list)
+                for switches in switch_list:
+                    switch_dict["switches"].append(switches)
+                tor_dict["top_of_rack"] = dict(switch_dict)
+                server_dict.update(tor_dict)
         return server_dict
 
     def update_bond_details(self, server_dict, hostobj):
