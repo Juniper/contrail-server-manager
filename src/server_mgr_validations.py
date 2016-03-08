@@ -4,7 +4,7 @@ import pdb
 import re 
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
-
+from server_mgr_err import *
 
 class ServerMgrValidations:
     def validate_tor_config(self, input_data):
@@ -285,12 +285,26 @@ class ServerMgrValidations:
             if external_vip and external_vip != internal_vip:
                 raise Execption("contrail internal vip and contrail external vip have to be the same")
             return
-    
-    #Function to do the configuration validation of vips 
+
+    #Function to check if service_mysql password is configured
+    def validate_mysql_config(self, cluster_id, serverDb):
+        try:
+            #Get the cluster given the cluster id
+            cluster_list =  serverDb.get_cluster({"id": cluster_id}, detail=True)
+            #Since we are getting the cluster given an id only one cluster will be there in the list
+            cluster = cluster_list[0]
+            cluster_params = cluster.get('parameters', {})
+            mysql_service_password = cluster_params.get("mysql_service_password", "")
+            if mysql_service_password == "" :
+                raise ServerMgrException("service_dbpass not found!", ERR_OPR_ERROR)
+        except Exception as e:
+            raise e
+
+    #Function to do the configuration validation of vips
     def validate_vips(self, cluster_id, serverDb):
         try:
             #Get the cluster given the cluster id
-            cluster_list =  serverDb.get_cluster({"id": cluster_id}, detail=True) 
+            cluster_list =  serverDb.get_cluster({"id": cluster_id}, detail=True)
             #Since we are getting the cluster given an id only one cluster will be there in the list
             cluster = cluster_list[0]
             match_dict = {"cluster_id": cluster['id']}
@@ -299,7 +313,7 @@ class ServerMgrValidations:
             #Find out what type of interface do the servers have
             interface_type = self.get_server_interface_type(servers)
             if interface_type == 'MULTI_INTERFACE':
-                self.validate_multi_interface_vip(cluster, servers)              
+                self.validate_multi_interface_vip(cluster, servers)
             elif interface_type == 'SINGLE_INTERFACE':
                 self.validate_single_interface_vip(cluster, servers)
             return

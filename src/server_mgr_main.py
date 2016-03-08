@@ -4000,6 +4000,7 @@ class VncServerManager():
             provision_status['server'] = []
             cluster_id = ret_data['cluster_id']
             #Validate the vip configurations for the cluster
+            self._smgr_validations.validate_mysql_config(cluster_id, self._serverDb)
             self._smgr_validations.validate_vips(cluster_id, self._serverDb)
             puppet_manifest_version = \
                 server_packages[0].get('puppet_manifest_version', '')
