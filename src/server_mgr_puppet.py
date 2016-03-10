@@ -735,7 +735,9 @@ class ServerMgrPuppet:
             mysql_allowed_hosts = list(
                set(mysql_allowed_hosts + os_ip_list + config_ip_list + role_ips_dict['config'] + role_ips_dict['openstack'] ))
         # end else openstack_params
-        keystone_admin_token = (subprocess.Popen(["openssl", "rand", "-hex", "10"],stdout=subprocess.PIPE).communicate()[0]).rstrip()
+        keystone_admin_token = cluster_params.get(
+            "service_token", 
+            (subprocess.Popen(["openssl", "rand", "-hex", "10"],stdout=subprocess.PIPE).communicate()[0]).rstrip())
         template_vals = {
             '__openstack_ip__': openstack_ip,
             '__subnet_mask__': subnet_mask,
