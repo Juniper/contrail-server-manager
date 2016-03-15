@@ -1845,6 +1845,10 @@ class VncServerManager():
             environment_dir = "contrail/environment"
             if os.path.isdir(environment_dir):
                 if _ENABLE_NEW_PUPPET_FRAMEWORK:
+                    # distutils keeps a cache of all paths created. Need to
+                    # clear this to re add a path that might have been
+                    # previously deleted
+                    distutils.dir_util._path_created = {}
                     distutils.dir_util.copy_tree(environment_dir,
                         "/etc/puppet/environments/" + image_id.replace('-','_'))
                 distutils.dir_util.remove_tree(environment_dir)
