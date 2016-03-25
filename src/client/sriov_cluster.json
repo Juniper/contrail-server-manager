@@ -1,0 +1,28 @@
+{
+    "cluster": [
+        {
+            "base_image_id": "",
+            "email": "",
+            "id": "new-sriov-cluster",
+            "package_image_id": "",
+            "parameters": {
+                "provision": {
+                    "contrail": {
+                        "database": {
+                            "database_minimum_diskGB": 32
+                        },
+                        "openstack": {
+                            "sriov": {
+                                "enable": true
+                            }
+                        }
+                    }
+                },
+                "storage_fsid": "4c0f9cd8-fd39-4f86-bc57-5b6c5c4d3dca",
+                "storage_virsh_uuid": "99b103b4-b1a0-4576-b4fe-4a8e0bf9555f",
+                "uuid": "154cf62c-734f-4238-bb8f-9c14f05c3ef1"
+            }
+        }
+    ]
+}
+

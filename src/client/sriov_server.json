@@ -1,0 +1,48 @@
+{
+    "server": [
+        {
+            "id": "sdkvse2",
+            "ip_address": "99.1.1.2",
+            "parameters": {
+                "interface_name": "eth3",
+                "provision": {
+                    "contrail": {
+                        "compute": {
+                            "sriov": {
+                                "literal": true,
+                                "p5p1": {
+                                    "VF": 7,
+                                    "physnets": [
+                                        "physnet1"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "roles": [
+                "compute"
+            ]
+        },
+        {
+            "id": "sdkvse1",
+            "ip_address": "99.1.1.1",
+            "parameters": {
+                "interface_name": "eth3",
+                "provision": {
+                    "contrail": {}
+                }
+            },
+            "roles": [
+                "openstack",
+                "webui",
+                "config",
+                "database",
+                "control",
+                "collector"
+            ]
+        }
+    ]
+}
+
