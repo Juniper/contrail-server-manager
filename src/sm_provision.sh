@@ -27,6 +27,7 @@ CONTRAIL_PKG=""
 CONTRAIL_STORAGE_PKG=""
 STORAGE_KEYS_INI=""
 HOSTIP=""
+NOEXTERNALREPOS=""
 INSTALL_SM_LITE="install_sm_lite"
 CLEANUP_PUPPET_AGENT=""
 NO_LOCAL_REPO=1
@@ -113,6 +114,9 @@ while [[ $# > 0 ]]
         -ip|--hostip)
         HOSTIP="$2"
         shift # past argument
+        ;;
+        --no-external-repos)
+        NOEXTERNALREPOS="True"
         ;;
         -h|--help)
         usage
@@ -240,6 +244,9 @@ if [ "$INSTALL_SM_LITE" != "" ]; then
    optional_args=""
    if [ ! -z "$HOSTIP" ]; then
        optional_args="--hostip=$HOSTIP"
+   fi
+   if [ ! -z "$NOEXTERNALREPOS" ]; then
+       optional_args+=" --no-external-repos"
    fi
    ./setup.sh --all --smlite ${NO_SM_MON} ${NO_SM_WEBUI} $optional_args
    popd >> $log_file 2>&1
