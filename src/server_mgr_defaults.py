@@ -25,8 +25,6 @@ server_fields = {
     "ipmi_username": "",
     "ipmi_type": "",
     "ipmi_password": "",
-    "control_data_network": "",
-    "bond_interface": "",
     "ipmi_address": "",
     "tag": None,
     "base_image_id": "",
