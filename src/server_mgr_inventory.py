@@ -468,25 +468,28 @@ class ServerMgrInventory():
 
     def gevent_runner_function(self, action, hostname, ip=None, ipmi=None, username=None, password=None, option="key"):
         sshclient = None
-        try:
-            if action == "add" and ip and ipmi and username and password:
+        if action == "add" and ip and ipmi and username and password:
+            try:
                 sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
                 sshclient.connect(ip, hostname, option)
-                self.get_fru_info(hostname, ipmi, username, password)
                 self.get_facter_info(hostname, ip, sshclient)
                 self.get_cpu_info(hostname, ip, sshclient)
                 self.get_ethernet_info(hostname, ip, sshclient)
                 self.get_memory_info(hostname, ip, sshclient)
                 sshclient.close()
-            elif action == "delete":
-                self.log(self.INFO, "Deleted info of server: %s" % hostname)
-                self.delete_inventory_info(hostname)
-        except Exception as e:
-            if sshclient:
-                sshclient.close()
-            self.log("error",
-                     "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + str(e))
-            pass
+            except Exception as e:
+                if sshclient:
+                    sshclient.close()
+                self.log("error", "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + str(e))
+                pass
+            try:
+                self.get_fru_info(hostname, ipmi, username, password)
+            except Exception as e:
+                self.log("error", "Error in ipmitool for server id: " + str(hostname) + " Error : " + str(e))
+                pass
+        elif action == "delete":
+            self.log(self.INFO, "Deleted info of server: %s" % hostname)
+            self.delete_inventory_info(hostname)
 
     ######## INVENTORY GET INFO SECTION ###########
 
