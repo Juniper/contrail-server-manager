@@ -189,6 +189,7 @@ class ServerMgrIPMIMonitoring():
 
         # assign hostname
         sm_ipmi_info.name = str(hostname)
+        sm_ipmi_info.deleted = False
         # Send info based on base type
         if base_send_type == base_mon_uve.UVE_INFO:
             ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
@@ -571,6 +572,11 @@ class ServerMgrIPMIMonitoring():
             self.fetch_and_process_disk_info(hostname, ip, sshclient)
             self.fetch_and_process_file_system_view(hostname, ip, sshclient)
             sshclient.close()
+        except Exception as e:
+            self.log("error", "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + str(e))
+            sshclient.close()
+            pass
+        try:
             return_dict["ipmi_status"] = \
                 self.fetch_and_process_monitoring(hostname, ipmi, ip, username, password, supported_sensors)
             self.fetch_and_process_chassis(hostname, ipmi, ip, username, password)
@@ -584,11 +590,12 @@ class ServerMgrIPMIMonitoring():
                 payload = dict()
                 payload["id"] = str(hostname)
                 self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
+            # self.log("info", "Payload return dict:\n" + str(return_dict))
             return return_dict
         except Exception as e:
-            self.log("error", "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + str(e))
-            sshclient.close()
+            self.log("error", "Error in getting monitoring info through IPMI for server id: " + str(hostname) + " Error : " + str(e))
             pass
+
 
     # ####### MONITORING GET INFO SECTION ###########
 
