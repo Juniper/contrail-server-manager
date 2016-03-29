@@ -480,7 +480,7 @@ class ServerMgrInventory():
             except Exception as e:
                 if sshclient:
                     sshclient.close()
-                self.log("error", "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + str(e))
+                self.log("error", "Gevent SSH Connect Exception for server id: " + str(hostname) + " Error : " + str(e))
                 pass
             try:
                 self.get_fru_info(hostname, ipmi, username, password)
@@ -583,10 +583,10 @@ class ServerMgrInventory():
                 self.log(self.ERROR, "Server Details missing in db. ")
                 return {}
         except ServerMgrException as e:
-            self.log(self.ERROR, "Get Inventory Info Execption: " + str(e.message))
+            self.log(self.ERROR, "Get Inventory Info Exception: " + str(e.message))
             return json.dumps({})
         except Exception as e:
-            self.log(self.ERROR, "Get Inventory Info Execption: " + str(e.message))
+            self.log(self.ERROR, "Get Inventory Info Exception: " + str(e.message))
             return json.dumps({})
         #self.log("debug", "Exited get_inventory_info " + str(datetime.now()))
         return json.dumps(list_return_dict)
@@ -617,10 +617,10 @@ class ServerMgrInventory():
                 servers = self._serverDb.get_server(detail=True)
             self.handle_inventory_trigger("add", servers)
         except ServerMgrException as e:
-            self.log("error", "Run Inventory Execption: " + e.message)
+            self.log("error", "Run Inventory Exception: " + e.message)
             raise e
         except Exception as e:
-            self.log("error", "Run Inventory Execption: " + e.message)
+            self.log("error", "Run Inventory Exception: " + e.message)
             raise e
         inventory_status = dict()
         inventory_status['return_message'] = "server(s) run_inventory issued"
