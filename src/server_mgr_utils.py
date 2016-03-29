@@ -8,6 +8,8 @@
 """
 __version__ = '1.0'
 
+from copy import deepcopy
+
 class ServerMgrUtil():
     def convert_unicode():
         def convert_unicode(input):
@@ -22,6 +24,30 @@ class ServerMgrUtil():
         # end convert_unicode(input)
         return convert_unicode
     convert_unicode = staticmethod(convert_unicode())
+
+
+class DictUtils():
+    def merge_dict():
+        def merge_dict(a, b):
+            if isinstance(b, dict) and isinstance(a, dict):
+                a_b_intersection = a.viewkeys() & b.viewkeys()
+                a_b_all  = a.viewkeys() | b.viewkeys()
+                return {k: merge_dict(a[k], b[k]) if k in a_b_intersection else 
+                        deepcopy(a[k] if k in a else b[k]) for k in a_b_all}
+            return deepcopy(b)
+        return merge_dict
+    merge_dict = staticmethod(merge_dict())
+
+    def remove_none_from_dict():
+        def remove_none_from_dict(a):
+            if isinstance(a, dict):
+                a_keys = a.viewkeys()
+                return {k: remove_none_from_dict(a[k]) for k in a_keys if a[k] is not None}
+            if a == '""':
+                a = ''
+            return a
+        return remove_none_from_dict
+    remove_none_from_dict = staticmethod(remove_none_from_dict())
 
 if __name__ == '__main__':
     # test code

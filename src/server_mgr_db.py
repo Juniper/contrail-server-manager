@@ -424,14 +424,9 @@ class ServerMgrDb:
             # Store cluster_parameters dictionary as a text field
             if 'parameters' in cluster_data:
                 cluster_parameters = cluster_data.pop("parameters")
-                remove = []
+                cluster_parameters = DictUtils.remove_none_from_dict(cluster_parameters)
                 if not cluster_parameters:
                     cluster_parameters = {}
-                for k, v in cluster_parameters.iteritems():
-                    if v is None:
-                        remove.append(k)
-                for k in remove:
-                    cluster_parameters.pop(k, None) 
                 cluster_data['parameters'] = str(cluster_parameters)
             # Store provision sequence list as a text field
             provision_role_sequence = cluster_data.pop("provision_role_sequence",
@@ -482,11 +477,9 @@ class ServerMgrDb:
             #Add network
             if 'network' in server_data:
                 network = server_data.pop('network')
+                network = DictUtils.remove_none_from_dict(network)
                 if not network:
                     network = {}
-                for k,v in network.iteritems():
-                    if v is None:
-                        network.pop(k, None)
                 server_data['network'] = str(network)
             #Add top_of_rack configuration 
             if 'top_of_rack' in server_data:
@@ -495,11 +488,9 @@ class ServerMgrDb:
             #Add contrail
             if 'contrail' in server_data:
                 contrail = server_data.pop('contrail')
+                contrail = DictUtils.remove_none_from_dict(contrail)
                 if not contrail:
                     contrail = {}
-                for k,v in contrail.iteritems():
-                    if v is None:
-                        contrail.pop(k, None)
                 server_data['contrail'] = str(contrail)
             # Store email list as text field
             email = server_data.pop("email", None)
@@ -515,11 +506,9 @@ class ServerMgrDb:
             # Store server_params dictionary as a text field
             if 'parameters' in server_data:
                 server_parameters = server_data.pop('parameters')
+                server_parameters = DictUtils.remove_none_from_dict(server_parameters)
                 if not server_parameters:
                     server_parameters = {}
-                for k,v in server_parameters.iteritems():
-                    if v is None:
-                        server_parameters.pop(k)
                 server_data['parameters'] = str(server_parameters)
             self._add_row(server_table, server_data)
         except Exception as e:
@@ -683,13 +672,8 @@ class ServerMgrDb:
                     db_cluster_params = {}
                 else:
                     db_cluster_params = eval(db_cluster[0].get('parameters', '{}'))
-                    for k,v in cluster_params.iteritems():
-                        if v == '""':
-                            v = ''
-                        if v is None:
-                            db_cluster_params.pop(k, None)
-                        else:
-                            db_cluster_params[k] = v
+                    db_cluster_params = DictUtils.merge_dict(db_cluster_params, cluster_params)
+                    db_cluster_params = DictUtils.remove_none_from_dict(db_cluster_params)
                 cluster_data['parameters'] = str(db_cluster_params)
 
             # Store email list as text field
@@ -796,11 +780,8 @@ class ServerMgrDb:
                     db_network = {}
                 else:
                     db_network = eval(db_server[0].get('network', '{}'))
-                    for k,v in network.iteritems():
-                        if v is None:
-                            db_network.pop(k, None)
-                        else:
-                            db_network[k] = v
+                    db_network = DictUtils.merge_dict(db_network, network)
+                    db_network = DictUtils.remove_none_from_dict(db_network)
                 server_data['network'] = str(db_network)
 
             #Modify contrail
@@ -810,11 +791,8 @@ class ServerMgrDb:
                     db_contrail = {}
                 else:
                     db_contrail = eval(db_server[0].get('contrail', '{}'))
-                    for k, v in contrail.iteritems():
-                        if v is None:
-                            db_contrail.pop(k)
-                        else:
-                            db_contrail[k] = v
+                    db_contrail = DictUtils.merge_dict(db_contrail, contrail)
+                    db_contrail = DictUtils.remove_none_from_dict(db_contrail)
                 server_data['contrail'] = str(db_contrail)
 
             #Add top_of_rack
@@ -843,13 +821,8 @@ class ServerMgrDb:
                     db_server_params = {}
                 else:
                     db_server_params = eval(db_server[0].get('parameters', '{}'))
-                    for k,v in server_params.iteritems():
-                        if v == '""':
-                            v = ''
-                        if v is None:
-                            db_server_params.pop(k, None)
-                        else:
-                            db_server_params[k] = v
+                    db_server_params = DictUtils.merge_dict(db_server_params, server_params)
+                    db_server_params = DictUtils.remove_none_from_dict(db_server_params)
                 server_data['parameters'] = str(db_server_params)
 
             # Store email list as text field                   
