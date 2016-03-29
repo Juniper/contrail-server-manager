@@ -586,7 +586,7 @@ class ServerMgrIPMIMonitoring():
                 self.send_run_inventory_request(self.smgr_ip, self.smgr_port, payload=payload)
             return return_dict
         except Exception as e:
-            self.log("error", "Gevent SSH Connect Execption for server id: " + str(hostname) + " Error : " + str(e))
+            self.log("error", "Gevent SSH Connect Exception for server id: " + str(hostname) + " Error : " + str(e))
             sshclient.close()
             pass
 
@@ -729,13 +729,13 @@ class ServerMgrIPMIMonitoring():
                 self.log(self.ERROR, "Server Details missing in db. ")
                 pass
         except ServerMgrException as e:
-            self.log("error", "Get Monitoring Info Execption: " + str(e.message))
+            self.log("error", "Get Monitoring Info Exception: " + str(e.message))
             return_dict = {}
             list_return_dict = list()
             list_return_dict.append(return_dict)
             return json.dumps(list_return_dict)
         except Exception as e:
-            self.log("error", "Get Monitoring Info Execption: " + str(e.message))
+            self.log("error", "Get Monitoring Info Exception: " + str(e.message))
             return_dict = {}
             list_return_dict = list()
             list_return_dict.append(return_dict)
@@ -826,13 +826,13 @@ class ServerMgrIPMIMonitoring():
                 self.log(self.ERROR, "Server Details missing in db. ")
                 pass
         except ServerMgrException as e:
-            self.log("error", "Get Monitoring Info Summary Execption: " + str(e.message))
+            self.log("error", "Get Monitoring Info Summary Exception: " + str(e.message))
             return_dict = {}
             list_return_dict = list()
             list_return_dict.append(return_dict)
             return json.dumps(list_return_dict)
         except Exception as e:
-            self.log("error", "Get Monitoring Info Summary Execption: " + str(e.message))
+            self.log("error", "Get Monitoring Info Summary Exception: " + str(e.message))
             return_dict = {}
             list_return_dict = list()
             list_return_dict.append(return_dict)
