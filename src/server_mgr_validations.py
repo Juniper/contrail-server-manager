@@ -216,7 +216,7 @@ class ServerMgrValidations:
         if len(openstack_config_list) > 1:
             #Both internal and external vip's have be configured
             if not internal_vip or not external_vip:
-               raise Execption("Both internal and external vips need to be configured")
+               raise Exception("Both internal and external vips need to be configured")
             #If internal and external vips are specified they should not be equal
             if internal_vip and external_vip and internal_vip == external_vip:
                 raise Exception("internal and external vips cannot be the same")
@@ -237,10 +237,10 @@ class ServerMgrValidations:
         if len(openstack_only_list) > 1:
             #Both the internal and external vips have to be configured
             if not internal_vip or not external_vip:
-                raise Execption("Both internal and external vips have to be configured")
+                raise Exception("Both internal and external vips have to be configured")
             #internal and external vips cannot be the same
             if internal_vip and external_vip and internal_vip == external_vip:
-                raise Execption("internal and external vips cannot be the same")
+                raise Exception("internal and external vips cannot be the same")
             return
 
     #Function to validate vip configuration for a multi interface server
@@ -256,34 +256,34 @@ class ServerMgrValidations:
         if len(openstack_config_list) > 1:
             #internal vip has to be configured
             if not internal_vip:
-                raise Execption("internal vip has to be configured. external vip or contrail external vip cannot be configured")
+                raise Exception("internal vip has to be configured. external vip or contrail external vip cannot be configured")
             #external and internal vip if configured, has to be the same
             if external_vip and external_vip != internal_vip:
-                raise Execption("internal vip and external vip have to be the same")
+                raise Exception("internal vip and external vip have to be the same")
             #contrail external vip and internal vip if configured, has to be the same
             if contrail_external_vip and contrail_external_vip != internal_vip:
-                raise Execption("internal vip and contrail external vip have to be the same")
+                raise Exception("internal vip and contrail external vip have to be the same")
             #contrail internal vip and internal vip if configured, has to be the same
             if contrail_internal_vip and contrail_internal_vip != internal_vip:
-                raise Execption("internal vip and contrail internal vip have to be the same")
+                raise Exception("internal vip and contrail internal vip have to be the same")
             return
         #Validation for nodes configured only for contrail HA
         if len(config_only_list) > 1:
             #contrail internal vip has to be configured
             if not contrail_internal_vip:
-                raise Execption("Only contrail internal vip can be configured")
+                raise Exception("Only contrail internal vip can be configured")
             #If contrail external vip is configured it has to be the same the contrail internal vip
             if contrail_external_vip and contrail_external_vip != contrail_internal_vip:
-                raise Execption("contrail internal vip and contrail external vip have to be the same")
+                raise Exception("contrail internal vip and contrail external vip have to be the same")
             return
         #Validation for nodes configured only for Openstack HA
         if len(openstack_only_list) > 1:
             #internal vip has to be configured
             if not internal_vip:
-                raise Execption("Only internal vip can be configured")
+                raise Exception("Only internal vip can be configured")
             #If external vip is configured it has to be the same as internal vip
             if external_vip and external_vip != internal_vip:
-                raise Execption("contrail internal vip and contrail external vip have to be the same")
+                raise Exception("contrail internal vip and contrail external vip have to be the same")
             return
     
     #Function to do the configuration validation of vips 
