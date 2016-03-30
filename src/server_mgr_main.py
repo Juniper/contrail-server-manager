@@ -2847,6 +2847,9 @@ class VncServerManager():
             abort(404, resp_msg)
             reimage_status['return_code'] = ERR_GENERAL_ERROR
         reimage_status['return_message'] = "server(s) reimage queued"
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.SMGR_REIMAGE)
+
         return reimage_status
     # end reimage_server
 
