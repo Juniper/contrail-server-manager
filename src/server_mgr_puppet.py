@@ -699,20 +699,22 @@ class ServerMgrPuppet:
         new_provision_params = cluster_params.get("provision", {})
         openstack_params = new_provision_params.get("openstack", {})
         if new_provision_params:
-            mysql_root_password = openstack_params.get("mysql_root_password", "c0ntrail123")
-            mysql_service_password = openstack_params.get("mysql_service_password", "c0ntrail123")
-            keystone_admin_password = openstack_params.get("keystone_password", "contrail123")
-            heat_encryption_key = openstack_params.get("heat_encryption_key", "notgood but just long enough i think")
+            mysql_root_password = openstack_params.get("mysql", {}).get("root_password", "")
+            mysql_service_password = openstack_params.get("mysql", {}).get("service_password", "")
+            keystone_admin_password = openstack_params.get("keystone", {}).get("admin_password", "")
+            keystone_admin_token = openstack_params.get("keystone", {}).get("admin_token", "")
+            heat_encryption_key = openstack_params.get("heat_encryption_key", "")
             mysql_allowed_hosts = openstack_params.get("mysql_allowed_hosts", [])
             if not mysql_allowed_hosts:
                 calc_cluster_params = cluster.get("calc_params", {})
                 mysql_allowed_hosts = calc_cluster_params.get("mysql_allowed_hosts", [])
             # end if
         else:
-            mysql_root_password = cluster_params.get("mysql_root_password", "c0ntrail123")
-            mysql_service_password = cluster_params.get("mysql_service_password", "c0ntrail123")
-            keystone_admin_password = cluster_params.get("keystone_password", "contrail123")
-            heat_encryption_key = cluster_params.get("heat_encryption_key", "notgood but just long enough i think")
+            mysql_root_password = cluster_params.get("mysql_root_password", "")
+            mysql_service_password = cluster_params.get("mysql_service_password", "")
+            keystone_admin_password = cluster_params.get("keystone_admin_password", "")
+            keystone_admin_token = cluster_params.get("keystone_admin_token", "")
+            heat_encryption_key = cluster_params.get("heat_encryption_key", "")
             # Calculate list of hosts with mysql access granted.
             mysql_allowed_hosts = []
             internal_vip = cluster_params.get("internal_vip", None)
@@ -735,9 +737,6 @@ class ServerMgrPuppet:
             mysql_allowed_hosts = list(
                set(mysql_allowed_hosts + os_ip_list + config_ip_list + role_ips_dict['config'] + role_ips_dict['openstack'] ))
         # end else openstack_params
-        keystone_admin_token = cluster_params.get(
-            "service_token", 
-            (subprocess.Popen(["openssl", "rand", "-hex", "10"],stdout=subprocess.PIPE).communicate()[0]).rstrip())
         template_vals = {
             '__openstack_ip__': openstack_ip,
             '__subnet_mask__': subnet_mask,
