@@ -1525,6 +1525,7 @@ class VncServerManager():
                     cur_cluster["provision_role_sequence"]["steps"] = []
                     cur_cluster["provision_role_sequence"]["completed"] = []
                     self._smgr_log.log(self._smgr_log.INFO, "Cluster Data %s" % cur_cluster)
+                    self.generate_passwords(cur_cluster.get("parameters", {}))
                     self._serverDb.add_cluster(cur_cluster)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -3874,10 +3875,15 @@ class VncServerManager():
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
         net_and_mask = openstack_ip + "/" + subnet_mask
-        mysql_root_password = "c0ntrail123"
-        keystone_admin_password = "contrail123"
-        keystone_admin_token = "contrail123"
-        heat_encryption_key = cluster_params.get("heat_encryption_key", "notgood but just long enough i think")
+        mysql_params = cluster_openstack_prov_params.get("mysql", {})
+        mysql_root_password = mysql_params.get("root_password", "")
+        mysql_service_password = mysql_params.get("service_password", "")
+        self._smgr_log.log(self._smgr_log.DEBUG, "mysql_root_password is %s" % (mysql_root_password) )
+        keystone_params = cluster_openstack_prov_params.get("keystone", {})
+        keystone_admin_password = keystone_params.get("admin_password", "")
+        #is keystone admin_token needed ?
+        keystone_admin_token = keystone_params.get("admin_token", "")
+        heat_encryption_key = cluster_openstack_prov_params.get("heat_encryption_key", "")
         openstack_params['network'] = {
             "api": net_and_mask,
             "external": net_and_mask,
@@ -3898,7 +3904,7 @@ class VncServerManager():
         }
         openstack_params['mysql'] = {
              "root_password": mysql_root_password,
-             "service_password": mysql_root_password,
+             "service_password": mysql_service_password,
              "allowed_hosts": ['localhost', '127.0.0.1'] + mysql_allowed_hosts
         }
         openstack_params['keystone'] = {
@@ -4828,6 +4834,43 @@ class VncServerManager():
         except Exception as e:
             raise e
     # end _create_server_manager_config
+
+    #generate random string
+    def random_string(self, string_length=10):
+        """Returns a random string of length string_length."""
+        random = str(uuid.uuid4()) # Convert UUID format to a Python string.
+        random = random.upper() # Make all characters uppercase.
+        random = random.replace("-","") # Remove the UUID '-'.
+        return random[0:string_length] # Return the random string.
+
+    def generate_passwords(self, params):
+        if params == None:
+            return;
+
+        if "provision" in params:
+            #New params
+            self._smgr_log.log(self._smgr_log.INFO, "generating passwords for new params")
+            provision_params = params.get("provision", {})
+
+            openstack_params = provision_params.get("openstack", {})
+            provision_params["openstack"] = openstack_params
+            mysql_params = openstack_params.get("mysql", {})
+            openstack_params["mysql"] = mysql_params
+            mysql_params["root_password"] = mysql_params.get("root_password", self.random_string(12))
+            mysql_params["service_password"] = mysql_params.get("service_password", self.random_string(12))
+            keystone_params = openstack_params.get("keystone", {})
+            openstack_params["keystone"] = keystone_params
+            keystone_params["admin_password"] = keystone_params.get("keystone_password", self.random_string(12))
+            keystone_params["admin_token"] = keystone_params.get("admin_token", self.random_string(12))
+            openstack_params["heat_encryption_key"] = openstack_params.get("heat_encryption_key", self.random_string(12))
+        else:
+            #olf params
+            self._smgr_log.log(self._smgr_log.INFO, "generating passwords for old params")
+            params["mysql_root_password"] = params.get("mysql_root_password", self.random_string(12))
+            params["mysql_service_password"] = params.get("mysql_service_password", self.random_string(12))
+            params["keystone_password"] = params.get("keystone_password", self.random_string(12))
+            params["keystone_admin_token"] = params.get("keystone_admin_token", self.random_string(12))
+            params["heat_encryption_key"] = params.get("heat_encryption_key", self.random_string(12))
 
 # End class VncServerManager()
 
