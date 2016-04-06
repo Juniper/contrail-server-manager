@@ -1425,7 +1425,8 @@ class VncServerManager():
                             version = subprocess.check_output(['dpkg-deb', '-f',tmp_pkg.strip(),'Version'])
                         else:
                             version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
-                        image_params['version'] = version.strip('\n')
+                        version = version.strip('\n')
+                        image_params['version'] = version.split('~')[0]
                         #find sku of package (juno/kilo/liberty)
                         package_sku = self.find_package_sku(image_id)
                         image_params['sku'] = package_sku
@@ -1433,7 +1434,8 @@ class VncServerManager():
                         self._create_repo(
                             image_id, image_type, image_version, image_path)
                         version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
-                        image_params['version'] = version.strip('\n')
+                        version = version.strip('\n')
+                        image_params['version'] = version.split('~')[0]
                     else:
                         image_kickstart = image_params.get('kickstart', '')
                         image_kickseed = image_params.get('kickseed', '')
@@ -1800,14 +1802,16 @@ class VncServerManager():
                         version = package_name[match_index:-4]
                 else:
                     version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
-                image_params['version'] = version.strip('\n')
+                version = version.strip('\n')
+                image_params['version'] = version.split('~')[0]
                 package_sku = self.find_package_sku(image_id)
                 image_params['sku'] = package_sku
             elif image_type == "contrail-storage-ubuntu-package":
                 self._create_repo(
                     image_id, image_type, image_version, dest)
                 version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
-                image_params['version'] = version.strip('\n')
+                version = version.strip('\n')
+                image_params['version'] = version.split('~')[0]
             else:
                 kickstart_obj = bottle.request.files.get('kickstart', None)
                 kickstart_dest = kickseed_dest = ''
