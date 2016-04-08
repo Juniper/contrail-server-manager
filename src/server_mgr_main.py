@@ -4088,7 +4088,9 @@ class VncServerManager():
 			provision_params['domain'] = server['domain']
 		    else:
                         provision_params['domain'] = cluster_params['domain']
-
+                    if not provision_params['domain']:
+                        msg = "No Domain specified either for server " + provision_params['server_id'] + " or cluster " + server["cluster_id"]
+                        self.log_and_raise_exception(msg)
 		    provision_params['rmq_master'] = role_ids['config'][0]
 		    provision_params['uuid'] = cluster_params['uuid']
 		    provision_params['smgr_ip'] = self._args.listen_ip_addr
