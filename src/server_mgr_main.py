@@ -2925,12 +2925,36 @@ class VncServerManager():
                     else:
                         device_str+= ("python interface_setup.py --device %s --ip %s --no-restart-network\n") % \
                             (name, ip_addr)
-                    execute_script = True
+                execute_script = True
+            # Build route configuration and add it
+            route_str = self.build_route_cfg(server)
+            if route_str:
+                device_str+= route_str
+                execute_script = True
             sh_file_name = "/var/www/html/contrail/config_file/%s.sh" % (server['id'])
             f = open(sh_file_name, "w")
             f.write(device_str)
             f.close()
         return execute_script
+
+    def build_route_cfg(self, server):
+        routes = []
+        if not server:
+            return routes
+        network = eval(server.get('network', '{}'))
+        routes = network.get('routes', [])
+        routes_str = ''
+        for route in routes:
+            network = route.get('network', '')
+            netmask = route.get('netmask', '')
+            gateway = route.get('gateway', '')
+            device = route.get('interface', '')
+            if not network or not netmask or not gateway or not device:
+                continue
+            routes_str+= ("python staticroute_setup.py --device %s --network %s --netmask %s --gw %s --no-restart-network\n") % \
+                          (device, network, netmask, gateway)
+        return routes_str
+
 
     # This function runs on a separate gevent thread and processes requests for reimage.
     def _reimage_server_cobbler(self):
