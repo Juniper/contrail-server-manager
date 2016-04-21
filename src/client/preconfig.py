@@ -160,7 +160,7 @@ class Server(object):
         self.connection.close()
 
     def local_exec_cmd(self, cmd, error_on_fail=False):
-        exit_status = 1
+        exit_status = 0
         log.info('[localhost]: %s' % cmd)
         proc = subprocess.Popen(cmd, shell=True,
                                           stdout=subprocess.PIPE,
@@ -168,31 +168,41 @@ class Server(object):
                                           stdin=subprocess.PIPE)
         stdout, stderr = proc.communicate()
         if proc.returncode != 0:
-            exit_status = 0
+            exit_status = 1
             log.error(stdout)
             log.error(stderr)
             if error_on_fail:
                 raise RuntimeError('Command (%s) Failed' % cmd)
         return exit_status, stdout, stderr
 
-    def exec_cmd(self, cmd, error_on_fail=False):
+    def exec_cmd(self, cmd, smLocal=False,error_on_fail=False):
         exit_status = 1
+        output = None
         magic_pattern = r'001902803704605506407308209100'
         original_cmd = cmd
         cmd += ' && echo %s' % magic_pattern
         log.info('[%s]: %s' % (self.ip, original_cmd))
         log.debug('[%s]: %s' % (self.ip, cmd))
-        stdin, stdout, stderr = self.connection.exec_command(cmd)
+        if smLocal:
+            exit_status, stdout, stderr = self.local_exec_cmd(original_cmd)
+        else:
+            stdin, stdout, stderr = self.connection.exec_command(cmd)
         # check stderr is pending
-        output = stdout.read()
+        if not smLocal:
+            output = stdout.read()
+        else:
+            output = stdout
         log.debug(output)
-        if output.count(magic_pattern) > 0:
+        if (not smLocal) and output.count(magic_pattern) > 0:
             exit_status = 0
             output = re.sub(r'%s\n$' % magic_pattern, '', output, 1)
 
         if exit_status:
             log.warn('Cmd (%s) Failed' % cmd)
-            log.warn('%s' % stderr.read())
+            if not smLocal:
+                log.warn('%s' % stderr.read())
+            else:
+                log.warn('%s' % stderr)
 
         if error_on_fail and exit_status:
             log.error('[error_on_fail]: Cmd (%s) Failed' % original_cmd)
@@ -218,7 +228,7 @@ class Server(object):
         self.install_packages()
         self.setup_interface()
         # Setup static routes if defined
-        if getattr(self, 'static_routes', None):
+        if getattr(self, 'network', None) and 'routes' in self.network:
             self.setup_static_routes()
         self.preconfig_ntp_config()
         self.preconfig_puppet_config()
@@ -296,10 +306,10 @@ class Server(object):
                           error_on_fail=True)
 
     def verify_interface_ip(self, interface, ip):
-        return self.exec_cmd('ip addr show %s | grep %s' % (interface, ip))
+        return self.exec_cmd('ip addr show %s | grep %s' % (interface, ip), self.sm)
 
     def verify_static_route_ip(self, inet_prefix, device):
-        return self.exec_cmd('ip route show %s | grep %s' % (inet_prefix, device))
+        return self.exec_cmd('ip route show %s | grep %s' % (inet_prefix, device), self.sm)
 
     def exec_setup_interface(self, iface_info, error_on_fail=True):
         iface_script_path = '/opt/contrail/bin/interface_setup.py'
@@ -313,39 +323,45 @@ class Server(object):
         if 'vlan' in iface_info.keys():
             cmd += r'--vlan %s ' % iface_info['vlan']
         if 'bond_options' in iface_info.keys():
-            cmd += r"--bond-opts '%s'" % json.dumps(iface_info['bond_options'])
-        status, output = self.exec_cmd(cmd)
+            cmd += r"--bond-opts '%s '" % json.dumps(iface_info['bond_options'])
+        status, output = self.exec_cmd(cmd, self.sm)
         if error_on_fail and status:
             raise RuntimeError('Setup Interface failed for ' \
                                'Iface Info (%s)' % iface_info)
         return status, output
 
-    def exec_setup_static_routes(self, static_route, error_on_fail=True):
+    def exec_setup_static_routes(self, interface, network, gateway, netmask, vlan, error_on_fail=True):
         iface_script_path = "/opt/contrail/bin/staticroute_setup.py"
         cmd = r'%s ' % iface_script_path
-        cmd += r'--device %s ' % (static_route['intf'])
-        if 'ip' in static_route.keys():
-            cmd += r'--network %s ' % static_route['ip']
-        if 'gw' in static_route.keys():
-            cmd += r'--gw %s ' % static_route['gw']
-        if 'netmask' in static_route.keys():
-            cmd += r'--netmask %s ' % static_route['netmask']
-        if 'vlan' in static_route.keys():
-            cmd += r'--vlan %s ' % static_route['vlan']
+        if len(interface) > 0:
+            cmd += r'--device %s ' % interface
+        if len(network) > 0:
+            cmd += r'--network %s ' % network
+        if len(gateway) > 0:
+            cmd += r'--gw %s ' % gateway
+        if len(netmask) > 0:
+            cmd += r'--netmask %s ' % netmask
+        if len(vlan) > 0:
+            cmd += r'--vlan %s ' % vlan
         status, output = self.exec_cmd(cmd)
         if error_on_fail and status:
-            raise RuntimeError('Setup Interface failed for ' \
-                               'Iface Info (%s)' % static_route)
+            raise RuntimeError('Setup static routes failed for ' \
+                               'Route Info (%s)' % cmd)
         return status, output
 
     def setup_interface(self):
         script_path = os.path.abspath(sys.argv[0])
         iface_script_path = os.path.join(os.path.dirname(script_path), 'interface_setup.py')
-        sftp_connection = self.connection.open_sftp()
-        self.exec_cmd('mkdir -p /opt/contrail/bin/')
-        sftp_connection.put(iface_script_path,
+        if self.sm:
+            self.exec_cmd('mkdir -p /opt/contrail/bin/', self.sm)
+            self.exec_cmd('cp %s /opt/contrail/bin/interface_setup.py' % iface_script_path, self.sm)
+            self.exec_cmd('chmod 755 /opt/contrail/bin/interface_setup.py', self.sm)
+        else:
+            sftp_connection = self.connection.open_sftp()
+            self.exec_cmd('mkdir -p /opt/contrail/bin/')
+            sftp_connection.put(iface_script_path,
                             '/opt/contrail/bin/interface_setup.py')
-        self.exec_cmd('chmod 755 /opt/contrail/bin/interface_setup.py')
+            self.exec_cmd('chmod 755 /opt/contrail/bin/interface_setup.py')
         for iface_info in self.network['interfaces']:
             status, output = self.verify_interface_ip(iface_info['name'],
                                                       iface_info['ip_address'])
@@ -357,21 +373,41 @@ class Server(object):
                 self.exec_setup_interface(iface_info)
 
     def setup_static_routes(self):
+        interface =""
+        network=""
+        gateway=""
+        netmask=""
+        vlan=""
         script_path = os.path.abspath(sys.argv[0])
         staticroute_script_path = os.path.join(os.path.dirname(script_path), 'staticroute_setup.py')
-        sftp_connection = self.connection.open_sftp()
-        self.exec_cmd('mkdir -p /opt/contrail/bin/')
-        sftp_connection.put(staticroute_script_path, '/opt/contrail/bin/staticroute_setup.py')
-        self.exec_cmd('chmod 755 /opt/contrail/bin/staticroute_setup.py')
-        for static_route in self.static_routes:
-            inet_prefix = str(static_route['ip']) + "/" + str(Utils.get_net_size(static_route['netmask']))
-            status, output = self.verify_static_route_ip(inet_prefix, static_route['intf'])
+        if self.sm:
+            self.exec_cmd('mkdir -p /opt/contrail/bin/', self.sm)
+            self.exec_cmd('cp %s /opt/contrail/bin/staticroute_setup.py' % staticroute_script_path, self.sm)
+            self.exec_cmd('chmod 755 /opt/contrail/bin/staticroute_setup.py', self.sm)
+        else:
+            sftp_connection = self.connection.open_sftp()
+            self.exec_cmd('mkdir -p /opt/contrail/bin/')
+            sftp_connection.put(staticroute_script_path, '/opt/contrail/bin/staticroute_setup.py')
+            self.exec_cmd('chmod 755 /opt/contrail/bin/staticroute_setup.py')
+        for static_route in self.network['routes']:
+            inet_prefix = str(static_route['network']) + "/" + str(Utils.get_net_size(static_route['netmask']))
+            status, output = self.verify_static_route_ip(inet_prefix, static_route['interface'])
             if not status:
                 log.warn('Static Route for interface (%s) already configured with ' \
-                         'IP Address (%s)' % (static_route['intf'],
-                                              static_route['ip']))
+                         'IP Address (%s)' % (static_route['interface'],
+                                              static_route['network']))
+                return
             else:
-                self.exec_setup_static_routes(static_route)
+		interface += r'%s ' % (static_route['interface'])
+		if 'network' in static_route.keys():
+		    network += r'%s ' % static_route['network']
+		if 'gateway' in static_route.keys():
+		    gateway += r'%s ' % static_route['gateway']
+		if 'netmask' in static_route.keys():
+		    netmask += r'%s ' % static_route['netmask']
+		if 'vlan' in static_route.keys():
+		    vlan += r'%s ' % static_route['vlan']
+        self.exec_setup_static_routes(interface, network, gateway, netmask, vlan)
 
     def check_ntp_status(self):
         status, output = self.exec_cmd(r'ntpq -pn | grep "%s" ' % self.server_manager_ip)

@@ -138,6 +138,7 @@ apt-get -y install sysstat
 apt-get -y install ethtool
 
 wget http://$server/kickstarts/interface_setup.py
+wget http://$server/kickstarts/staticroute_setup.py
 wget http://$server/contrail/config_file/$system_name.sh
 chmod +x $system_name.sh
 ./$system_name.sh

@@ -665,6 +665,18 @@ class ServerJsonGenerator(BaseJsonGenerator):
                                 }  ]
                             }
                         }
+        static_route_list = []
+        if getattr(hostobj, 'static_route', None) is not None:
+            for staticroute in hostobj.static_route:
+                static_route_dict = {}
+                self.set_if_defined('gw', static_route_dict, source_variable=staticroute, function=dict.get, destination_variable_name='gateway')
+                self.set_if_defined('intf', static_route_dict, source_variable=staticroute, function=dict.get, destination_variable_name='interface')
+                self.set_if_defined('ip', static_route_dict, source_variable=staticroute, function=dict.get, destination_variable_name='network')
+                self.set_if_defined('netmask', static_route_dict, source_variable=staticroute, function=dict.get, destination_variable_name='netmask')
+                static_route_list.append(static_route_dict)
+            if len(static_route_list) > 0:
+                network_dict = server_dict["network"]
+                network_dict["routes"] = static_route_list
         #Get the top of rack entries from testbed.py and append it to the server_dict dictionary
         if getattr(hostobj, 'tor_agent', None) is not None:
             tor_dict = {}
