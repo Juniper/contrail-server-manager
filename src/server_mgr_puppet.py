@@ -72,20 +72,33 @@ class ServerMgrPuppet:
         cluster_params = cluster.get('parameters', {})
         server_params = server.get('parameters', {})
         #openstack_ip = cluster_params.get("internal_vip", None)
+        cluster_openstack_prov_params = (
+            cluster_params.get("provision", {})).get("openstack", {})
+        configured_external_keystone_ip = cluster_openstack_prov_params.get("keystone_ip", None)
         openstack_ip = ''
         self_ip = server.get("ip_address", "")
-        if openstack_ip is None or openstack_ip == '':
-            if self_ip in role_ips_dict['openstack']:
-                openstack_ip = self_ip
-            else:
-                openstack_ip = role_ips_dict['openstack'][0]
+        if configured_external_keystone_ip:
+            openstack_ip = configured_external_keystone_ip
+        elif self_ip in role_ips_dict['openstack']:
+            openstack_ip = self_ip
+        elif 'openstack' in role_ips_dict:
+            openstack_ip = role_ips_dict['openstack'][0]
+        else:
+            msg = "Openstack role not defined for cluster AND External Openstack not configured in cluster parameters.\n " \
+                  "The cluster needs to point to at least one Openstack node.\n"
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+                raise ServerMgrException(msg, ERR_OPR_ERROR)
 
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
-
+        subnet_address = ""
+        intf_control = {}
         subnet_address = str(IPNetwork(
             openstack_ip + "/" + subnet_mask).network)
+
+        if openstack_ip == configured_external_keystone_ip:
+            return '"' + str(IPNetwork(subnet_address).network) + '/' + str(IPNetwork(subnet_address).prefixlen) + '"'
 
         self._smgr_log.log(self._smgr_log.DEBUG, "control-net : %s" % str( provision_params['control_net']))
         if provision_params['control_net'] [openstack_ip]:
@@ -687,10 +700,19 @@ class ServerMgrPuppet:
         self_ip = server.get("ip_address", "")
 
         openstack_ips = [x["ip_address"] for x in cluster_servers if "openstack" in eval(x.get('roles', '[]'))]
-        if self_ip in openstack_ips:
+        cluster_openstack_prov_params = (cluster_params.get("provision", {})).get("openstack", {})
+        configured_external_keystone_ip = cluster_openstack_prov_params.get("keystone_ip", None)
+        if configured_external_keystone_ip:
+            openstack_ip = configured_external_keystone_ip
+        elif self_ip in openstack_ips:
             openstack_ip = self_ip
+        elif len(openstack_ips):
+            openstack_ip = openstack_ips[0]
         else:
-            openstack_ip = openstack_ips[0] 
+            msg = "Openstack role not defined for cluster AND External Openstack not configured in cluster parameters.\n " \
+                   "The cluster needs to point to at least one Openstack node.\n"
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            raise ServerMgrException(msg, ERR_OPR_ERROR)
         
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
