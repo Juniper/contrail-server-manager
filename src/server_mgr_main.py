@@ -813,6 +813,57 @@ class VncServerManager():
         ret_data["force"] = force
         return ret_data
 
+    def validate_non_openstack_cluster(self, cluster_id):
+        cluster = self._serverDb.get_cluster(
+                {"id" : cluster_id},
+                detail=True)[0]
+        cluster_params = eval(cluster['parameters'])
+        if 'provision' in cluster_params and 'openstack' in cluster_params['provision']:
+            cluster_openstack_prov_params = cluster_params['provision']
+            cluster_openstack_params = cluster_openstack_prov_params['openstack']
+        else:
+            msg = "Cluster with only Openstack role is supported only with new cluster params format with Openstack section\n"
+            self.log_and_raise_exception(msg)
+        configured_external_keystone_params = cluster_openstack_params.get("keystone", None)
+        if configured_external_keystone_params:
+            configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
+        else:
+            configured_external_keystone_ip = None
+        configured_nova_params = cluster_openstack_params.get("nova", None)
+        if configured_nova_params:
+            configured_nova_rabbit_servers = configured_nova_params.get("rabbit_hosts", None)
+        else:
+            configured_nova_rabbit_servers = None
+        if configured_external_keystone_ip and configured_nova_rabbit_servers:
+            pass
+        else:
+            msg = "In a Cluster with no Openstack role, you need to configure both openstack::keystone::ip and openstack::nova::rabbit_hosts to point to an external Openstack\n"
+            self.log_and_raise_exception(msg)
+
+    def validate_openstack_only_cluster(self, cluster_id):
+        cluster = self._serverDb.get_cluster(
+                {"id" : cluster_id},
+                detail=True)[0]
+        cluster_params = eval(cluster['parameters'])
+        if 'provision' in cluster_params and 'openstack' in cluster_params['provision']:
+            cluster_openstack_prov_params = cluster_params['provision']
+            cluster_openstack_params = cluster_openstack_prov_params['openstack']
+        else:
+            msg = "Cluster with only Openstack role is supported only with new cluster params format with Openstack section\n"
+            self.log_and_raise_exception(msg)
+
+        openstack_manage_amqp_check = cluster_openstack_params.get("openstack_manage_amqp", None)
+        configured_nova_params = cluster_openstack_params.get("nova", None)
+        if configured_nova_params:
+            configured_nova_neutron_ip = configured_nova_params.get("neutron_ip_to_use", None)
+        else:
+            configured_nova_neutron_ip = None
+        if configured_nova_neutron_ip and openstack_manage_amqp_check:
+            pass
+        else:
+            msg = "In a Cluster with only Openstack role defined, you need to configure both openstack::openstack_manage_amqp = true and openstck::nova::neutron_ip_to_use pointing to a Cfgm node\n"
+            self.log_and_raise_exception(msg)
+
     def _validate_roles(self, cluster_id):
         # get list of all servers in this cluster
         servers = self._serverDb.get_server(
@@ -841,7 +892,13 @@ class VncServerManager():
         cluster_unique_roles = set(cluster_role_list)
 
         missing_roles = roles_set.difference(cluster_unique_roles)
-        if len(missing_roles):
+        if len(missing_roles) == 1 and next(iter(missing_roles)) == "openstack":
+            # Check for other mandatory params if Openstack is not configured
+            self.validate_non_openstack_cluster(cluster_id)
+        elif len(missing_roles) > 1 and len(cluster_unique_roles) == 1 and next(iter(cluster_unique_roles)) == "openstack":
+            # Check for other mandatory params if only Openstack role in cluster
+            self.validate_openstack_only_cluster(cluster_id)
+        elif len(missing_roles):
             msg = "Mandatory roles \"%s\" are not present" % \
             ", ".join(str(e) for e in missing_roles)
             self.log_and_raise_exception(msg)
@@ -3682,21 +3739,33 @@ class VncServerManager():
             role_ips_dict[key] = [x.get("ip_address", "") for x in value]
         cluster_params = cluster.get('parameters', {})
         server_params = server.get('parameters', {})
+        cluster_openstack_prov_params = (
+            cluster_params.get("provision", {})).get("openstack", {})
+        configured_external_keystone_params = cluster_openstack_prov_params.get("keystone", None)
+        configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
         openstack_ip = ''
         self_ip = server.get("ip_address", "")
-        if self_ip in role_ips_dict['openstack']:
+        if configured_external_keystone_ip:
+            openstack_ip = configured_external_keystone_ip
+        elif self_ip in role_ips_dict['openstack']:
             openstack_ip = self_ip
-        else:
+        elif 'openstack' in role_ips_dict and len(role_ips_dict['openstack']):
             openstack_ip = role_ips_dict['openstack'][0]
-
+        else:
+            msg = "Openstack role not defined for cluster AND External Openstack not configured in cluster parameters.\n " \
+                  "The cluster needs to point to at least one Openstack node.\n"
+            self.log_and_raise_exception(msg)
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
 
+        subnet_address = ""
+        intf_control = {}
         subnet_address = str(IPNetwork(
             openstack_ip + "/" + subnet_mask).network)
 
-        intf_control = {}
+        if openstack_ip == configured_external_keystone_ip:
+            return '"' + str(IPNetwork(subnet_address).network) + '/' + str(IPNetwork(subnet_address).prefixlen) + '"'
         if (self.get_control_net(cluster_servers))[openstack_ip]:
             intf_control = eval((self.get_control_net(cluster_servers))[openstack_ip])
 
@@ -3795,6 +3864,8 @@ class VncServerManager():
         # Build mysql_allowed_hosts list
         contrail_ha_params = cluster_contrail_prov_params.get("ha", {})
         openstack_ha_params = cluster_openstack_prov_params.get("ha", {})
+        configured_external_keystone_ip = cluster_openstack_prov_params.get("keystone", None)
+        configured_external_keystone_params = configured_external_keystone_ip.get("ip", None)
         mysql_allowed_hosts = []
         internal_vip = openstack_ha_params.get("internal_vip", None)
         if internal_vip:
@@ -3880,10 +3951,19 @@ class VncServerManager():
         # Build openstack parameters for openstack modules
         self_ip = server.get("ip_address", "")
         openstack_ips = [x["ip_address"] for x in cluster_servers if "openstack" in eval(x.get('roles', '[]'))]
-        if self_ip in openstack_ips:
+        if configured_external_keystone_ip:
+            openstack_ip = configured_external_keystone_ip
+            external_openstack_ip_list = []
+            external_openstack_ip_list.append(openstack_ip)
+            openstack_params["openstack_ip_list"] = external_openstack_ip_list
+        elif self_ip in openstack_ips:
             openstack_ip = self_ip
-        else:
+        elif len(openstack_ips):
             openstack_ip = openstack_ips[0]
+        else:
+            msg = "Openstack role not defined for cluster AND External Openstack not configured in cluster parameters.\n" \
+                  " The cluster needs to point to at least one Openstack node.\n"
+            self.log_and_raise_exception(msg)
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
@@ -3933,7 +4013,8 @@ class VncServerManager():
         server_control_gateway = self.get_control_gateway(server)
         contrail_params['host_ip'] = server_control_ip
         role_id = [x.get("id", "") for x in role_servers['openstack']]
-        contrail_params['sync_db'] = (server['id'] == role_id[0])
+        if len(role_id):
+            contrail_params['sync_db'] = (server['id'] == role_id[0])
         contrail_params['host_roles'] = [ x for x in eval(server['roles']) ]
         if (server_control_ip and
            (server_control_ip != server['ip_address'])):
