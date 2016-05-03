@@ -3,17 +3,17 @@
         {  
             "id": "new-cluster",
             "parameters" : {
+                "domain": "englab.juniper.net",
+                "subnet_mask": "255.255.255.240",
+                "gateway": "10.204.221.46",
+                "password": "abcd",
                 "provision": {
                     "contrail": {
-                        "contrail_repo_name": ["image_3_00_2693"],
-                        "contrail_repo_type": ["contrail-ubuntu-package"],
-                        "orchestrator": "openstack",
                         "kernel_upgrade": true,
                         "kernel_version": "",
-                        "contrail_logoutput": false,
                         "enable_lbass": false,
                         "xmpp_auth_enable": false,
-                        "zookeeper_ip_list": "",
+                        "xmpp_dns_auth_enable": false,
                         "ha": {
                             "haproxy_flag": false,
                             "contrail_internal_vip": "",
@@ -23,16 +23,11 @@
                             "tor_ha_config": ""
                         },
                         "database": {
-                            "database_ip_list": ["10.84.51.12"],
-                            "database_name_list": ["newserver12"],
                             "database_ip_port": 9160,
-                            "database_initial_token": 0,
                             "database_dir": "/var/lib/cassandra",
                             "database_minimum_diskGB": 32
                         },
                         "analytics": {
-                            "analytics_ip_list": ["10.84.51.12"],
-                            "analytics_name_list": ["newserver12"],
                             "analytics_data_ttl": 48,
                             "analytics_config_audit_ttl": 2160,
                             "analytics_statistics_ttl": 168,
@@ -42,35 +37,29 @@
                             "topology_scan_frequency": 60,
                             "analytics_syslog_port": -1,
                             "analytics_data_dir": "",
-                            "ssd_data_dir": ""
+                            "ssd_data_dir": "",
+                            "redis_password": ""
                         },
                         "control": {
-                            "control_ip_list": ["10.84.51.12"],
-                            "control_name_list": ["newserver12"],
-                            "puppet_server": "",
                             "encap_priority": "VXLAN,MPLSoUDP,MPLSoGRE",
                             "router_asn": 64512,
                             "external_bgp": ""
                         },
                         "config": {
-                            "config_ip_list": ["10.84.51.12"],
-                            "config_name_list": ["newserver12"],
-                            "api_nworkers": 1,
-                            "uuid": "0cb2497a-0253-4132-a1fd-c6dc27faf95d",
-                            "use_certs": false,
+                            "contrail_amqp_ip_list": [],
+                            "contrail_amqp_ip_port": '',
                             "manage_neutron": true,
                             "zk_ip_port": 2181,
-                            "hc_interval": 5,
-                            "redis_password": "",
-                            "contrail_plugin_location": "NEUTRON_PLUGIN_CONFIG=\"/etc/neutron/plugins/opencontrail/ContrailPlugin.ini\""
-                        },
-                        "webui": {
-                            "webui_ip_list": ["10.84.51.12"]
+                            "hc_interval": 5
                         },
                         "compute": {
-                            "compute_ip_list": ["10.84.51.12"],
-                            "compute_name_list": ["newserver12"],
-                            "compute_passwd_list": ["c0ntrail123"]
+                            "dpdk": {
+                                "huge_pages": '',
+                                "core_mask": ''
+                            },
+                            "sriov": {
+                                "enable": false
+                            }
                         },
                         "vmware": {
                             "vmware_ip": "",
@@ -94,31 +83,22 @@
                             "storage_virsh_uuid": "",
                             "storage_monitor_hosts": [],
                             "storage_enabled": false,
-                            "storage_ip_list": [],
                             "storage_chassis_config": [],
                             "live_migration_host": "",
                             "live_migration_ip": "",
                             "live_migration_storage_scope": "",
-                            "storage_cluster_network": "",
-                            "storage_hostnames": []
+                            "storage_cluster_network": ""
                         },
                         "toragent": {
                             "top_of_rack": {
                             }
-                        },
-                        "tsn": {
-                            "tsn_ip_list": [],
-                            "tsn_name_list": []
                         }
                     },
                     "openstack":{
-                        "openstack_ip_list": ["10.84.51.12"],
-                        "openstack_name_list": ["newserver12"],
-                        "openstack_passwd_list": ["c0ntrail123"],
-                        "openstack_user_list": ["root"],
-                        "openstack_mgmt_ip_list": ["10.84.51.12"],
                         "keystone_ip": "",
-                        "keystone_admin_password": "contrail123",
+                        "keystone" : {
+                            "admin_password": "contrail123"
+                        },
                         "keystone_admin_user": "admin",
                         "keystone_admin_tenant": "admin",
                         "keystone_service_tenant": "services",
@@ -129,18 +109,19 @@
                         "keystone_auth_protocol": "http",
                         "neutron_service_protocol": "http",
                         "keystone_auth_port": 35357,
-                        "keystone_insecure_flag": false,
                         "amqp_server_ip": "",
                         "openstack_manage_amqp": false,
-                        "mysql_root_password": "c0ntrail123",
-                        "metadata_secret": "",
+                        "mysql": {
+                            "root_password": "c0ntrail123"
+                        },
                         "enable_ceilometer": false,
-                        "mysql_allowed_hosts": [],
+                        "openstack_amqp_ip_list": [],
+                        "openstack_amqp_ip_port": '',
                         "ha": {
                             "internal_vip": "",
                             "external_vip": "",
                             "internal_virtual_router_id": 102,
-                            "_external_virtual_router_id": 101,
+                            "external_virtual_router_id": 101,
                             "nfs_server": "",
                             "nfs_glance_path": ""
                         }

@@ -7,19 +7,6 @@
             "parameters" : {
                 "provision": {
                     "contrail": {
-                        "contrail_upgrade": false,
-                        "host_ip": "10.84.51.12",
-                        "host_non_mgmt_ip": "",
-                        "host_non_mgmt_gateway": "",
-                        "sync_db": true,
-                        "host_roles": [
-                            "control",
-                            "webui",
-                            "openstack",
-                            "collector",
-                            "compute",
-                            "database",
-                            "config" ],
                         "storage": {
                             "storage_repo_id": "",
                             "storage_osd_disks": [],
@@ -40,7 +27,7 @@
                 "management_interface": "eth1",
                 "provisioning": "kickstart"
             },
-            "password": "c0ntrail123",
+            "password": "juniper",
             "roles": [
                 "control",
                 "webui",
