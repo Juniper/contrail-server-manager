@@ -4834,7 +4834,7 @@ class VncServerManager():
             mysql_params["service_password"] = mysql_params.get("service_password", self.random_string(12))
             keystone_params = openstack_params.get("keystone", {})
             openstack_params["keystone"] = keystone_params
-            keystone_params["admin_password"] = keystone_params.get("keystone_password", self.random_string(12))
+            keystone_params["admin_password"] = keystone_params.get("admin_password", self.random_string(12))
             keystone_params["admin_token"] = keystone_params.get("admin_token", self.random_string(12))
             openstack_params["heat_encryption_key"] = openstack_params.get("heat_encryption_key", self.random_string(12))
         else:
