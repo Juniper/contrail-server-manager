@@ -730,7 +730,7 @@ class ServerMgrPuppet:
             #Ideally auto-generate woudl have created it.
             #But old SM-code didn't
             keystone_admin_token = openstack_params.get("keystone", {}).get("admin_token", self.random_string(12))
-            heat_encryption_key = openstack_params.get("heat_encryption_key", "")
+            heat_encryption_key = openstack_params.get("heat",{}).get("encryption_key", "")
             mysql_allowed_hosts = openstack_params.get("mysql_allowed_hosts", [])
             if not mysql_allowed_hosts:
                 calc_cluster_params = cluster.get("calc_params", {})
