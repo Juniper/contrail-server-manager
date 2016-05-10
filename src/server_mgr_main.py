@@ -4817,6 +4817,12 @@ class VncServerManager():
         random = random.replace("-","") # Remove the UUID '-'.
         return random[0:string_length] # Return the random string.
 
+    def _plug_service_passwords(self, openstack_params, service_name, field_name,
+                                                    password):
+        service_dict = openstack_params.get(service_name, {})
+        service_dict[field_name] = service_dict.get(field_name, password)
+        openstack_params[service_name] = service_dict
+
     def generate_passwords(self, params):
         if params == None:
             return;
@@ -4834,11 +4840,34 @@ class VncServerManager():
             mysql_params["service_password"] = mysql_params.get("service_password", self.random_string(12))
             keystone_params = openstack_params.get("keystone", {})
             openstack_params["keystone"] = keystone_params
-            keystone_params["admin_password"] = keystone_params.get("keystone_password", self.random_string(12))
+            keystone_params["admin_password"] = keystone_params.get("admin_password", self.random_string(12))
             keystone_params["admin_token"] = keystone_params.get("admin_token", self.random_string(12))
-            openstack_params["heat_encryption_key"] = openstack_params.get("heat_encryption_key", self.random_string(12))
+            #generate passwords for service
+            self._plug_service_passwords(openstack_params, "glance", "password",
+                                                    keystone_params["admin_password"])
+            self._plug_service_passwords(openstack_params, "cinder", "password",
+                                                    keystone_params["admin_password"])
+            self._plug_service_passwords(openstack_params, "swift", "password",
+                                                    keystone_params["admin_password"])
+            self._plug_service_passwords(openstack_params, "nova", "password",
+                                                    keystone_params["admin_password"])
+            self._plug_service_passwords(openstack_params, "horizon", "password",
+                                                    keystone_params["admin_password"])
+            self._plug_service_passwords(openstack_params, "neutron", "password",
+                                                    keystone_params["admin_password"])
+            self._plug_service_passwords(openstack_params, "heat", "password",
+                                                    keystone_params["admin_password"])
+            self._plug_service_passwords(openstack_params, "cielometer", "password",
+                                                    keystone_params["admin_password"])
+            self._plug_service_passwords(openstack_params, "cielometer", "mongo",
+                                                    keystone_params["admin_password"])
+            #Do we need the below
+            self._plug_service_passwords(openstack_params, "heat",
+                                                    "encryption_key",
+                                                    self.random_string(12))
+
         else:
-            #olf params
+            #old params
             self._smgr_log.log(self._smgr_log.INFO, "generating passwords for old params")
             params["mysql_root_password"] = params.get("mysql_root_password", self.random_string(12))
             params["mysql_service_password"] = params.get("mysql_service_password", self.random_string(12))
