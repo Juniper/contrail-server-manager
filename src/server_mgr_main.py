@@ -190,6 +190,29 @@ class VncServerManager():
     #dict to hold code defaults
     _code_defaults_dict = {}
     _smgr_config = None
+    _server_mask_list = ["password"]
+    _cluster_mask_list = ["parameters.password",
+                          "parameters.keystone_password",
+                          "parameters.keystone_admin_token",
+                          "parameters.mysql_root_password",
+                          "parameters.mysql_service_password",
+                          "parameters.heat_encryption_key",
+                          #New Params
+                          "parameters.provision.openstack.keystone.admin_password",
+                          "parameters.provision.openstack.keystone.admin_token",
+                          "parameters.provision.openstack.mysql.root_password",
+                          "parameters.provision.openstack.mysql.service_password",
+                          "parameters.provision.openstack.glance.password",
+                          "parameters.provision.openstack.cinder.password",
+                          "parameters.provision.openstack.swift.password",
+                          "parameters.provision.openstack.nova.password",
+                          "parameters.provision.openstack.horizon.password",
+                          "parameters.provision.openstack.neutron.password",
+                          "parameters.provision.openstack.heat.password",
+                          "parameters.provision.openstack.heat.encryption_key",
+                          "parameters.provision.openstack.cielometer.password",
+                          "parameters.provision.openstack.cielometer.mongo",
+                         ]
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
 
@@ -636,6 +659,7 @@ class VncServerManager():
         for x in entity:
             if x.get("parameters", None) is not None:
                 x['parameters'] = eval(x['parameters'])
+            self.hide_passwords(x, self._cluster_mask_list)
         self._smgr_log.log(self._smgr_log.DEBUG, "Entity returned: %s" % (print_rest_response(entity)))
         return {"cluster": entity}
     # end get_cluster
@@ -680,6 +704,8 @@ class VncServerManager():
                                     keep_blank_values=True)
         detail = ("detail" in query_args)
         query_args.get("detail", None)
+
+	query_args.pop("show_pass", None)
 
         match_key = None
         match_value = None
@@ -1294,6 +1320,8 @@ class VncServerManager():
             if x.get("top_of_rack", None):
                 x['top_of_rack'] = eval(x['top_of_rack'])
 
+            #Hide the passwords
+            self.hide_passwords(x, self._server_mask_list)
             if detail:
                 #Temp workarounf for UI, UI doesnt like None
                 if x.get("roles", None) is None:
@@ -1312,6 +1340,34 @@ class VncServerManager():
                     x.pop(blocked_field, None)
         return {"server": servers}
     # end get_server
+
+    def _get_client_ip_addr(self):
+        client_ip = bottle.request.environ.get('REMOTE_ADDR')
+        return client_ip
+
+    def hide_passwords(self, x, hide_list):
+        #Leaving behind this code,
+        #So that if we decide to hide based on Client-IP address
+        client_ip = self._get_client_ip_addr()
+        self._smgr_log.log(self._smgr_log.ERROR, "client IP is %s" % (client_ip))
+        query_args = parse_qs(urlparse(bottle.request.url).query,
+                                  keep_blank_values=True)
+        # Check if request arguments has detail parameter
+        show_pass = ("show_pass" in query_args)
+
+        if show_pass == True:
+           return
+        for item in hide_list:
+           object_item = x
+           element_list = item.split('.')
+           for element in element_list:
+              if element in object_item:
+                 if type(object_item[element]) != dict:
+                     #strip the item
+                     object_item[element] = "*****"
+                 else:
+                     object_item = object_item[element]
+        return
 
     # API Call to list images
     def get_image(self):
