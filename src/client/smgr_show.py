@@ -71,6 +71,12 @@ def parse_arguments():
     server_select_group.add_argument(
         "--detail", "-d", action='store_true',
         help="Flag to indicate if details are requested")
+
+    parser_server.add_argument(
+        "--show_passwords", "-s", action='store_true',
+        help=argparse.SUPPRESS)
+
+
     parser_server.set_defaults(func=show_server)
 
     # Subparser for inventory show
@@ -104,6 +110,11 @@ def parse_arguments():
     cluster_select_group.add_argument(
         "--detail", "-d", action='store_true',
         help="Flag to indicate if details are requested")
+
+    parser_cluster.add_argument(
+        "--show_passwords", "-s", action='store_true',
+        help=argparse.SUPPRESS)
+
     parser_cluster.set_defaults(func=show_cluster)
 
     # Subparser for image show
@@ -172,6 +183,8 @@ def send_REST_request(ip, port, rest_api_params, detail):
         if rest_api_params["match_key"]:
             args_str += urllib.quote_plus(rest_api_params["match_key"]) + "=" \
                 + urllib.quote_plus(rest_api_params["match_value"])
+	if 'show_passwords' in rest_api_params:
+            args_str += "&show_pass=true"
         if detail:
             args_str += "&detail"
         if args_str != '':
@@ -215,6 +228,10 @@ def show_server(args):
     else:
         rest_api_params['match_key'] = None
         rest_api_params['match_value'] = None
+
+    if args.show_passwords:
+        rest_api_params['show_passwords'] = True
+
     return rest_api_params
 #end def show_server
 
@@ -234,6 +251,9 @@ def show_cluster(args):
         'match_value' : match_value,
         'select' : args.select
     }
+    if args.show_passwords:
+        rest_api_params['show_passwords'] = True
+
     return rest_api_params
 #end def show_cluster
 
