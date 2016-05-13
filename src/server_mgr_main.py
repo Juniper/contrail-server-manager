@@ -4869,9 +4869,9 @@ class VncServerManager():
                                                     keystone_params["admin_password"])
             self._plug_service_passwords(openstack_params, "heat", "password",
                                                     keystone_params["admin_password"])
-            self._plug_service_passwords(openstack_params, "cielometer", "password",
+            self._plug_service_passwords(openstack_params, "ceilometer", "password",
                                                     keystone_params["admin_password"])
-            self._plug_service_passwords(openstack_params, "cielometer", "mongo",
+            self._plug_service_passwords(openstack_params, "ceilometer", "mongo",
                                                     keystone_params["admin_password"])
             #Do we need the below
             self._plug_service_passwords(openstack_params, "heat",
