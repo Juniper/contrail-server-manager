@@ -627,17 +627,6 @@ class ServerMgrInventory():
         return inventory_status
 
     def handle_inventory_trigger(self, action, servers):
-        if action == "add":
-            self.log(self.DEBUG, "Started Creating SSH Keys in Inventory")
-            for server in servers:
-                if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server and server['id']:
-                    self._base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
-                    self.log(self.DEBUG, "Finished Key Copy/Creation for " + str(server['id']))
-                elif 'ssh_private_key' in server and server['ssh_private_key'] is None and 'id' in server \
-                        and 'ip_address' in server and server['id']:
-                    self._base_obj.create_store_copy_ssh_keys(server['id'], server['ip_address'])
-                    self.log(self.DEBUG, "Finished Key Copy/Creation for " + str(server['id']))
-        self.log(self.DEBUG, "Finished Creating SSH Keys in Inventory")
         server_dict = self._base_obj.create_server_dict(servers)
 
         gevent_threads = []

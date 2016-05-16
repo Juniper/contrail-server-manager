@@ -72,6 +72,7 @@ class ServerMgrMonBasePlugin():
     _discovery_port = None
     _default_ipmi_username = None
     _default_ipmi_password = None
+    _provision_immediately_after_reimage = False
     DEBUG = "debug"
     INFO = "info"
     WARN = "warn"
@@ -475,13 +476,11 @@ class ServerMgrMonBasePlugin():
                     ipmi_password_list.append(self._default_ipmi_password)
 
     # Packages and sends a REST API call to the ServerManager node
-    def reimage_run_inventory(self, ip, port, payload):
+    def copy_ssh_keys_to_servers(self, ip, port, payload, sm_args=None):
         success = False
         source_file = ""
         sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
-        self._smgr_log.log("debug", "Running Reimage Inventory on  " + str(payload))
-        if not self.inventory_config_set and not self.monitoring_config_set:
-            return "No Inventory or Monitoring Configured"
+        self._smgr_log.log("debug", "Copying the ssh keys  " + str(payload))
         tries = 0
         gevent.sleep(60)
         while not success and tries < 10:
@@ -495,7 +494,7 @@ class ServerMgrMonBasePlugin():
                     sshclient.connect(str(server["ip_address"]), str(server["id"]), "password")
                     match_dict = dict()
                     match_dict["id"] = str(payload["id"])
-                    self._smgr_log.log(self._smgr_log.DEBUG, "Running inventory on " + str(payload["id"]) +
+                    self._smgr_log.log(self._smgr_log.DEBUG, "Still trying to copy the ssh keys " + str(payload["id"]) +
                                        ", try " + str(tries))
                     ssh_public_ket_str = str(server["ssh_public_key"])
                     with open("/tmp/" + str(payload["id"]) + ".pub", 'w+') as content_file:
@@ -531,6 +530,8 @@ class ServerMgrMonBasePlugin():
                 gevent.sleep(30)
         if tries >= 10 and success is False:
             self._smgr_log.log(self._smgr_log.ERROR, "SSH Key copy failed on  " + str(payload["id"]))
+        if success and self._provision_immediately_after_reimage == True:
+            gevent.spawn(self.gevent_puppet_agent_start, server, self._serverDb, sm_args)
         if success and self.inventory_config_set:
             try:
                 url = "http://%s:%s/run_inventory" % (ip, port)
@@ -552,7 +553,6 @@ class ServerMgrMonBasePlugin():
     def parse_sandesh_xml(self, inp, uve_name):
         try:
             sname = ""
-            # pdb.set_trace()
             if '@type' not in inp:
                 return None
             if inp['@type'] == 'slist':
@@ -654,15 +654,20 @@ class ServerMgrMonBasePlugin():
             self.server_inventory_obj.set_ipmi_defaults(sm_args.ipmi_username, sm_args.ipmi_password)
             self.server_inventory_obj.add_inventory()
         else:
-            gevent.spawn(self.setup_keys, serverdb)
+            #gevent.spawn(self.setup_keys, serverdb)
             self._smgr_log.log(self._smgr_log.ERROR, "Inventory configuration not set. "
                                                      "You will be unable to get Inventory information from servers.")
 
-    def setup_keys(self, server_db):
-        servers = self._serverDb.get_server(None, detail=True)
+    def setup_keys(self, server_db=None, new_servers=None):
+        if server_db is not None:
+            servers = self._serverDb.get_server(None, detail=True)
+        elif new_servers is not None:
+            servers = new_servers
         for server in servers:
+            #If NO ssh keys are added then create new keys for all the servers, store them in DB, copy them to the target
             if 'ssh_private_key' not in server and 'id' in server and 'ip_address' in server and server['id']:
                 self.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+            #If keys are the deleted from the DB then create and copy them to the target
             elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server and server['id']:
                 self.create_store_copy_ssh_keys(server['id'], server['ip_address'])
 
@@ -739,4 +744,61 @@ class ServerMgrMonBasePlugin():
     def run(self):
         self._smgr_log.log(self._smgr_log.INFO,
                            "No monitoring API has been configured. Server Environement Info will not be monitored.")
+
+   
+    #Function to stop the puppet agent in the target servers
+    def gevent_puppet_agent_stop(self,server, serverDb, sm_args, access_method="key"):
+        success = False
+        tries = 0
+        gevent.sleep(30)
+        pdb.set_trace()
+        self._smgr_log.log("debug", "Going to stop the puppet agent on the server " + str(server['id']))
+        while not success and tries < int(sm_args.puppet_agent_retry_count):
+            try:
+                tries += 1
+                sshclient = ServerMgrSSHClient(serverdb=serverDb)
+                sshclient.connect(str(server['ip_address']), str(server['id']), access_method)
+                output = sshclient.exec_command("sed -i 's/START=.*$/START=no/' /etc/default/puppet")
+                output = sshclient.exec_command("service puppet stop")
+                success = True
+                sshclient.close()
+                self._smgr_log.log("debug", "Successfully stopped the puppet agent on the server " + str(server['id']))
+            except Exception as e:
+                if sshclient:
+                    sshclient.close()
+                self._smgr_log.log(self._smgr_log.ERROR, "Gevent SSH Connect Exception for server id: " + server['id'] + " Error : " + str(e))
+            self._smgr_log.log(self._smgr_log.DEBUG, "Still trying to stop the puppet agent in the server " + str(server["id"]) + ", try " + str(tries))
+            gevent.sleep(int(sm_args.puppet_agent_retry_poll_interval_seconds))
+        if tries >= 10 and success is False:
+            self._smgr_log.log(self._smgr_log.ERROR, "Stopping the puppet agent failed on  " + str(server["id"]))
+   
+    #Function to start the puppet agent in the target servers
+    def gevent_puppet_agent_start(self,server, serverDb, sm_args,access_method="key"):
+        success = False
+        tries = 0
+        gevent.sleep(20)
+        self._smgr_log.log("debug", "Going to start the puppet agent on the server " + str(server['id']))
+        pdb.set_trace()
+        while not success and tries < int(sm_args.puppet_agent_retry_count):
+            try:
+                tries += 1
+                sshclient = ServerMgrSSHClient(serverdb=serverDb)
+                sshclient.connect(str(server['ip_address']), str(server['id']), access_method)
+                output = sshclient.exec_command("sed -i 's/START=.*$/START=yes/' /etc/default/puppet")
+                output = sshclient.exec_command("service puppet start")
+                self._provision_immediately_after_reimage = False
+                success = True
+                sshclient.close()
+                self._smgr_log.log("debug", "Successfully started the puppet agent on the server " + str(server['id']))
+            except Exception as e:
+                server_state = server['status']
+                if server_state == "reimage_started" or server_state == "restart_issued" or server_state == "reimage_completed":
+                    self._provision_immediately_after_reimage = True 
+                if sshclient:
+                    sshclient.close()
+                self._smgr_log.log(self._smgr_log.ERROR, "Gevent SSH Connect Exception for server id: " + server['id'] + " Error : " + str(e))
+            self._smgr_log.log(self._smgr_log.DEBUG, "Still trying to start the puppet agent in the server " + str(server["id"]) + ", try " + str(tries))
+            gevent.sleep(int(sm_args.puppet_agent_retry_poll_interval_seconds))
+        if tries >= 10 and success is False:
+            self._smgr_log.log(self._smgr_log.ERROR, "Starting the puppet agent failed on  " + str(server["id"]))
 

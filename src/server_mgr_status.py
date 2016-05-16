@@ -109,8 +109,8 @@ class ServerMgrStatusThread(threading.Thread):
                 payload["id"] = server_id
                 self._smgr_log.log(self._smgr_log.DEBUG, "Spawning Gevent for Id: %s" % payload["id"])
                 if self._base_obj:
-                    gevent.spawn(self._base_obj.reimage_run_inventory, self._status_thread_config["listen_ip"],
-                                 self._status_thread_config["listen_port"], payload)
+                    gevent.spawn(self._base_obj.copy_ssh_keys_to_servers, self._status_thread_config["listen_ip"],
+                                 self._status_thread_config["listen_port"], payload, self._smgr_main._args)
             if server_state == "provision_started":
                 self._smgr_main.update_provision_started_flag(server_id, server_state)
             self._smgr_main.update_provision_role_sequence(server_id,
@@ -125,6 +125,10 @@ class ServerMgrStatusThread(threading.Thread):
                     server_fqdn = server_id + "." + domain
                     self._smgr_puppet.update_node_map_file(
                         server_fqdn, environment_name)
+                #Stop the puppet agent in the targer server
+                servers = self._status_serverDb.get_server({"id" : server_id}, detail=True)
+                server = servers[0]
+                gevent.spawn(self._base_obj.gevent_puppet_agent_stop, server, self._status_serverDb, self._smgr_main._args)
             if server_state in email_events:
                 self.send_status_mail(server_id, message, message)
         except Exception as e:
