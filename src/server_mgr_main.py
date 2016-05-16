@@ -3608,7 +3608,13 @@ class VncServerManager():
         if not cluster:
             return False
         cluster_params = eval(cluster['parameters'])
-        internal_vip = cluster_params.get('internal_vip', '')
+        cluster_provision_params = cluster_params.get("provision", {})
+        if cluster_provision_params:
+            openstack_params = cluster_provision_params.get("openstack", {})
+            ha_params = openstack_params.get("ha", {})
+            internal_vip = ha_params.get('internal_vip', '')
+        else:
+            internal_vip = cluster_params.get('internal_vip', '')
         if internal_vip:
             return True
         return False
@@ -3617,7 +3623,13 @@ class VncServerManager():
         if not cluster:
             return False
         cluster_params = eval(cluster['parameters'])
-        contrail_internal_vip = cluster_params.get('contrail_internal_vip', '')
+        cluster_provision_params = cluster_params.get("provision", {})
+        if cluster_provision_params:
+            contrail_params = cluster_provision_params.get("contrail", {})
+            contrail_ha_params = contrail_params.get("ha", {})
+            contrail_internal_vip = contrail_ha_params.get('contrail_internal_vip', '')
+        else:
+            contrail_internal_vip = cluster_params.get('contrail_internal_vip', '')
         if contrail_internal_vip:
             return True
         return False
@@ -3938,7 +3950,7 @@ class VncServerManager():
                 openstack_params[role + "_ip_list"] = role_ctl_ip
                 openstack_params[role + "_name_list"] = role_id
                 openstack_params[role + "_passwd_list"] = role_passwd
-                openstack_params[role + "_user_list"] = role_ip
+                openstack_params[role + "_user_list"] = role_user
                 openstack_params['openstack_mgmt_ip_list'] = role_ip
         #end for
         # Build mysql_allowed_hosts list
