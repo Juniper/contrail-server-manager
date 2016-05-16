@@ -44,6 +44,8 @@ from server_mgr_status import *
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_certs import ServerMgrCerts
 from server_mgr_utils import *
+from server_mgr_ssh_client import ServerMgrSSHClient
+
 try:
     from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
 except ImportError:
@@ -97,6 +99,8 @@ _DEF_ROLE_SEQUENCE_DEF_FILE = _DEF_SMGR_BASE_DIR + 'role_sequence.json'
 _CONTRAIL_CENTOS_REPO = 'contrail-centos-repo'
 _CONTRAIL_REDHAT_REPO = 'contrail-redhat-repo'
 _DEF_SMGR_PROVISION_LOGS_DIR = '/var/log/contrail-server-manager/provision/'
+_DEF_PUPPET_AGENT_RETRY_COUNT = 10
+_DEF_PUPPET_AGENT_RETRY_POLL_INTERVAL = 20
 # Temporary variable added to disable use of new puppet framework. This should be removed/enabled
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
 # this variable and it's use when enabling new puppet framework.
@@ -454,6 +458,9 @@ class VncServerManager():
                 self._create_server_manager_config(self.config_data)
             except Exception as e:
                 print repr(e)
+        #Create and copy the ssh keys in the target servers if they are not already present
+        #This will cover the upgrade case where none of the servers may have the key in it
+        gevent.spawn(self._monitoring_base_plugin_obj.setup_keys, self._serverDb)
         if self._is_monitoring_enabled(self._args.monitoring):
             self._monitoring_base_plugin_obj.initialize_features(sm_args=self._args, serverdb=self._serverDb)
 
@@ -1739,6 +1746,7 @@ class VncServerManager():
                     # Trigger to collect monitoring info
 
             # End of for
+            self._monitoring_base_plugin_obj.setup_keys(new_servers=servers)
             if self._server_inventory_obj:
                 gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "add", servers)
         except ServerMgrException as e:
@@ -4647,7 +4655,9 @@ class VncServerManager():
             'puppet_dir': _DEF_PUPPET_DIR,
             'collectors': _DEF_COLLECTORS_IP,
             'http_introspect_port': _DEF_INTROSPECT_PORT,
-            'sandesh_log_level': _DEF_SANDESH_LOG_LEVEL
+            'sandesh_log_level': _DEF_SANDESH_LOG_LEVEL,
+            'puppet_agent_retry_count': _DEF_PUPPET_AGENT_RETRY_COUNT,
+            'puppet_agent_retry_poll_interval_seconds': _DEF_PUPPET_AGENT_RETRY_POLL_INTERVAL
         }
 
         if args.config_file:
@@ -4959,6 +4969,8 @@ class VncServerManager():
     def _do_provision_server(
         self, provision_parameters, server,
         cluster, cluster_servers, package, serverDb):
+        #Start the puppet agent in the target servers
+        gevent.spawn(self._monitoring_base_plugin_obj.gevent_puppet_agent_action, server, serverDb, self._args, "start")
         try:
             # Now call puppet to provision the server.
             self._smgr_puppet.provision_server(
