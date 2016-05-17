@@ -4125,6 +4125,7 @@ class VncServerManager():
         contrail_params = {}
         package_params = package.get("parameters", {})
         contrail_params['contrail_version'] = package_params.get("version", "")
+        contrail_params['package_sku'] = package_params.get("sku", "")
         contrail_params = ServerMgrUtil.convert_unicode(contrail_params)
         package['calc_params'] = {
             "contrail": contrail_params
