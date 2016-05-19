@@ -5051,7 +5051,7 @@ class VncServerManager():
             #Do we need the below
             self._plug_service_passwords(openstack_params, "heat",
                                                     "encryption_key",
-                                                    self.random_string(12))
+                                                    self.random_string(16))
 
         else:
             #old params
@@ -5060,7 +5060,7 @@ class VncServerManager():
             params["mysql_service_password"] = params.get("mysql_service_password", self.random_string(12))
             params["keystone_password"] = params.get("keystone_password", self.random_string(12))
             params["keystone_admin_token"] = params.get("keystone_admin_token", self.random_string(12))
-            params["heat_encryption_key"] = params.get("heat_encryption_key", self.random_string(12))
+            params["heat_encryption_key"] = params.get("heat_encryption_key", self.random_string(16))
 
 # End class VncServerManager()
 
