@@ -124,10 +124,13 @@ apt-get -y install ifenslave-2.6=1.1.0-19ubuntu5
 apt-get -y install sysstat
 apt-get -y install ethtool
 
-wget http://$server/kickstarts/interface_setup.py
+wget -O /root/staticroute_setup.py http://$server/kickstarts/staticroute_setup.py
+wget -O /root/interface_setup.py http://$server/kickstarts/interface_setup.py
 wget http://$server/contrail/config_file/$system_name.sh
 chmod +x $system_name.sh
-./$system_name.sh
+cp $system_name.sh /etc/init.d
+update-rc.d $system_name.sh defaults
+
 
 #--------------------------------------------------------------------------
 #Set up the ntp client 
