@@ -334,47 +334,8 @@ class UbuntuInterface(BaseInterface):
             fd.flush()
         os.system('sudo cp -f %s %s'%(self.tempfile.name, filename))
 
-    def biosdevname_cmd(self):
-        cmd = 'biosdevname -i %s'
-        output = os.popen('grep "PROGRAM=" /lib/udev/rules.d/71-biosdevname.rules').read()
-        if not output:
-            return cmd
-        program_line_list = output.strip().split(',')
-        for entry in program_line_list:
-            if entry.split('=')[0] == 'PROGRAM':
-                program_cmd = eval(entry.split('=')[1])
-                if 'biosdevname' in program_cmd and '%k' in program_cmd:
-                    return program_cmd.replace("%k", "%s")
-        return cmd
-
-    def biosdevname_mapping(self, name):
-        biosdev_name = ''
-        try:
-            biosdev_name = os.popen(self.biosdevname_cmd()%(name)).read()
-        except: 
-            pass
-        biosdev_name = biosdev_name.strip()
-        if biosdev_name:
-            return biosdev_name
-        else:
-            log.info('BiosDevname didnt change the interface name')
-            self.populate_persistent_net_rules(name)
-            return name
-
-    def populate_persistent_net_rules(self, name):
-        log.info('Populating persistent net rules for %s'%name)
-        mac_addr = self.get_mac_addr(name)
-        os.popen('MATCHADDR=%s INTERFACE=%s /lib/udev/write_net_rules'%(mac_addr, name)).read()
-#        os.popen('cp /etc/udev/rules.d/70-persistent-net.rules /target/etc/udev/rules.d/70-persistent-net.rules').read()
-
     def pre_conf(self):
         '''Execute commands before interface configuration for Ubuntu'''
-        if LooseVersion(VERSION) >= LooseVersion("14.04"):
-            if 'bond' not in self.device.lower():
-                self.device = self.biosdevname_mapping(self.device)
-            for i in xrange(len(self.members)):
-                self.members[i] = self.biosdevname_mapping(self.members[i])
-            
         filename = os.path.join(os.path.sep, 'etc', 'network', 'interfaces')
         ifaces = [self.device] + self.members
         if self.vlan:
