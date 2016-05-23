@@ -2904,8 +2904,8 @@ class VncServerManager():
                     bond_opts = intf.get('bond_options', {})
                     member_intfs = self.get_member_interfaces(network_dict,
                                                               intf.get('member_interfaces', []))
-                    device_str+= ("python interface_setup.py \
---device %s --members %s --bond-opts \"%s\" --ip %s --no-restart-network\n") % \
+                    device_str+= ("python /root/interface_setup.py \
+--device %s --members %s --bond-opts \"%s\" --ip %s\n") % \
                         (name,
             			" ".join(member_intfs),
 			            json.dumps(bond_opts), ip_addr)
@@ -2914,15 +2914,17 @@ class VncServerManager():
                     if 'mac_address' in intf:
                         name = intf['mac_address'].lower()
                     if dhcp:
-                        device_str+= ("python interface_setup.py --device %s --dhcp --no-restart-network\n") % \
+                        device_str+= ("python /root/interface_setup.py --device %s --dhcp\n") % \
                             (name)
                     else:
-                        device_str+= ("python interface_setup.py --device %s --ip %s --no-restart-network\n") % \
+                        device_str+= ("python /root/interface_setup.py --device %s --ip %s\n") % \
                             (name, ip_addr)
                     execute_script = True
             sh_file_name = "/var/www/html/contrail/config_file/%s.sh" % (server['id'])
+            rm_filename = "rm /etc/init.d/%s.sh" %(server['id'])
             f = open(sh_file_name, "w")
             f.write(device_str)
+            f.write(rm_filename)
             f.close()
         return execute_script
 
