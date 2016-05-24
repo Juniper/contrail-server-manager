@@ -571,8 +571,56 @@ class ServerMgrPuppet:
         # end with
     # end def build_contrail_hiera_file
 
+    # Function to change key name from new param key name to pre-3.0 puppet hiera names. 
+    def xlate_key_to_pre_3_0(self, long_key, key):
+        xlate_dict = {
+            "contrail::analytics::analytics_ip_list"	: "collector_ip_list",
+            "contrail::analytics::analytics_name_list"	: "collector_name_list",
+            "contrail::analytics::data_ttl" 		: "analytics_data_ttl",
+            "contrail::analytics::config_audit_ttl"	: "analytics_config_audit_ttl",
+            "contrail::analytics::statistics_ttl"	: "analytics_statistics_ttl",
+            "contrail::analytics::flow_ttl"		: "analytics_flow_ttl",
+            "contrail::analytics::syslog_port"		: "analytics_syslog_port",
+            "contrail::analytics::directory"		: "database_dir",
+            "contrail::analytics::data_directory"	: "analytics_data_dir",
+            "contrail::analytics::ssd_data_directory"	: "ssd_data_dir",
+            "contrail::database::directory"		: "database_dir",
+            "contrail::database::minimum_diskGB"	: "database_minimum_diskGB",
+            "contrail::database::initial_token"		: "database_initial_token",
+            "contrail::database::ip_port"		: "database_ip_port",
+            "openstack::keystone::admin_password"	: "keystone_admin_password",
+            "openstack::keystone::admin_user"		: "keystone_admin_user",
+            "openstack::keystone::admin_tenant"		: "keystone_admin_tenant",
+            "openstack::keystone::service_tenant"	: "keystone_service_tenant",
+            "openstack::keystone::admin_token"		: "keystone_service_token",
+            "openstack::keystone::auth_protocol"	: "keystone_auth_protocol",
+            "openstack::keystone::auth_port"		: "keystone_auth_port",
+            "openstack::keystone::insecure_flag"	: "keystone_insecure_flag",
+            "openstack::region"				: "keystone_region_name",
+            "contrail::ha::haproxy_enable"		: "haproxy_flag",
+            "openstack::neutron::port"			: "quantum_port",
+            "openstack::neutron::service_protocol"	: "neutron_service_protocol",
+            "openstack::amqp::server_ip"		: "amqp_server_ip",
+            "contrail::config::zookeeper_ip_port"	: "zk_ip_port",
+            "contrail::config::healthcheck_interval"	: "hc_interval",
+            "contrail::vmware::ip"			: "vmware_ip",
+            "contrail::vmware::username"		: "vmware_username",
+            "contrail::vmware::password"		: "vmware_password",
+            "contrail::vmware::vswitch"			: "vmware_vswitch",
+            "openstack::mysql::root_password"		: "mysql_root_password",
+            "contrail::control::encapsulation_priority"	: "encap_priority",
+            "contrail::vgw::public_subnet"		: "vgw_public_subnet",
+            "contrail::vgw::public_vn_name"		: "vgw_public_vn_name",
+            "contrail::vgw::public_interface"		: "vgw_public_interface",
+            "contrail::vgw::public_gateway_routes"	: "vgw_public_gateway_routes",
+            "contrail::storage::storage_name_list"	: "storage_hostnames"
+        }
+        return xlate_dict.get(long_key, key)
+    # end of function to xlate key to pre_3_0
+
     def add_params_from_dict(self, in_dict, package, prefix=''):
         out_dict = {}
+        package_params = package.get("parameters", {})
         if not(isinstance(in_dict, dict)):
             return out_dict
         for key, value in in_dict.iteritems():
@@ -585,9 +633,8 @@ class ServerMgrPuppet:
                 # For pre3.0 contrail, we need to generate hiera data
                 # in contrail::params::... format too. This code should
                 # be removed when we stop supporting old format contrail (pre-3.0)
-                package_params = package.get("parameters", {})
                 if (package_params.get('puppet_version', 0.0) < 3.0):
-                    out_dict["contrail::params::" + key] = value
+                    out_dict["contrail::params::" + self.xlate_key_to_pre_3_0(new_prefix, key)] = value
                 out_dict[new_prefix] = value
         return out_dict
     # end add_params_from_dict
