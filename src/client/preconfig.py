@@ -461,8 +461,6 @@ class Server(object):
     def update_default_puppet(self):
         log.info('Update default puppet config file for non-server-manager node')
         self.exec_cmd(r'sed -i "s/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :ignore)/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :use)/g" /usr/lib/ruby/vendor_ruby/puppet/configurer/downloader.rb', error_on_fail=True)
-        self.exec_cmd(r"sed -i 's/START=.*$/START=yes/' /etc/default/puppet",
-                      error_on_fail=True)
 
     def remove_puppet_ssl(self):
         log.info('Remove puppet ssl for non-server-manager node')
@@ -482,7 +480,6 @@ class Server(object):
         self.setup_puppet_configs()
         self.remove_puppet_ssl()
         self.update_default_puppet()
-        self.restart_puppet_service()
 
 if __name__ == '__main__':
     args = Utils.parse_args(sys.argv[1:])
