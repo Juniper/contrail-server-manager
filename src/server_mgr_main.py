@@ -3946,10 +3946,6 @@ class VncServerManager():
             role_passwd = [x.get("password", "") for x in servers]
             role_user = ["root" for x in servers]
                     
-            # special case - convert role name for collector to analytics
-            if ((role == "collector") and
-                (package_params.get('puppet_version', 0.0) >= 3.0)):
-                role = "analytics"
             if role != "openstack":
                 contrail_params[role] = {}
                 contrail_params[role][role + "_ip_list"] = role_ctl_ip
