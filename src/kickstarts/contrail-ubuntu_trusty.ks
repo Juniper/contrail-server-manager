@@ -182,7 +182,7 @@ echo "configtimeout=500" >> /etc/puppet/puppet.conf
 sed -i "s/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :ignore)/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :use)/g" /usr/lib/ruby/vendor_ruby/puppet/configurer/downloader.rb
 #--------------------------------------------------------------------------
 # Enable to start puppet agent on boot
-sed -i 's/START=.*$/START=yes/' /etc/default/puppet
+#sed -i 's/START=.*$/START=yes/' /etc/default/puppet
 if [ "$contrail_repo_name" != "" ];
 then
     cd /etc/apt
