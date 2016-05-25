@@ -155,12 +155,14 @@ class VncServerManager():
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
                       "contrail-storage-ubuntu-package"]
     _image_category_list = ["image", "package"]
-    _control_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _control_roles = ['loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
     _role_sequence = [(['haproxy'], 'p'),
+                      (['loadbalancer'], 'p'),
                       (['database'], 'p'), (['openstack'], 'p'), 
                       (['config'], 'p'), (['control'], 'p'), 
                       (['collector'], 'p'), (['webui'], 'p')]
     _role_step_sequence_ha = [(['keepalived'], 'p'), (['haproxy'], 'p'),
+                      (['loadbalancer'], 'p'),
                       (['database'], 'p'), (['openstack'], 'p'),
                       (['pre_exec_vnc_galera'], 's'),
                       (['post_exec_vnc_galera'], 's'),
@@ -168,6 +170,7 @@ class VncServerManager():
                       (['collector'], 'p'), (['webui'], 'p')]
 
     _role_step_sequence_contrail_ha = [(['keepalived'], 'p'), (['haproxy'], 'p'),
+                      (['loadbalancer'], 'p'),
                       (['database'], 'p'), (['openstack'], 'p'),
                       (['config'], 'p'), (['control'], 'p'),
                       (['collector'], 'p'), (['webui'], 'p')]
@@ -176,11 +179,11 @@ class VncServerManager():
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 's')]
     _compute_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
     _roles = _control_roles + _compute_roles
-    _control_step_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _control_step_roles = ['loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
     _compute_step_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
     _openstack_steps = ['pre_exec_vnc_galera', 'post_exec_vnc_galera', 'keepalived', 'haproxy']
     _role_steps = _control_roles + _openstack_steps + _compute_roles
-    _control_step_roles = ['database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _control_step_roles = ['loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
     _compute_step_roles = ['compute', 'storage-compute', 'storage-master']
     _step_roles = _control_step_roles + _compute_step_roles
     _tags_dict = {}
@@ -902,8 +905,8 @@ class VncServerManager():
                 "database", "openstack", "config",
                 "control", "collector", "webui", "compute" ]
         roles_set = set(role_list)
-
-        optional_role_list = ["storage-compute", "storage-master", "tsn", "toragent"]
+        # adding role here got the role in hieradata yaml file
+        optional_role_list = ["storage-compute", "storage-master", "tsn", "toragent", "loadbalancer"]
         optional_role_set = set(optional_role_list)
 
         cluster_role_list = []
@@ -971,7 +974,7 @@ class VncServerManager():
             role_list = [
                 "database", "openstack", "config",
                 "control", "collector", "webui", "compute", "zookeeper",
-                "storage-compute", "storage-master", "tsn", "toragent"]
+                "storage-compute", "storage-master", "tsn", "toragent", "loadbalancer"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
@@ -3580,6 +3583,19 @@ class VncServerManager():
         return hiera_env
     # end get_hieradata_environment
 
+    def is_cluster_ext_lb(self, cluster):
+        '''return true if loadbalancer role is defined for cluster
+        else return false'''
+        if not cluster:
+            return False
+        cluster_params = eval(cluster['parameters'])
+        cluster_provision_params = cluster_params.get("provision", {})
+        if cluster_provision_params:
+            cluster_params_lb = cluster_provision_params['provision']['contrail']
+            if cluster_params_lb.get('loadbalancer', None):
+                return True
+        return False
+
     def get_role_step_servers(self, role_servers, cluster):
         role_step_servers = {}
         if not cluster:
@@ -3590,6 +3606,7 @@ class VncServerManager():
         role_step_servers['haproxy'] = []
         openstack_ha = self.is_cluster_ha(cluster)
         contrail_ha = self.is_cluster_contrail_ha(cluster)
+        ext_lb_flag = self.is_cluster_ext_lb(cluster)
         for role in self._roles:
             role_step_servers[role] = []
             for server in role_servers[role]:
@@ -3599,16 +3616,24 @@ class VncServerManager():
                         role_step_servers['pre_exec_vnc_galera'].append(server['id'])
                     if server['id'] not in role_step_servers['post_exec_vnc_galera']:
                         role_step_servers['post_exec_vnc_galera'].append(server['id'])
-                    if server['id'] not in role_step_servers['keepalived']:
-                        role_step_servers['keepalived'].append(server['id'])
-                    if server['id'] not in role_step_servers['haproxy']:
-                        role_step_servers['haproxy'].append(server['id'])
-                if role == 'config':
+                    if not ext_lb_flag:
+                        if server['id'] not in role_step_servers['keepalived']:
+                            role_step_servers['keepalived'].append(server['id'])
+                        if server['id'] not in role_step_servers['haproxy']:
+                            role_step_servers['haproxy'].append(server['id'])
+                if role == 'config' and (not ext_lb_flag):
                     if server['id'] not in role_step_servers['haproxy']:
                         role_step_servers['haproxy'].append(server['id'])
                     if contrail_ha:
                         if server['id'] not in role_step_servers['keepalived']:
                             role_step_servers['keepalived'].append(server['id'])
+                # add loadbalancer node in keepalived and haproxy list, if one defined
+                if role == 'loadbalancer':
+                    if openstack_ha or contrail_ha:
+                        if server['id'] not in role_step_servers['keepalived']:
+                            role_step_servers['keepalived'].append(server['id'])
+                        if server['id'] not in role_step_servers['haproxy']:
+                            role_step_servers['haproxy'].append(server['id'])
         return role_step_servers
 
     def validate_role_sequence(self, role_sequence):
@@ -4241,6 +4266,11 @@ class VncServerManager():
                 # fully on new format.
                 provision_params = {}
                 if "provision" in cluster_params:
+                    # validate ext lb params in cluster
+                    if role_servers.get('loadbalancer', None):
+                        msg = self._smgr_validations.validate_external_lb_params(cluster)
+                        if msg:
+                            self.log_and_raise_exception(msg)
                     self.build_calculated_provision_params(
                         server, cluster, role_servers, cluster_servers, package)
                 else:
