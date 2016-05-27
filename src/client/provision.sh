@@ -27,7 +27,7 @@ STORAGE_KEYS_INI=""
 CLUSTER_ID="cluster_auto_$RANDOM"
 NO_SM_MON=""
 NO_SM_WEBUI=""
-
+PARAMS_FORMAT="new"
 
 function usage()
 {
@@ -40,6 +40,7 @@ function usage()
     echo -e "\t-cs|--contrail-storage-package <pkg>"
     echo -e "\t-sk|--storage-keys-ini-file <file>"
     echo -e "\t-cid|--cluster-id <cluster-id>"
+    echo -e "\t-pf|--params-format <new/old>"
     echo ""
 }
 
@@ -70,6 +71,10 @@ while [[ $# > 0 ]]; do
         ;;
         -sk|--storage-keys-ini-file)
         STORAGE_KEYS_INI="$2"
+        shift # past argument
+        ;;
+        -pf|--params-format)
+        PARAMS_FORMAT="$2"
         shift # past argument
         ;;
         -h|--help)
@@ -117,6 +122,9 @@ if [ ! -z "$STORAGE_KEYS_INI" ]; then
 fi
 if [ ! -z "$CLUSTER_ID" ]; then
     optional_args="$optional_args --cluster-id $CLUSTER_ID"
+fi
+if [ ! -z "$PARAMS_FORMAT" ]; then
+    optional_args="$optional_args --params-format $PARAMS_FORMAT"
 fi
 cd $PROVISION_DIR && $SCRIPT_PATH/testbed_parser.py --testbed ${TESTBED} --contrail-packages ${CONTRAIL_PKG} $optional_args
 
