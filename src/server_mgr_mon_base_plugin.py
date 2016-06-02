@@ -751,7 +751,6 @@ class ServerMgrMonBasePlugin():
         success = False
         tries = 0
         gevent.sleep(30)
-        pdb.set_trace()
         self._smgr_log.log("debug", "Going to %s the puppet agent on the server %s"% (action, str(server['id'])))
         while not success and tries < int(sm_args.puppet_agent_retry_count):
             try:
