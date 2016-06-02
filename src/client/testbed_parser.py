@@ -84,6 +84,9 @@ class Utils(object):
         parser.add_argument('--log-file',
                             default='test_parser.log',
                             help='Absolute path of a file for logging')
+        parser.add_argument('--params-format',
+                            default='new',
+                            help='Format for Cluster JSON Parameters')
         cliargs = parser.parse_args(args)
         if len(args) == 0:
             parser.print_help()
@@ -121,13 +124,13 @@ class Utils(object):
         testsetup = TestSetup(testbed=args.testbed, cluster_id=args.cluster_id)
         testsetup.connect()
         testsetup.update()
-        server_json = ServerJsonGenerator(testsetup=testsetup, 
+        server_json = ServerJsonGenerator(testsetup=testsetup,
                                           storage_packages=args.contrail_storage_packages)
         server_json.generate_json_file()
         storage_keys = Utils.get_section_from_ini_file(args.storage_keys_ini_file, 'STORAGE-KEYS')
-        cluster_json = ClusterJsonGenerator(testsetup=testsetup, 
+        cluster_json = ClusterJsonGenerator(testsetup=testsetup,
                                             storage_keys=storage_keys)
-        cluster_json.generate_json_file()
+        cluster_json.generate_json_file(params_format=args.params_format)
         package_files = args.contrail_packages + args.contrail_storage_packages
         image_json = ImageJsonGenerator(testsetup=testsetup,
                                         package_files=package_files)
@@ -599,6 +602,24 @@ class BaseJsonGenerator(object):
         self.cluster_id = self.testsetup.cluster_id or "cluster"
         self.dict_data = {}
 
+    def get_destination_variable_to_set(self, source_variable_name, destination_variable_top, translation_dict,
+                                            params_format="new"):
+        if source_variable_name in translation_dict:
+            name_format_dict = translation_dict[source_variable_name]
+            if params_format == "new":
+                destination_variable_name = name_format_dict["newname"]
+                split_dest_v_name = destination_variable_name.split('.')
+                tmp_dict = destination_variable_top
+                for level in split_dest_v_name[:-1]:
+                    if level not in tmp_dict.keys():
+                        tmp_dict[str(level)] = {}
+                    tmp_dict = tmp_dict[str(level)]
+                tmp_dict[str(split_dest_v_name[-1])] = ""
+                return tmp_dict, split_dest_v_name[-1], name_format_dict["newformat"]
+            elif params_format == "old":
+                destination_variable_name = name_format_dict["oldname"]
+                return destination_variable_top, destination_variable_name, name_format_dict["oldformat"]
+
     def set_if_defined(self, source_variable_name,
                        destination_variable, **kwargs):
 
@@ -806,6 +827,40 @@ class ClusterJsonGenerator(BaseJsonGenerator):
         self.storage_keys = kwargs.get('storage_keys', None)
         self.dict_data = {"cluster": []}
 
+    def _new_initialize(self):
+        translation_dict = {}
+        with open('/opt/contrail/server_manager/client/parameter-translation-dict.json') as json_file:
+            translation_dict = json.load(json_file)
+        cluster_dict = {"id": self.cluster_id, "parameters": {}}
+        cluster_dict['parameters']['provision'] = {}
+        for allowed_key in translation_dict:
+            if "." in allowed_key:
+                sub_dict_name = str(allowed_key).split('.')[0]
+                sub_dict_key = str(allowed_key).split('.')[1]
+                source_variable = getattr(self.testsetup, sub_dict_name, None)
+            else:
+                sub_dict_name = None
+                sub_dict_key = None
+                source_variable = self.testsetup
+            if allowed_key in self.testsetup.testbed.__dict__.keys() \
+                    or allowed_key in self.testsetup.testbed.env.keys() \
+                    or (sub_dict_key and source_variable and sub_dict_key in dict(source_variable)):
+                dest_var, dest_var_name, data_format = self.get_destination_variable_to_set(
+                    allowed_key, cluster_dict['parameters']['provision'], translation_dict)
+                to_lower = False
+                if sub_dict_key:
+                    source_variable_name = sub_dict_key
+                    function_to_use=dict.get
+                else:
+                    function_to_use=getattr
+                    source_variable_name = allowed_key
+                if data_format == "boolean":
+                    to_lower = True
+                self.set_if_defined(source_variable_name, dest_var, source_variable=source_variable,
+                                    destination_variable_name=str(dest_var_name), to_lower=to_lower,
+                                    function=function_to_use)
+        return cluster_dict
+
     def _initialize(self):
         cluster_dict = {"id": self.cluster_id}
         cluster_dict['parameters'] = {}
@@ -831,7 +886,7 @@ class ClusterJsonGenerator(BaseJsonGenerator):
         self.set_if_defined('enable_lbaas', cluster_dict['parameters'], to_lower=True)
         # ceilometer params
         self.set_if_defined('enable_ceilometer', cluster_dict['parameters'], to_lower=True)
-            
+
         # Update storage keys
         self.set_if_defined('storage_mon_secret', cluster_dict['parameters'],
                             source_variable=self.storage_keys,
@@ -904,8 +959,11 @@ class ClusterJsonGenerator(BaseJsonGenerator):
 
         return cluster_dict
 
-    def generate_json_file(self):
-        cluster_dict = self._initialize()
+    def generate_json_file(self, params_format="new"):
+        if params_format == "new":
+            cluster_dict = self._new_initialize()
+        else:
+            cluster_dict = self._initialize()
         self.dict_data['cluster'].append(cluster_dict)
         self.generate()
 
