@@ -11,7 +11,7 @@
                     "contrail": {
                         "kernel_upgrade": true,
                         "kernel_version": "",
-                        "enable_lbass": false,
+                        "enable_lbaas": false,
                         "xmpp_auth_enable": false,
                         "xmpp_dns_auth_enable": false,
                         "ha": {
