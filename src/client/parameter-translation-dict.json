@@ -11,9 +11,9 @@
     "newformat": "string",
     "oldformat": "string"
   },
-  "enable_lbass": {
-    "newname": "contrail.enable_lbass",
-    "oldname": "enable_lbass",
+  "enable_lbaas": {
+    "newname": "contrail.enable_lbaas",
+    "oldname": "enable_lbaas",
     "newformat": "boolean",
     "oldformat": "string"
   },
@@ -350,6 +350,12 @@
   "mysql_root_password": {
     "newname": "openstack.mysql.root_password",
     "oldname": "mysql_root_password",
+    "newformat": "string",
+    "oldformat": "string"
+  },
+  "mysql_service_password": {
+    "newname": "openstack.mysql.service_password",
+    "oldname": "mysql_service_password",
     "newformat": "string",
     "oldformat": "string"
   },

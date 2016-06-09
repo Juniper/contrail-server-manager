@@ -1,0 +1,126 @@
+{
+  "haproxy_enable": {
+    "newname": "contrail.ha.haproxy_enable",
+    "oldname": "contrail.ha.haproxy_flag"
+  },
+  "database_dir": {
+    "newname": "contrail.database.directory",
+    "oldname": "contrail.database.database_dir"
+  },
+  "minimum_diskGB": {
+    "newname": "contrail.database.minimum_diskGB",
+    "oldname": "contrail.database.database_minimum_diskGB"
+  },
+  "database_ip_port": {
+    "newname": "contrail.database.ip_port",
+    "oldname": "contrai.database.database_ip_port"
+  },
+  "database_ttl": {
+    "newname": "contrail.analytics.data_ttl",
+    "oldname": "contrail.analytics.analytics_data_ttl"
+  },
+  "analytics_config_audit_ttl": {
+    "newname": "contrail.analytics.config_audit_ttl",
+    "oldname": "contrail.analytics.analytics_config_audit_ttl"
+  },
+  "analytics_statistics_ttl": {
+    "newname": "contrail.analytics.statistics_ttl",
+    "oldname": "contrail.analytics.analytics_statistics_ttl"
+  },
+  "analytics_flow_ttl": {
+    "newname": "contrail.analytics.flow_ttl",
+    "oldname": "contrail.analytics.analytics_flow_ttl"
+  },
+  "analytics_syslog_port": {
+    "newname": "contrail.analytics.syslog_port",
+    "oldname": "contrail.analytics.analytics_syslog_port"
+  },
+  "analytics_data_dir": {
+    "newname": "contrail.analytics.data_directory",
+    "oldname": "contrail.analytics.analytics_data_dir"
+  },
+  "ssd_data_dir": {
+    "newname": "contrail.analytics.ssd_data_directory",
+    "oldname": "contrail.analytics.ssd_data_dir"
+  },
+  "zk_ip_port": {
+    "newname": "contrail.config.zookeeper_ip_port",
+    "oldname": "contrail.config.zk_ip_port"
+  },
+  "hc_interval": {
+    "newname": "contrail.config.healthcheck_interval",
+    "oldname": "contrail.config.hc_interval"
+  },
+  "redis_password": {
+    "newname": "contrail.analytics.redis_password",
+    "oldname": "contrail.config.redis_password"
+  },
+  "encap_priority": {
+    "newname": "contrail.control.encapsulation_priority",
+    "oldname": "contrail.control.encap_priority"
+  },
+  "vmware_ip": {
+    "newname": "contrail.vmware.ip",
+    "oldname": "contrail.vmware.vmware_ip"
+  },
+  "vmware_username": {
+    "newname": "contrail.vmware.username",
+    "oldname": "contrail.vmware.vmware_username"
+  },
+  "vmware_password": {
+    "newname": "contrail.vmware.password",
+    "oldname": "contrail.vmware.vmware_password"
+  },
+  "vmware_vswitch": {
+    "newname": "contrail.vmware.vswitch",
+    "oldname": "contrail.vmware.vmware_vswitch"
+  },
+  "vgw_public_subnet": {
+    "newname": "contrail.vgw.public_subnet",
+    "oldname": "contrail.vgw.vgw_public_subnet"
+  },
+  "vgw_public_vn_name": {
+    "newname": "contrail.vgw.public_vn_name",
+    "oldname": "contrail.vgw.vgw_public_vn_name"
+  },
+  "vgw_interface": {
+    "newname": "contrail.vgw.interface",
+    "oldname": "contrail.vgw.vgw_interface"
+  },
+  "vgw_gateway_routes": {
+    "newname": "contrail.vgw.gateway_routes",
+    "oldname": "contrail.vgw.vgw_gateway_routes"
+  },
+  "sriov_enable": {
+    "newname": "contrail.compute.sriov.enable",
+    "oldname": "contrail.openstack.sriov.enable"
+  },
+  "contrail_amqp_ip_list": {
+    "newname": "contrail.config.contrail_amqp_ip_list",
+    "oldname": "openstack.contrail_amqp_ip_list"
+  },
+  "contrail_amqp_ip_port": {
+    "newname": "contrail.config.contrail_amqp_port",
+    "oldname": "openstack.contrail_amqp_port"
+  },
+  "keystone_admin_password": {
+    "newname": "openstack.keystone.admin_password",
+    "oldname": "openstack.keystone_admin_password"
+  },
+  "keystone_admin_tenant": {
+    "newname": "openstack.keystone.admin_tenant",
+    "oldname": "openstack.keystone_admin_tenant"
+  },
+  "keystone_admin_user": {
+    "newname": "openstack.keystone.admin_user",
+    "oldname": "openstack.keystone_admin_user"
+  },
+  "mysql_root_password": {
+    "newname": "openstack.mysql.root_password",
+    "oldname": "openstack.mysql_root_password"
+  },
+  "mysql_service_password": {
+    "newname": "openstack.mysql.service_password",
+    "oldname": "openstack.mysql_service_password"
+  }
+}
