@@ -254,7 +254,7 @@ class ServerMgrPuppet:
             "analytics_data_dir" : ["analytics_data_dir", "string"],
             "ssd_data_dir" : ["ssd_data_dir", "string"],
             "database_minimum_diskGB" : ["database_minimum_diskGB", "integer"],
-            "enable_lbass" : ["enable_lbass", "boolean"],
+            "enable_lbaas" : ["enable_lbaas", "boolean"],
             "redis_password" : ["redis_password", "string"],
             "keystone_ip" : ["keystone_ip", "string"],
             "keystone_password" : ["keystone_admin_password", "string"],
