@@ -48,14 +48,15 @@ class ServerMgrPuppet:
         #openstack_ip = cluster_params.get("internal_vip", None)
         cluster_openstack_prov_params = (
             cluster_params.get("provision", {})).get("openstack", {})
-        configured_external_keystone_ip = cluster_openstack_prov_params.get("keystone_ip", None)
+        configured_external_keystone_params = cluster_openstack_prov_params.get("keystone", None)
+        configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
         openstack_ip = ''
         self_ip = server.get("ip_address", "")
         if configured_external_keystone_ip:
             openstack_ip = configured_external_keystone_ip
         elif self_ip in role_ips_dict['openstack']:
             openstack_ip = self_ip
-        elif 'openstack' in role_ips_dict:
+        elif 'openstack' in role_ips_dict and len(role_ips_dict['openstack']):
             openstack_ip = role_ips_dict['openstack'][0]
         else:
             msg = "Openstack role not defined for cluster AND External Openstack not configured in cluster parameters.\n " \
