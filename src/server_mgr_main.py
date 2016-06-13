@@ -858,7 +858,11 @@ class VncServerManager():
         else:
             msg = "Cluster with only Openstack role is supported only with new cluster params format with Openstack section\n"
             self.log_and_raise_exception(msg)
-        configured_external_keystone_ip = cluster_openstack_params.get("keystone_ip", None)
+        configured_external_keystone_params = cluster_openstack_params.get("keystone", None)
+        if configured_external_keystone_params:
+            configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
+        else:
+            configured_external_keystone_ip = None
         configured_nova_params = cluster_openstack_params.get("nova", None)
         if configured_nova_params:
             configured_nova_rabbit_servers = configured_nova_params.get("rabbit_hosts", None)
@@ -867,7 +871,7 @@ class VncServerManager():
         if configured_external_keystone_ip and configured_nova_rabbit_servers:
             pass
         else:
-            msg = "In a Cluster with no Openstack role, you need to configure both openstack::keystone_ip and openstack::nova::rabbit_hosts to point to an external Openstack\n"
+            msg = "In a Cluster with no Openstack role, you need to configure both openstack::keystone::ip and openstack::nova::rabbit_hosts to point to an external Openstack\n"
             self.log_and_raise_exception(msg)
 
     def validate_openstack_only_cluster(self, cluster_id):
@@ -3843,14 +3847,15 @@ class VncServerManager():
         server_params = server.get('parameters', {})
         cluster_openstack_prov_params = (
             cluster_params.get("provision", {})).get("openstack", {})
-        configured_external_keystone_ip = cluster_openstack_prov_params.get("keystone_ip", None)
+        configured_external_keystone_params = cluster_openstack_prov_params.get("keystone", None)
+        configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
         openstack_ip = ''
         self_ip = server.get("ip_address", "")
         if configured_external_keystone_ip:
             openstack_ip = configured_external_keystone_ip
         elif self_ip in role_ips_dict['openstack']:
             openstack_ip = self_ip
-        elif 'openstack' in role_ips_dict:
+        elif 'openstack' in role_ips_dict and len(role_ips_dict['openstack']):
             openstack_ip = role_ips_dict['openstack'][0]
         else:
             msg = "Openstack role not defined for cluster AND External Openstack not configured in cluster parameters.\n " \
@@ -3965,7 +3970,8 @@ class VncServerManager():
         # Build mysql_allowed_hosts list
         contrail_ha_params = cluster_contrail_prov_params.get("ha", {})
         openstack_ha_params = cluster_openstack_prov_params.get("ha", {})
-        configured_external_keystone_ip = cluster_openstack_prov_params.get("keystone_ip", None)
+        configured_external_keystone_ip = cluster_openstack_prov_params.get("keystone", None)
+        configured_external_keystone_params = configured_external_keystone_ip.get("ip", None)
         mysql_allowed_hosts = []
         internal_vip = openstack_ha_params.get("internal_vip", None)
         if internal_vip:
