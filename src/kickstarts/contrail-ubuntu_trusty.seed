@@ -1,4 +1,8 @@
 #platform=x86, AMD64, or Intel EM64T
+
+#unmount any partitions
+d-i preseed/early_command string umount /media || true
+
 # System authorization information
 
 # System bootloader configuration
