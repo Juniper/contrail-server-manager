@@ -203,6 +203,19 @@ class ServerMgrValidations:
         contrail_external_vip = cluster_params.get('contrail_external_vip')
         return (internal_vip, external_vip, contrail_internal_vip, contrail_external_vip) 
 
+    # Function to validate ext lb params
+    def validate_external_lb_params(self, cluster):
+        lb_params = cluster['parameters']['provision']['contrail']\
+                    ['loadbalancer']
+        if not lb_params:
+            return "cluster does not contain loadbalancer in "\
+                    "provision:contrail stanza"
+        lb_method = lb_params.get('loadbalancer_method', None)
+        if not lb_method:
+            return "cluster does not contain loadbalancer method in "\
+                   "provision:contrail:loadbalancer stanza"
+        return None
+        
     #Function to validate vip configuration for a multi interface server
     def validate_multi_interface_vip(self,cluster, servers):
         #Get the list of servers with specific roles
