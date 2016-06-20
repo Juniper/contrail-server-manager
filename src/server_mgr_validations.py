@@ -205,8 +205,8 @@ class ServerMgrValidations:
 
     # Function to validate ext lb params
     def validate_external_lb_params(self, cluster):
-        lb_params = cluster['parameters']['provision']['contrail']\
-                    ['loadbalancer']
+        cl_params = cluster['parameters']['provision']['contrail']
+        lb_params = cl_params.get('loadbalancer', None)
         if not lb_params:
             return "cluster does not contain loadbalancer in "\
                     "provision:contrail stanza"
