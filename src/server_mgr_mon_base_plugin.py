@@ -654,7 +654,6 @@ class ServerMgrMonBasePlugin():
             self.server_inventory_obj.set_ipmi_defaults(sm_args.ipmi_username, sm_args.ipmi_password)
             self.server_inventory_obj.add_inventory()
         else:
-            #gevent.spawn(self.setup_keys, serverdb)
             self._smgr_log.log(self._smgr_log.ERROR, "Inventory configuration not set. "
                                                      "You will be unable to get Inventory information from servers.")
 
@@ -670,6 +669,8 @@ class ServerMgrMonBasePlugin():
             #If keys are the deleted from the DB then create and copy them to the target
             elif server['ssh_private_key'] is None and 'id' in server and 'ip_address' in server and server['id']:
                 self.create_store_copy_ssh_keys(server['id'], server['ip_address'])
+        if self.inventory_config_set and new_servers:
+                self.server_inventory_obj.handle_inventory_trigger("add", servers)
 
     def create_server_dict(self, servers):
         return_dict = dict()
