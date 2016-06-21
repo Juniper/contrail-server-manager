@@ -84,9 +84,6 @@ class Utils(object):
         parser.add_argument('--log-file',
                             default='test_parser.log',
                             help='Absolute path of a file for logging')
-        parser.add_argument('--params-format',
-                            default='new',
-                            help='Format for Cluster JSON Parameters')
         cliargs = parser.parse_args(args)
         if len(args) == 0:
             parser.print_help()
@@ -130,7 +127,7 @@ class Utils(object):
         storage_keys = Utils.get_section_from_ini_file(args.storage_keys_ini_file, 'STORAGE-KEYS')
         cluster_json = ClusterJsonGenerator(testsetup=testsetup,
                                             storage_keys=storage_keys)
-        cluster_json.generate_json_file(params_format=args.params_format)
+        cluster_json.generate_json_file()
         package_files = args.contrail_packages + args.contrail_storage_packages
         image_json = ImageJsonGenerator(testsetup=testsetup,
                                         package_files=package_files)
@@ -602,23 +599,18 @@ class BaseJsonGenerator(object):
         self.cluster_id = self.testsetup.cluster_id or "cluster"
         self.dict_data = {}
 
-    def get_destination_variable_to_set(self, source_variable_name, destination_variable_top, translation_dict,
-                                            params_format="new"):
+    def get_destination_variable_to_set(self, source_variable_name, destination_variable_top, translation_dict):
         if source_variable_name in translation_dict:
             name_format_dict = translation_dict[source_variable_name]
-            if params_format == "new":
-                destination_variable_name = name_format_dict["newname"]
-                split_dest_v_name = destination_variable_name.split('.')
-                tmp_dict = destination_variable_top
-                for level in split_dest_v_name[:-1]:
-                    if level not in tmp_dict.keys():
-                        tmp_dict[str(level)] = {}
-                    tmp_dict = tmp_dict[str(level)]
-                tmp_dict[str(split_dest_v_name[-1])] = ""
-                return tmp_dict, split_dest_v_name[-1], name_format_dict["newformat"]
-            elif params_format == "old":
-                destination_variable_name = name_format_dict["oldname"]
-                return destination_variable_top, destination_variable_name, name_format_dict["oldformat"]
+            destination_variable_name = name_format_dict["newname"]
+            split_dest_v_name = destination_variable_name.split('.')
+            tmp_dict = destination_variable_top
+            for level in split_dest_v_name[:-1]:
+                if level not in tmp_dict.keys():
+                    tmp_dict[str(level)] = {}
+                tmp_dict = tmp_dict[str(level)]
+            tmp_dict[str(split_dest_v_name[-1])] = ""
+            return tmp_dict, split_dest_v_name[-1], name_format_dict["newformat"]
 
     def set_if_defined(self, source_variable_name,
                        destination_variable, **kwargs):
@@ -827,7 +819,7 @@ class ClusterJsonGenerator(BaseJsonGenerator):
         self.storage_keys = kwargs.get('storage_keys', None)
         self.dict_data = {"cluster": []}
 
-    def _new_initialize(self):
+    def _initialize(self):
         translation_dict = {}
         with open('/opt/contrail/server_manager/client/parameter-translation-dict.json') as json_file:
             translation_dict = json.load(json_file)
@@ -861,109 +853,8 @@ class ClusterJsonGenerator(BaseJsonGenerator):
                                     function=function_to_use)
         return cluster_dict
 
-    def _initialize(self):
-        cluster_dict = {"id": self.cluster_id}
-        cluster_dict['parameters'] = {}
-        self.set_if_defined('router_asn', cluster_dict['parameters'],
-                            to_string=True)
-        self.set_if_defined('database_dir', cluster_dict['parameters'])
-        self.set_if_defined('multi_tenancy', cluster_dict['parameters'])
-        self.set_if_defined('encap_priority', cluster_dict['parameters'],
-                            destination_variable_name='encapsulation_priority')
-        self.set_if_defined('database_ttl', cluster_dict['parameters'],
-                            destination_variable_name='analytics_data_ttl')
-        self.set_if_defined('haproxy', cluster_dict['parameters'])
-        self.set_if_defined('minimum_diskGB', cluster_dict['parameters'],
-                            destination_variable_name='database_minimum_diskGB',
-                            to_string=True)
-        self.set_if_defined('ext_routers', cluster_dict['parameters'],
-                            destination_variable_name='external_bgp')
-
-        # xmpp params
-        self.set_if_defined('xmpp_auth_enable', cluster_dict['parameters'], to_lower=True)
-        self.set_if_defined('xmpp_dns_auth_enable', cluster_dict['parameters'], to_lower=True)
-        # lbass params
-        self.set_if_defined('enable_lbaas', cluster_dict['parameters'], to_lower=True)
-        # ceilometer params
-        self.set_if_defined('enable_ceilometer', cluster_dict['parameters'], to_lower=True)
-
-        # Update storage keys
-        self.set_if_defined('storage_mon_secret', cluster_dict['parameters'],
-                            source_variable=self.storage_keys,
-                            function=dict.get)
-        self.set_if_defined('osd_bootstrap_key', cluster_dict['parameters'],
-                            source_variable=self.storage_keys,
-                            function=dict.get)
-        self.set_if_defined('admin_key', cluster_dict['parameters'],
-                            source_variable=self.storage_keys,
-                            function=dict.get)
-
-        # Update ha details
-        if getattr(self.testsetup, 'ha', None) is not None:
-            self.set_if_defined('internal_vip',cluster_dict['parameters'],
-                                source_variable=self.testsetup.ha,
-                                function=dict.get)
-            self.set_if_defined('external_vip',cluster_dict['parameters'],
-                                source_variable=self.testsetup.ha,
-                                function=dict.get)
-            self.set_if_defined('nfs_server',cluster_dict['parameters'],
-                                source_variable=self.testsetup.ha,
-                                function=dict.get)
-            self.set_if_defined('nfs_glance_path',cluster_dict['parameters'],
-                                source_variable=self.testsetup.ha,
-                                function=dict.get)
-            self.set_if_defined('internal_virtual_router_id',cluster_dict['parameters'],
-                                source_variable=self.testsetup.ha,
-                                function=dict.get)
-            self.set_if_defined('external_virtual_router_id',cluster_dict['parameters'],
-                                source_variable=self.testsetup.ha,
-                                function=dict.get)
-            self.set_if_defined('contrail_internal_virtual_router_id',cluster_dict['parameters'],
-                                source_variable=self.testsetup.ha,
-                                function=dict.get)
-            self.set_if_defined('contrail_external_virtual_router_id',cluster_dict['parameters'],
-                                source_variable=self.testsetup.ha,
-                                function=dict.get)
-
-        # Update keystone details
-        self.set_if_defined('openstack_admin_password', cluster_dict['parameters'],
-                             destination_variable_name='keystone_password')
-        if getattr(self.testsetup, 'keystone', None) is not None:
-            self.set_if_defined('admin_user', cluster_dict['parameters'],
-                                source_variable=self.testsetup.keystone,
-                                function=dict.get,
-                                destination_variable_name='keystone_username')
-            self.set_if_defined('admin_password', cluster_dict['parameters'],
-                                source_variable=self.testsetup.keystone,
-                                function=dict.get,
-                                destination_variable_name='keystone_password')
-            self.set_if_defined('admin_tenant', cluster_dict['parameters'],
-                                source_variable=self.testsetup.keystone,
-                                function=dict.get,
-                                destination_variable_name='keystone_tenant')
-        if getattr(self.testsetup, 'openstack', None) is not None:
-            self.set_if_defined('service_token', cluster_dict['parameters'],
-                                function=dict.get,
-                                source_variable=self.testsetup.openstack)
-            self.set_if_defined('service_dbpass', cluster_dict['parameters'],
-                                function=dict.get,
-                                source_variable=self.testsetup.openstack,
-                                destination_variable_name='mysql_service_password')
-        # Storage params
-        ceph_nfs_livem = getattr(self.testsetup, 'ceph_nfs_livem', None)
-        if ceph_nfs_livem is not None and ceph_nfs_livem is True:
-            cluster_dict['parameters']['live_migration'] = 'enable'
-        ceph_nfs_livem_host = getattr(self.testsetup, 'ceph_nfs_livem_host', None)
-        if ceph_nfs_livem_host:
-            cluster_dict['parameters']['live_migration_nfs_vm_host'] = self.testsetup.hosts[ceph_nfs_livem_host].hostname
-
-        return cluster_dict
-
-    def generate_json_file(self, params_format="new"):
-        if params_format == "new":
-            cluster_dict = self._new_initialize()
-        else:
-            cluster_dict = self._initialize()
+    def generate_json_file(self):
+        cluster_dict = self._initialize()
         self.dict_data['cluster'].append(cluster_dict)
         self.generate()
 
