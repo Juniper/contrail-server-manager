@@ -1721,6 +1721,7 @@ class VncServerManager():
         try:
             self.validate_smgr_entity("server", entity)
             servers = entity.get("server", None)
+            new_servers = []
             for server in servers:
                 self.plug_mgmt_intf_details(server)
                 self.validate_server_mgr_tags(server)
@@ -1745,6 +1746,7 @@ class VncServerManager():
                     self._serverDb.modify_server(server)
                     server_fields['primary_keys'] = "['id', 'mac_address']"
                 else:
+                    new_servers.append(server)
                     self.validate_smgr_request("SERVER", "PUT",
                                                bottle.request, server)
                     server['status'] = "server_added"
@@ -1753,9 +1755,8 @@ class VncServerManager():
                     # Trigger to collect monitoring info
 
             # End of for
-            self._monitoring_base_plugin_obj.setup_keys(new_servers=servers)
-            if self._server_inventory_obj:
-                gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "add", servers)
+            if len(new_servers):
+                gevent.spawn(self._monitoring_base_plugin_obj.setup_keys, None, new_servers)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
