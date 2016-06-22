@@ -16,7 +16,6 @@ import shutil
 import random 
 import tempfile
 import re
-import openstack_hieradata
 import yaml
 import uuid
 from server_mgr_err import *
