@@ -3596,7 +3596,7 @@ class VncServerManager():
         cluster_params = eval(cluster['parameters'])
         cluster_provision_params = cluster_params.get("provision", {})
         if cluster_provision_params:
-            cluster_params_lb = cluster_provision_params['contrail']
+            cluster_params_lb = cluster_provision_params.get("contrail", {})
             if cluster_params_lb.get('loadbalancer', None):
                 return True
         return False
