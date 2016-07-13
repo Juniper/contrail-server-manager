@@ -810,6 +810,12 @@ class VncServerManager():
         for item in remove_list:
             data.pop(item, None)
 
+        if 'parameters' in data and obj_name == 'cluster':
+            if 'provision' not in data['parameters']:
+                msg =  ("Old Parameters format is no longer supported for cluster parameters. Please use the new format")
+                self._smgr_log.log(self._smgr_log.ERROR,msg)
+                self.log_and_raise_exception(msg)
+
         if 'roles' in data:
             if 'storage-compute' in data['roles'] and 'compute' not in data['roles']:
                 msg = "role 'storage-compute' needs role 'compute' in provision file"
@@ -861,7 +867,7 @@ class VncServerManager():
         else:
             msg = "Cluster with only Openstack role is supported only with new cluster params format with Openstack section\n"
             self.log_and_raise_exception(msg)
-        configured_external_keystone_params = cluster_openstack_params.get("keystone", None)
+        configured_external_keystone_params = cluster_openstack_params.get("keystone", {})
         if configured_external_keystone_params:
             configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
         else:
@@ -3852,7 +3858,7 @@ class VncServerManager():
         server_params = server.get('parameters', {})
         cluster_openstack_prov_params = (
             cluster_params.get("provision", {})).get("openstack", {})
-        configured_external_keystone_params = cluster_openstack_prov_params.get("keystone", None)
+        configured_external_keystone_params = cluster_openstack_prov_params.get("keystone", {})
         configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
         openstack_ip = ''
         self_ip = server.get("ip_address", "")
@@ -3975,7 +3981,7 @@ class VncServerManager():
         # Build mysql_allowed_hosts list
         contrail_ha_params = cluster_contrail_prov_params.get("ha", {})
         openstack_ha_params = cluster_openstack_prov_params.get("ha", {})
-        configured_external_keystone_params = cluster_openstack_prov_params.get("keystone", None)
+        configured_external_keystone_params = cluster_openstack_prov_params.get("keystone", {})
         configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
         mysql_allowed_hosts = []
         internal_vip = openstack_ha_params.get("internal_vip", None)
