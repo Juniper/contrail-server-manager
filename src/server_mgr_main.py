@@ -3283,8 +3283,12 @@ class VncServerManager():
     def get_control_gateway(self, server):
         control_intf = eval(self.get_control_interface(server))
         for key, value in control_intf.iteritems():
-            return str(IPNetwork(value['gateway']).ip)
-        return ''
+            if 'gateway' in value:
+                return str(IPNetwork(value['gateway']).ip)
+        if 'gateway' in server:
+            return str(IPNetwork(server['gateway']).ip)
+        else:
+            return ''
     # end def get_control_gateway
 
     #Function to get control section for all servers
