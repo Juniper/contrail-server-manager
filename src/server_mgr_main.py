@@ -867,17 +867,13 @@ class VncServerManager():
         else:
             msg = "Cluster with only Openstack role is supported only with new cluster params format with Openstack section\n"
             self.log_and_raise_exception(msg)
-        configured_external_keystone_params = cluster_openstack_params.get("keystone", {})
-        if configured_external_keystone_params:
-            configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
-        else:
-            configured_external_keystone_ip = None
+        configured_external_openstack_ip = cluster_openstack_params.get("external_openstack_ip", None)
         configured_nova_params = cluster_openstack_params.get("nova", None)
         if configured_nova_params:
             configured_nova_rabbit_servers = configured_nova_params.get("rabbit_hosts", None)
         else:
             configured_nova_rabbit_servers = None
-        if configured_external_keystone_ip and configured_nova_rabbit_servers:
+        if configured_external_openstack_ip and configured_nova_rabbit_servers:
             pass
         else:
             msg = "In a Cluster with no Openstack role, you need to configure both openstack::keystone::ip and openstack::nova::rabbit_hosts to point to an external Openstack\n"
@@ -3862,12 +3858,11 @@ class VncServerManager():
         server_params = server.get('parameters', {})
         cluster_openstack_prov_params = (
             cluster_params.get("provision", {})).get("openstack", {})
-        configured_external_keystone_params = cluster_openstack_prov_params.get("keystone", {})
-        configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
+        configured_external_openstack_ip = cluster_openstack_prov_params.get("external_openstack_ip", None)
         openstack_ip = ''
         self_ip = server.get("ip_address", "")
-        if configured_external_keystone_ip:
-            openstack_ip = configured_external_keystone_ip
+        if configured_external_openstack_ip:
+            openstack_ip = configured_external_openstack_ip
         elif self_ip in role_ips_dict['openstack']:
             openstack_ip = self_ip
         elif 'openstack' in role_ips_dict and len(role_ips_dict['openstack']):
@@ -3885,7 +3880,7 @@ class VncServerManager():
         subnet_address = str(IPNetwork(
             openstack_ip + "/" + subnet_mask).network)
 
-        if openstack_ip == configured_external_keystone_ip:
+        if openstack_ip == configured_external_openstack_ip:
             return '"' + str(IPNetwork(subnet_address).network) + '/' + str(IPNetwork(subnet_address).prefixlen) + '"'
         if (self.get_control_net(cluster_servers))[openstack_ip]:
             intf_control = eval((self.get_control_net(cluster_servers))[openstack_ip])
@@ -3985,8 +3980,7 @@ class VncServerManager():
         # Build mysql_allowed_hosts list
         contrail_ha_params = cluster_contrail_prov_params.get("ha", {})
         openstack_ha_params = cluster_openstack_prov_params.get("ha", {})
-        configured_external_keystone_params = cluster_openstack_prov_params.get("keystone", {})
-        configured_external_keystone_ip = configured_external_keystone_params.get("ip", None)
+        configured_external_openstack_ip = cluster_openstack_prov_params.get("external_openstack_ip", None)
         mysql_allowed_hosts = []
         internal_vip = openstack_ha_params.get("internal_vip", None)
         if internal_vip:
@@ -4072,8 +4066,8 @@ class VncServerManager():
         # Build openstack parameters for openstack modules
         self_ip = server.get("ip_address", "")
         openstack_ips = [x["ip_address"] for x in cluster_servers if "openstack" in eval(x.get('roles', '[]'))]
-        if configured_external_keystone_ip:
-            openstack_ip = configured_external_keystone_ip
+        if configured_external_openstack_ip:
+            openstack_ip = configured_external_openstack_ip
             external_openstack_ip_list = []
             external_openstack_ip_list.append(openstack_ip)
             openstack_params["openstack_ip_list"] = external_openstack_ip_list
