@@ -2792,6 +2792,43 @@ class VncServerManager():
             return return_intf_dict
         return None
 
+    def create_vm(self, server):
+        vm_params = server['vm_parameters']
+        cpus = vm_params.get('cpus', 4)
+        memory = vm_params.get('memory', 8192)
+        disksize = vm_params.get('disksize', '80G')
+        physical_host = vm_params.get('physical_host_ip')
+        networks_str = vm_params['network']
+        nics = ''
+        networks = eval(networks_str)
+        for intf in networks['interfaces']:
+            mac = intf['mac_address']
+            bridge = intf['physical_host_bridge']
+            uplink = intf['physical_host_uplink']
+            nics = nics + " %s,%s,%s" %(mac, bridge, uplink)
+        name = server['server_id']
+        username = vm_params.get('physical_host_username', 'root')
+        password = vm_params.get('physical_host_password', 'c0ntrail123')
+        count = 1
+        cmd = "python /opt/contrail/server_manager/create_vm.py"
+        cmd = cmd + " -c %d -m %d -s %s" %(cpus, memory, physical_host)
+        cmd = cmd + " -d %s -nics %s" %(disksize, nics)
+        cmd = cmd + " -H %s -U %s -P %s" %(name, username, password)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,\
+                                stderr= subprocess.PIPE, shell = True)
+        o, e = proc.communicate()
+        if o:
+            self._smgr_log.log(self._smgr_log.INFO, \
+                               "issued CREATE VM commands:\n%s" %o)
+        if e:
+            self._smgr_log.log(self._smgr_log.ERROR, \
+                               "issued CREATE VM commands:\n%s" %e)
+            cmd = "python /opt/contrail/server_manager/create_vm.py"
+            cmd = cmd + " -H %s -U %s -P % -D" %(name, username, password)
+            subprocess.call(cmd, shell =True)
+            self.log_and_raise_exception(e)
+    # end create_vm
+
     # This call returns information about a provided server.
     # If no server if provided, information about all the servers
     # in server manager configuration is returned.
@@ -2925,6 +2962,10 @@ class VncServerManager():
                 reimage_parameters['ipmi_address'] = server.get(
                     'ipmi_address', '')
                 reimage_parameters['partition'] = server_parameters.get('partition', '')
+                reimage_parameters['vm_parameters'] = server_parameters.get('vm_parameters', None)
+                if reimage_parameters['vm_parameters']:
+                    reimage_parameters['vm_parameters']['network'] = \
+                                                    server.get('network', None)
 
                 execute_script = self.build_server_cfg(server)
 
@@ -4669,6 +4710,9 @@ class VncServerManager():
                 reimage_parameters.get('partition', ''),
                 reimage_parameters.get('config_file', None),
                 reimage_parameters.get('ipmi_interface',self._args.ipmi_interface))
+            # if this is a VM do qemu_system to create VM the proceed
+            if reimage_parameters.get('vm_parameters', None):
+                self.create_vm(reimage_parameters)
         except Exception as e:
             msg = "Server %s reimaged failed" % reimage_parameters['server_id']
             self._smgr_log.log(self._smgr_log.ERROR, msg)
