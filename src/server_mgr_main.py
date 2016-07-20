@@ -892,15 +892,10 @@ class VncServerManager():
             self.log_and_raise_exception(msg)
 
         openstack_manage_amqp_check = cluster_openstack_params.get("openstack_manage_amqp", None)
-        configured_nova_params = cluster_openstack_params.get("nova", None)
-        if configured_nova_params:
-            configured_nova_neutron_ip = configured_nova_params.get("neutron_ip_to_use", None)
-        else:
-            configured_nova_neutron_ip = None
-        if configured_nova_neutron_ip and openstack_manage_amqp_check:
+        if openstack_manage_amqp_check:
             pass
         else:
-            msg = "In a Cluster with only Openstack role defined, you need to configure both openstack::openstack_manage_amqp = true and openstck::nova::neutron_ip_to_use pointing to a Cfgm node\n"
+            msg = "In a Cluster with only Openstack role defined, you need to configure openstack::openstack_manage_amqp = true\n"
             self.log_and_raise_exception(msg)
 
     def _validate_roles(self, cluster_id):
