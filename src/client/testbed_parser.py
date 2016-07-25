@@ -621,6 +621,7 @@ class BaseJsonGenerator(object):
         function = kwargs.get('function', getattr)
         to_string = kwargs.get('to_string', True)
         to_lower = kwargs.get('to_lower', False)
+        is_boolean = kwargs.get('is_boolean', False)
         log.debug('Adding Variable (%s)' % destination_variable_name)
         log.debug('Source Variable: (%s) Destination Variable: (%s) ' \
                   'Source Variable Name (%s) Destination Variable Name (%s) ' \
@@ -633,6 +634,8 @@ class BaseJsonGenerator(object):
             if to_string:
                 if to_lower:
                     value = str(value).lower()
+                elif is_boolean:
+                    value = (str(value) in ["True", "true"])
                 else:
                     value = str(value)
 
@@ -847,10 +850,12 @@ class ClusterJsonGenerator(BaseJsonGenerator):
                     function_to_use=getattr
                     source_variable_name = allowed_key
                 if data_format == "boolean":
-                    to_lower = True
+                    is_boolean = True
+                else:
+                    is_boolean = False
                 self.set_if_defined(source_variable_name, dest_var, source_variable=source_variable,
                                     destination_variable_name=str(dest_var_name), to_lower=to_lower,
-                                    function=function_to_use)
+                                    is_boolean=is_boolean, function=function_to_use)
         return cluster_dict
 
     def generate_json_file(self):
