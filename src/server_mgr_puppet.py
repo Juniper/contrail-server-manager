@@ -395,7 +395,7 @@ class ServerMgrPuppet:
             sequencing_params['contrail'][key]['enable_provision_started'] = True
             sequencing_params['contrail'][key]['enable_storage_master'] = False
             sequencing_params['contrail'][key]['enable_storage_compute'] = False
-            for role in ['loadbalancer', 'database', 'config', 'openstack',
+            for role in ['global_controller', 'loadbalancer', 'database', 'config', 'openstack',
                          'control', 'collector',
                          'webui', 'compute', 'tsn', 'toragent']:
                 sequencing_params['contrail'][key][

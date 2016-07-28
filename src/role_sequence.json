@@ -6,6 +6,7 @@
                               [["openstack"], "p"], 
                               [["config"], "p"],
                               [["control"], "p"], 
+                              [["global_controller"], "p"],
                               [["collector"], "p"],
                               [["webui"], "p"],
                               [["compute"], "p"],
@@ -24,6 +25,7 @@
                               [["post_exec_vnc_galera"], "s"],
                               [["config"], "p"],
                               [["control"], "p"], 
+                              [["global_controller"], "p"],
                               [["collector"], "p"],
                               [["webui"], "p"],
                               [["compute"], "p"]]
@@ -36,6 +38,7 @@
                               [["openstack"], "p"],
                               [["config"], "p"],
                               [["control"], "p"],
+                              [["global_controller"], "p"],
                               [["collector"], "p"],
                               [["webui"], "p"],
                               [["compute"], "p"]]
