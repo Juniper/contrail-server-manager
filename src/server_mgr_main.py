@@ -155,35 +155,35 @@ class VncServerManager():
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
                       "contrail-storage-ubuntu-package"]
     _image_category_list = ["image", "package"]
-    _control_roles = ['loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _control_roles = ['global_controller', 'loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
     _role_sequence = [(['haproxy'], 'p'),
                       (['loadbalancer'], 'p'),
                       (['database'], 'p'), (['openstack'], 'p'), 
-                      (['config'], 'p'), (['control'], 'p'), 
+                      (['config'], 'p'), (['control'], 'p'), (['global_controller'], 'p'),
                       (['collector'], 'p'), (['webui'], 'p')]
     _role_step_sequence_ha = [(['keepalived'], 'p'), (['haproxy'], 'p'),
                       (['loadbalancer'], 'p'),
                       (['database'], 'p'), (['openstack'], 'p'),
                       (['pre_exec_vnc_galera'], 's'),
                       (['post_exec_vnc_galera'], 's'),
-                      (['config'], 'p'), (['control'], 'p'), 
+                      (['config'], 'p'), (['control'], 'p'), (['global_controller'], 'p'),
                       (['collector'], 'p'), (['webui'], 'p')]
 
     _role_step_sequence_contrail_ha = [(['keepalived'], 'p'), (['haproxy'], 'p'),
                       (['loadbalancer'], 'p'),
                       (['database'], 'p'), (['openstack'], 'p'),
-                      (['config'], 'p'), (['control'], 'p'),
+                      (['config'], 'p'), (['control'], 'p'), (['global_controller'], 'p'),
                       (['collector'], 'p'), (['webui'], 'p')]
 
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 'p')]
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 's')]
     _compute_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
     _roles = _control_roles + _compute_roles
-    _control_step_roles = ['loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _control_step_roles = ['global_controller', 'loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
     _compute_step_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
     _openstack_steps = ['pre_exec_vnc_galera', 'post_exec_vnc_galera', 'keepalived', 'haproxy']
     _role_steps = _control_roles + _openstack_steps + _compute_roles
-    _control_step_roles = ['loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
+    _control_step_roles = ['global_controller', 'loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
     _compute_step_roles = ['compute', 'storage-compute', 'storage-master']
     _step_roles = _control_step_roles + _compute_step_roles
     _tags_dict = {}
@@ -907,7 +907,7 @@ class VncServerManager():
                 "control", "collector", "webui", "compute" ]
         roles_set = set(role_list)
         # adding role here got the role in hieradata yaml file
-        optional_role_list = ["storage-compute", "storage-master", "tsn", "toragent", "loadbalancer"]
+        optional_role_list = ["storage-compute", "storage-master", "tsn", "toragent", "loadbalancer", "global_controller"]
         optional_role_set = set(optional_role_list)
 
         cluster_role_list = []
@@ -975,7 +975,7 @@ class VncServerManager():
             role_list = [
                 "database", "openstack", "config",
                 "control", "collector", "webui", "compute", "zookeeper",
-                "storage-compute", "storage-master", "tsn", "toragent", "loadbalancer"]
+                "storage-compute", "storage-master", "tsn", "toragent", "loadbalancer", "global_controller"]
             roles = req_provision_params.get("roles", None)
             if roles is None:
                 msg = "No provisioning roles specified"
