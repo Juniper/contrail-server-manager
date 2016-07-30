@@ -1,0 +1,9 @@
+Verified+2: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: Karl Klashinsky <klash@juniper.net>
+Code-Review+2: Karl Klashinsky <klash@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Fri, 29 Jul 2016 17:36:08 -0700
+Reviewed-on: https://review.opencontrail.org/22659
+Project: Juniper/contrail-server-manager
+Branch: refs/heads/R3.1
