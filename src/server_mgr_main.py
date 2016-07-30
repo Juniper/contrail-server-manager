@@ -1498,8 +1498,6 @@ class VncServerManager():
                     image_path = image.get("path", None)
                     image_category = image.get("category", None)
                     image_params = image.get("parameters", {})
-                    #Convert unicode python string dictionary into a normal string dict
-                    image_params = ast.literal_eval(image_params)
                     if (not image_id) or (not image_path):
                         self._smgr_log.log(self._smgr_log.ERROR,
                                      "image id or location not specified")
