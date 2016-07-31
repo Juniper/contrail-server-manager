@@ -2328,9 +2328,9 @@ class VncServerManager():
             if 'Debian binary package' in output:
                 cmd = ("mv ./opt/contrail/contrail_packages/contrail_storage_debs.tgz .")
                 subprocess.check_call(cmd, shell=True)
-
+            #Since CentOS is new but default repopinning will be enabled for it
             # check if its a new version where repo pinning changes are brought in
-            if os.path.isfile('./opt/contrail/contrail_packages/.repo_pinning'):
+            if os.path.isfile('./opt/contrail/contrail_packages/.repo_pinning') or (output and 'gzip compressed data' in output):
                 repo_pinning = True
             else:
                 repo_pinning = False
@@ -2340,9 +2340,9 @@ class VncServerManager():
                 # untar tgz to get all packages
                 cmd = ("tar xvzf contrail_storage_debs.tgz > /dev/null")
                 subprocess.check_call(cmd, shell=True)
-            # remove the tgz file itself, not needed any more
-            cmd = ("rm -f contrail_storage_debs.tgz")
-            subprocess.check_call(cmd, shell=True)
+                # remove the tgz file itself, not needed any more
+                cmd = ("rm -f contrail_storage_debs.tgz")
+                subprocess.check_call(cmd, shell=True)
 
             # if repo pinning is enabled use reprepo to create the repo
             if repo_pinning:
