@@ -2328,9 +2328,9 @@ class VncServerManager():
             if 'Debian binary package' in output:
                 cmd = ("mv ./opt/contrail/contrail_packages/contrail_storage_debs.tgz .")
                 subprocess.check_call(cmd, shell=True)
-
+            #Since CentOS is new but default repopinning will be enabled for it
             # check if its a new version where repo pinning changes are brought in
-            if os.path.isfile('./opt/contrail/contrail_packages/.repo_pinning'):
+            if os.path.isfile('./opt/contrail/contrail_packages/.repo_pinning') or (output and 'gzip compressed data' in output):
                 repo_pinning = True
             else:
                 repo_pinning = False
