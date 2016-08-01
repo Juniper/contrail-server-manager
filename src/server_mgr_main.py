@@ -1522,6 +1522,9 @@ class VncServerManager():
                         msg = "image not found at %s" % \
                                                 (image_path)
                         raise ServerMgrException(msg, ERR_OPR_ERROR)
+                    #Get the file type
+                    cmd = 'file %s'%image_path
+                    output = subprocess.check_output(cmd, shell=True)
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") ):
                         if not self.validate_package_id(image_id):
@@ -1535,9 +1538,6 @@ class VncServerManager():
                         image_params['sequence_provisioning_available'] = sequence_provisioning_available
                         if puppet_version not in image_params:
                             image_params['puppet_version'] = puppet_version
-                        #Get the file type
-                        cmd = 'file %s'%image_path
-                        output = subprocess.check_output(cmd, shell=True)
                         #Check if the package is a tgz or deb and get its version
                         if output and 'gzip compressed data' in output:
                             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
@@ -1557,9 +1557,18 @@ class VncServerManager():
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
                             image_id, image_type, image_version, image_path)
-                        version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
-                        version = version.strip('\n')
-                        image_params['version'] = version.split('~')[0]
+                        if output and 'gzip compressed data' in output:
+                            sm = ServerMgrUtil()
+                            version = sm.get_package_version(os.path.basename(image_path))
+                            p = re.compile("[0-9].*")
+                            for m in p.finditer(version):
+                                match_index = m.start(0) 
+                                version = str(version.strip('\n'))
+                                image_params['version'] = version[match_index:-5]
+                        else:
+                            version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
+                            version = version.strip('\n')
+                            image_params['version'] = version.split('~')[0]
                     else:
                         image_kickstart = image_params.get('kickstart', '')
                         image_kickseed = image_params.get('kickseed', '')
@@ -2306,26 +2315,34 @@ class VncServerManager():
             cmd = "cp -f %s %s" %(
                 dest, mirror)
             subprocess.check_call(cmd, shell=True)
-            # Extract .tgz of other packages from the repo
-            cmd = (
-                "dpkg -x %s . > /dev/null" %(dest))
+            cmd = 'file %s'%dest
+            output = subprocess.check_output(cmd, shell=True)
+            #Check if the package is a tgz or deb and get its version
+            if output and 'gzip compressed data' in output:
+                cmd = ("tar xvzf %s > /dev/null" %(dest))
+            elif 'Debian binary package' in output:
+                # Extract .tgz of other packages from the repo
+                cmd = (
+                    "dpkg -x %s . > /dev/null" %(dest))
             subprocess.check_call(cmd, shell=True)
-            cmd = ("mv ./opt/contrail/contrail_packages/contrail_storage_debs.tgz .")
-            subprocess.check_call(cmd, shell=True)
-
+            if 'Debian binary package' in output:
+                cmd = ("mv ./opt/contrail/contrail_packages/contrail_storage_debs.tgz .")
+                subprocess.check_call(cmd, shell=True)
+            #Since CentOS is new but default repopinning will be enabled for it
             # check if its a new version where repo pinning changes are brought in
-            if os.path.isfile('./opt/contrail/contrail_packages/.repo_pinning'):
+            if os.path.isfile('./opt/contrail/contrail_packages/.repo_pinning') or (output and 'gzip compressed data' in output):
                 repo_pinning = True
             else:
                 repo_pinning = False
-            cmd = ("rm -rf opt")
-            subprocess.check_call(cmd, shell=True)
-            # untar tgz to get all packages
-            cmd = ("tar xvzf contrail_storage_debs.tgz > /dev/null")
-            subprocess.check_call(cmd, shell=True)
-            # remove the tgz file itself, not needed any more
-            cmd = ("rm -f contrail_storage_debs.tgz")
-            subprocess.check_call(cmd, shell=True)
+            if 'Debian binary package' in output:
+                cmd = ("rm -rf opt")
+                subprocess.check_call(cmd, shell=True)
+                # untar tgz to get all packages
+                cmd = ("tar xvzf contrail_storage_debs.tgz > /dev/null")
+                subprocess.check_call(cmd, shell=True)
+                # remove the tgz file itself, not needed any more
+                cmd = ("rm -f contrail_storage_debs.tgz")
+                subprocess.check_call(cmd, shell=True)
 
             # if repo pinning is enabled use reprepo to create the repo
             if repo_pinning:
