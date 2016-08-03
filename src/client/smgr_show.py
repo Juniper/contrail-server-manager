@@ -91,9 +91,6 @@ def parse_arguments():
                                           "in t1=v1,t2=v2,... format"))
     inv_group.add_argument("--where",
                            help=("sql where statement in quotation marks"))
-    inve_type_group = parser_inventory.add_mutually_exclusive_group()
-    inve_type_group.add_argument("--type",
-                                help=("to select the type of info needed"))
     parser_inventory.set_defaults(func=inv_querying_obj.show_inv_details)
 
     # Subparser for cluster show
@@ -158,14 +155,6 @@ def parse_arguments():
                                           "in t1=v1,t2=v2,... format"))
     mon_group.add_argument("--where",
                            help=("sql where statement in quotation marks"))
-    mon_type_group = parser_monitoring.add_mutually_exclusive_group()
-    mon_type_group.add_argument("--type",
-                                     help=("to select the type of info needed"))
-    mon_sub_type_group = parser_monitoring.add_mutually_exclusive_group()
-    mon_sub_type_group.add_argument("--sensor",
-                                    help=("particular sensor type whose info you want"))
-    mon_sub_type_group.add_argument("--name",
-                                    help=("particular disk name whose info you want"))
     parser_monitoring.set_defaults(func=mon_querying_obj.show_mon_details)
 
     return parser
