@@ -1541,9 +1541,16 @@ class VncServerManager():
                         #Check if the package is a tgz or deb and get its version
                         if output and 'gzip compressed data' in output:
                             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
-                            tmp_img_path = 'ls '+ mirror + '/contrail-setup_*'
+                            tmp_img_path = 'ls '+ mirror + '/contrail-setup*'
                             tmp_pkg = subprocess.check_output(tmp_img_path, shell=True)
-                            version = subprocess.check_output(['dpkg-deb', '-f',tmp_pkg.strip(),'Version'])
+                            if (image_type == "contrail-ubuntu-package"):
+                                version = subprocess.check_output(['dpkg-deb', '-f',tmp_pkg.strip(),'Version'])
+                            elif (image_type == "contrail-centos-package"):
+                                cmd = "rpm -qp --qf \"%{V}\" " + str(tmp_pkg)
+                                ver = subprocess.check_output(cmd, shell = True).strip()
+                                cmd = "rpm -qp --qf \"%{R}\" " + str(tmp_pkg)
+                                release = subprocess.check_output(cmd, shell = True).strip()
+                                version = ver + "-"+ release.split('.')[0]
                         elif output and 'RPM' in output:
                             sm = ServerMgrUtil()
                             version = sm.get_package_version(os.path.basename(image_path))
@@ -2126,6 +2133,8 @@ class VncServerManager():
         self, image_id, image_type, image_version, dest):
         puppet_manifest_version = ""
         try:
+            cmd = 'file %s'%dest
+            output = subprocess.check_output(cmd, shell=True)
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
             cmd = "mkdir -p %s" %(mirror)
@@ -2137,31 +2146,40 @@ class VncServerManager():
             cmd = "cp -f %s %s" %(
                 dest, mirror)
             subprocess.check_call(cmd, shell=True)
-            # Extract .tgz of contrail puppet manifest files
-            cmd = (
-                "rpm2cpio %s | cpio -ivd ./opt/contrail/puppet/"
-                "contrail-puppet-manifest.tgz > /dev/null" %(dest))
-            subprocess.check_call(cmd, shell=True)
+            if output and 'gzip compressed data' in output:
+                cmd = ("tar xvzf $(ls contrail-install*) > /dev/null")
+                subprocess.check_call(cmd, shell=True)
+                cmd = (
+                    "rpm2cpio $(ls contrail-puppet*) | cpio -ivd ./opt/contrail/puppet/contrail-puppet-manifest.tgz > /dev/null")
+                subprocess.check_call(cmd, shell=True)
+            elif output and 'RPM' in output:
+                # Extract .tgz of contrail puppet manifest files
+                cmd = (
+                    "rpm2cpio %s | cpio -ivd ./opt/contrail/puppet/"
+                    "contrail-puppet-manifest.tgz > /dev/null" %(dest))
+                subprocess.check_call(cmd, shell=True)
             # Handle the puppet manifests in this package.
             puppet_modules_tgz_path = mirror + \
                 "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
             puppet_manifest_version, sequence_provisioning_available, puppet_version  = self._add_puppet_modules(
                 puppet_modules_tgz_path, image_id)
-            # Extract .tgz of other packages from the repo
-            cmd = (
-                "rpm2cpio %s | cpio -ivd ./opt/contrail/contrail_packages/"
-                "contrail_rpms.tgz > /dev/null" %(dest))
-            subprocess.check_call(cmd, shell=True)
-            cmd = ("mv ./opt/contrail/contrail_packages/contrail_rpms.tgz .")
-            subprocess.call(cmd, shell=True)
+            if output and 'RPM' in output:
+                # Extract .tgz of other packages from the repo
+                cmd = (
+                    "rpm2cpio %s | cpio -ivd ./opt/contrail/contrail_packages/"
+                    "contrail_rpms.tgz > /dev/null" %(dest))
+                subprocess.check_call(cmd, shell=True)
+                cmd = ("mv ./opt/contrail/contrail_packages/contrail_rpms.tgz .")
+                subprocess.call(cmd, shell=True)
             cmd = ("rm -rf opt")
             subprocess.check_call(cmd, shell=True)
-            # untar tgz to get all packages
-            cmd = ("tar xvzf contrail_rpms.tgz > /dev/null")
-            subprocess.check_call(cmd, shell=True)
-            # remove the tgz file itself, not needed any more
-            cmd = ("rm -f contrail_rpms.tgz")
-            subprocess.check_call(cmd, shell=True)
+            if output and 'RPM' in output:
+                # untar tgz to get all packages
+                cmd = ("tar xvzf contrail_rpms.tgz > /dev/null")
+                subprocess.check_call(cmd, shell=True)
+                # remove the tgz file itself, not needed any more
+                cmd = ("rm -f contrail_rpms.tgz")
+                subprocess.check_call(cmd, shell=True)
             # build repo using createrepo
             cmd = ("createrepo . > /dev/null")
             subprocess.check_call(cmd, shell=True)
