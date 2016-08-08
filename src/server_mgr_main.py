@@ -1546,7 +1546,10 @@ class VncServerManager():
                             version = subprocess.check_output(['dpkg-deb', '-f',tmp_pkg.strip(),'Version'])
                         elif output and 'RPM' in output:
                             sm = ServerMgrUtil()
-                            version = sm.get_package_version(os.path.basename(image_path))
+                            # package could have been renamed, extract package name using rpm
+                            cmd = "rpm -qp %s" %image_path.strip()
+                            pkg_name = subprocess.check_output(cmd, shell = True)
+                            version = sm.get_package_version(pkg_name)
                         else:
                             version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
                         version = version.strip('\n')
