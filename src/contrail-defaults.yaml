@@ -47,7 +47,7 @@ openstack::neutron::password: $openstack::keystone::admin_password
 openstack::neutron::shared_secret : $openstack::keystone::admin_password
 neutron::bind_port: '9697'
 ######## Ceilometer
-openstack::ceilometer::mongo::password: $openstack::keystone::admin_password
+openstack::ceilometer::mongo: $openstack::keystone::admin_password
 openstack::ceilometer::password: $openstack::keystone::admin_password
 openstack::ceilometer::meteringsecret: ''
 ######## Heat
