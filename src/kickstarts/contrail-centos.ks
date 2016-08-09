@@ -50,20 +50,15 @@ $SNIPPET('kickstart_start')
 
 %packages --nobase
 @core
-wget
 openssh-clients
-ntpdate
-ntp
-
-#if $getVar("contrail_repo_name","") != ""
-contrail-install-packages
-#end if
+puppet
 
 $SNIPPET('func_install_if_enabled')
 %end
 
 %post
 $SNIPPET('log_ks_post')
+yum -y install wget ntp ntpdate
 
 ## Configure NTP to access cobbler/puppet master as NTP server
 /usr/sbin/ntpdate $http_server
@@ -90,8 +85,36 @@ $SNIPPET('post_install_kernel_options')
 $SNIPPET('func_register_if_enabled')
 ##$SNIPPET('puppet_register_if_enabled')
 ## Configure puppet agent and start it
+echo "$server puppet" >> /etc/hosts
 echo "$ip_address $system_name.$system_domain $system_name" >> /etc/hosts
 
+## Tmp fix, copy the init.d script for puppet agent. This should be included in puppet package install.
+wget -O /etc/init.d/puppet "http://$server:$http_port/cobbler/aux/puppet"
+chmod 755 /etc/init.d/puppet
+echo "[agent]" >> /etc/puppet/puppet.conf
+echo "    pluginsync = true" >> /etc/puppet/puppet.conf
+echo "    ignorecache = true" >> /etc/puppet/puppet.conf
+echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
+echo "    listen = true" >> /etc/puppet/puppet.conf
+echo "    ordering = manifest" >> /etc/puppet/puppet.conf
+echo "    stringify_facts = false" >> /etc/puppet/puppet.conf
+echo "[main]" >> /etc/puppet/puppet.conf
+echo "runinterval=60" >> /etc/puppet/puppet.conf
+cat >/tmp/puppet-auth.conf <<EOF
+# Allow puppet kick access
+path    /run
+method  save
+auth    any
+# allow   $server.$system_domain
+allow   *
+EOF
+cat /etc/puppet/auth.conf >> /tmp/puppet-auth.conf
+cp -f /tmp/puppet-auth.conf /etc/puppet/auth.conf
+# Tempprary patch to work around puppet issue of custom facts not working. The custom
+# fact scripts get installed with incorrect permissions (no execute permission). This
+# results in custom facts not working. Putting a hot patch to work around this problem.
+# could be removed once puppet issue is resolved. Abhay
+sed -i "s/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :ignore)/initialize(name, path, source, ignore = nil, environment = nil, source_permissions = :use)/g" /usr/share/ruby/vendor_ruby/puppet/configurer/downloader.rb
 # disable selinux and iptables
 sed -i 's/SELINUX=.*/SELINUX=disabled/g' /etc/selinux/config
 service iptables stop
