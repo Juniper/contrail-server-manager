@@ -257,15 +257,21 @@
     "newformat": "dict",
     "oldformat": "string"
   },
-  "storage_num_osd": {
-    "newname": "contrail.storage.storage_num_osd",
-    "oldname": "storage_num_osd",
+  "storage_monitor_secret": {
+    "newname": "contrail.storage.storage_monitor_secret",
+    "oldname": "storage_mon_secret",
     "newformat": "string",
     "oldformat": "string"
   },
-  "storage_fsid": {
-    "newname": "contrail.storage.storage_fsid",
-    "oldname": "storage_fsid",
+  "osd_bootstrap_key": {
+    "newname": "contrail.storage.osd_bootstrap_key",
+    "oldname": "osd_bootstrap_key",
+    "newformat": "string",
+    "oldformat": "string"
+  },
+  "storage_admin_key": {
+    "newname": "contrail.storage.storage_admin_key",
+    "oldname": "admin_key",
     "newformat": "string",
     "oldformat": "string"
   },
@@ -273,12 +279,6 @@
     "newname": "contrail.storage.storage_enabled",
     "oldname": "storage_enabled",
     "newformat": "boolean",
-    "oldformat": "string"
-  },
-  "storage_virsh_uuid": {
-    "newname": "contrail.storage.storage_virsh_uuid",
-    "oldname": "storage_virsh_uuid",
-    "newformat": "string",
     "oldformat": "string"
   },
   "live_migration_storage_scope": {
@@ -296,12 +296,6 @@
   "live_migration_ip": {
     "newname": "contrail.storage.live_migration_ip",
     "oldname": "live_migration_ip",
-    "newformat": "string",
-    "oldformat": "string"
-  },
-  "storage_cluster_network": {
-    "newname": "contrail.storage.storage_cluster_network",
-    "oldname": "storage_cluster_network",
     "newformat": "string",
     "oldformat": "string"
   },
