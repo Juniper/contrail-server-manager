@@ -681,6 +681,10 @@ class ServerJsonGenerator(BaseJsonGenerator):
                                 }  ]
                             }
                         }
+        server_dict['parameters']['provision'] = {}
+        server_dict['parameters']['provision']['contrail'] = {}
+        server_dict['parameters']['provision']['contrail']['storage'] = {}
+        server_dict['parameters']['provision']['contrail']['compute'] = {}
         static_route_list = []
         if getattr(hostobj, 'static_route', None) is not None:
             for staticroute in hostobj.static_route:
@@ -774,32 +778,33 @@ class ServerJsonGenerator(BaseJsonGenerator):
                'journal' in  hostobj.storage_node_config.keys():
                 journal = hostobj.storage_node_config['journal'][0]
                 disks = hostobj.storage_node_config['disks']
-                server_dict['parameters']['disks'] = ["%s:%s" % (disk, journal) \
+                server_dict['parameters']['provision']['contrail']['storage']['storage_osd_disks'] = ["%s:%s" % (disk, journal) \
                     for disk in hostobj.storage_node_config['disks'] \
                     for journal in hostobj.storage_node_config['journal']]
             elif 'disks' in hostobj.storage_node_config.keys():
-                server_dict['parameters']['disks'] = hostobj.storage_node_config['disks']
+                server_dict['parameters']['provision']['contrail']['storage']['storage_osd_disks'] = hostobj.storage_node_config['disks']
             else:
                 log.warn("No disks defined in storage_node_config")
             if 'chassis' in hostobj.storage_node_config.keys():
-                server_dict['parameters']['storage_chassis_id'] = hostobj.storage_node_config['chassis']
+                server_dict['parameters']['provision']['contrail']['storage']['storage_chassis_id'] = hostobj.storage_node_config['chassis']
         if getattr(hostobj, 'roles', None) and self.storage_package_files:
             if 'storage-master' in hostobj.roles or \
                'storage-compute' in hostobj.roles:
                package_type, package_file = self.storage_package_files[0]
                version = ImageUtils.get_version(package_file, self.testsetup.os_type)
                image_id = ImageUtils.get_image_id(version, package_type)
-               server_dict['parameters']['storage_repo_id'] = image_id
+               server_dict['parameters']['provision']['contrail']['storage']['storage_repo_id'] = image_id
         return server_dict
 
 
     def update_dpdk_info(self, server_dict, hostobj):
+        server_dict['parameters']['provision']['contrail']['compute']['dpdk'] = {}
         if hostobj.dpdk_config and \
             hostobj.dpdk_config.get('huge_pages', ''):
-            server_dict['parameters']['huge_pages'] = hostobj.dpdk_config['huge_pages']
+            server_dict['parameters']['provision']['contrail']['compute']['dpdk']['huge_pages'] = hostobj.dpdk_config['huge_pages']
         if hostobj.dpdk_config and \
             hostobj.dpdk_config.get('coremask', ''):
-            server_dict['parameters']['core_mask'] = hostobj.dpdk_config['coremask']
+            server_dict['parameters']['provision']['contrail']['compute']['dpdk']['core_mask'] = hostobj.dpdk_config['coremask']
         return server_dict
 
     def update(self):

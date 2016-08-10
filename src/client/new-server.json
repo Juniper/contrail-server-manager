@@ -7,6 +7,12 @@
             "parameters" : {
                 "provision": {
                     "contrail": {
+                        "compute": {
+                            "dpdk": {
+                                "core_mask": "",
+                                "huge_pages": ""
+                            }
+                        },
                         "storage": {
                             "storage_repo_id": "",
                             "storage_osd_disks": [],
