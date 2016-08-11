@@ -58,7 +58,28 @@ $SNIPPET('func_install_if_enabled')
 
 %post
 $SNIPPET('log_ks_post')
-yum -y install wget ntp ntpdate
+yum -y install wget ntp ntpdate python-netaddr.noarch
+
+## Copy the interfce and static under root
+wget -O /root/interface_setup.py http://$server/kickstarts/interface_setup.py
+wget -O /root/staticroute_setup.py http://$server/kickstarts/staticroute_setup.py
+## Wierd CentOS behavior. You need to explicityly concatenate the system_name to the '.sh' string
+#set $sname = str($system_name)+ '.sh'
+## Get a copy of the script in the target system
+wget -O /root/$sname http://$server/contrail/config_file/$sname
+chmod +x /root/$sname
+## Add the following lines for script to be part of initd in CentOS
+sed -i '1 a # chkconfig: 2345 80 20' /root/$sname
+sed -i '2 a # description: Interface and static route configuration entries' /root/$sname
+## Comment out the following line from /etc/sudoers to overcome a Centos bug https://bugzilla.redhat.com/show_bug.cgi?id=1020147
+sed -i 's/Defaults    requiretty/#Defaults requiretty/g' /etc/sudoers
+## Copy the script to the init.d 
+cp /root/$sname /etc/init.d
+cd /etc/init.d
+## Add and enable the script as part of the init.d 
+/sbin/chkconfig --add $sname
+/sbin/chkconfig $sname on
+rm /root/$sname
 
 ## Configure NTP to access cobbler/puppet master as NTP server
 /usr/sbin/ntpdate $http_server
