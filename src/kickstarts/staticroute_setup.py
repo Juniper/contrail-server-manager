@@ -36,6 +36,7 @@ class StaticRoute(object):
         self.vlan   = kwargs.get('vlan', None)
         self.no_restart_network = kwargs.get('no_restart_network', False)
         self.cmd    = []
+        self.nwfile = []
         self.tempfile = NamedTemporaryFile(delete=False)
         self.config_route_list = []
 
@@ -43,16 +44,14 @@ class StaticRoute(object):
         '''Create an interface config file in network-scripts with given
             config
         '''
-        if os.path.isfile(self.nwfile):
-            tmpfile = os.path.join(os.path.dirname(self.nwfile),
-                                  'moved-%s' %os.path.basename(self.nwfile))
-            log.info('Backup existing file %s to %s' %(self.nwfile, tmpfile))
-            os.system('sudo cp %s %s'%(self.nwfile, tmpfile))
-        # read existing file
-        with open(self.tempfile.name, 'w') as fd:
-            fd.write('\n'.join(self.cmd))
-            fd.write('\n')
-        os.system('sudo cp -f %s %s'%(self.tempfile.name, self.nwfile))
+        i = 0
+        for destination in self.netw:
+             #Open the file in append mode to handle the case of single interface having multiple
+             #static routes. Remember in CentOS each interace will have a separate route file
+             with open(self.nwfile[i], 'a') as fd:
+                fd.write(self.cmd[i])
+                fd.write('\n')
+             i += 1
 
     def restart_service(self):
         '''Restart network service'''
@@ -64,13 +63,17 @@ class StaticRoute(object):
         '''Setup env before static route configuration'''
         if self.vlan:
             self.device += "."+self.vlan
-        self.nwfile = os.path.join(os.path.sep, 'etc', 'sysconfig',
-                                  'network-scripts', 'route-%s' %self.device)
         i = 0
+        #Loop through the number of routes specified
         for destination in self.netw:
+            filename = 'route-%s' %self.device[i]
+            #Check if the filename exists. If not create new filename
+            if not os.path.isfile(filename):
+                self.nwfile.append(os.path.join(os.path.sep, 'etc', 'sysconfig',
+                                          'network-scripts', '%s' %(filename)))
             prefix = IPNetwork('%s/%s' %(destination, self.mask[i])).prefixlen
             self.cmd += ['%s/%s via %s dev %s' %(
-                       destination, prefix, self.gw[i], self.device)]
+                       destination, prefix, self.gw[i], self.device[i])]
             self.config_route_list.append('%s %s %s' %(destination, self.mask[i], self.gw[i]))
             i+=1
 
@@ -78,8 +81,8 @@ class StaticRoute(object):
         '''verify configured static routes'''
         actual_list = []
         for route in open('/proc/net/route', 'r').readlines():
-            if route.startswith(self.device[0]):
-                route_fields = route.split()
+            route_fields = route.split()
+            if route_fields[0].strip() in self.device:
                 flags = int(route_fields[3], 16)
                 destination = socket.inet_ntoa(struct.pack('I', int(route_fields[1], 16)))
                 if flags & 0x2:
