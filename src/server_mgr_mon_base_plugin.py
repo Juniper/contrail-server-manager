@@ -758,13 +758,22 @@ class ServerMgrMonBasePlugin():
                 tries += 1
                 sshclient = ServerMgrSSHClient(serverdb=serverDb)
                 sshclient.connect(str(server['ip_address']), str(server['id']), access_method)
+                op = sshclient.exec_command('python -c "import platform; print platform.linux_distribution()"')
+                self._smgr_log.log("debug", "OP is %s" %op)
+                os_type = 'centos' if 'centos' in op.lower() else 'ubuntu'
+                if os_type == 'centos':
+                    enable_puppet_svc_cmd = "chkconfig puppet on"
+                    disable_puppet_svc_cmd = "chkconfig puppet off"
+                else:
+                    enable_puppet_svc_cmd = "sed -i 's/START=.*$/START=yes/' /etc/default/puppet"
+                    disable_puppet_svc_cmd = "sed -i 's/START=.*$/START=no/' /etc/default/puppet"
                 if action == "start":
-                    output = sshclient.exec_command("sed -i 's/START=.*$/START=yes/' /etc/default/puppet")
+                    output = sshclient.exec_command(enable_puppet_svc_cmd)
                     output = sshclient.exec_command("service puppet start")
                     self._smgr_log.log("debug", "Successfully started the puppet agent on the server " + str(server['id']))
                     self._provision_immediately_after_reimage = False
                 else:
-                    output = sshclient.exec_command("sed -i 's/START=.*$/START=no/' /etc/default/puppet")
+                    output = sshclient.exec_command(disable_puppet_svc_cmd)
                     output = sshclient.exec_command("service puppet stop")
                     self._smgr_log.log("debug", "Successfully stopped the puppet agent on the server " + str(server['id']))
                 success = True
