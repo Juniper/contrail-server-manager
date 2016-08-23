@@ -8,7 +8,6 @@ set -x -v
 # Uodate entries in /etc/hosts file for self and puppet ip address
 sed -i '/127\.0\..\.1/d' /etc/hosts
 echo "127.0.0.1 localhost.$system_domain localhost" >> /etc/hosts
-echo "127.0.0.1 $system_name.$system_domain $system_name" >> /etc/hosts
 echo "$ip_address $system_name.$system_domain $system_name" >> /etc/hosts
 echo "$server puppet" >> /etc/hosts
 #--------------------------------------------------------------------------
