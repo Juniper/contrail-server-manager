@@ -1,0 +1,646 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "title": "Root schema.",
+  "description": "",
+  "properties": {
+    "cluster": {
+      "type": "array",
+      "title": "Cluster schema.",
+      "description": "Cluster JSON can describe multiple cluster configs.",
+      "items": {
+        "type": "object",
+        "title": "0 schema.",
+        "description": "First Cluster",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id schema.",
+            "description": "Id of the cluster being added. Mandatory parameter."
+          },
+          "parameters": {
+            "type": "object",
+            "title": "Parameters schema.",
+            "description": "List of all the parameters being set for this cluster.",
+            "properties": {
+              "domain": {
+                "type": "string",
+                "title": "Domain schema.",
+                "description": "Domain that all the servers of the cluster will default to.",
+                "default": ""
+              },
+              "subnet_mask": {
+                "type": "string",
+                "title": "Subnet_mask schema.",
+                "description": "Subnet mask that all the servers of the cluster will default to.",
+                "default": ""
+              },
+              "gateway": {
+                "type": "string",
+                "title": "Gateway schema.",
+                "description": "Gateway IP that all the servers of the cluster will default to.",
+                "default": ""
+              },
+              "password": {
+                "type": "string",
+                "title": "Password schema.",
+                "description": "Root Password that all the servers of the cluster will default to.",
+                "default": ""
+              },
+              "provision": {
+                "type": "object",
+                "title": "Provision schema.",
+                "description": "Cluster Provision Parameters - New format",
+                "properties": {
+                  "contrail": {
+                    "type": "object",
+                    "title": "Contrail schema.",
+                    "description": "Provision Parameters for Contrail Components",
+                    "properties": {
+                      "kernel_upgrade": {
+                        "type": "boolean",
+                        "title": "Kernel_upgrade schema.",
+                        "description": "Whether to upgrade kernel version of target servers.",
+                        "default": true
+                      },
+                      "kernel_version": {
+                        "type": "string",
+                        "title": "Kernel_version schema.",
+                        "description": "Kernel version to upgrade to. Optional. Default upgrades to kernel version included with contrail package, if upgrade flag is set.",
+                        "default": ""
+                      },
+                      "enable_lbaas": {
+                        "type": "boolean",
+                        "title": "Enable_lbaas schema.",
+                        "description": "flag to indicate if lbaas feature is enabled for the cluster.",
+                        "default": false
+                      },
+                      "xmpp_auth_enable": {
+                        "type": "boolean",
+                        "title": "Xmpp_auth_enable schema.",
+                        "description": "flag to indicate if xmpp athentication is enabled between control node and vrouter agent.",
+                        "default": false
+                      },
+                      "xmpp_dns_auth_enable": {
+                        "type": "boolean",
+                        "title": "Xmpp_dns_auth_enable schema.",
+                        "description": "flag to indicate if xmpp athentication is enabled between control node and vrouter dns agent.",
+                        "default": false
+                      },
+                      "ha": {
+                        "type": "object",
+                        "title": "Ha schema.",
+                        "description": "Parameters related to Contrail HA Features.",
+                        "properties": {
+                          "haproxy_enable": {
+                            "type": "boolean",
+                            "title": "Haproxy_enable schema.",
+                            "description": "Whether HAproxy service is enabled or disabled.",
+                            "default": false
+                          },
+                          "contrail_internal_vip": {
+                            "type": "string",
+                            "title": "Contrail_internal_vip schema.",
+                            "description": "Virtual Interface IP to be used for control/data interface of contrail HA nodes",
+                            "default": ""
+                          },
+                          "contrail_external_vip": {
+                            "type": "string",
+                            "title": "Contrail_external_vip schema.",
+                            "description": "Virtual Interface IP to be used for management interface of contrail HA nodes",
+                            "default": ""
+                          },
+                          "contrail_internal_virtual_router_id": {
+                            "type": "integer",
+                            "title": "Contrail_internal_virtual_router_id schema.",
+                            "description": "VRID for control/data interface HA functionality.",
+                            "default": 103
+                          },
+                          "contrail_external_virtual_router_id": {
+                            "type": "integer",
+                            "title": "Contrail_external_virtual_router_id schema.",
+                            "description": "VRID for management interface HA functionality.",
+                            "default": 104
+                          },
+                          "tor_ha_config": {
+                            "type": "string",
+                            "title": "Tor_ha_config schema.",
+                            "description": "For TOR and TSN agent functionality (Bare-Metal support), HA configuration details",
+                            "default": ""
+                          }
+                        }
+                      },
+                      "database": {
+                        "type": "object",
+                        "title": "Database schema.",
+                        "description": "Parameters related to Database Role",
+                        "properties": {
+                          "ip_port": {
+                            "type": "integer",
+                            "title": "Ip_port schema.",
+                            "description": "Port number used by database service.",
+                            "default": 9160
+                          },
+                          "directory": {
+                            "type": "string",
+                            "title": "Directory schema.",
+                            "description": "Dataabse directory path for Cassandra to use",
+                            "default": "/var/lib/cassandra"
+                          },
+                          "minimum_diskGB": {
+                            "type": "integer",
+                            "title": "Minimum_diskGB schema.",
+                            "description": " Minimum free disk size needed",
+                            "default": 32
+                          }
+                        }
+                      },
+                      "analytics": {
+                        "type": "object",
+                        "title": "Analytics schema.",
+                        "description": "Parameters related to Collector Role",
+                        "properties": {
+                          "data_ttl": {
+                            "type": "integer",
+                            "title": "Data_ttl schema.",
+                            "description": "Analytics Data TTL in hours",
+                            "default": 48
+                          },
+                          "config_audit_ttl": {
+                            "type": "integer",
+                            "title": "Config_audit_ttl schema.",
+                            "description": "Analytics config audit TTL in hours",
+                            "default": 2160
+                          },
+                          "statistics_ttl": {
+                            "type": "integer",
+                            "title": "Statistics_ttl schema.",
+                            "description": "Analytics statistics TTL in hours",
+                            "default": 168
+                          },
+                          "flow_ttl": {
+                            "type": "integer",
+                            "title": "Flow_ttl schema.",
+                            "description": "Analytics flow TTL in hours",
+                            "default": 2
+                          },
+                          "snmp_scan_frequency": {
+                            "type": "integer",
+                            "title": "Snmp_scan_frequency schema.",
+                            "description": "SNMP scan interval in seconds",
+                            "default": 600
+                          },
+                          "snmp_fast_scan_frequency": {
+                            "type": "integer",
+                            "title": "Snmp_fast_scan_frequency schema.",
+                            "description": "SNMP fast scan interval in seconds",
+                            "default": 60
+                          },
+                          "topology_scan_frequency": {
+                            "type": "integer",
+                            "title": "Topology_scan_frequency schema.",
+                            "description": "Topology scan interval in seconds",
+                            "default": 60
+                          },
+                          "syslog_port": {
+                            "type": "integer",
+                            "title": "Syslog_port schema.",
+                            "description": "Analytics syslog port value",
+                            "default": -1
+                          },
+                          "data_directory": {
+                            "type": "string",
+                            "title": "Data_directory schema.",
+                            "description": "Analytics dir name where data files are stored, default use the same value as database_dir in database role.",
+                            "default": ""
+                          },
+                          "ssd_data_directory": {
+                            "type": "string",
+                            "title": "Ssd_data_directory schema.",
+                            "description": "Analytics dir name where ssd files are stored, default use the same value as database_dir in database role.",
+                            "default": ""
+                          },
+                          "redis_password": {
+                            "type": "string",
+                            "title": "Redis_password schema.",
+                            "description": "redis password",
+                            "default": ""
+                          }
+                        }
+                      },
+                      "control": {
+                        "type": "object",
+                        "title": "Control schema.",
+                        "description": "Parameters related to Control Role",
+                        "properties": {
+                          "encapsulation_priority": {
+                            "type": "string",
+                            "title": "Encapsulation_priority schema.",
+                            "description": "Encapsulation priority",
+                            "default": "VXLAN,MPLSoUDP,MPLSoGRE"
+                          },
+                          "router_asn": {
+                            "type": "integer",
+                            "title": "Router_asn schema.",
+                            "description": "Router ASN value",
+                            "default": 64512
+                          },
+                          "external_bgp": {
+                            "type": "string",
+                            "title": "External_bgp schema.",
+                            "description": "List of external BGP peers in the form of name, address tuples e.g. [('montreal', '13.1.0.254')]",
+                            "default": ""
+                          }
+                        }
+                      },
+                      "config": {
+                        "type": "object",
+                        "title": "Config schema.",
+                        "description": "Parameters related to Config Role",
+                        "properties": {
+                          "contrail_amqp_ip_list": {
+                            "type": "array",
+                            "title": "Contrail_amqp_ip_list schema.",
+                            "description": "List of IP address of the AMQP-Service Cluster used (like Rabbit)",
+                            "items": {}
+                          },
+                          "contrail_amqp_ip_port": {
+                            "type": "string",
+                            "title": "Contrail_amqp_ip_port schema.",
+                            "description": "Port of the Rabbit Cluster that Contrail nodes connect to",
+                            "default": ""
+                          },
+                          "manage_neutron": {
+                            "type": "boolean",
+                            "title": "Manage_neutron schema.",
+                            "description": "Whether config manages neutron service",
+                            "default": true
+                          },
+                          "zookeeper_ip_port": {
+                            "type": "integer",
+                            "title": "Zookeeper_ip_port schema.",
+                            "description": "Zookeeper IP port value",
+                            "default": 2181
+                          },
+                          "healthcheck_interval": {
+                            "type": "integer",
+                            "title": "Healthcheck_interval schema.",
+                            "description": "Discovery health check interval",
+                            "default": 5
+                          }
+                        }
+                      },
+                      "compute": {
+                        "type": "object",
+                        "title": "Compute schema.",
+                        "description": "Parameters related to Compute Role",
+                        "properties": {
+                          "dpdk": {
+                            "type": "object",
+                            "title": "Dpdk schema.",
+                            "description": "Parameters related to DPDK",
+                            "properties": {
+                              "huge_pages": {
+                                "type": "string",
+                                "title": "Huge_pages schema.",
+                                "description": "Specify what percentage of host memory should be reserved for access with huge pages",
+                                "default": ""
+                              },
+                              "core_mask": {
+                                "type": "string",
+                                "title": "Core_mask schema.",
+                                "description": "Specify CPU affinity mask to run vRouter with. Supports hexadecimal, comma-separated list of CPUs, dash-separated range of CPUs",
+                                "default": ""
+                              }
+                            }
+                          },
+                          "sriov": {
+                            "type": "object",
+                            "title": "Sriov schema.",
+                            "description": "Parameters related to SRIOV",
+                            "properties": {
+                              "enable": {
+                                "type": "boolean",
+                                "title": "Enable schema.",
+                                "description": "Flag to set if SRIOV is enabled",
+                                "default": false
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "vmware": {
+                        "type": "object",
+                        "title": "Vmware schema.",
+                        "description": "Parameters related to VMWARE, all are needed when compute VM is run on ESXi node.",
+                        "properties": {
+                          "ip": {
+                            "type": "string",
+                            "title": "Ip schema.",
+                            "description": "VM ware IP address.",
+                            "default": ""
+                          },
+                          "username": {
+                            "type": "string",
+                            "title": "Username schema.",
+                            "description": "VMware user name",
+                            "default": ""
+                          },
+                          "password": {
+                            "type": "string",
+                            "title": "Password schema.",
+                            "description": "VMware user password",
+                            "default": ""
+                          },
+                          "vswitch": {
+                            "type": "string",
+                            "title": "Vswitch schema.",
+                            "description": "VMware vswitch name",
+                            "default": ""
+                          }
+                        }
+                      },
+                      "vgw": {
+                        "type": "object",
+                        "title": "Vgw schema.",
+                        "description": "Parameters related to Virtual Gateway, all are needed when Virtual gateway is configured.",
+                        "properties": {
+                          "public_subnet": {
+                            "type": "string",
+                            "title": "Public_subnet schema.",
+                            "description": "VGW public subnet address.",
+                            "default": ""
+                          },
+                          "public_vn_name": {
+                            "type": "string",
+                            "title": "Public_vn_name schema.",
+                            "description": "VGW public virtual network name.",
+                            "default": ""
+                          },
+                          "interface": {
+                            "type": "string",
+                            "title": "Interface schema.",
+                            "description": "VGW interface name",
+                            "default": ""
+                          },
+                          "gateway_routes": {
+                            "type": "string",
+                            "title": "Gateway_routes schema.",
+                            "description": "VGW routes",
+                            "default": ""
+                          }
+                        }
+                      },
+                      "storage": {
+                        "type": "object",
+                        "title": "Storage schema.",
+                        "description": "Parameters related to Storage roles",
+                        "properties": {
+                          "storage_monitor_secret": {
+                            "type": "string",
+                            "title": "Storage_monitor_secret schema.",
+                            "description": "Key for Storage monitor Secret",
+                            "default": ""
+                          },
+                          "osd_bootstrap_key": {
+                            "type": "string",
+                            "title": "Osd_bootstrap_key schema.",
+                            "description": "OSD Bootstrap Key value",
+                            "default": ""
+                          },
+                          "storage_admin_key": {
+                            "type": "string",
+                            "title": "Storage_admin_key schema.",
+                            "description": "Ceph Storage admin key",
+                            "default": ""
+                          },
+                          "storage_monitor_hosts": {
+                            "type": "array",
+                            "title": "Storage_monitor_hosts schema.",
+                            "description": "List of Storage Monitor Hosts",
+                            "items": {}
+                          },
+                          "storage_chassis_config": {
+                            "type": "array",
+                            "title": "Storage_chassis_config schema.",
+                            "description": "Storage chassis config",
+                            "items": {}
+                          },
+                          "live_migration_host": {
+                            "type": "string",
+                            "title": "Live_migration_host schema.",
+                            "description": "Live migration host IP",
+                            "default": ""
+                          },
+                          "storage_cluster_network": {
+                            "type": "string",
+                            "title": "Storage_cluster_network schema.",
+                            "description": "Storage cluster network",
+                            "default": ""
+                          }
+                        }
+                      },
+                      "toragent": {
+                        "type": "object",
+                        "title": "Toragent schema.",
+                        "description": "Parameters related to Top Of Rack Switch",
+                        "properties": {
+                          "top_of_rack": {
+                            "type": "object",
+                            "title": "Top_of_rack schema.",
+                            "description": "Top Of Rack Config",
+                            "properties": {}
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "openstack": {
+                    "type": "object",
+                    "title": "Openstack schema.",
+                    "description": "Parameters related to Openstack Components",
+                    "properties": {
+                      "region": {
+                        "type": "string",
+                        "title": "Region schema.",
+                        "description": "Option stack region name",
+                        "default": "RegionOne"
+                      },
+                      "multi_tenancy": {
+                        "type": "boolean",
+                        "title": "Multi_tenancy schema.",
+                        "description": "Flag to set if multi tenancy is enabled",
+                        "default": true
+                      },
+                      "openstack_manage_amqp": {
+                        "type": "boolean",
+                        "title": "Openstack_manage_amqp schema.",
+                        "description": "Flag to set if Openstack nodes use their own AMQP cluster (Rabbit cluster)",
+                        "default": false
+                      },
+                      "enable_ceilometer": {
+                        "type": "boolean",
+                        "title": "Enable_ceilometer schema.",
+                        "description": "Flag to set if ceilometer service is enabled.",
+                        "default": false
+                      },
+                      "keystone": {
+                        "type": "object",
+                        "title": "Keystone schema.",
+                        "description": "Parameters related to Keystone Service",
+                        "properties": {
+                          "ip": {
+                            "type": "string",
+                            "title": "Ip schema.",
+                            "description": "The External Keystone IP to use",
+                            "default": ""
+                          },
+                          "admin_password": {
+                            "type": "string",
+                            "title": "Admin_password schema.",
+                            "description": "Keystone Admin Password value",
+                            "default": "contrail123"
+                          },
+                          "admin_user": {
+                            "type": "string",
+                            "title": "Admin_user schema.",
+                            "description": "Keystone admin user value",
+                            "default": "admin"
+                          },
+                          "admin_tenant": {
+                            "type": "string",
+                            "title": "Admin_tenant schema.",
+                            "description": "Keystone admin tenant value",
+                            "default": "admin"
+                          },
+                          "service_tenant": {
+                            "type": "string",
+                            "title": "Service_tenant schema.",
+                            "description": "Keystone service tenant value",
+                            "default": "services"
+                          },
+                          "auth_protocol": {
+                            "type": "string",
+                            "title": "Auth_protocol schema.",
+                            "description": "Keystone authentication protocol (http/https)",
+                            "default": "http"
+                          },
+                          "auth_port": {
+                            "type": "integer",
+                            "title": "Auth_port schema.",
+                            "description": "Keystone authentication port",
+                            "default": 35357
+                          }
+                        }
+                      },
+                      "neutron": {
+                        "type": "object",
+                        "title": "Neutron schema.",
+                        "description": "Parameters related to Neutron Service",
+                        "properties": {
+                          "service_protocol": {
+                            "type": "string",
+                            "title": "Service_protocol schema.",
+                            "description": "Neutron service protocol (https/http)",
+                            "default": "http"
+                          },
+                          "port": {
+                            "type": "integer",
+                            "title": "Port schema.",
+                            "description": "Nuetron port to use",
+                            "default": 9697
+                          }
+                        }
+                      },
+                      "amqp": {
+                        "type": "object",
+                        "title": "Amqp schema.",
+                        "description": "Parameters related to AMQP/Rabbit Service",
+                        "properties": {
+                          "server_ip": {
+                            "type": "string",
+                            "title": "Server_ip schema.",
+                            "description": "AMQP Service IP to connect to",
+                            "default": ""
+                          },
+                          "ip_list": {
+                            "type": "array",
+                            "title": "Ip_list schema.",
+                            "description": "AMQP IP list that forms cluster to connect to",
+                            "items": {}
+                          },
+                          "port": {
+                            "type": "string",
+                            "title": "Port schema.",
+                            "description": "AMQP Port that cluster listens on",
+                            "default": ""
+                          }
+                        }
+                      },
+                      "mysql": {
+                        "type": "object",
+                        "title": "Mysql schema.",
+                        "description": "Parameters related to MYSQL",
+                        "properties": {
+                          "root_password": {
+                            "type": "string",
+                            "title": "Root_password schema.",
+                            "description": "mysql root password value",
+                            "default": ""
+                          }
+                        }
+                      },
+                      "ha": {
+                        "type": "object",
+                        "title": "Ha schema.",
+                        "description": "Parameters related to HA for Openstack Services",
+                        "properties": {
+                          "internal_vip": {
+                            "type": "string",
+                            "title": "Internal_vip schema.",
+                            "description": "Virtual IP address for openstack node control interface",
+                            "default": ""
+                          },
+                          "external_vip": {
+                            "type": "string",
+                            "title": "External_vip schema.",
+                            "description": "Virtual IP address for openstack node management interface",
+                            "default": ""
+                          },
+                          "internal_virtual_router_id": {
+                            "type": "integer",
+                            "title": "Internal_virtual_router_id schema.",
+                            "description": "VRID for openstack control network",
+                            "default": 102
+                          },
+                          "external_virtual_router_id": {
+                            "type": "integer",
+                            "title": "External_virtual_router_id schema.",
+                            "description": "VRID for openstack management network",
+                            "default": 101
+                          },
+                          "nfs_server": {
+                            "type": "string",
+                            "title": "Nfs_server schema.",
+                            "description": "Address of NFS server used to keep images for HA.",
+                            "default": ""
+                          },
+                          "nfs_glance_path": {
+                            "type": "string",
+                            "title": "Nfs_glance_path schema.",
+                            "description": "NFS path for glance images, used for HA.",
+                            "default": ""
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

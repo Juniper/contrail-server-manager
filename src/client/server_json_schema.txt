@@ -1,0 +1,194 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "title": "Root schema.",
+  "description": "Server Schema",
+  "properties": {
+    "server": {
+      "type": "array",
+      "title": "Server schema.",
+      "description": "List of Servers and the config for each.",
+      "items": {
+        "type": "object",
+        "title": "0 schema.",
+        "description": "List of Parameters for each server",
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster_id schema.",
+            "description": "Id of the cluster that the server belongs to.",
+            "default": ""
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain schema.",
+            "description": "The domain that the server belongs to.",
+            "default": ""
+          },
+          "id": {
+            "type": "string",
+            "title": "Id schema.",
+            "description": "The id of the server. Mandatory",
+            "default": ""
+          },
+          "parameters": {
+            "type": "object",
+            "title": "Parameters schema.",
+            "description": "Server Parameters",
+            "properties": {
+              "provision": {
+                "type": "object",
+                "title": "Provision schema.",
+                "description": "Parameters for provisioning contrail and openstack on this server",
+                "properties": {
+                  "contrail": {
+                    "type": "object",
+                    "title": "Contrail schema.",
+                    "description": "Parameters related to provision of Contrail components",
+                    "properties": {
+                      "compute": {
+                        "type": "object",
+                        "title": "Compute schema.",
+                        "description": "Parameters related to compute role",
+                        "properties": {
+                          "dpdk": {
+                            "type": "object",
+                            "title": "Dpdk schema.",
+                            "description": "Parameters related to DPDK",
+                            "properties": {
+                              "core_mask": {
+                                "type": "string",
+                                "title": "Core_mask schema.",
+                                "description": "Specify CPU affinity mask to run vRouter with. Supported formats:hexadecimal, comma-separated list of CPUs, dash-separated range of CPUs.",
+                                "default": ""
+                              },
+                              "huge_pages": {
+                                "type": "string",
+                                "title": "Huge_pages schema.",
+                                "description": "Specify what percentage of host memory should be reserved for access with huge pages",
+                                "default": ""
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "storage": {
+                        "type": "object",
+                        "title": "Storage schema.",
+                        "description": "",
+                        "properties": {
+                          "storage_repo_id": {
+                            "type": "string",
+                            "title": "Storage_repo_id schema.",
+                            "description": "If server has storage compute or master role configured, the storage repo id should be specified. mandatory if storage role is configured. SM does not calculate the value.",
+                            "default": ""
+                          },
+                          "storage_osd_disks": {
+                            "type": "array",
+                            "title": "Storage_osd_disks schema.",
+                            "description": "If server has storage-compute role, specify list of disks that are used for storage.",
+                            "items": {}
+                          },
+                          "storage_chassis_id": {
+                            "type": "string",
+                            "title": "Storage_chassis_id schema.",
+                            "description": "If server has storage-compute role this field should contain value of storage chassis id. This value along with server id and configuration from other storage-compute nodes is used to calculate storage_chassis_config",
+                            "default": ""
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "network": {
+            "type": "object",
+            "title": "Network schema.",
+            "description": "Network details of this server",
+            "properties": {
+              "interfaces": {
+                "type": "array",
+                "title": "Interfaces schema.",
+                "description": "Description of the interface config for this server",
+                "items": {
+                  "type": "object",
+                  "title": "0 schema.",
+                  "description": "First defined interface",
+                  "properties": {
+                    "default_gateway": {
+                      "type": "string",
+                      "title": "Default_gateway schema.",
+                      "description": "Gateway value for first interface",
+                      "default": ""
+                    },
+                    "ip_address": {
+                      "type": "string",
+                      "title": "Ip_address schema.",
+                      "description": "IP address of first interface",
+                      "default": ""
+                    },
+                    "mac_address": {
+                      "type": "string",
+                      "title": "Mac_address schema.",
+                      "description": "MAC Address of first interface",
+                      "default": ""
+                    },
+                    "name": {
+                      "type": "string",
+                      "title": "Name schema.",
+                      "description": "Name of the first interface",
+                      "default": ""
+                    }
+                  }
+                }
+              },
+              "management_interface": {
+                "type": "string",
+                "title": "Management_interface schema.",
+                "description": "The name of the interface to be set as the management interface for this server",
+                "default": ""
+              },
+              "provisioning": {
+                "type": "string",
+                "title": "Provisioning schema.",
+                "description": "Provisioning method",
+                "default": "kickstart"
+              }
+            }
+          },
+          "password": {
+            "type": "string",
+            "title": "Password schema.",
+            "description": "Root password for this server",
+            "default": ""
+          },
+          "roles": {
+            "type": "array",
+            "title": "Roles schema.",
+            "description": "List of roles to be provisioned on this server"
+          },
+          "ipmi_address": {
+            "type": "string",
+            "title": "Ipmi_address schema.",
+            "description": "Address of the IPMI Interface for this server (if available)",
+            "default": ""
+          },
+          "ipmi_username": {
+            "type": "string",
+            "title": "Ipmi_username schema.",
+            "description": "The username to login to IPMI interface",
+            "default": "ADMIN"
+          },
+          "ipmi_password": {
+            "type": "string",
+            "title": "Ipmi_password schema.",
+            "description": "The password to login to IPMI interface",
+            "default": "ADMIN"
+          }
+        }
+      }
+    }
+  }
+}

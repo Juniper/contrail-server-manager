@@ -47,15 +47,15 @@
                         },
                         "config": {
                             "contrail_amqp_ip_list": [],
-                            "contrail_amqp_ip_port": '',
+                            "contrail_amqp_ip_port": "",
                             "manage_neutron": true,
                             "zookeeper_ip_port": 2181,
                             "healthcheck_interval": 5
                         },
                         "compute": {
                             "dpdk": {
-                                "huge_pages": '',
-                                "core_mask": ''
+                                "huge_pages": "",
+                                "core_mask": ""
                             },
                             "sriov": {
                                 "enable": false
@@ -74,19 +74,12 @@
                             "gateway_routes": ""
                         },
                         "storage": {
-                            "storage_num_osd": "",
-                            "storage_fsid": "",
-                            "storage_num_hosts": "",
                             "storage_monitor_secret": "",
                             "osd_bootstrap_key": "",
                             "storage_admin_key": "",
-                            "storage_virsh_uuid": "",
                             "storage_monitor_hosts": [],
-                            "storage_enabled": false,
                             "storage_chassis_config": [],
                             "live_migration_host": "",
-                            "live_migration_ip": "",
-                            "live_migration_storage_scope": "",
                             "storage_cluster_network": ""
                         },
                         "toragent": {
@@ -115,7 +108,7 @@
                         "amqp" : {
                             "server_ip": "",
                             "ip_list": [],
-                            "port": ''
+                            "port": ""
                         },
                         "mysql": {
                             "root_password": "c0ntrail123"
