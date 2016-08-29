@@ -349,7 +349,7 @@ class ServerMgrIPMIMonitoring():
 
                     for line in fileoutput:
                         if line is not None:
-                            if line.find('sd') != -1 or line.find('dm') != -1:
+                            if (line.find('sd') != -1 or line.find('dm') != -1) and line.find('Linux')!=0:
                                 disk_data = Disk()
                                 disk_data_tot = Disk_totals()
                                 prev_disk_info = Disk_totals()
@@ -715,13 +715,18 @@ class ServerMgrIPMIMonitoring():
                         return_dict = dict()
                         return_dict["name"] = str(server['id'])
                         return_dict["cluster_id"] = server['cluster_id']
-                        main_dict = self.filter_monitoring_results(
-                            parsed_data_dict[str(server['id'])],
-                            ret_data["type"])
-                        summary_dict = self.filter_monitoring_results(
-                            sum_parsed_data_dict[str(server['id'])],
-                            ret_data["type"]
-                        )
+                        if str(server['id']) in parsed_data_dict.keys():
+                            main_dict = self.filter_monitoring_results(
+                                parsed_data_dict[str(server['id'])],
+                                ret_data["type"])
+                        else:
+                            main_dict = {}
+                        if str(server['id']) in sum_parsed_data_dict.keys():
+                            summary_dict = self.filter_monitoring_results(
+                                sum_parsed_data_dict[str(server['id'])],
+                                ret_data["type"])
+                        else:
+                            summary_dict = {}
                         for summary_key in summary_dict:
                             main_dict[str(summary_key)] = summary_dict[summary_key]
                         return_dict[str(uve_name)] = main_dict
