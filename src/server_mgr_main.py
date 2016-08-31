@@ -925,18 +925,6 @@ class VncServerManager():
 
         cluster_unique_roles = set(cluster_role_list)
 
-        missing_roles = roles_set.difference(cluster_unique_roles)
-        if len(missing_roles) == 1 and next(iter(missing_roles)) == "openstack":
-            # Check for other mandatory params if Openstack is not configured
-            self.validate_non_openstack_cluster(cluster_id)
-        elif len(missing_roles) > 1 and len(cluster_unique_roles) == 1 and next(iter(cluster_unique_roles)) == "openstack":
-            # Check for other mandatory params if only Openstack role in cluster
-            self.validate_openstack_only_cluster(cluster_id)
-        elif len(missing_roles):
-            msg = "Mandatory roles \"%s\" are not present" % \
-            ", ".join(str(e) for e in missing_roles)
-            self.log_and_raise_exception(msg)
-
         unknown_roles = cluster_unique_roles.difference(roles_set)
         unknown_roles.difference_update(optional_role_set)
 
