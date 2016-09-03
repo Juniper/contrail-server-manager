@@ -29,6 +29,8 @@ server_fields = {
     "ipmi_interface": "",
     "tag": None,
     "base_image_id": "",
+    "ssh_public_key": "",
+    "ssh_private_key" : "",
     "package_image_id": ""
 }
 
