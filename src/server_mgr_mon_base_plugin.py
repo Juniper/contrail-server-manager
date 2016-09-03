@@ -399,54 +399,80 @@ class ServerMgrMonBasePlugin():
             self._smgr_log.log(self._smgr_log.INFO, "Exception in call_subprocess: " + str(e))
             return None
 
-    def create_store_copy_ssh_keys(self, server_id, server_ip):
+    def copy_ssh_keys_to_server(self, ip_address, server_id):
+      self._smgr_log.log(self._smgr_log.DEBUG, "COPY-KEY: Server: " + str(server_id))
 
+      servers = self._serverDb.get_server({"id": server_id}, detail=True)
+      server = servers[0]
+      ssh_key = server["ssh_public_key"]
+      tries = 0
+      gevent.sleep(60)
+      success = False
+      while not success and tries < 10:
+        try:
+          tries += 1
+          #try to connect first if target node is up
+          source_file = "/tmp/" + str(server_id) + ".pub"
+          ssh = ServerMgrSSHClient(self._serverDb)
+          ssh.connect(ip_address, server_id, option="password")
+
+          subprocess.call(['mkdir', '-p', '/tmp'])
+          with open("/tmp/" + str(server_id) + ".pub", 'w+') as content_file:
+            content_file.write(str(ssh_key))
+            content_file.close()
+
+          key_dest_file = "/root/" + str(server_id) + ".pub"
+          dest_file = "/root/.ssh/authorized_keys"
+          ssh.exec_command("mkdir -p /root/.ssh/")
+          ssh.exec_command("touch " + str(key_dest_file))
+
+          if os.path.exists(source_file):
+            # Copy Public key on Target Server
+            #TODO: check if authrized keys are already available
+            bytes_sent = ssh.copy(source_file, key_dest_file)
+            ssh.exec_command("echo '' >> " + str(dest_file))
+            ssh.exec_command("cat " + str(key_dest_file) + " >> " + str(dest_file))
+            ssh.exec_command("echo '' >> " + str(dest_file))
+            ssh.exec_command("rm -rf " + str(key_dest_file))
+          ssh.close()
+          if os.path.exists(source_file):
+            os.remove(source_file)
+          msg =  "COPY-KEYS: %s bytes copied on %s: " %(str(bytes_sent), str(server_id))
+          self._smgr_log.log(self._smgr_log.DEBUG, msg)
+          success = True
+          return success
+
+        except Exception as e:
+          msg = "COPY-KEYS: Host : %s Try: %d: ERROR Copying Keys: %s" % (str(server_id), tries, str(e))
+          self._smgr_log.log(self._smgr_log.ERROR, msg)
+          if os.path.exists(source_file):
+            os.remove(source_file)
+          if ssh:
+            ssh.close()
+          gevent.sleep(30)
+
+      #if we are here, then SSH Keys are not copied
+      if tries >= 10:
+        msg = "COPY-KEYS: Host : %s Try: %d: SSH-COPY Failed" % (str(server_id), tries)
+        self._smgr_log.log(self._smgr_log.ERROR, msg)
+        return False
+
+    def create_store_copy_ssh_keys(self, server_id, server_ip):
         # Create the Keys using Pycrypto
-        self._smgr_log.log(self._smgr_log.DEBUG, "Copying keys for server: " + str(server_id))
+        self._smgr_log.log(self._smgr_log.DEBUG, "Generating & Copying keys for server: " + str(server_id))
         ssh_key = paramiko.RSAKey.generate(bits=2048)
         ssh_private_key_obj = StringIO.StringIO()
         ssh_key.write_private_key(ssh_private_key_obj)
-        source_file = ""
-        bytes_sent = 0
-        try:
-            subprocess.call(['mkdir', '-p', '/tmp'])
-            # Save Public key on Target Server
-            source_file = "/tmp/" + str(server_id) + ".pub"
-            with open("/tmp/" + str(server_id) + ".pub", 'w+') as content_file:
-                content_file.write("ssh-rsa " + str(ssh_key.get_base64()))
-                content_file.close()
-            ssh = ServerMgrSSHClient(self._serverDb)
-            ssh.connect(server_ip, server_id, option="password")
-            key_dest_file = "/root/" + str(server_id) + ".pub"
-            dest_file = "/root/.ssh/authorized_keys"
-            ssh.exec_command("mkdir -p /root/.ssh/")
-            ssh.exec_command("touch " + str(key_dest_file))
-            if os.path.exists(source_file):
-                bytes_sent = ssh.copy(source_file, key_dest_file)
-                ssh.exec_command("echo '' >> " + str(dest_file))
-                ssh.exec_command("cat " + str(key_dest_file) + " >> " + str(dest_file))
-                ssh.exec_command("echo '' >> " + str(dest_file))
-                ssh.exec_command("rm -rf " + str(key_dest_file))
-            # Update Server table with ssh public and private keys
-            update = {'id': server_id,
-                      'ssh_public_key': "ssh-rsa " + str(ssh_key.get_base64()),
-                      'ssh_private_key': ssh_private_key_obj.getvalue()}
-            self._serverDb.modify_server(update)
-            ssh.close()
-            if os.path.exists(source_file):
-                os.remove(source_file)
-            self._smgr_log.log(self._smgr_log.DEBUG, "Bytes copied in ssh_key copy: " + str(bytes_sent))
-            return ssh_key
-        except Exception as e:
-            self._smgr_log.log(self._smgr_log.ERROR, "Error Creating/Copying Keys: " + str(server_id) + " : " + str(e))
-            if os.path.exists(source_file):
-                os.remove(source_file)
-            # Update Server table with ssh public and private keys
-            update = {'id': server_id,
-                      'ssh_public_key': "ssh-rsa " + str(ssh_key.get_base64()),
-                      'ssh_private_key': ssh_private_key_obj.getvalue()}
-            self._serverDb.modify_server(update)
-            return None
+
+        # Update Server table with ssh public and private keys
+        update = {'id': server_id,
+                  'ssh_public_key': "ssh-rsa " + str(ssh_key.get_base64()),
+                  'ssh_private_key': ssh_private_key_obj.getvalue()}
+        self._serverDb.modify_server(update)
+
+        #copy the ssh keys to target server
+        self.copy_ssh_keys_to_server(server_ip, server_id)
+
 
     def populate_server_data_lists(self, servers, ipmi_list, hostname_list,
                                    server_ip_list, ipmi_username_list, ipmi_password_list, feature):
@@ -477,59 +503,12 @@ class ServerMgrMonBasePlugin():
 
     # Packages and sends a REST API call to the ServerManager node
     def copy_ssh_keys_to_servers(self, ip, port, payload, sm_args=None):
-        success = False
-        source_file = ""
-        sshclient = ServerMgrSSHClient(serverdb=self._serverDb)
-        self._smgr_log.log("debug", "Copying the ssh keys  " + str(payload))
-        tries = 0
-        gevent.sleep(60)
-        while not success and tries < 10:
-            try:
-                tries += 1
-                server = self._serverDb.get_server({"id": str(payload["id"])}, detail=True)
-                if server and len(server) == 1:
-                    server = server[0]
-                    subprocess.call(['ssh-keygen', '-f', '/root/.ssh/known_hosts', '-R', str(server["ip_address"])])
-                    subprocess.call(['mkdir', '-p', '/tmp'])
-                    sshclient.connect(str(server["ip_address"]), str(server["id"]), "password")
-                    match_dict = dict()
-                    match_dict["id"] = str(payload["id"])
-                    self._smgr_log.log(self._smgr_log.DEBUG, "Still trying to copy the ssh keys " + str(payload["id"]) +
-                                       ", try " + str(tries))
-                    ssh_public_ket_str = str(server["ssh_public_key"])
-                    with open("/tmp/" + str(payload["id"]) + ".pub", 'w+') as content_file:
-                        content_file.write(ssh_public_ket_str)
-                        content_file.close()
-                    source_file = "/tmp/" + str(payload["id"]) + ".pub"
-                    dest_file = "/root/.ssh/authorized_keys"
-                    if os.path.exists(source_file):
-                        sshclient.exec_command('mkdir -p /root/.ssh/')
-                        sshclient.exec_command('touch /root/.ssh/authorized_keys')
-                        bytes_sent = sshclient.copy(source_file, dest_file)
-                        sshclient.exec_command("echo '' >> " + str(dest_file))
-                    sshclient.close()
-                    self._smgr_log.log(self._smgr_log.DEBUG, "SSH Keys copied on  " + str(payload["id"]) +
-                                       ", try " + str(tries))
-                    if os.path.exists(source_file):
-                        os.remove(source_file)
-                    success = True
-                else:
-                    self._smgr_log.log(self._smgr_log.ERROR, "Server Matching Server Id:  " + str(payload["id"]) +
-                                       " not found. SSH Keys will not be copied. ")
-                    tries = 10
-                    if os.path.exists(source_file):
-                        os.remove(source_file)
-                    if sshclient:
-                        sshclient.close()
-                    success = False
-            except Exception as e:
-                if os.path.exists(source_file):
-                    os.remove(source_file)
-                if sshclient:
-                    sshclient.close()
-                gevent.sleep(30)
-        if tries >= 10 and success is False:
-            self._smgr_log.log(self._smgr_log.ERROR, "SSH Key copy failed on  " + str(payload["id"]))
+        servers = self._serverDb.get_server({"id": str(payload["id"])}, detail=True)
+        server = servers[0]
+        success = self.copy_ssh_keys_to_server(str(server["ip_address"]), str(server["id"]))
+
+        self._smgr_log.log(self._smgr_log.DEBUG, "COPY-KEY: Host: " + server["id"] + " /Status: " + str(success))
+
         if success and self._provision_immediately_after_reimage == True:
             gevent.spawn(self.gevent_puppet_agent_action, server, self._serverDb, sm_args, "start")
         if success and self.inventory_config_set:
