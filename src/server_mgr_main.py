@@ -3968,10 +3968,16 @@ class VncServerManager():
             ('storage-master' in roles)):
             storage_repo = (server_contrail_prov_params.get(
                     "storage", {})).get("storage_repo_id", "")
+
+            if not storage_repo:
+              storage_repo = (cluster_contrail_prov_params.get(
+                    "storage", {})).get("storage_repo_id", "")
+
             if storage_repo:
                 contrail_params['contrail_repo_name'].append(storage_repo)
                 contrail_params['contrail_repo_type'].append(
                     "contrail-ubuntu-storage-repo".encode('utf-8'))
+
         my_uuid = cluster_params.get(
             "uuid", str(uuid.uuid4()).encode("utf-8"))
         contrail_params['uuid'] = my_uuid
