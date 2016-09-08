@@ -1148,7 +1148,7 @@ class VncServerManager():
         elif oper == "REIMAGE":
             ret_val_data = self.validate_smgr_reimage(validation_data, request, data)
 
-        self._smgr_log.log(self._smgr_log.DEBUG, "ret_val_data returned: %s" % (ret_val_data))
+        #self._smgr_log.log(self._smgr_log.DEBUG, "ret_val_data returned: %s" % (ret_val_data))
 
 	return ret_val_data
     # This function converts the string of tags received in REST call and make
@@ -1254,7 +1254,7 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
         # Convert some of the fields in server entry to match what is accepted for put
-        self._smgr_log.log(self._smgr_log.DEBUG, "JSON response:%s" % (print_rest_response(servers)))
+        #self._smgr_log.log(self._smgr_log.DEBUG, "JSON response:%s" % (print_rest_response(servers)))
         return {"server": servers}
     # end get_server_status
 
@@ -1294,7 +1294,7 @@ class VncServerManager():
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
-        self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(servers)))
+        #self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(servers)))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
 
@@ -1348,7 +1348,7 @@ class VncServerManager():
         #Leaving behind this code,
         #So that if we decide to hide based on Client-IP address
         client_ip = self._get_client_ip_addr()
-        self._smgr_log.log(self._smgr_log.ERROR, "client IP is %s" % (client_ip))
+        #self._smgr_log.log(self._smgr_log.ERROR, "client IP is %s" % (client_ip))
         query_args = parse_qs(urlparse(bottle.request.url).query,
                                   keep_blank_values=True)
         # Check if request arguments has show_pass parameter
