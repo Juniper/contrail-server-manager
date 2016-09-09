@@ -103,6 +103,47 @@
               }
             }
           },
+          "top_of_rack": {
+            "type": "object",
+            "description": "Top of Rack configuration for server, listing the different switches connected to the server.",
+            "properties": {
+              "switches": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "ip_address": {
+                      "type": "string"
+                    },
+                    "tunnel_ip_address": {
+                      "type": "string"
+                    },
+                    "switch_name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "ovs_port": {
+                      "type": "string"
+                    },
+                    "ovs_protocol": {
+                      "type": "string"
+                    },
+                    "http_server_port": {
+                      "type": "string"
+                    },
+                    "vendor_name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "network": {
             "type": "object",
             "title": "Network schema.",
@@ -155,6 +196,28 @@
                 "title": "Provisioning schema.",
                 "description": "Provisioning method",
                 "default": "kickstart"
+              },
+              "routes": {
+                "type": "array",
+                "title": "Static Route schema.",
+                "description": "List of static routes",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "gateway": {
+                      "type": "string"
+                    },
+                    "interface": {
+                      "type": "string"
+                    },
+                    "netmask": {
+                      "type": "string"
+                    },
+                    "network": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             }
           },

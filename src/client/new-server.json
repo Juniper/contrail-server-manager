@@ -21,17 +21,89 @@
                     }
                 }
             },
-            "network": {
+            "contrail": {
+                "control_data_interface": "eth1"
+            },
+            "top_of_rack": {
+               "switches" : [
+                  {
+                     "id": "1",
+                     "ip_address": "10.87.141.84",
+                     "tunnel_ip_address": "10.87.141.84",
+                     "switch_name": "TOR1",
+                     "type": "ovs",
+                     "ovs_port": "6632",
+                     "ovs_protocol": "tcp",
+                     "http_server_port": "9912",
+                     "vendor_name": "Juniper"
+                  },
+                  {
+                     "id": "2",
+                     "ip_address": "10.87.141.83",
+                     "tunnel_ip_address": "10.87.141.83",
+                     "switch_name": "TOR2",
+                     "type": "ovs",
+                     "ovs_port": "6632",
+                     "ovs_protocol": "tcp",
+                     "http_server_port": "9913",
+                     "vendor_name": "Juniper"
+                  }
+                ]
+            },
+            "network" : {
                 "interfaces": [
                     {
-                        "default_gateway": "10.84.51.254",
-                        "ip_address": "10.84.51.12/24",
-                        "mac_address": "00:25:90:a9:1b:6c",
-                        "name": "eth1"
+                        "name": "eth1",
+                        "dhcp": true,
+                        "mac_address": "aa:bb:cc:dd:ee:ff",
+                        "ip_address": "172.16.70.40/24",
+                        "default_gateway": "172.16.70.254"
+                    },
+                    {
+                        "name": "p20p1",
+                        "mac_address": "aa:bb:cc:dd:ee:ab"
+                    },
+                    {
+                        "name": "p20p2",
+                        "mac_address": "aa:bb:cc:dd:ee:cd"
+                    },
+                    {
+                        "name": "bond0",
+                        "type": "bond",
+                        "ip_address": "10.224.11.10/24",
+                        "default_gateway": "10.224.12.1",
+                        "bond_options": {"miimon": "100", "mode": "802.3ad","xmit_hash_policy": "layer3+4"},
+                        "member_interfaces": ["p20p1", "p20p2"]
+                    },
+                    {
+                        "default_gateway": "3.3.2.254",
+                        "ip_address": "3.3.2.0/24",
+                        "name": "eth2",
+                        "mac_address": "aa:bb:cc:dd:ee:ef"
+                    },
+                    {
+                        "default_gateway": "3.3.3.254",
+                        "ip_address": "3.3.3.0/24",
+                        "name": "eth4",
+                        "mac_address": "aa:bb:cc:dd:ee:12"
                     }
                 ],
                 "management_interface": "eth1",
-                "provisioning": "kickstart"
+                "provisioning": "kickstart",
+                "routes": [
+                    {
+                        "gateway": "3.3.2.254",
+                        "interface": "enp129s0f0",
+                        "netmask": "255.255.255.0",
+                        "network": "3.3.4.0"
+                    },
+                    {
+                        "gateway": "3.3.3.254",
+                        "interface": "enp129s0f1",
+                        "netmask": "255.255.255.0",
+                        "network": "3.3.5.0"
+                    }
+                ]
             },
             "password": "juniper",
             "roles": [
