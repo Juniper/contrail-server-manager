@@ -270,6 +270,12 @@
                             "description": "Port of the Rabbit Cluster that Contrail nodes connect to",
                             "default": ""
                           },
+                          "manage_db": {
+                            "type": "boolean",
+                            "title": "Manage_db schema.",
+                            "description": "Whether config manages its own db cluster",
+                            "default": false
+                          },
                           "manage_neutron": {
                             "type": "boolean",
                             "title": "Manage_neutron schema.",
