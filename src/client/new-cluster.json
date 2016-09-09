@@ -49,6 +49,7 @@
                             "contrail_amqp_ip_list": [],
                             "contrail_amqp_ip_port": '',
                             "manage_neutron": true,
+                            "manage_db": false,
                             "zookeeper_ip_port": 2181,
                             "healthcheck_interval": 5
                         },
