@@ -55,6 +55,7 @@ class BaseInterface(object):
         self.vlan       = kwargs.get('vlan', None)
         self.dhcp       = kwargs.get('dhcp', None)
         self.no_restart_network = kwargs.get('no_restart_network', False)
+        self.mtu        = kwargs.get('mtu', None)
         self.bond_opts  = {'miimon': '100', 'mode': '802.3ad',
                            'xmit_hash_policy': 'layer3+4'}
         try:
@@ -174,6 +175,8 @@ class BaseInterface(object):
               }
         if self.gw:
             cfg['GATEWAY'] = self.gw
+        if self.mtu:
+            cfg['MTU'] = self.mtu
         self.write_network_script(vlanif, cfg)
 
     def create_bond_members(self):
@@ -225,6 +228,8 @@ class BaseInterface(object):
                           })
             if self.gw:
                 cfg['GATEWAY'] = self.gw
+            if self.mtu:
+                cfg['MTU'] = self.mtu
         else:
             self.create_vlan_interface()
         self.write_network_script(self.device, cfg)
@@ -247,6 +252,8 @@ class BaseInterface(object):
                             })
             if self.gw:
                 cfg['GATEWAY'] = self.gw
+            if self.mtu:
+                cfg['MTU'] = self.mtu
         else:
             self.create_vlan_interface()
         self.write_network_script(self.device, cfg)
@@ -370,9 +377,13 @@ class UbuntuInterface(BaseInterface):
             cfg = ['auto %s' %self.device,
                    'iface %s inet manual' %self.device,
                    'down ip addr flush dev %s' %self.device]
+            if self.mtu:
+                cfg.append('mtu %s' %self.mtu)
         elif self.dhcp:
             cfg = ['auto %s' %self.device,
                    'iface %s inet dhcp' %self.device]
+            if self.mtu:
+                cfg.append('pre-up /sbin/ip link set %s mtu %s' % (self.device, self.mtu))
         else:
             cfg = ['auto %s' %self.device,
                    'iface %s inet static' %self.device,
@@ -380,6 +391,8 @@ class UbuntuInterface(BaseInterface):
                    'netmask  %s' %self.netmask]
             if self.gw:
                 cfg.append('gateway %s' %self.gw)
+            if self.mtu:
+                cfg.append('mtu %s' %self.mtu)
         self.write_network_script(cfg)
         if self.vlan:
             self.create_vlan_interface()
@@ -404,6 +417,8 @@ class UbuntuInterface(BaseInterface):
                'vlan-raw-device %s' %self.device]
         if self.gw:
             cfg.append('gateway %s' %self.gw)
+        if self.mtu:
+            cfg.append('mtu %s' %self.mtu)
         self.write_network_script(cfg)
 
     def create_bonding_interface(self):
@@ -429,6 +444,8 @@ class UbuntuInterface(BaseInterface):
                    'hwaddress %s' % bond_mac]
             if self.gw:
                 cfg.append('gateway %s' %self.gw)
+        if self.mtu:
+            cfg.append('mtu %s' %self.mtu)
         cfg += self.bond_opts_str.split("\n")
         self.write_network_script(cfg)
         if self.vlan:
@@ -471,6 +488,9 @@ def parse_cli(args):
                         action='store_true',
                         default=False,
                         help='Disable network restart after configuring interfaces')
+    parser.add_argument('--mtu',
+                        action='store',
+                        help='MTU size of interface')
     pargs = parser.parse_args(args)
     if len(args) == 0:
         parser.print_help()
