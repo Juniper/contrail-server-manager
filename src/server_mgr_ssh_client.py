@@ -14,6 +14,7 @@ from StringIO import StringIO
 import paramiko
 from os import chmod
 from server_mgr_db import ServerMgrDb as db
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 
 DEF_SERVER_DB_LOCATION = "/etc/contrail_smgr/smgr_data.db"
 
@@ -29,6 +30,8 @@ class ServerMgrSSHClient(object):
             self._serverDb = serverdb
         else:
             self._serverDb = db(DEF_SERVER_DB_LOCATION)
+
+        self._smgr_log = ServerMgrlogger()
 
     def connect(self, ip, server_id, option="key"):
         try:
@@ -48,9 +51,15 @@ class ServerMgrSSHClient(object):
                     root_pwd = server["password"]
                     ssh.connect(ip, username='root', password=root_pwd, timeout=30)
             self._ssh_client = ssh
+
         except Exception as e:
+            msg = "CONNECT FAILED: Host => %s, option => %s, ERROR => %s" % (ip, option, str(e))
+            self._smgr_log.log(self._smgr_log.INFO, msg)
             ssh.close()
             raise e
+
+        msg = "CONNECT SUCCESS: Host => %s, option => %s" % (ip, option)
+        self._smgr_log.log(self._smgr_log.INFO, msg)
         return ssh
 
     def copy(self, source, dest):
