@@ -3092,6 +3092,9 @@ class VncServerManager():
                 ip = IPNetwork(ip_addr)
                 d_gw = intf.get('default_gateway', None)
                 dhcp = intf.get('dhcp', None)
+                mtu = intf.get('mtu', '')
+                if mtu:
+                    mtu = '--mtu %s' %mtu
                 if name.lower() == mgmt_intf.lower():
                     dhcp = True
                 type = intf.get('type', None)
@@ -3101,20 +3104,20 @@ class VncServerManager():
                     member_intfs = self.get_member_interfaces(network_dict,
                                                               intf.get('member_interfaces', []))
                     device_str+= ("python /root/interface_setup.py \
---device %s --members %s --bond-opts \"%s\" --ip %s\n") % \
+--device %s --members %s --bond-opts \"%s\" --ip %s %s\n") % \
                         (name,
-            			" ".join(member_intfs),
-			            json.dumps(bond_opts), ip_addr)
+                         " ".join(member_intfs),
+                         json.dumps(bond_opts), ip_addr, mtu)
                     execute_script = True
                 else:
                     if 'mac_address' in intf:
                         name = intf['mac_address'].lower()
                     if dhcp:
-                        device_str+= ("python /root/interface_setup.py --device %s --dhcp\n") % \
-                            (name)
+                        device_str+= ("python /root/interface_setup.py --device %s --dhcp %s\n") % \
+                            (name, mtu)
                     else:
-                        device_str+= ("python /root/interface_setup.py --device %s --ip %s\n") % \
-                            (name, ip_addr)
+                        device_str+= ("python /root/interface_setup.py --device %s --ip %s %s\n") % \
+                            (name, ip_addr, mtu)
                 execute_script = True
             # Build route configuration and add it
             route_str = self.build_route_cfg(server)
