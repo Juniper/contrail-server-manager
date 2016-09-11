@@ -3872,47 +3872,23 @@ class VncServerManager():
 
     def storage_get_control_network_mask(
         self, server, cluster, role_servers, cluster_servers):
-        role_ips_dict = {}
-        for key, value in role_servers.iteritems():
-            role_ips_dict[key] = [x.get("ip_address", "") for x in value]
-        cluster_params = cluster.get('parameters', {})
-        server_params = server.get('parameters', {})
-        cluster_openstack_prov_params = (
-            cluster_params.get("provision", {})).get("openstack", {})
-        configured_external_openstack_ip = cluster_openstack_prov_params.get("external_openstack_ip", None)
-        openstack_ip = ''
-        self_ip = server.get("ip_address", "")
-        if configured_external_openstack_ip:
-            openstack_ip = configured_external_openstack_ip
-        elif self_ip in role_ips_dict['openstack']:
-            openstack_ip = self_ip
-        elif 'openstack' in role_ips_dict and len(role_ips_dict['openstack']):
-            openstack_ip = role_ips_dict['openstack'][0]
-        else:
-            msg = "Openstack role not defined for cluster AND External Openstack not configured in cluster parameters.\n " \
-                  "The cluster needs to point to at least one Openstack node.\n"
-            self.log_and_raise_exception(msg)
+
+        control_intf = eval(self.get_control_interface(server))
+        for key, value in control_intf.iteritems():
+          control_ip_prefixlen = "%s/%s" %(str(IPNetwork(value['ip_address']).network), str(IPNetwork(value['ip_address']).prefixlen))
+          msg = "STORAGE: control_ip: %s => %s" %(value['ip_address'], control_ip_prefixlen)
+          self._smgr_log.log(self._smgr_log.DEBUG, msg)
+          return control_ip_prefixlen
+
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
-            subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
+          subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
 
-        subnet_address = ""
-        intf_control = {}
-        subnet_address = str(IPNetwork(
-            openstack_ip + "/" + subnet_mask).network)
+        control_ip = "%s/%s" %(str(server['ip_address']), subnet_mask )
+        control_ip_prefixlen = "%s/%s" %(str(IPNetwork(control_ip).network), str(IPNetwork(control_ip).prefixlen))
 
-        if openstack_ip == configured_external_openstack_ip:
-            return '"' + str(IPNetwork(subnet_address).network) + '/' + str(IPNetwork(subnet_address).prefixlen) + '"'
-        if (self.get_control_net(cluster_servers))[openstack_ip]:
-            intf_control = eval((self.get_control_net(cluster_servers))[openstack_ip])
+        return control_ip_prefixlen
 
-        for intf,values in intf_control.items():
-            if intf:
-                return '"' + str(IPNetwork(values['ip_address']).network) + '/'+ str(IPNetwork(values['ip_address']).prefixlen) + '"'
-            else:
-                return '"' + str(IPNetwork(server['ip_address']).network) + '/'+ str(IPNetwork(server['ip_address']).prefixlen) + '"'
-
-        return '"' + str(IPNetwork(subnet_address).network) + '/'+ str(IPNetwork(subnet_address).prefixlen) + '"'
     # end storage_get_control_network_mask
 
     def build_tor_ha_config(self, server, cluster, role_servers):
@@ -4089,6 +4065,10 @@ class VncServerManager():
             contrail_params['storage']['storage_chassis_config'] = list(storage_chassis_config_set)
         control_network = self.storage_get_control_network_mask(
             server, cluster, role_servers, cluster_servers)
+
+        msg = "STORAGE: Control_network : %s" %(control_network)
+        self._smgr_log.log(self._smgr_log.DEBUG, msg)
+
         contrail_params['storage']['storage_cluster_network'] = control_network
         # Build openstack parameters for openstack modules
         self_ip = server.get("ip_address", "")
