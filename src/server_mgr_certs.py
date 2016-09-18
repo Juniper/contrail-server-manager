@@ -40,12 +40,12 @@ class ServerMgrCerts():
         return sm_ca_private_key, sm_ca_cert
 
     def create_server_cert(self, server, force=False):
-        server_private_key = self._smgr_cert_location + server['id'] + '-privkey.pem'
-        server_csr = self._smgr_cert_location + server['id'] + '.csr'
-        server_pem = self._smgr_cert_location + server['id'] + '.pem'
+        server_private_key = self._smgr_cert_location + server['host_name'] + '-privkey.pem'
+        server_csr = self._smgr_cert_location + server['host_name'] + '.csr'
+        server_pem = self._smgr_cert_location + server['host_name'] + '.pem'
         if not force and os.path.isfile(server_private_key) and os.path.isfile(server_pem):
             return server_private_key, server_csr, server_pem
-        subject = '/CN=' + server['id']
+        subject = '/CN=' + server['host_name']
         Cert.generate_private_key(server_private_key, force=force)
         Cert.generate_csr(server_csr, server_private_key, subj=subject, force=force)
         Cert.generate_cert(server_pem, self._smgr_ca_private_key, root_pem=self._smgr_ca_cert,
@@ -53,9 +53,9 @@ class ServerMgrCerts():
         return server_private_key, server_csr, server_pem
 
     def delete_server_cert(self, server):
-        server_private_key = self._smgr_cert_location + server['id'] + '-privkey.pem'
-        server_csr = self._smgr_cert_location + server['id'] + '.csr'
-        server_pem = self._smgr_cert_location + server['id'] + '.pem'
+        server_private_key = self._smgr_cert_location + server['host_name'] + '-privkey.pem'
+        server_csr = self._smgr_cert_location + server['host_name'] + '.csr'
+        server_pem = self._smgr_cert_location + server['host_name'] + '.pem'
         if os.path.isfile(server_private_key):
             os.remove(server_private_key)
         if os.path.isfile(server_csr):

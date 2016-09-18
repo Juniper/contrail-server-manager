@@ -89,10 +89,12 @@ class ServerMgrStatusThread(threading.Thread):
         #query_args = parse_qs(urlparse(bottle.request.url).query,
                                       #keep_blank_values=True)
         #match_key, match_value = query_args.popitem()
-        server_id = request.query['server_id']
+        server_hostname= request.query['server_id']
         server_state = request.query['state']
         body = request.body.read()
         server_data = {}
+        test_servers = self._status_serverDb.get_server({"host_name" : server_hostname}, detail=True)
+        server_id = test_servers[0]['id']
         server_data['id'] = server_id
         if server_state == "post_provision_completed":
             server_data['status'] = "provision_completed"
@@ -100,14 +102,13 @@ class ServerMgrStatusThread(threading.Thread):
             server_data['status'] = server_state
         try:
             time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
-            message = server_id + ' ' + server_state + time_str
-            self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
-            servers = self._status_serverDb.modify_server(
-                                                    server_data)
+            message = server_id + ' ' + server_state + ' ' + time_str
+            self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % message)
+            servers = self._status_serverDb.modify_server( server_data)
             if server_state == "reimage_completed":
                 payload = dict()
                 payload["id"] = server_id
-                self._smgr_log.log(self._smgr_log.DEBUG, "Spawning Gevent for Id: %s" % payload["id"])
+                #self._smgr_log.log(self._smgr_log.DEBUG, "Spawning Gevent for Id: %s" % payload["id"])
                 if self._base_obj:
                     gevent.spawn(self._base_obj.copy_ssh_keys_to_servers, self._status_thread_config["listen_ip"],
                                  self._status_thread_config["listen_port"], payload, self._smgr_main._args)
@@ -122,18 +123,18 @@ class ServerMgrStatusThread(threading.Thread):
                 domain = self._status_serverDb.get_server_domain(server_id)
                 environment_name = 'TurningOffPuppetAgent__' + time_str
                 if domain:
-                    server_fqdn = server_id + "." + domain
+                    server_fqdn = server_hostname + "." + domain
                     self._smgr_puppet.update_node_map_file(
                         server_fqdn, environment_name)
                 #Stop the puppet agent in the targer server
-                servers = self._status_serverDb.get_server({"id" : server_id}, detail=True)
+                servers = self._status_serverDb.get_server({"host_name" : server_hostname}, detail=True)
                 server = servers[0]
                 gevent.spawn(self._base_obj.gevent_puppet_agent_action, server, self._status_serverDb, self._smgr_main._args, "stop")
             if server_state in email_events:
                 self.send_status_mail(server_id, message, message)
         except Exception as e:
-#            self.log_trace()
-            self._smgr_log.log(self._smgr_log.ERROR, "Error adding to db %s" % repr(e))
+            #self.log_trace()
+            self._smgr_log.log(self._smgr_log.ERROR, "HOST: %s: Error adding to db %s" % (server_id, repr(e)))
             abort(404, repr(e))
 
     def get_email_list(self, email):

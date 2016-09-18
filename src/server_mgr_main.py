@@ -670,7 +670,6 @@ class VncServerManager():
             if x.get("parameters", None) is not None:
                 x['parameters'] = eval(x['parameters'])
             self.hide_passwords(x, self._cluster_mask_list)
-        self._smgr_log.log(self._smgr_log.DEBUG, "Entity returned: %s" % (print_rest_response(entity)))
         return {"cluster": entity}
     # end get_cluster
 
@@ -695,7 +694,6 @@ class VncServerManager():
 
         self._smgr_trans_log.log(bottle.request,
                                  self._smgr_trans_log.GET_SMGR_CFG_TAG)
-        self._smgr_log.log(self._smgr_log.DEBUG, "Entity returned: %s" % (tag_dict))
 
         return tag_dict
     # end get_server_tags
@@ -1209,7 +1207,6 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
         # Convert some of the fields in server entry to match what is accepted for put
-        self._smgr_log.log(self._smgr_log.DEBUG, "JSON response:%s" % (all_chassis_id_set))
 
         return {"chassis_id": list(all_chassis_id_set)}
 
@@ -1220,7 +1217,6 @@ class VncServerManager():
     # configuration is returned.
     def get_server_status(self):
         ret_data = None
-        self._smgr_log.log(self._smgr_log.DEBUG, "get_server_status")
         try:
             ret_data = self.validate_smgr_request("SERVER", "GET",
                                                          bottle.request)
@@ -1254,7 +1250,6 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
         # Convert some of the fields in server entry to match what is accepted for put
-        #self._smgr_log.log(self._smgr_log.DEBUG, "JSON response:%s" % (print_rest_response(servers)))
         return {"server": servers}
     # end get_server_status
 
@@ -1265,7 +1260,6 @@ class VncServerManager():
     # configuration is returned.
     def get_server(self):
         ret_data = None
-        self._smgr_log.log(self._smgr_log.DEBUG, "get_server")
         servers = []
         try:
             ret_data = self.validate_smgr_request("SERVER", "GET",
@@ -1294,7 +1288,6 @@ class VncServerManager():
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
             abort(404, resp_msg)
-        #self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(servers)))
         self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER)
 
@@ -1348,7 +1341,6 @@ class VncServerManager():
         #Leaving behind this code,
         #So that if we decide to hide based on Client-IP address
         client_ip = self._get_client_ip_addr()
-        #self._smgr_log.log(self._smgr_log.ERROR, "client IP is %s" % (client_ip))
         query_args = parse_qs(urlparse(bottle.request.url).query,
                                   keep_blank_values=True)
         # Check if request arguments has show_pass parameter
@@ -1370,7 +1362,6 @@ class VncServerManager():
 
     # API Call to list images
     def get_image(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "get_image")
         try:
             ret_data = self.validate_smgr_request("IMAGE", "GET",
                                                          bottle.request)
@@ -1402,7 +1393,6 @@ class VncServerManager():
         for image in images:
             if image.get("parameters", None) is not None:
                 image['parameters'] = eval(image['parameters'])
-        self._smgr_log.log(self._smgr_log.DEBUG, (print_rest_response(images)))
         return {"image": images}
     # end get_image
 
@@ -1435,7 +1425,6 @@ class VncServerManager():
             if str(resp) == 'reimage completed' or str(resp) == 'reimage start':
                 message = server_id + ' ' + str(resp) + strftime(" (%Y-%m-%d %H:%M:%S)", localtime())
                 self.send_status_mail(server_id, message, message)
-            self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % server_data)
             servers = self._serverDb.put_status(
                             server_data)
         except Exception as e:
@@ -1464,7 +1453,6 @@ class VncServerManager():
             return None
 
     def put_image(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "add_image")
         entity = bottle.request.json
         try:
             self.validate_smgr_entity("image", entity)
@@ -1629,7 +1617,6 @@ class VncServerManager():
         return resp_msg
 
     def put_cluster(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "put_cluster")
         entity = bottle.request.json
         try:
             self.validate_smgr_entity("cluster", entity)
@@ -1716,7 +1703,6 @@ class VncServerManager():
 
 
     def put_server(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "add_server")
         entity = bottle.request.json
         if (not entity):
             msg = 'Server MAC or server_id not specified'
@@ -1781,7 +1767,6 @@ class VncServerManager():
 
     # Function to change tags used for grouping together servers.
     def put_server_tags(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "add_tag")
         entity = bottle.request.json
         if (not entity):
             msg = 'no tags specified'
@@ -1847,7 +1832,6 @@ class VncServerManager():
     # end put_server_tags
 
     def form_operartion_data(self, msg, ret_code, data):
-        self._smgr_log.log(self._smgr_log.DEBUG, "function_start")
         return_data = {}
         return_data['return_code'] = ret_code
         return_data['return_msg'] = msg
@@ -1873,7 +1857,6 @@ class VncServerManager():
     # created in cobbler. This is similar to function above (add_image),
     # but this call actually upload ISO image from client to the server.
     def upload_image(self):
-        self._smgr_log.log(self._smgr_log.DEBUG, "upload_image")
         image_id = bottle.request.forms.id
         image_version = bottle.request.forms.version
         image_type = bottle.request.forms.type
@@ -2559,12 +2542,12 @@ class VncServerManager():
                     match_dict[match_key] = match_value
 
             servers = self._serverDb.get_server(
-                match_dict, detail= False)
+                match_dict, detail= True)
             self._serverDb.delete_server(match_dict)
             # delete the system entries from cobbler
             for server in servers:
                 if server['id'] and self._smgr_cobbler:
-                    self._smgr_cobbler.delete_system(server['id'])
+                    self._smgr_cobbler.delete_system(server['host_name'])
             # Sync the above information
             if self._smgr_cobbler:
                 self._smgr_cobbler.sync()
@@ -2954,6 +2937,7 @@ class VncServerManager():
                     reimage_parameters['esx_nicname'] = server_parameters.get(
                         'esx_nicname', 'vmnic0')
                 reimage_parameters['server_id'] = server['id']
+                reimage_parameters['server_host_name'] = server['host_name']
                 reimage_parameters['server_ip'] = server['ip_address']
                 reimage_parameters['server_mac'] = server['mac_address']
                 reimage_parameters['server_password'] = self._encrypt_password(
@@ -2989,12 +2973,13 @@ class VncServerManager():
                                                     server.get('network', None)
 
                 execute_script = self.build_server_cfg(server)
+                host_name = server['host_name']
 
                 #network
                 if execute_script:
                     reimage_parameters['config_file'] = \
                                 "http://%s/contrail/config_file/%s.sh" % \
-                                (self._args.listen_ip_addr, server_id)
+                                (self._args.listen_ip_addr, host_name)
 
                 _mandatory_reimage_params = {"server_password": "password",
                             "server_gateway": "gateway","server_domain":"domain",
@@ -3017,6 +3002,7 @@ class VncServerManager():
                 # Build list of servers to be rebooted.
                 reboot_server = {
                     'id' : server['id'],
+                    'host_name' : server['host_name'],
                     'domain' : domain,
                     'ip' : server.get("ip_address", ""),
                     'password' : password,
@@ -3268,6 +3254,7 @@ class VncServerManager():
                 # Build list of servers to be rebooted.
                 reboot_server = {
                     'id' : server['id'],
+                    'host_name' : server['host_name'],
                     'domain' : domain,
                     'ip' : server.get("ip_address", ""),
                     'password' : password,
@@ -3495,13 +3482,18 @@ class VncServerManager():
         if sequence_steps:
             role_steps_list = sequence_steps[0]
         for step_tuple in role_steps_list:
-            server_id = step_tuple[0]
-            hiera_file = self.get_server_control_hiera_filename(server_id)
-            self._smgr_puppet.modify_server_hiera_data(server_id, hiera_file, [step_tuple])
+            server_host_name = step_tuple[0]
+            servers = self._serverDb.get_server({'host_name': server_host_name}, detail=True)
+            if not servers:
+              continue
+            server_id = servers[0]['id']
+            hiera_file = self.get_server_control_hiera_filename(server_host_name)
+            self._smgr_puppet.modify_server_hiera_data(server_host_name, hiera_file, [step_tuple])
 
-    def get_server_control_hiera_filename(self, server_id, cluster=None):
+    def get_server_control_hiera_filename(self, server_hostname, cluster=None):
         hiera_filename = ''
-        servers = self._serverDb.get_server({'id': server_id}, detail=True)
+        #pdb.set_trace()
+        servers = self._serverDb.get_server({'host_name': server_hostname}, detail=True)
         if not servers:
             return hiera_filename
         server = servers[0]
@@ -3510,7 +3502,7 @@ class VncServerManager():
         if not server_domain or not hieradata_environment:
             return hiera_filename
         hiera_filename = hieradata_environment + \
-            server['id'] + "." + \
+            server['host_name'] + "." + \
             server_domain + "-contrail.yaml"
         return hiera_filename
 
@@ -3564,9 +3556,9 @@ class VncServerManager():
             self.is_sequence_provisioning_available(provisioned_id)
         if not sequence_provisioning_available or not sequence_provisioning:
             return False
-        step_tuple = (server_id, status)
-        hiera_file = self.get_server_control_hiera_filename(server_id)
-        self._smgr_puppet.modify_server_hiera_data(server_id,
+        step_tuple = (server['host_name'], status)
+        hiera_file = self.get_server_control_hiera_filename(server['host_name'])
+        self._smgr_puppet.modify_server_hiera_data(server['host_name'],
                                                    hiera_file, [step_tuple],
                                                    False)
         return True
@@ -3609,14 +3601,14 @@ class VncServerManager():
         if not provision_role_sequence:
             return False
         steps = provision_role_sequence.get('steps', [])
-        step_tuple = (server_id, state)
+        step_tuple = (server['host_name'], state)
         role_steps_list = []
         if steps:
             role_steps_list = steps[0]
         else:
             return False
         if step_tuple not in role_steps_list:
-                return False
+            return False
 
         role_steps_list.remove(step_tuple)
         time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
@@ -3686,30 +3678,30 @@ class VncServerManager():
         for role in self._roles:
             role_step_servers[role] = []
             for server in role_servers[role]:
-                role_step_servers[role].append(server['id'])
+                role_step_servers[role].append(server['host_name'])
                 if role == 'openstack' and openstack_ha:
-                    if server['id'] not in role_step_servers['pre_exec_vnc_galera']:
-                        role_step_servers['pre_exec_vnc_galera'].append(server['id'])
-                    if server['id'] not in role_step_servers['post_exec_vnc_galera']:
-                        role_step_servers['post_exec_vnc_galera'].append(server['id'])
+                    if server['host_name'] not in role_step_servers['pre_exec_vnc_galera']:
+                        role_step_servers['pre_exec_vnc_galera'].append(server['host_name'])
+                    if server['host_name'] not in role_step_servers['post_exec_vnc_galera']:
+                        role_step_servers['post_exec_vnc_galera'].append(server['host_name'])
                     if not ext_lb_flag:
-                        if server['id'] not in role_step_servers['keepalived']:
-                            role_step_servers['keepalived'].append(server['id'])
-                        if server['id'] not in role_step_servers['haproxy']:
-                            role_step_servers['haproxy'].append(server['id'])
+                        if server['host_name'] not in role_step_servers['keepalived']:
+                            role_step_servers['keepalived'].append(server['host_name'])
+                        if server['host_name'] not in role_step_servers['haproxy']:
+                            role_step_servers['haproxy'].append(server['host_name'])
                 if role == 'config' and (not ext_lb_flag):
-                    if server['id'] not in role_step_servers['haproxy']:
-                        role_step_servers['haproxy'].append(server['id'])
+                    if server['host_name'] not in role_step_servers['haproxy']:
+                        role_step_servers['haproxy'].append(server['host_name'])
                     if contrail_ha:
-                        if server['id'] not in role_step_servers['keepalived']:
-                            role_step_servers['keepalived'].append(server['id'])
+                        if server['host_name'] not in role_step_servers['keepalived']:
+                            role_step_servers['keepalived'].append(server['host_name'])
                 # add loadbalancer node in keepalived and haproxy list, if one defined
                 if role == 'loadbalancer':
                     if openstack_ha or contrail_ha:
-                        if server['id'] not in role_step_servers['keepalived']:
-                            role_step_servers['keepalived'].append(server['id'])
-                        if server['id'] not in role_step_servers['haproxy']:
-                            role_step_servers['haproxy'].append(server['id'])
+                        if server['host_name'] not in role_step_servers['keepalived']:
+                            role_step_servers['keepalived'].append(server['host_name'])
+                        if server['host_name'] not in role_step_servers['haproxy']:
+                            role_step_servers['haproxy'].append(server['host_name'])
         return role_step_servers
 
     def validate_role_sequence(self, role_sequence):
@@ -3821,7 +3813,7 @@ class VncServerManager():
         role_sequence = self.get_role_sequence(cluster)
         role_step_servers = self.get_role_step_servers(role_servers, cluster)
         cluster_servers = self._serverDb.get_server(
-            {"cluster_id" : cluster['id']})
+            {"cluster_id" : cluster['id']}, detail=True)
         for role_seq in role_sequence:
             role_list = role_seq[0]
             execution = role_seq[1]
@@ -3836,10 +3828,10 @@ class VncServerManager():
                     if role in self._compute_roles:
                         continue
                     for role_step_server_id in role_step_servers[role]:
-                        if server['id'] == role_step_server_id:
-                            role_steps_tuple = (server['id'], role)
+                        if server['host_name'] == role_step_server_id:
+                            role_steps_tuple = (server['host_name'], role)
                             role_steps_list.append(role_steps_tuple)
-                            server_compute_flag[server['id']] = False
+                            server_compute_flag[server['host_name']] = False
                             break
                 if role_steps_list and execution == 's':
                     control_role_sequence.append(role_steps_list)
@@ -3954,7 +3946,7 @@ class VncServerManager():
                     if ((switch.get(
                         'ovs_protocol', "")).lower() == "pssl"):
                         self._smgr_puppet.generate_tor_certs(
-                            switch, server['id'], domain)
+                            switch, server['host_name'], domain)
                 # end for switch
             # end if len...
         # end for toragent_server
@@ -4004,7 +3996,7 @@ class VncServerManager():
         for role, servers in role_servers.iteritems():
             role_ctl_ip = [(self.get_control_ip(x)) for x in servers]
             role_ip = [x.get("ip_address", "") for x in servers]
-            role_id = [x.get("id", "") for x in servers]
+            role_id = [x.get("host_name", "") for x in servers]
             role_passwd = [x.get("password", "") for x in servers]
             role_user = ["root" for x in servers]
 
@@ -4078,18 +4070,18 @@ class VncServerManager():
                 num_storage_hosts += 1
             # end if
             storage_mon_host_ip_set.add(self.get_control_ip(role_server))
-            storage_mon_hostname_set.add(role_server['id'])
-            if role_server['id'] == live_migration_host: 
+            storage_mon_hostname_set.add(role_server['host_name'])
+            if role_server['host_name'] == live_migration_host: 
                 live_migration_ip = self.get_control_ip(role_server)
             if storage_params.get('storage_chassis_id', ""):
                 storage_host_chassis = (
-                    role_server['id'] + ':' + storage_params['storage_chassis_id'])
+                    role_server['host_name'] + ':' + storage_params['storage_chassis_id'])
                 storage_chassis_config_set.add(storage_host_chassis)
             # end if
         # end for
         for x in role_servers['storage-master']:
             storage_mon_host_ip_set.add(self.get_control_ip(x))
-            storage_mon_hostname_set.add(x['id'])
+            storage_mon_hostname_set.add(x['host_name'])
         # end for
 
         contrail_params['storage']['storage_num_osd'] = total_osd
@@ -4178,9 +4170,9 @@ class VncServerManager():
         server_control_ip = self.get_control_ip(server)
         server_control_gateway = self.get_control_gateway(server)
         contrail_params['host_ip'] = server_control_ip
-        role_id = [x.get("id", "") for x in role_servers['openstack']]
+        role_id = [x.get("host_name", "") for x in role_servers['openstack']]
         if len(role_id):
-            contrail_params['sync_db'] = (server['id'] == role_id[0])
+            contrail_params['sync_db'] = (server['host_name'] == role_id[0])
         contrail_params['host_roles'] = [ x for x in eval(server['roles']) ]
         if (server_control_ip and
            (server_control_ip != server['ip_address'])):
@@ -4592,32 +4584,32 @@ class VncServerManager():
                     self._smgr_log.log(self._smgr_log.DEBUG,
                                         "Enable netboot")
                     cobbler_server.enable_system_netboot(
-                        server['id'])
+                        server['host_name'])
                     cmd = "puppet cert clean %s.%s" % (
-                        server['id'], server['domain'])
+                        server['host_name'], server['domain'])
                     ret_code = subprocess.call(cmd, shell=True)
                     self._smgr_log.log(
                         self._smgr_log.DEBUG,
                         cmd + "; ret_code = %d" %(ret_code))
                     # Remove any puppet files for new framework
                     self._smgr_puppet.new_unprovision_server(
-                        server['id'], server['domain'])
+                        server['host_name'], server['domain'])
                     # Remove manifest file for this server
                     cmd = "rm -f /etc/puppet/manifests/%s.%s.pp" %(
-                        server['id'], server['domain'])
+                        server['host_name'], server['domain'])
                     ret_code = subprocess.call(cmd, shell=True)
                     self._smgr_log.log(
                         self._smgr_log.DEBUG,
                         cmd + "; ret_code = %d" %(ret_code))
                     # Remove entry for that server from site.pp
                     cmd = "sed -i \"/%s.%s.pp/d\" /etc/puppet/manifests/site.pp" %(
-                        server['id'], server['domain'])
+                        server['host_name'], server['domain'])
                     ret_code = subprocess.call(cmd, shell=True)
                     self._smgr_log.log(
                         self._smgr_log.DEBUG,
                         cmd + "; ret_code = %d" %(ret_code))
                     # Remove provision log for the server
-                    cmd = "rm -rf " + _DEF_SMGR_PROVISION_LOGS_DIR + server['id'] + '.' + \
+                    cmd = "rm -rf " + _DEF_SMGR_PROVISION_LOGS_DIR + server['host_name'] + '.' + \
                             server['domain']
                     ret_code = subprocess.call(cmd, shell=True)
                     self._smgr_log.log(
@@ -4705,7 +4697,7 @@ class VncServerManager():
             profile_name = base_image['id']
             # Setup system information in cobbler
             cobbler_server.create_system(
-                reimage_parameters['server_id'], profile_name, package_image_id,
+                reimage_parameters['server_host_name'], profile_name, package_image_id,
                 reimage_parameters['server_mac'], reimage_parameters['server_ip'],
                 reimage_parameters['server_mask'], reimage_parameters['server_gateway'],
                 reimage_parameters['server_domain'], reimage_parameters['server_ifname'],

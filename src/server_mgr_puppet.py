@@ -440,7 +440,7 @@ class ServerMgrPuppet:
         domain = server.get('domain', '')
         if not domain:
             domain = cluster_params.get('domain', '')
-        server_fqdn = server['id'] + "." + domain
+        server_fqdn = server['host_name'] + "." + domain
         contrail_hiera_file = hieradata_dir + server_fqdn + \
             "-contrail.yaml"
         # if cluster parameters has provision key, use new way of building Hiera file, else
@@ -470,13 +470,11 @@ class ServerMgrPuppet:
         if not hiera_data_dict:
             return
         for role_step_tuple in role_steps_list:
-            self._smgr_log.log(self._smgr_log.DEBUG, "role-tuple: %s = %s" % (role_step_tuple[0], role_step_tuple[1]))
             if server_id == role_step_tuple[0]:
                 role_step = role_step_tuple[1].replace('-', '_')
                 key = 'contrail::sequencing::enable_' + role_step
                 if key not in hiera_data_dict:
                     key = 'contrail::params::enable_' + role_step
-                self._smgr_log.log(self._smgr_log.DEBUG, "role-key: %s %s" % (key, enable))
                 hiera_data_dict[key] = enable
         data = yaml.dump(hiera_data_dict, default_style='\'', indent=4)
         with open(hiera_file, "w") as hiera_fh:
@@ -491,7 +489,7 @@ class ServerMgrPuppet:
         domain = server.get('domain', '')
         if not domain:
             domain = cluster_params.get('domain', '')
-        server_fqdn = server['id'] + "." + domain
+        server_fqdn = server['host_name'] + "." + domain
         env_name = package_params.get('puppet_manifest_version',"")
         env_name = env_name.replace('-', '_')
         site_file = self.puppet_directory + "environments/" + \

@@ -147,6 +147,7 @@ class ServerMgrDb:
                     self.update_cluster_uuids(cluster)
 
             self.update_image_table()
+            self.update_server_table()
         except e:
             raise e
     # End of __init__
@@ -183,6 +184,19 @@ class ServerMgrDb:
         self.modify_image(image)
     ##End of update_image_version
 
+    def update_server_table(self):
+        servers = self.get_server(detail=True)
+        for server in servers:
+          host_name = server.get('host_name', "")
+          server_id = server.get('id',"")
+          self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], host_name))
+          if host_name is None or host_name == "":
+              server['host_name'] = server_id
+              self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], host_name))
+              update = {'id': server_id, 'host_name': host_name}
+              self.modify_server(update)
+
+    ## End of update_server_table
 
     def update_image_table(self):
         #pdb.set_trace()
@@ -461,6 +475,18 @@ class ServerMgrDb:
             if 'mac_address' in server_data and server_data['mac_address']:
                 server_data['mac_address'] = str(
                     EUI(server_data['mac_address'])).replace("-", ":")
+
+
+            host_name = server_data.pop('host_name', None)
+            if host_name is None or host_name == "":
+                host_name = server_data['id']
+
+            if host_name:
+                server_data['host_name'] = str(host_name)
+
+            msg = "ADD-SERVER: ID=> %s : %s:%s" %(server_data['id'],server_data['host_name'], host_name)
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+
             # Store roles list as a text field
             roles = server_data.pop("roles", None)
             cluster_id = server_data.get('cluster_id', None)
@@ -734,6 +760,7 @@ class ServerMgrDb:
             db_server = self.get_server(
                 {'id': server_data['id']},
                 detail=True)
+
         if not db_server:
             return db_server
         try:
@@ -762,6 +789,16 @@ class ServerMgrDb:
                     msg = ('MAC address cannnot be modified', ERR_OPR_ERROR)
                     self.log_and_raise_exception(msg, ERR_OPR_ERROR)
 
+            if 'host_name' in server_data:
+                host_name = server_data.pop('host_name', None)
+                if host_name is "":
+                    ## admin is trying to delete the hostname, this is not
+                    ## allowed, we copy the id to host_name
+                    server_data['host_name'] = server_data['id']
+                    msg = "MODIFY-SERVER: ID=> %s : %s" %(server_data['id'],server_data['host_name'])
+                    self._smgr_log.log(self._smgr_log.ERROR, msg)
+                elif host_name != "":
+                    server_data['host_name'] = host_name
 
             # Store roles list as a text field
             roles = server_data.pop("roles", None)
