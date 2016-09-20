@@ -1452,6 +1452,22 @@ class VncServerManager():
         else:
             return None
 
+    #Common function to get the version of tgz(for both CentOs and Ubuntu), rpm
+    #and debian Contrail packages. It also gets the version of the Contrail storage package
+    def get_contrail_package_version(self, image_type, image_id, image_path,file_type):
+        sm = ServerMgrUtil()
+        if file_type and 'gzip compressed data' in file_type:
+            mirror = self._args.html_root_dir+"contrail/repo/"+image_id
+            if image_type == 'contrail-storage-ubuntu-package':
+                tmp_img_path = 'ls '+ mirror + '/contrail-storage_*'
+            else:
+                tmp_img_path = 'ls '+ mirror + '/contrail-setup*'
+            tmp_pkg = subprocess.check_output(tmp_img_path, shell=True)
+        else:
+            tmp_pkg = image_path
+        version = sm.get_package_version(tmp_pkg.strip('\n'), image_type)
+        return version.strip('\n')
+
     def put_image(self):
         entity = bottle.request.json
         try:
@@ -1514,28 +1530,8 @@ class VncServerManager():
                         image_params['sequence_provisioning_available'] = sequence_provisioning_available
                         if puppet_version not in image_params:
                             image_params['puppet_version'] = puppet_version
-                        #Check if the package is a tgz or deb and get its version
-                        if output and 'gzip compressed data' in output:
-                            mirror = self._args.html_root_dir+"contrail/repo/"+image_id
-                            tmp_img_path = 'ls '+ mirror + '/contrail-setup*'
-                            tmp_pkg = subprocess.check_output(tmp_img_path, shell=True)
-                            if (image_type == "contrail-ubuntu-package"):
-                                version = subprocess.check_output(['dpkg-deb', '-f',tmp_pkg.strip(),'Version'])
-                            elif (image_type == "contrail-centos-package"):
-                                cmd = "rpm -qp --qf \"%{V}\" " + str(tmp_pkg)
-                                ver = subprocess.check_output(cmd, shell = True).strip()
-                                cmd = "rpm -qp --qf \"%{R}\" " + str(tmp_pkg)
-                                release = subprocess.check_output(cmd, shell = True).strip()
-                                version = ver + "-"+ release.split('.')[0]
-                        elif output and 'RPM' in output:
-                            sm = ServerMgrUtil()
-                            # package could have been renamed, extract package name using rpm
-                            cmd = "rpm -qp %s" %image_path.strip()
-                            pkg_name = subprocess.check_output(cmd, shell = True)
-                            version = sm.get_package_version(pkg_name)
-                        else:
-                            version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
-                        version = version.strip('\n')
+                        #Get the contrail package version
+                        version = self.get_contrail_package_version(image_type, image_id, image_path,output)
                         image_params['version'] = version.split('~')[0]
                         #find sku of package (juno/kilo/liberty)
                         package_sku = self.find_package_sku(image_id, image_type)
@@ -1543,18 +1539,8 @@ class VncServerManager():
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
                             image_id, image_type, image_version, image_path)
-                        if output and 'gzip compressed data' in output:
-                            sm = ServerMgrUtil()
-                            version = sm.get_package_version(os.path.basename(image_path))
-                            p = re.compile("[0-9].*")
-                            for m in p.finditer(version):
-                                match_index = m.start(0) 
-                                version = str(version.strip('\n'))
-                                image_params['version'] = version[match_index:-5]
-                        else:
-                            version = subprocess.check_output(['dpkg-deb', '-f',image_path,'Version'])
-                            version = version.strip('\n')
-                            image_params['version'] = version.split('~')[0]
+                        version = self.get_contrail_package_version(image_type, image_id, image_path,output)
+                        image_params['version'] = version.split('~')[0]
                     else:
                         image_kickstart = image_params.get('kickstart', '')
                         image_kickseed = image_params.get('kickseed', '')
@@ -1898,6 +1884,8 @@ class VncServerManager():
                 with open(dest, 'w') as open_file:
                     open_file.write(file_obj.file.read())
             image_params = {}
+            cmd = 'file %s'%dest
+            output = subprocess.check_output(cmd, shell=True)
             if ((image_type == "contrail-centos-package") or
                 (image_type == "contrail-ubuntu-package")):
                 if not self.validate_package_id(image_id):
@@ -1911,23 +1899,14 @@ class VncServerManager():
                 image_params['sequence_provisioning_available'] = sequence_provisioning_available
                 if puppet_version not in image_params:
                     image_params['puppet_version'] = puppet_version
-                package_name = os.path.basename(dest)
-                if package_name.endswith('.tgz') or package_name.endswith('.rpm'):
-                    exp = re.compile("[0-9].*")
-                    for m in exp.finditer(package_name):
-                        match_index = m.span()[0]
-                        version = package_name[match_index:-4]
-                else:
-                    version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
-                version = version.strip('\n')
+                version = self.get_contrail_package_version(image_type, image_id, dest, output)
                 image_params['version'] = version.split('~')[0]
                 package_sku = self.find_package_sku(image_id, image_type)
                 image_params['sku'] = package_sku
             elif image_type == "contrail-storage-ubuntu-package":
                 self._create_repo(
                     image_id, image_type, image_version, dest)
-                version = subprocess.check_output(['dpkg-deb', '-f',dest,'Version'])
-                version = version.strip('\n')
+                version = self.get_contrail_package_version(image_type, image_id, dest, output)
                 image_params['version'] = version.split('~')[0]
             else:
                 kickstart_obj = bottle.request.files.get('kickstart', None)
@@ -2121,7 +2100,7 @@ class VncServerManager():
                 dest, mirror)
             subprocess.check_call(cmd, shell=True)
             if output and 'gzip compressed data' in output:
-                cmd = ("tar xvzf $(ls contrail-install*) > /dev/null")
+                cmd = ("tar xvzf $(ls *.tgz) > /dev/null")
                 subprocess.check_call(cmd, shell=True)
                 cmd = (
                     "rpm2cpio $(ls contrail-puppet*) | cpio -ivd ./opt/contrail/puppet/contrail-puppet-manifest.tgz > /dev/null")
@@ -3895,7 +3874,7 @@ class VncServerManager():
             cmd = 'ls ' + nova_api_package.encode("ascii")
             package_name = subprocess.check_output(cmd, shell=True)
             sm = ServerMgrUtil()
-            version = sm.get_package_version(os.path.basename(package_name))
+            version = sm.get_package_version(package_name, image_type)
         if version != '' :
             self._smgr_log.log(self._smgr_log.DEBUG, "version of nova-api : %s" %version)
             # we need to find openstack version now, sample version string
