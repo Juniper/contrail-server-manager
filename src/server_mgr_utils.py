@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import re
+import subprocess
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 """
    Name : server_mgr_utils.py
@@ -26,11 +27,15 @@ class ServerMgrUtil():
         return convert_unicode
     convert_unicode = staticmethod(convert_unicode())
   
-    def get_package_version(self,package_name):
-        exp = re.compile("[0-9].*")
-        for m in exp.finditer(package_name):
-            match_index = m.span()[0]
-            version = package_name[match_index:-4]
+    def get_package_version(self,package, image_type):
+        if (image_type == "contrail-ubuntu-package" or image_type == "contrail-storage-ubuntu-package"):
+            version = subprocess.check_output(['dpkg-deb', '-f',str(package),'Version'])
+        elif (image_type == "contrail-centos-package"):
+            cmd = "rpm -qp --qf \"%{V}\" " + str(package)
+            ver = subprocess.check_output(cmd, shell = True).strip()
+            cmd = "rpm -qp --qf \"%{R}\" " + str(package)
+            release = subprocess.check_output(cmd, shell = True).strip()
+            version = ver + "-"+ release.split('.')[0]
         return version
 
 
