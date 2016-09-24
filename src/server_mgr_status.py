@@ -130,6 +130,20 @@ class ServerMgrStatusThread(threading.Thread):
                 servers = self._status_serverDb.get_server({"host_name" : server_hostname}, detail=True)
                 server = servers[0]
                 gevent.spawn(self._base_obj.gevent_puppet_agent_action, server, self._status_serverDb, self._smgr_main._args, "stop")
+                # if this is issu triggered provision, re-queue issu steps here
+                cluster_id = server['cluster_id']
+                cluster_det = self._status_serverDb.get_cluster({'id': cluster_id}, detail = True)[0]
+                cluster_params = eval(cluster_det['parameters'])
+                if cluster_params.get('issu_partner', None) and \
+                  self._smgr_main.check_issu_cluster_status(cluster_id) and \
+                  not cluster_params.get('issu_clusters_synced', False):
+                    old_cluster = cluster_params['issu_partner']
+                    new_cluster = cluster_id
+                    new_image = cluster_params['issu_image']
+                    provision_item = ('issu', old_cluster, new_cluster, new_image)
+                    self._smgr_main._reimage_queue.put_nowait(provision_item)
+                    self._smgr_log.log(self._smgr_log.DEBUG, "ISSU sync job queued")
+
             if server_state in email_events:
                 self.send_status_mail(server_id, message, message)
         except Exception as e:
