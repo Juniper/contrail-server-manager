@@ -43,10 +43,10 @@ override_dh_auto_install:
 
 	# $(SB_TOP)/build/puppet is a temp dir for puppet-third-party and puppet
 	install -d -m 755 $(SB_TOP)/build/puppet
+	cp -rp ${SB_TOP}/tools/puppet $(SB_TOP)/build/
 	# Install puppet manifests
 	if [ -d $(SB_TOP)/tools/puppet-third-party ]; then echo "New Modules"; cp -rp $(SB_TOP)/tools/puppet-third-party/* $(SB_TOP)/build/puppet/contrail/environment/modules/ ; fi
 
-	cp -rp ${SB_TOP}/tools/puppet $(SB_TOP)/build/
 	tar -cvzf $(SB_TOP)/build/contrail-puppet-manifest.tgz -C $(SB_TOP)/tools/puppet .
 	install -p -m 755 $(SB_TOP)/build/contrail-puppet-manifest.tgz $(buildroot)$(_contrailopt)/puppet/contrail-puppet-manifest.tgz
 
