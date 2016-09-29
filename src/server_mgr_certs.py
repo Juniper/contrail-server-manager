@@ -53,15 +53,18 @@ class ServerMgrCerts():
         return server_private_key, server_csr, server_pem
 
     def delete_server_cert(self, server):
-        server_private_key = self._smgr_cert_location + server['host_name'] + '-privkey.pem'
-        server_csr = self._smgr_cert_location + server['host_name'] + '.csr'
-        server_pem = self._smgr_cert_location + server['host_name'] + '.pem'
-        if os.path.isfile(server_private_key):
-            os.remove(server_private_key)
-        if os.path.isfile(server_csr):
-            os.remove(server_csr)
-        if os.path.isfile(server_pem):
-            os.remove(server_pem)
+        # This is needed only for servers without id/hostname (discovered
+        # servers).
+        if 'host_name' in server and server['host_name'] != "":
+          server_private_key = self._smgr_cert_location + server['host_name'] + '-privkey.pem'
+          server_csr = self._smgr_cert_location + server['host_name'] + '.csr'
+          server_pem = self._smgr_cert_location + server['host_name'] + '.pem'
+          if os.path.isfile(server_private_key):
+              os.remove(server_private_key)
+          if os.path.isfile(server_csr):
+              os.remove(server_csr)
+          if os.path.isfile(server_pem):
+              os.remove(server_pem)
 
 
 if __name__ == '__main__':
