@@ -5002,9 +5002,10 @@ class VncServerManager():
             self._smgr_certs.create_server_cert(server)
             # Update Server table with provisioned id
             update = {'id': server['id'],
+                      'status' : 'provision_issued',
+                      'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
                       'provisioned_id': package.get('id', '')}
             self._serverDb.modify_server(update)
-
         except subprocess.CalledProcessError as e:
             msg = ("do_provision_server: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
