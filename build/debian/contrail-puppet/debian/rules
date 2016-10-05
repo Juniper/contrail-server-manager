@@ -47,7 +47,7 @@ override_dh_auto_install:
 	# Install puppet manifests
 	if [ -d $(SB_TOP)/tools/puppet-third-party ]; then echo "New Modules"; cp -rp $(SB_TOP)/tools/puppet-third-party/* $(SB_TOP)/build/puppet/contrail/environment/modules/ ; fi
 
-	tar -cvzf $(SB_TOP)/build/contrail-puppet-manifest.tgz -C $(SB_TOP)/tools/puppet .
+	tar -cvzf $(SB_TOP)/build/contrail-puppet-manifest.tgz -C $(SB_TOP)/build/puppet .
 	install -p -m 755 $(SB_TOP)/build/contrail-puppet-manifest.tgz $(buildroot)$(_contrailopt)/puppet/contrail-puppet-manifest.tgz
 
 override_dh_shlibdeps:
