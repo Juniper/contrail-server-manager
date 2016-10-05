@@ -392,7 +392,9 @@ class VncServerManager():
                 self._smgr_cobbler._init_create_repo(
                     _CONTRAIL_REDHAT_REPO, self._args.server_manager_base_dir)
         except:
-            print "Error connecting to cobbler"
+            print "Error connecting to cobbler, please check username and password in config file."
+            self._smgr_log.log(self._smgr_log.ERROR,
+                     "Error connecting to cobbler, please check username and password in config file.")
             exit()
 
         # Create an instance of puppet interface class.
@@ -461,6 +463,10 @@ class VncServerManager():
                 self._create_server_manager_config(self.config_data)
             except Exception as e:
                 print repr(e)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                    "Error adding initial config to SM Db. "
+                    "The following config data couldn't be added:\n%s") \
+                    % (self.config_data)
         #Create and copy the ssh keys in the target servers if they are not already present
         #This will cover the upgrade case where none of the servers may have the key in it
         gevent.spawn(self._monitoring_base_plugin_obj.setup_keys, self._serverDb)
