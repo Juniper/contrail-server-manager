@@ -34,7 +34,6 @@ monkey.patch_all(thread=not 'unittest' in sys.modules)
 import gevent
 import subprocess
 
-
 class ServerMgrStatusThread(threading.Thread):
 
     _smgr_log = None
@@ -83,6 +82,16 @@ class ServerMgrStatusThread(threading.Thread):
         except Exception as e:
             # cleanup gracefully
             exit()
+
+    def check_issu_cluster_status(self, cluster):
+        servers = self._status_serverDb.get_server(
+                          {"cluster_id" : cluster},
+                                       detail=True)
+        for server in servers:
+            if 'provision_completed' not in server['status']:
+                return False
+        return True
+    # end check_issu_cluster_status
 
     def put_server_status(self):
         print "put-status"
@@ -134,12 +143,14 @@ class ServerMgrStatusThread(threading.Thread):
                 cluster_id = server['cluster_id']
                 cluster_det = self._status_serverDb.get_cluster({'id': cluster_id}, detail = True)[0]
                 cluster_params = eval(cluster_det['parameters'])
-                if cluster_params.get('issu_partner', None) and \
-                  self._smgr_main.check_issu_cluster_status(cluster_id) and \
-                  not cluster_params.get('issu_clusters_synced', False):
-                    old_cluster = cluster_params['issu_partner']
+                issu_params = cluster_params.get("issu", {})
+                if issu_params.get('issu_partner', None) and \
+                  self.check_issu_cluster_status(cluster_id) and \
+                  (issu_params.get('issu_clusters_synced', "false") == "false"):
+                    self._smgr_main.issu_obj = None
+                    old_cluster = issu_params['issu_partner']
                     new_cluster = cluster_id
-                    new_image = cluster_params['issu_image']
+                    new_image = issu_params['issu_image']
                     provision_item = ('issu', old_cluster, new_cluster, new_image)
                     self._smgr_main._reimage_queue.put_nowait(provision_item)
                     self._smgr_log.log(self._smgr_log.DEBUG, "ISSU sync job queued")

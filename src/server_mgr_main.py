@@ -45,6 +45,7 @@ from server_mgr_db import ServerMgrDb as db
 from server_mgr_certs import ServerMgrCerts
 from server_mgr_utils import *
 from server_mgr_ssh_client import ServerMgrSSHClient
+from server_mgr_issu import *
 
 try:
     from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
@@ -3171,7 +3172,21 @@ class VncServerManager():
                         # If no role_sequence present, just update cluster with it.
                         self.update_cluster_provision(cluster_id, role_sequence)
                 if optype == 'issu':
-                    self._do_issu(reimage_item)
+                    if not self.issu_obj:
+                        entity = {}
+                        entity['opcode'] = reimage_item[0]
+                        entity['old_cluster'] = reimage_item[1]
+                        entity['new_cluster'] = reimage_item[2]
+                        entity['new_image'] = reimage_item[3]
+                        self.issu_obj = SmgrIssuClass(self, entity)
+                    self.issu_obj._do_issu()
+                if optype == "issu_finalize":
+                    entity = {}
+                    entity['opcode'] = reimage_item[0]
+                    entity['old_cluster'] = reimage_item[1]
+                    entity['new_cluster'] = reimage_item[2]
+                    self.issu_obj = SmgrIssuClass(self, entity)
+                    self.issu_obj._do_finalize_issu()
                 gevent.sleep(0)
             except Exception as e:
                 self._smgr_log.log(
@@ -4195,235 +4210,6 @@ class VncServerManager():
             server, cluster, package)
     # end build_calculated_provision_params
 
-    def do_issu(self, entity):
-        '''call provision_server if new cluster need provisioning
-           otherwise queue issu job to the backend'''
-
-        old_cluster = entity['old_cluster']
-        new_cluster = entity['new_cluster']
-        opcode = entity['opcode']
-        new_image = entity['new_image']
-        if not self.issu_check_clusters(old_cluster, new_cluster, new_image):
-            # cluster needs provisioning
-            self._smgr_log.log(self._smgr_log.DEBUG, "New cluster needs provisioning")
-            provision_status = self.provision_server(issu_flag = True)
-            # subsequent steps for issu are done after provision complete
-            return provision_status
-        provision_item = (opcode, old_cluster, new_cluster, new_image)
-        self._reimage_queue.put_nowait(provision_item)
-        self._smgr_log.log(self._smgr_log.DEBUG,
-                           "New cluster is already provisoned, Queued ISSU job")
-        req_status = {}
-        req_status['return_code'] = "0"
-        req_status['return_message'] = \
-                      "New Cluster servers already provisioned, Queued ISSU job"
-        return req_status
-    # end do_issu
-
-    def issu_check_clusters(self, old_cluster, new_cluster, new_image):
-        # check cluster config are similar
-        # set issu flag on the involved clusters
-        cluster_det = self._status_serverDb.get_cluster(
-                           {'id': cluster_id}, detail = True)[0]
-        cluster_params = eval(cluster_det['parameters'])
-        cluster_synced = cluster_params.get('issu_clusters_synced', False)
-        cluster_data = {"id": new_cluster,
-                        "parameters": {
-                            "issu_partner": old_cluster,
-                            "issu_clusters_synced": cluster_synced,
-                            "issu_image": new_image
-                            }
-                       }
-        self._serverDb.modify_cluster(cluster_data)
-
-        # check if clusters are ready for issu
-        if cluster_synced:
-            return True
-        if not self.check_issu_cluster_status(old_cluster):
-            self.log_and_raise_exception("old cluster doesnt seem to be " \
-                                "provisioned, please check cluster status")
-        return self.check_issu_cluster_status(new_cluster)
-    # end issu_check_clusters
-
-    def migrate_computes(self, old_cluster, new_cluster, image, computes = []):
-        servers = self._serverDb.get_server({"cluster_id" : old_cluster},
-                                                             detail=True)
-        computes = []
-        for server in servers:
-            if "compute" in server["roles"]:
-                computes.append(server)
-                # change the cluster_id for the compute
-                server_data = {"id": server["id"],
-                               "cluster_id": new_cluster}
-                self._serverDb.modify_server(server_data)
-        if len(computes) == 0:
-            msg = "ISSU: No compute nodes found in cluster %s" % \
-                            (old_cluster)
-            self.log_and_raise_exception(msg)
-        compute_data = {}
-        compute_data['server_packages'] = []
-        compute_data['servers'] = []
-        for compute in computes:
-            req_json = {'id': compute['id'],
-                        'package_image_id': image}
-            ret_data = self.validate_smgr_provision(
-                                "PROVISION", req_json, issu_flag=True)
-            if ret_data['status'] == 0:
-                compute_data['status'] = 0
-                compute_data['cluster_id'] = ret_data['cluster_id']
-                compute_data['package_image_id'] = ret_data['package_image_id']
-                compute_data['server_packages'].append(
-                                                ret_data['server_packages'][0])
-                compute_data['servers'].append(
-                                        ret_data['servers'][0])
-            else:
-                msg = "ISSU: Error validating request for server %s" % \
-                                                            compute['id']
-                self.log_and_raise_exception(msg)
-        provision_server_list, role_sequence, provision_status = \
-                              self.prepare_provision(compute_data)
-        provision_item = ('provision', provision_server_list,
-                                   new_cluster, role_sequence)
-        self._reimage_queue.put_nowait(provision_item)
-        self._smgr_log.log(self._smgr_log.DEBUG,
-                          "ISSU: computes provision queued. " \
-                          "Number of servers provisioned is %d:" % \
-                          len(provision_server_list))
-    # migrate_computes
-
-    def check_issu_cluster_status(self, cluster):
-        servers = self._serverDb.get_server({"cluster_id" : cluster}, detail=True)
-        for server in servers:
-            if 'provision_completed' not in server['status']:
-                return False
-        return True
-    # end check_issu_cluster_status
-
-    def _do_issu_sync(self, item):
-        '''Function creates BGP peering between two clusters, runs issu
-           pre_sync script to runs issu_sync_task'''
-
-        # form BGP peering between controllers across two clusters
-        old_cluster = item[1]
-        new_cluster = item[2]
-        new_image = item[3]
-        old_cluster_det = self._serverDb.get_cluster(
-                               {"id" : old_cluster},
-                               detail=True)[0]
-        new_cluster_det = self._serverDb.get_cluster(
-                               {"id" : new_cluster},
-                               detail=True)[0]
-        old_servers = self._serverDb.get_server({"cluster_id" : old_cluster}, detail=True)
-        new_servers = self._serverDb.get_server({"cluster_id" : new_cluster}, detail=True)
-        old_config_list = self.role_get_servers(old_servers, 'config')
-        new_config_list = self.role_get_servers(new_servers, 'config')
-        old_control_list = self.role_get_servers(old_servers, 'control')
-        new_control_list = self.role_get_servers(new_servers, 'control')
-        # open connection to old API server and create new CN peers
-        old_config_ip = old_config_list[0]['ip_address']
-        old_config_username = old_config_list[0].get('username', 'root')
-        old_config_password = old_config_list[0]['password']
-        old_api_server = self.get_control_ip(old_config_list[0])
-        new_api_server = self.get_control_ip(new_config_list[0])
-        old_cluster_params = eval(old_cluster_det['parameters'])
-        new_cluster_params = eval(new_cluster_det['parameters'])
-        old_api_admin_pwd = old_cluster_params['provision']['openstack']['keystone']['admin_password']
-        new_api_admin_pwd = new_cluster_params['provision']['openstack']['keystone']['admin_password']
-        old_cn_info = old_cluster_params['provision']['contrail'].get('control', {})
-        new_cn_info = new_cluster_params['provision']['contrail'].get('control', {})
-        old_router_asn = old_cn_info.get('router_asn', '64512')
-        new_router_asn = new_cn_info.get('router_asn', '64512')
-        ssh_old_config = paramiko.SSHClient()
-        ssh_old_config.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh_old_config.connect(old_config_ip,
-                               username = old_config_username,
-                               password = old_config_password)
-        for cn in new_control_list:
-            control_ip = self.get_control_ip(cn)
-            cmd = "python /opt/contrail/utils/provision_control.py " +\
-                  "--host_name %s --host_ip %s " %(cn['host_name'], control_ip) +\
-                  "--api_server_ip %s --api_server_port 8082 " %old_api_server +\
-                  "--oper add --admin_user admin " +\
-                  "--admin_password %s --admin_tenant_name admin " %old_api_admin_pwd +\
-                  "--router_asn %s" %old_router_asn
-            ssh_old_config.exec_command(cmd)
-        new_config_ip = new_config_list[0]['ip_address']
-        new_config_username = new_config_list[0].get('username', 'root')
-        new_config_password = new_config_list[0]['password']
-        ssh_new_config = paramiko.SSHClient()
-        ssh_new_config.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh_new_config.connect(new_config_ip,
-                               username = new_config_username,
-                               password = new_config_password)
-        for cn in old_control_list:
-            control_ip = self.get_control_ip(cn)
-            cmd = "python /opt/contrail/utils/provision_control.py " +\
-                  "--host_name %s --host_ip %s " %(cn['host_name'], control_ip) +\
-                  "--api_server_ip %s --api_server_port 8082 " %new_api_server +\
-                  "--oper add --admin_user admin " +\
-                  "--admin_password %s --admin_tenant_name admin " %new_api_admin_pwd +\
-                  "--router_asn %s" %new_router_asn
-            ssh_new_config.exec_command(cmd)
-
-        # disable all but contrail-api, discovery and ifmap on new cluster CFGM
-        cmd = 'openstack-config --set /etc/contrail/supervisord_config.conf include files "/etc/contrail/supervisord_config_files/contrail-api.ini  /etc/contrail/supervisord_config_files/contrail-discovery.ini /etc/contrail/supervisord_config_files/ifmap.ini"'
-        ssh_new_config.exec_command(cmd)
-        ssh_new_config.exec_command("service supervisor-config restart")
-
-        # stop haproxy on the openstack node
-        ssh_new_config.exec_command("service haproxy stop")
-
-        # run contrail-issu-pre-sync on new config
-        ssh_new_config.exec_command("contrail-issu-pre-sync")
-
-        # run issu task now, this creates rabbit client
-        ssh_new_config.exec_command("touch /etc/supervisor/conf.d/contrail-issu.conf")
-        cmd = "openstack-config --set /etc/supervisor/conf.d/contrail-issu.conf program:contrail-issu"
-        ssh_new_config.exec_command("%s command 'contrail-issu-run-sync'" %(cmd))
-        ssh_new_config.exec_command("%s numprocs 1" %(cmd))
-        ssh_new_config.exec_command("%s process_name '%%(process_num)s'" %cmd)
-        ssh_new_config.exec_command("%s redirect_stderr true" %(cmd))
-        ssh_new_config.exec_command("%s stdout_logfile  '/var/log/issu-contrail-run-sync-%%(process_num)s-stdout.log'" %cmd)
-        ssh_new_config.exec_command("%s stderr_logfile '/dev/null'" %cmd)
-        ssh_new_config.exec_command("%s priority 440" %(cmd))
-        ssh_new_config.exec_command("%s autostart true" %(cmd))
-        ssh_new_config.exec_command("%s killasgroup false" %(cmd))
-        ssh_new_config.exec_command("%s stopsignal KILL" %(cmd))
-        ssh_new_config.exec_command("%s exitcodes 0" %(cmd))
-        ssh_new_config.exec_command("service supervisor restart")
-
-        # start haproxy on the openstack node
-        ssh_new_config.exec_command("service haproxy start")
-
-        # close the FDs
-        ssh_old_config.close()
-        ssh_new_config.close()
-
-    # end _do_issu_sync
-
-    def _do_issu(self, item):
-        '''backend function that picks issu provision job'''
-
-        # Do pre_sync and run issu task
-        self._do_issu_sync(item)
-
-        # TBD need verification that issu rabbit client is connected to both clusters
-
-        # update the cluster status for sync completion
-        cluster_data = {"id": new_cluster,
-                        "parameters": {
-                            "issu_clusters_synced": True,
-                            }
-                       }
-        self._serverDb.modify_cluster(cluster_data)
-
-        # start compute upgrade
-        self.migrate_computes(old_cluster, new_cluster, new_image)
-
-        # remove BGP peering and finalize issu
-
-    # end _do_issu
-
     def prepare_provision(self, provisioning_data):
         '''returns provision role_sequence and povision_server_list
            after provision request validation'''
@@ -4550,7 +4336,16 @@ class VncServerManager():
         try:
             entity = bottle.request.json
             if entity.get('opcode', '') == "issu" and not issu_flag:
-                prov_status = self.do_issu(entity)
+                # create SmgrIssuClass instance
+                self.issu_obj = SmgrIssuClass(self, entity)
+                prov_status = self.issu_obj.do_issu()
+                self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.SMGR_PROVISION)
+                return prov_status
+            if entity.get('opcode', '') == "issu_finalize":
+                # create SmgrIssuClass instance
+                self.issu_obj = SmgrIssuClass(self, entity)
+                prov_status = self.issu_obj.do_finalize_issu()
                 self._smgr_trans_log.log(bottle.request,
                                  self._smgr_trans_log.SMGR_PROVISION)
                 return prov_status

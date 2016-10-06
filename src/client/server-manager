@@ -33,7 +33,8 @@ commands_dict = {
     'upload_image' : smgr_upload_image.upload_image,
     'status' : smgr_status.show_server_status,
     'run_inventory'  : smgr_run_inventory.run_inventory,
-    'issu' : smgr_issu.do_issu
+    'issu' : smgr_issu.do_issu,
+    'issu_finalize': smgr_issu.do_issu_finalize
     }
 
 def server_manager(args_str=None):
@@ -56,6 +57,7 @@ The server manager commands are:
    upload_image   Upload images to server manager DB
    status         Status of servers
    issu           Perform in-service-software upgrade
+   issu_finalize  Finalize in-service-software upgrade procedure
 
 '''
     )
@@ -66,7 +68,7 @@ The server manager commands are:
     parser.add_argument(
         'command',
         help='server manager command to run',
-        choices=['add', 'delete', 'issu',
+        choices=['add', 'delete', 'issu', 'issu_finalize',
                  'show', 'reimage', 'provision',
                  'restart', 'upload_image', 'status', 'run_inventory'])
     if len(sys.argv) > 1  and (sys.argv[1] == '-c' or sys.argv[1] == '--config_file'):
