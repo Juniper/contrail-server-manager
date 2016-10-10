@@ -3039,8 +3039,6 @@ class VncServerManager():
                 mtu = intf.get('mtu', '')
                 if mtu:
                     mtu = '--mtu %s' %mtu
-                if name.lower() == mgmt_intf.lower():
-                    dhcp = True
                 type = intf.get('type', None)
                 #form string
                 if type and type.lower() == 'bond':
@@ -3060,8 +3058,8 @@ class VncServerManager():
                         device_str+= ("python /root/interface_setup.py --device %s --dhcp %s\n") % \
                             (name, mtu)
                     else:
-                        device_str+= ("python /root/interface_setup.py --device %s --ip %s %s\n") % \
-                            (name, ip_addr, mtu)
+                        device_str+= ("python /root/interface_setup.py --device %s --ip %s --gw %s %s\n") % \
+                            (name, ip_addr, d_gw, mtu)
                 execute_script = True
             # Build route configuration and add it
             route_str = self.build_route_cfg(server)
