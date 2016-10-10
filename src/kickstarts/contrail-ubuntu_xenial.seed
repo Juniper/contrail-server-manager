@@ -1,0 +1,127 @@
+#platform=x86, AMD64, or Intel EM64T
+
+#unmount any partitions
+d-i preseed/early_command string umount /media || true
+
+# System authorization information
+
+# System bootloader configuration
+d-i grub-installer/only_debian	boolean	true
+#grub-installer	grub-installer/bootdev	string	hd0
+d-i grub-installer/bootdev	string	(hd0)
+### add kernel postinst options (--kopts-post)
+#d-i debian-installer/add-kernel-opts	string $kernel_options_post nomodeset
+d-i debian-installer/add-kernel-opts	string $kernel_options_post nousb console=tty0 console=ttyS0,9600n8
+d-i     debian-installer/quiet  boolean false
+d-i     debian-installer/splash boolean false
+d-i     debian-installer/nomodeset boolean false
+
+
+# Partition clearing information
+### Partitioning available methods are: "regular", "lvm" and "crypto"
+d-i partman-auto/disk string $partition
+d-i partman-auto/method string lvm
+d-i partman-auto/purge_lvm_from_device boolean true
+d-i partman-auto/choose_recipe select atomic
+d-i partman-lvm/confirm boolean true
+d-i partman-lvm/confirm_nooverwrite boolean true
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-lvm/device_remove_lvm_span boolean true
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select Finish partitioning \
+    and write changes to disk
+d-i partman-md/device_remove_md boolean true
+d-i partman-md/confirm boolean true
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+# Use text mode install
+
+# Firewall configuration
+
+# Run the Setup Agent on first boot
+
+# System keyboard
+d-i console-setup/dont_ask_layout	note
+d-i console-keymaps-at/keymap	select	us
+
+# System language
+
+#
+d-i mirror/country string manual
+d-i mirror/codename string xenial
+d-i mirror/suite string xenial
+d-i mirror/http/hostname	string	$server
+d-i mirror/http/directory	string	/contrail/images/$distro
+
+#
+d-i live-installer/net-image string http://$server/contrail/images/$distro/install/filesystem.squashfs
+
+# ND - commenting out for testing bad archive mirror issue
+d-i	mirror/http/proxy	string
+
+# If any cobbler repo definitions were referenced in the kickstart profile, include them here.
+#apt-setup-udeb	apt-setup/services-select multiselect	security
+d-i	apt-setup/services-select multiselect	security
+d-i	apt-setup/security_host	string	$hostname$directory-security
+d-i	apt-setup/volatile_host string	$hostname$directory-volatile
+
+# Network information
+# NOTE : this questions are asked before downloading preseed
+d-i     netcfg/get_nameservers  string
+d-i     netcfg/get_ipaddress    string
+d-i     netcfg/get_netmask      string 255.255.255.0
+d-i     netcfg/get_gateway      string
+d-i     netcfg/confirm_static   boolean true
+
+# Reboot after installation
+finish-install	finish-install/reboot_in_progress	note
+
+#Root password
+d-i passwd/root-login boolean true
+d-i passwd/make-user boolean false
+d-i passwd/root-password-crypted	password	$passwd
+
+# SELinux configuration
+
+# Do not configure the X Window System
+
+# System timezone
+# clock-setup	clock-setup/utc	boolean	false
+# tzsetup-udeb	time/zone	select	America/New_York
+d-i clock-setup/utc boolean true
+d-i clock-setup/ntp boolean true
+d-i clock-setup/ntp-server string $server
+d-i time/zone string America/Los_Angeles
+
+# Install OS instead of upgrade
+
+# Clear the Master Boot Record
+
+
+# Select individual packages and groups for install
+d-i	pkgsel/include	string	openssh-server
+#tasksel	tasksel/first	multiselect	standard, desktop
+#tasksel	tasksel/first	multiselect	standard
+tasksel	tasksel/first	multiselect	minimal
+
+# Disable automatic updates
+d-i pkgsel/update-policy select none
+
+# Debian specific configuration
+# See http://www.debian.org/releases/stable/i386/apbs04.html.en & preseed documentation
+
+# By default the installer requires that repositories be authenticated
+# using a known gpg key. This setting can be used to disable that
+# authentication. Warning: Insecure, not recommended.
+d-i	debian-installer/allow_unauthenticated	string	true
+
+# Some versions of the installer can report back on what software you have
+# installed, and what software you use. The default is not to report back,
+# but sending reports helps the project determine what software is most
+# popular and include it on CDs.
+popularity-contest	popularity-contest/participate	boolean	false
+
+d-i   preseed/late_command string true && \
+	rm -f /usr/lib/finish-install.d/55netcfg-copy-config /usr/lib/finish-install.d/50config-target-network; \
+	wget "http://$http_server/cblr/svc/op/nopxe/system/$system_name" -O /dev/null
