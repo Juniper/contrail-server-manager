@@ -33,7 +33,7 @@ from gevent import monkey
 monkey.patch_all(thread=not 'unittest' in sys.modules)
 import gevent
 import subprocess
-#from server_mgr_issu import *
+from server_mgr_issu import *
 
 class ServerMgrStatusThread(threading.Thread):
 

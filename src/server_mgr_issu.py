@@ -151,7 +151,7 @@ class SmgrIssuClass(VncServerManager):
             msg = "ISSU: New cluster %s needs provisioning" %(
                                              self.new_cluster)
             self._smgr_log.log(self._smgr_log.DEBUG, msg)
-            provision_status = self.provision_server(issu_flag = True)
+            provision_status = self.smgr_obj.provision_server(issu_flag = True)
             # subsequent steps for issu are done after provision complete
             return provision_status
         provision_item = (self.opcode, self.old_cluster,
@@ -218,9 +218,12 @@ class SmgrIssuClass(VncServerManager):
         return self.check_issu_cluster_status(self.new_cluster)
     # end issu_check_clusters
 
-    def migrate_all_computes(self):
-        servers = self._serverDb.get_server({"cluster_id" : 
-                                               self.old_cluster}, detail=True)
+    def migrate_all_computes(self, compute_list = None):
+        if not compute_list:
+            servers = self._serverDb.get_server({"cluster_id" :
+                                       self.old_cluster}, detail=True)
+        else:
+            servers = compute_list
         computes = []
         for server in servers:
             if "compute" in server["roles"]:
@@ -239,7 +242,7 @@ class SmgrIssuClass(VncServerManager):
         for compute in computes:
             req_json = {'id': compute['id'],
                         'package_image_id': self.new_image}
-            ret_data = self.validate_smgr_provision(
+            ret_data = self.smgr_obj.validate_smgr_provision(
                                 "PROVISION", req_json, issu_flag=True)
             if ret_data['status'] == 0:
                 compute_data['status'] = 0
@@ -254,8 +257,8 @@ class SmgrIssuClass(VncServerManager):
                                                             compute['id']
                 self.log_and_raise_exception(msg)
         provision_server_list, role_sequence, provision_status = \
-                                     self.prepare_provision(compute_data)
-        provision_item = ('provision', provision_server_list, new_cluster, 
+                                     self.smgr_obj.prepare_provision(compute_data)
+        provision_item = ('provision', provision_server_list, self.new_cluster, 
                                                                  role_sequence)
         self._reimage_queue.put_nowait(provision_item)
         self._smgr_log.log(self._smgr_log.DEBUG, 
@@ -273,23 +276,25 @@ class SmgrIssuClass(VncServerManager):
             self.migrate_all_computes()
             return
         # provision tagged computes
-        req_json = {'tag': self.compute_tag,
-                    'package_image_id': self.new_image}
-        ret_data = self.validate_smgr_provision(
-                            "PROVISION", req_json, issu_flag=True)
-        if ret_data['status'] != 0:
-            msg = "ISSU: Error validating request for tag %s" % \
-                                                 self.compute_tag
+        compute_prov = []
+        computes = self.smgr_obj.get_servers_for_tag(self.compute_tag)
+        if len(computes) == 0:
+            msg = "ISSU: No compute nodes found for tag %s" % \
+                                             (self.compute_tag)
             self.log_and_raise_exception(msg)
-        provision_server_list, role_sequence, provision_status = \
-                                     self.prepare_provision(compute_data)
-        provision_item = ('provision', provision_server_list, new_cluster,
-                                                           role_sequence)
-        self._reimage_queue.put_nowait(provision_item)
-        self._smgr_log.log(self._smgr_log.DEBUG,
-                          "ISSU: computes provision queued. " \
-                          "Number of servers for tag %s provisioned is %d:" % \
-                          (self.compute_tag, len(provision_server_list)))
+        for each in computes:
+            if (each['cluster_id'] == self.new_cluster):
+                msg = "ISSU: compute node already part of new cluster %s" %(
+                                                         each['cluster_id'])
+                self._smgr_log.log(self._smgr_log.DEBUG, msg)
+                continue
+            if (each['cluster_id'] != self.old_cluster):
+                msg = "ISSU: compute %s is not part of old cluster %s, " \
+                      "cant migrate" %(each['id'], self.old_cluster)
+                self.log_and_raise_exception(msg)
+            compute_prov.append(each)
+        if compute_prov:
+            self.migrate_all_computes(compute_prov)
     # migrate_computes
 
     def check_issu_cluster_status(self, cluster):
@@ -330,7 +335,7 @@ class SmgrIssuClass(VncServerManager):
             return
 
         for cn in self.new_control_list:
-            control_ip = self.get_control_ip(cn)
+            control_ip = self.smgr_obj.get_control_ip(cn)
             cmd = "python /opt/contrail/utils/provision_control.py " +\
                   "--host_name %s --host_ip %s " %(cn['host_name'], control_ip) +\
                   "--api_server_ip %s --api_server_port 8082 " %self.old_api_server +\
@@ -339,7 +344,7 @@ class SmgrIssuClass(VncServerManager):
                   "--router_asn %s" %self.old_router_asn
             self.ssh_old_config.exec_command(cmd)
         for cn in self.old_control_list:
-            control_ip = self.get_control_ip(cn)
+            control_ip = self.smgr_obj.get_control_ip(cn)
             cmd = "python /opt/contrail/utils/provision_control.py " +\
                   "--host_name %s --host_ip %s " %(cn['host_name'], control_ip) +\
                   "--api_server_ip %s --api_server_port 8082 " %self.new_api_server +\

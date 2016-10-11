@@ -45,7 +45,7 @@ from server_mgr_db import ServerMgrDb as db
 from server_mgr_certs import ServerMgrCerts
 from server_mgr_utils import *
 from server_mgr_ssh_client import ServerMgrSSHClient
-#from server_mgr_issu import *
+from server_mgr_issu import *
 
 try:
     from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
@@ -1341,6 +1341,18 @@ class VncServerManager():
                     x.pop(blocked_field, None)
         return {"server": servers}
     # end get_server
+
+    def get_servers_for_tag(self, tags):
+        '''returns servers matching tags, tags format tag1=xxx,tag2=xxx'''
+        try:
+            match_value = tags
+            match_dict = self._process_server_tags(match_value)
+            servers = self._serverDb.get_server(
+                             match_dict, detail=True)
+        except ServerMgrException as e:
+            self.log_and_raise_exception(e)
+        return servers
+    # end get_servers_for_tag
 
     def _get_client_ip_addr(self):
         client_ip = bottle.request.environ.get('REMOTE_ADDR')
