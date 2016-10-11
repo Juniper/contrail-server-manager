@@ -1,0 +1,154 @@
+#!/usr/bin/python
+#
+# Copyright (C) 2012, Red Hat, Inc.
+# Alan Pevec <apevec@redhat.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+
+import pdb
+import iniparse
+import argparse
+import sys
+
+def print_diff_line(file_name, section_name, name, value):
+  #print file_name + " : " + section_name+ "/" + name + "/" + value
+  print section_name+ "/" + name + "/" + value
+
+def get_sort_key(item):
+  return item[0]
+
+def compare_cfg(f1, f2):
+  print "\n" + f1 + "  ===========  " + f2 + "\n"
+  try:
+    cfg1 = iniparse.ConfigParser()
+    cfg1.readfp(open(f1))
+
+  except:
+    print "open1 failed for " + f1
+    sys.exit(1)
+
+  try:
+    cfg2 = iniparse.ConfigParser()
+    cfg2.readfp(open(f2))
+
+  except:
+    print "open2 failed for " + f2
+    sys.exit(1)
+
+  i=0
+  for item in cfg1.sections():
+    #print "(" + str(i) + "):" + item
+    if cfg2.has_section(item):
+      #print item + "is in " + f2
+      compare_section(item,i, cfg1, cfg2, f1, f2)
+    else:
+      #print item + " IS NOT IN " + f2
+      print "***** ABSENT ***** " + item + " FROM " + f2
+      #compare_section(item,i, cfg1, None, f1, f2)
+      print_section(item, cfg1, f1)
+
+    i=i+1
+
+  compare_section('DEFAULT',i, cfg1, cfg2, f1, f2)
+
+
+def print_section(section_name, cfg1, file_name):
+  cfg1_options = cfg1.options(section_name)
+  default_options = cfg1.options('DEFAULT')
+  diff_options = set(cfg1_options) ^ set(default_options)
+
+  for item in diff_options:
+    name = item
+    value = cfg1.get(section_name, item)
+    print_diff_line(file_name, section_name, name, value)
+    #print section_name+ "/" + name + "/" + value
+  return
+
+
+def compare_section(section_name,i, cfg1, cfg2, file1, file2):
+  #print "COMPARE_SECTION : " + section_name + " FROM " + file1
+  #cfg1_options = cfg1.options(section_name)
+  #cfg2_options = cfg2.options(section_name)
+  #diff_options = list(set(cfg1_options) - set(cfg2_options))
+  #
+  #print diff_options
+
+  j=0
+  cfg1_items = cfg1.items(section_name)
+  ## remove DEFAULT items
+  if section_name.lower() != 'DEFAULT'.lower():
+    default1_items = cfg1.items('DEFAULT')
+    cfg1_items_final = set(cfg1_items) ^ set(default1_items)
+  else:
+    cfg1_items_final = set(cfg1_items)
+
+  cfg2_items = cfg2.items(section_name)
+  if section_name.lower() != 'DEFAULT'.lower():
+    default2_items = cfg2.items('DEFAULT')
+    cfg2_items_final = set(cfg2_items) ^ set(default2_items)
+  else:
+    cfg2_items_final = set(cfg2_items)
+
+  diff_items = set(cfg1_items_final) ^ set(cfg2_items_final)
+  diff_items = sorted(diff_items , key=get_sort_key)
+  for item in diff_items:
+    name = item[0]
+    value = item[1]
+    #print section_name+ "/" + name + "/" + value
+    print_diff_line(file1, section_name , name, value)
+  return
+
+  for option in cfg1.options(section_name):
+    ## Check if option is there in cfg2
+    if cfg2.get(section_name, option):
+      ## if yes, get value and compare with current option value
+      print str(i) + "/" + str(j) + " : " + option
+    else:
+      ## this is diff, option doesn't exist
+      print str(i) + "/" + str(j) + " : " + option + "DOESN'T EXIST"
+    j=j+1
+
+
+def usage():
+  sys.stderr.write(sys.argv[0] + " --first_file file1 --second_file file2\n")
+  sys.exit(1)
+
+try:
+  args_str = sys.argv[1:]
+  conf_parser = argparse.ArgumentParser(add_help=False)
+  conf_parser.add_argument(
+      "-f", "--first_file",
+      help="Specify First file for comparision",
+      metavar="FILE")
+
+  conf_parser.add_argument(
+      "-s", "--second_file",
+      help="Specify Second file for comparision",
+      metavar="FILE")
+  args, remaining_argv = conf_parser.parse_known_args(args_str)
+
+  if not args.first_file or not args.second_file :
+    print "both files not specified"
+    sys.exit(1)
+
+  f1 = args.first_file
+  f2 = args.second_file
+
+except IndexError:
+  usage()
+
+
+compare_cfg(f1, f2)
+compare_cfg(f2, f1)
+sys.exit(0)
