@@ -36,6 +36,11 @@
             "title": "Parameters schema.",
             "description": "Server Parameters",
             "properties": {
+              "partition": {
+                "type": "string",
+                "title": "Partition disk schema.",
+                "description": "Disk name on which to install the OS. Only this disk will be part of the LVM. By default ALL disks on the node will be part of the LVM."
+              },
               "provision": {
                 "type": "object",
                 "title": "Provision schema.",

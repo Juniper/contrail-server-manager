@@ -16,7 +16,7 @@
           "id": {
             "type": "string",
             "title": "Id schema.",
-            "description": "Id of the cluster being added. Mandatory parameter."
+            "description": "Id of the cluster being added. This is a mandatory parameter."
           },
           "parameters": {
             "type": "object",
@@ -66,7 +66,7 @@
                       "kernel_version": {
                         "type": "string",
                         "title": "Kernel_version schema.",
-                        "description": "Kernel version to upgrade to. Optional. Default upgrades to kernel version included with contrail package, if upgrade flag is set.",
+                        "description": "Kernel version to upgrade to. Optional parameter. Default upgrades to kernel version included with contrail package, if upgrade flag is set.",
                         "default": ""
                       },
                       "enable_lbaas": {
@@ -150,7 +150,7 @@
                           "minimum_diskGB": {
                             "type": "integer",
                             "title": "Minimum_diskGB schema.",
-                            "description": " Minimum free disk size needed",
+                            "description": " Minimum free disk size needed (in GB)",
                             "default": 32
                           }
                         }
@@ -223,7 +223,7 @@
                           "redis_password": {
                             "type": "string",
                             "title": "Redis_password schema.",
-                            "description": "redis password",
+                            "description": "Password to use for Redis service",
                             "default": ""
                           }
                         }
@@ -236,13 +236,13 @@
                           "encapsulation_priority": {
                             "type": "string",
                             "title": "Encapsulation_priority schema.",
-                            "description": "Encapsulation priority",
+                            "description": "The priority order for tunnel encapsulation methods used by Controller EVPN",
                             "default": "VXLAN,MPLSoUDP,MPLSoGRE"
                           },
                           "router_asn": {
                             "type": "integer",
                             "title": "Router_asn schema.",
-                            "description": "Router ASN value",
+                            "description": "The ASN that the cluster belongs to",
                             "default": 64512
                           },
                           "external_bgp": {
@@ -285,7 +285,7 @@
                           "zookeeper_ip_port": {
                             "type": "integer",
                             "title": "Zookeeper_ip_port schema.",
-                            "description": "Zookeeper IP port value",
+                            "description": "The IP Port that the zookeeper service listens on",
                             "default": 2181
                           },
                           "healthcheck_interval": {
@@ -343,7 +343,7 @@
                           "ip": {
                             "type": "string",
                             "title": "Ip schema.",
-                            "description": "VM ware IP address.",
+                            "description": "VMware IP address.",
                             "default": ""
                           },
                           "username": {
@@ -498,7 +498,7 @@
                           "ip": {
                             "type": "string",
                             "title": "Ip schema.",
-                            "description": "The External Keystone IP to use",
+                            "description": "The External Keystone IP to use (If we are using a Central Keystone server, for example)",
                             "default": ""
                           },
                           "admin_password": {

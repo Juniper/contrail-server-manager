@@ -5,6 +5,7 @@
             "domain": "demo.juniper.net",
             "id": "newserver12",
             "parameters" : {
+                "partition": "/dev/sda",
                 "provision": {
                     "contrail": {
                         "compute": {
