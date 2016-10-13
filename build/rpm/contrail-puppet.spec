@@ -49,10 +49,10 @@ install -d -m 755 %{buildroot}%{_contrailopt}
 install -d -m 755 %{buildroot}%{_contrailopt}/puppet
 
 # %{_builddir}%/../build/puppet is a temp dir for puppet-third-party and puppet
-install -d -m 755 %{_builddir}%/../build/puppet
-cp -rp %{_builddir}%/../tools/puppet %{_builddir}%/../build/
+install -d -m 755 %{_builddir}/../build/puppet
+cp -rp %{_builddir}/../tools/puppet %{_builddir}/../build/
 # Install puppet manifests
-if [ -d %{_builddir}%/../tools/puppet-third-party ]; then echo "New Modules";  cp -rp %{_builddir}%/../tools/puppet-third-party/* %{_builddir}%/../build/puppet/contrail/environment/modules/ ; fi
+if [ -d %{_builddir}/../tools/puppet-third-party ]; then echo "SM New Modules";  cp -rp %{_builddir}/../tools/puppet-third-party/* %{_builddir}/../build/puppet/contrail/environment/modules/ ; fi
 
 
 # Install puppet manifests
