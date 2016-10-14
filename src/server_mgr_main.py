@@ -392,7 +392,7 @@ class VncServerManager():
                     _CONTRAIL_CENTOS_REPO, self._args.server_manager_base_dir)
                 self._smgr_cobbler._init_create_repo(
                     _CONTRAIL_REDHAT_REPO, self._args.server_manager_base_dir)
-        except:
+        except Exception as e:
             print "Error connecting to cobbler, please check username and password in config file."
             self._smgr_log.log(self._smgr_log.ERROR,
                      "Error connecting to cobbler: %s" % (repr(e)))
