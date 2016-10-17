@@ -3282,6 +3282,7 @@ class VncServerManager():
                         entity['old_cluster'] = reimage_item[1]
                         entity['new_cluster'] = reimage_item[2]
                         entity['new_image'] = reimage_item[3]
+                        entity['compute_tag'] = reimage_item[4]
                         self.issu_obj = SmgrIssuClass(self, entity)
                     self.issu_obj._do_issu()
                 if optype == "issu_finalize":

@@ -171,6 +171,10 @@ class SmgrIssuClass(VncServerManager):
             # cluster needs provisioning
             msg = "ISSU-FIANLIZE: Clusters not provisioned"
             self.log_and_raise_exception(msg)
+        # make sure old cluster doent have any computes left
+        if self.role_get_servers(self.old_servers, 'computes'):
+            self.log_and_raise("Old cluster %s still has compute nodes" %(
+                                                        self.old_cluster))
         provision_item = (self.opcode, self.old_cluster,
                                        self.new_cluster, self.new_image)
         self._reimage_queue.put_nowait(provision_item)
@@ -197,6 +201,7 @@ class SmgrIssuClass(VncServerManager):
                                 "issu_partner": self.old_cluster,
                                 "issu_clusters_synced": cluster_synced,
                                 "issu_image": self.new_image,
+                                "issu_compute_tag": self.compute_tag,
                                 "issu_task_master": (self.new_config_ip,
                                                      self.new_config_username,
                                                      self.new_config_password)
@@ -284,10 +289,9 @@ class SmgrIssuClass(VncServerManager):
             self.log_and_raise_exception(msg)
         for each in computes:
             if (each['cluster_id'] == self.new_cluster):
-                msg = "ISSU: compute node already part of new cluster %s" %(
-                                                         each['cluster_id'])
+                msg = "ISSU: compute node already part of new cluster %s, " \
+                      "will re-provision" %(each['cluster_id'])
                 self._smgr_log.log(self._smgr_log.DEBUG, msg)
-                continue
             if (each['cluster_id'] != self.old_cluster):
                 msg = "ISSU: compute %s is not part of old cluster %s, " \
                       "cant migrate" %(each['id'], self.old_cluster)
