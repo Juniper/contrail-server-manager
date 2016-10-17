@@ -152,7 +152,9 @@ class ServerMgrStatusThread(threading.Thread):
                     old_cluster = issu_params['issu_partner']
                     new_cluster = cluster_id
                     new_image = issu_params['issu_image']
-                    provision_item = ('issu', old_cluster, new_cluster, new_image)
+                    compute_tag = issu_params['issu_compute_tag']
+                    provision_item = ('issu', old_cluster, new_cluster,
+                                                             new_image, compute_tag)
                     self._smgr_main._reimage_queue.put_nowait(provision_item)
                     self._smgr_log.log(self._smgr_log.DEBUG, "ISSU sync job queued")
 
