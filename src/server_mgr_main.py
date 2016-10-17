@@ -1302,12 +1302,16 @@ class VncServerManager():
                         provision_step_tuple_list.append(step_tuple)
                 provision_complete = provision_role_sequence.get('completed', [])
                 server_role_mapping = {}
-                for server_role_steps_tuple in provision_step_tuple_list:
+                for idx, server_role_steps_tuple in enumerate(provision_step_tuple_list):
                     server_id, role_to_do = server_role_steps_tuple
                     if str(server_id) not in server_role_mapping:
                         server_role_mapping[str(server_id)] = {}
                     server_role_dict = server_role_mapping[str(server_id)]
                     server_role_dict[str(role_to_do)] = {}
+                    if idx > 0:
+                        previous_server_id, previous_role_to_do = provision_step_tuple_list[idx-1]
+                        server_role_dict[str(role_to_do)]["previous_server"] = str(previous_server_id)
+                        server_role_dict[str(role_to_do)]["previous_role"] = str(previous_role_to_do)
 
                 for server_role_completed_tuple in provision_complete:
                     server_id, role_completed, time_completed = server_role_completed_tuple
@@ -1321,7 +1325,8 @@ class VncServerManager():
                     if server['status'] in ['server_added','server_discovered','reimage_started','restart_issued', 'reimage_started']:
                         msg =  ("Server with Id %s is currently not under provision." % (server['id']))
                         self.log_and_raise_exception(msg)
-                    provision_server_dict = {"id": str(server['id']), "cluster_id": str(server['cluster_id']), "provisioned_roles": [], "role_being_provisioned": None, "roles_pending_provision": []}
+                    provision_server_dict = {"id": str(server['host_name']), "cluster_id": str(server['cluster_id']),
+                        "provisioned_roles": [], "role_being_provisioned": None, "roles_pending_provision": []}
                     if str(server['host_name']) in server_role_mapping:
                         server_role_dict = server_role_mapping[str(server['host_name'])]
                         for role in server_role_dict.keys():
@@ -1331,6 +1336,11 @@ class VncServerManager():
                                 provision_server_dict["role_being_provisioned"] = str(role)
                             else:
                                 provision_server_dict["roles_pending_provision"].append(str(role))
+                        if len(provision_server_dict["roles_pending_provision"]) and (provision_server_dict["role_being_provisioned"] == None):
+                            next_role_dict = server_role_dict[str(provision_server_dict["roles_pending_provision"][0])]
+                            if "previous_role" in next_role_dict and "previous_server" in next_role_dict:
+                                provision_server_dict["role_being_provisioned"] = "Waiting for role " + str(next_role_dict["previous_role"]) + \
+                                " to complete on node " + str(next_role_dict["previous_server"])
                         provision_server_status.append(provision_server_dict)
 
         except ServerMgrException as e:
