@@ -57,8 +57,24 @@ class Status(Command):
         parser_server.add_argument("--json",
                                    help="To display output in json format",
                                    action="store_true")
-
         self.command_dictionary["server"] = ['server_id', 'mac', 'ip', 'cluster_id', 'tag', 'discovered']
+        parser_server.set_defaults(which='server')
+
+        # Subparser for provision show
+        parser_provision = subparsers.add_parser("provision", help='Show provision status')
+        p_group = parser_provision.add_mutually_exclusive_group()
+        p_group.add_argument("--server_id",
+                           help=("server id for server"))
+        p_group.add_argument("--cluster_id",
+                           help=("cluster id for server(s)"))
+        p_group.add_argument("--tag",
+                           help=("tag values for the server"
+                                 "in t1=v1,t2=v2,... format"))
+        parser_provision.add_argument("--json",
+                                   help="To display output in json format",
+                                   action="store_true")
+        self.command_dictionary["provision"] = ['server_id', 'cluster_id', 'tag']
+        parser_provision.set_defaults(which='provision')
 
         for key in self.command_dictionary:
             new_dict = dict()
@@ -96,6 +112,24 @@ class Status(Command):
         return rest_api_params
     # end def show_server
 
+    def set_provision_status(self, parsed_args):
+        rest_api_params = dict()
+        rest_api_params['object'] = 'provision'
+        if getattr(parsed_args, "server_id", None):
+            rest_api_params['match_key'] = 'id'
+            rest_api_params['match_value'] = getattr(parsed_args, "server_id", None)
+        elif getattr(parsed_args, "cluster_id", None):
+            rest_api_params['match_key'] = 'cluster_id'
+            rest_api_params['match_value'] = getattr(parsed_args, "cluster_id", None)
+        elif getattr(parsed_args, "tag", None):
+            rest_api_params['match_key'] = 'tag'
+            rest_api_params['match_value'] = getattr(parsed_args, "tag", None)
+        else:
+            rest_api_params['match_key'] = None
+            rest_api_params['match_value'] = None
+        return rest_api_params
+    # end def show_provision
+
     def take_action(self, parsed_args):
         try:
             self.smgr_ip = self.smgr_port = None
@@ -113,9 +147,12 @@ class Status(Command):
             sys.exit("Exception: %s : Error getting smgr config" % e.message)
 
         rest_api_params = None
-        rest_api_params = self.set_server_status(parsed_args)
+        if parsed_args.which == "server":
+            rest_api_params = self.set_server_status(parsed_args)
+        elif parsed_args.which == "provision":
+            rest_api_params = self.set_provision_status(parsed_args)
         if rest_api_params:
-            resp = smgrutils.send_REST_request(self.smgr_ip, self.smgr_port, obj="server_status",
+            resp = smgrutils.send_REST_request(self.smgr_ip, self.smgr_port, obj=str(rest_api_params['object']+"_status"),
                                               match_key=rest_api_params['match_key'],
                                               match_value=rest_api_params['match_value'])
             json_format = getattr(parsed_args, "json", False)

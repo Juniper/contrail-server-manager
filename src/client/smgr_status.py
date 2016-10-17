@@ -63,6 +63,22 @@ def parse_arguments():
         help="Flag to indicate if details are requested")
     parser_server.set_defaults(func=set_server_status)
 
+    # Subparser for cluster show
+    parser_provision = subparsers.add_parser(
+        "provision",help='Show cluster provision status')
+    p_group = parser_provision.add_mutually_exclusive_group()
+    p_group.add_argument("--server_id",
+                        help=("server id for server"))
+    p_group.add_argument("--cluster_id",
+                        help=("cluster id for server(s)"))
+    p_group.add_argument("--tag",
+                        help=("tag values for the server"
+                              "in t1=v1,t2=v2,... format"))
+    parser_provision.add_argument(
+        "--detail", "-d", action='store_true',
+        help="Flag to indicate if details are requested")
+    parser_provision.set_defaults(func=set_provision_status)
+
     return parser
 # end def parse_arguments
 
@@ -117,8 +133,24 @@ def set_server_status(args):
     return rest_api_params
 #end def show_server
 
+def set_provision_status(args):
+    rest_api_params = {}
+    rest_api_params['object'] = 'provision'
+    if args.server_id:
+        rest_api_params['match_key'] = 'id'
+        rest_api_params['match_value'] = args.server_id
+    elif args.cluster_id:
+        rest_api_params['match_key'] = 'cluster_id'
+        rest_api_params['match_value'] = args.cluster_id
+    elif args.tag:
+        rest_api_params['match_key'] = 'tag'
+        rest_api_params['match_value'] = args.tag
+    else:
+        rest_api_params['match_key'] = None
+        rest_api_params['match_value'] = None
+    return rest_api_params
 
-def show_server_status(args_str=None):
+def show_status(args_str=None):
     parser = parse_arguments()
     args = parser.parse_args(args_str)
     if args.config_file:
@@ -144,12 +176,12 @@ def show_server_status(args_str=None):
     # end except
     rest_api_params = args.func(args)
     resp = send_REST_request(smgr_ip, smgr_port,
-                      "server_status",
+                      rest_api_params['object']+"_status",
                       rest_api_params['match_key'],
                       rest_api_params['match_value'],
                       detail)
     smgr_client_def.print_rest_response(resp)
-# End of show_config
+# End of show_status
 
 if __name__ == "__main__":
     import cgitb

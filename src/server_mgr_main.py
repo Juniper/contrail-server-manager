@@ -486,6 +486,7 @@ class VncServerManager():
         bottle.route('/image', 'GET', self.get_image)
         bottle.route('/status', 'GET', self.get_status)
         bottle.route('/server_status', 'GET', self.get_server_status)
+        bottle.route('/provision_status', 'GET', self.get_provision_status)
         bottle.route('/chassis-id', 'GET', self.get_server_chassis_id)
         bottle.route('/tag', 'GET', self.get_server_tags)
         bottle.route('/columns', 'GET', self.get_table_columns)
@@ -1263,8 +1264,95 @@ class VncServerManager():
     # end get_server_status
 
 
+    # This call returns information about the status of currently provisioned servers. If no server/cluster
+    # is provided, or if cluster/server is not being currently provisioned, then error is returned
+    # configuration is returned.
+    def get_provision_status(self):
+        ret_data = None
+        provision_server_status = []
+        try:
+            ret_data = self.validate_smgr_request("SERVER", "GET",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                select_clause = ret_data["select"]
+                match_dict = {}
+                if match_key == "tag":
+                    match_dict = self._process_server_tags(match_value)
+                elif match_key:
+                    match_dict[match_key] = match_value
+                detail = ret_data["detail"]
+                if not select_clause:
+                    select_clause = ["id", "host_name", "cluster_id", "status"]
+                servers = self._serverDb.get_server(
+                    match_dict, field_list=select_clause)
+                if not len(servers):
+                    msg =  ("There are no servers for which provision info can be displayed.")
+                    self.log_and_raise_exception(msg)
+                cluster_id = servers[0]['cluster_id']
+                cluster_dict_detail = self._serverDb.get_cluster(
+                    {"id": cluster_id}, detail=True)[0]
+                provision_role_sequence = cluster_dict_detail['provision_role_sequence']
+                provision_role_sequence = eval(provision_role_sequence)
+                provision_steps = provision_role_sequence.get('steps', [])
+                provision_step_tuple_list = []
+                for provision_step_tuple in provision_steps:
+                    for step_tuple in provision_step_tuple:
+                        provision_step_tuple_list.append(step_tuple)
+                provision_complete = provision_role_sequence.get('completed', [])
+                server_role_mapping = {}
+                for server_role_steps_tuple in provision_step_tuple_list:
+                    server_id, role_to_do = server_role_steps_tuple
+                    if str(server_id) not in server_role_mapping:
+                        server_role_mapping[str(server_id)] = {}
+                    server_role_dict = server_role_mapping[str(server_id)]
+                    server_role_dict[str(role_to_do)] = {}
 
-    # This call returns information about a provided server. If no server
+                for server_role_completed_tuple in provision_complete:
+                    server_id, role_completed, time_completed = server_role_completed_tuple
+                    if str(server_id) not in server_role_mapping:
+                        server_role_mapping[str(server_id)] = {}
+                    server_role_dict = server_role_mapping[str(server_id)]
+                    server_role_dict[str(role_completed)] = {}
+                    server_role_dict[str(role_completed)]["end_time"] = time_completed
+
+                for server in servers:
+                    if server['status'] in ['server_added','server_discovered','reimage_started','restart_issued', 'reimage_started']:
+                        msg =  ("Server with Id %s is currently not under provision." % (server['id']))
+                        self.log_and_raise_exception(msg)
+                    provision_server_dict = {"id": str(server['id']), "cluster_id": str(server['cluster_id']), "provisioned_roles": [], "role_being_provisioned": None, "roles_pending_provision": []}
+                    if str(server['host_name']) in server_role_mapping:
+                        server_role_dict = server_role_mapping[str(server['host_name'])]
+                        for role in server_role_dict.keys():
+                            if "end_time" in server_role_dict[role]:
+                                provision_server_dict["provisioned_roles"].append(str(role))
+                            elif str(server['status']) == str(role+"_started"):
+                                provision_server_dict["role_being_provisioned"] = str(role)
+                            else:
+                                provision_server_dict["roles_pending_provision"].append(str(role))
+                        provision_server_status.append(provision_server_dict)
+
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_SERVER)
+        # Convert some of the fields in server entry to match what is accepted for put
+        return {"servers": provision_server_status}
+    # end get_provision_status
+
+    # This call returns inf rmation about a provided server. If no server
     # if provided, information about all the servers in server manager
     # configuration is returned.
     def get_server(self):
