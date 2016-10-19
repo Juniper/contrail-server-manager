@@ -41,15 +41,18 @@ class Add(Command):
 
     def get_parser(self, prog_name):
 
-        self.smgr_objects = ["server", "cluster", "image", "tag"]
+        self.smgr_objects = ["server", "cluster", "image", "tag", "dhcp_host", "dhcp_subnet"]
         self.mandatory_params["server"] = ['id', 'mac_address', 'ip_address', 'subnet_mask', 'gateway']
         self.mandatory_params["cluster"] = ['id']
         self.mandatory_params["image"] = ['id', 'category', 'version', 'type', 'path']
         self.mandatory_params["tag"] = []
+        self.mandatory_params["dhcp_subnet"] = ['subnet_address','subnet_mask','subnet_domain','subnet_gateway','dns_server_list','search_domains_list']
+        self.mandatory_params["dhcp_host"] = ['host_fqdn','mac_address','ip_address','host_name']
         self.multilevel_param_classes["server"] = ["network", "parameters", "contrail"]
         self.multilevel_param_classes["cluster"] = ["parameters"]
         self.multilevel_param_classes["image"] = ["parameters"]
-
+        self.multilevel_param_classes["dhcp_host"] = []
+        self.multilevel_param_classes["dhcp_subnet"] = []
         parser = super(Add, self).get_parser(prog_name)
         # Process the arguments
 
@@ -108,6 +111,26 @@ class Add(Command):
         parser_image.add_argument(
             "--file_name", "-f",
             help="json file containing image param values", dest="file_name", default=None)
+
+        # Subparser for DHCP host edit
+        parser_dhcp_host = subparsers.add_parser(
+            "dhcp_host", help='Create DHCP Host')
+        for param in self.object_dict["dhcp_host"]:
+            parser_dhcp_host.add_argument(
+                "--" + str(param),
+                help="Parameter " + str(param) + " for the image being added",
+                default=None
+            )
+
+        # Subparser for DHCP subnet edit
+        parser_dhcp_subnet = subparsers.add_parser(
+            "dhcp_subnet", help='Create DHCP Subnet')
+        for param in self.object_dict["dhcp_subnet"]:
+            parser_dhcp_subnet.add_argument(
+                "--" + str(param),
+                help="Parameter " + str(param) + " for the image being added",
+                default=None
+            )
 
         for obj in self.smgr_objects:
             self.command_dictionary[str(obj)] = ['f', 'file_name']
@@ -416,8 +439,8 @@ class Add(Command):
                         if "id" not in obj_payload and smgr_obj != "tag":
                             self.app.print_error_message_and_quit("No id specified for object being added")
             elif not (getattr(parsed_args, "id", None) or getattr(parsed_args, "mac_address", None)) \
-                    and smgr_obj != "tag":
-                # 1. Check if parsed args has id for object
+                    and smgr_obj != "tag" and smgr_obj != "dhcp_subnet":
+                # Check if parsed args has id for object
                 self.app.print_error_message_and_quit("\nYou need to specify the id or mac_address to add an object"
                                                       " (Arguement --id/--mac_address).\n")
             elif smgr_obj not in self.smgr_objects:

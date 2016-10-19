@@ -90,6 +90,22 @@ class Delete(Command):
         parser_tag.set_defaults(which='tag')
         self.command_dictionary["tag"] = ['tags']
 
+        # Subparser for dhcp subnet delete
+        parser_dhcp_subnet = subparsers.add_parser(
+            "dhcp_subnet", help='Delete dhcp subnet')
+        parser_dhcp_subnet.add_argument("--subnet_address",
+                                help="Address of the subnet you want to delete")
+        parser_dhcp_subnet.set_defaults(which='dhcp_subnet')
+        self.command_dictionary["dhcp_subnet"] = ['subnet_address']
+
+        # Subparser for dhcp host delete
+        parser_dhcp_host = subparsers.add_parser(
+            "dhcp_host", help='Delete dhcp host')
+        parser_dhcp_host.add_argument("--host_fqdn",
+                                help="FQDN of the host you want to delete")
+        parser_dhcp_host.set_defaults(which='dhcp_host')
+        self.command_dictionary["dhcp_host"] = ['host_fqdn']
+
         for key in self.command_dictionary:
             new_dict = dict()
             new_dict[key] = [str("--" + s) for s in self.command_dictionary[key] if len(s) > 1]
@@ -180,6 +196,36 @@ class Delete(Command):
         return rest_api_params
         # end def delete_tag
 
+    def delete_dhcp_host(self, parsed_args):
+        if getattr(parsed_args, "host_fqdn", None):
+            match_key = 'host_fqdn'
+            match_value = getattr(parsed_args, "host_fqdn", None)
+        else:
+            match_key = ''
+            match_value = ''
+        rest_api_params = {
+            'object': 'dhcp_host',
+            'match_key': match_key,
+            'match_value': match_value
+        }
+        return rest_api_params
+        # end def delete_dhcp_host
+
+    def delete_dhcp_subnet(self, parsed_args):
+        if getattr(parsed_args, "subnet_address", None):
+            match_key = 'subnet_address'
+            match_value = getattr(parsed_args, "subnet_address", None)
+        else:
+            match_key = ''
+            match_value = ''
+        rest_api_params = {
+            'object': 'dhcp_subnet',
+            'match_key': match_key,
+            'match_value': match_value
+        }
+        return rest_api_params
+        # end def delete_dhcp_subnet
+
     def take_action(self, parsed_args):
         try:
             self.smgr_ip = self.smgr_port = None
@@ -205,6 +251,10 @@ class Delete(Command):
             rest_api_params = self.delete_image(parsed_args)
         elif obj == "tag":
             rest_api_params = self.delete_tag(parsed_args)
+        elif obj == "dhcp_host":
+            rest_api_params = self.delete_dhcp_host(parsed_args)
+        elif obj == "dhcp_subnet":
+            rest_api_params = self.delete_dhcp_subnet(parsed_args)
 
         if rest_api_params:
             resp = smgrutils.send_REST_request(self.smgr_ip, self.smgr_port, obj=rest_api_params["object"],
