@@ -119,6 +119,22 @@ main_object_dict = {
         ("tag6", "Specify tag name for tag6"),
         ("tag7", "Specify tag name for tag7"),
     ]),
+    "dhcp_host": OrderedDict([
+        ("host_fqdn", "Specify unique FQDN for this host"),
+        ("mac_address", "Specify unique MAC for this host"),
+        ("host_name", "Specify host name for this host"),
+        ("ip_address", "Specify IP Address of this host"),
+    ]),
+    "dhcp_subnet": OrderedDict([
+        ("subnet_address", "Specify unique Subnet Address for cobbler to control"),
+        ("subnet_mask", "Specify Subnet mask for this subnet"),
+        ("subnet_domain", "Specify Subnet domain for this subnet"),
+        ("subnet_gateway", "Specify Subnet gateway for this subnet"),
+        ("dns_server_list", "Specify DNS Server List for this subnet"),
+        ("search_domains_list", "Specify List of Search domains for this subnet"),
+        ("default_lease_time", "Default lease time for leases to this subnet"),
+        ("max_lease_time", "Max lease time for leases to this subnet"),
+    ]),
     "server_keys": "['id','mac_address']",
     "cluster_keys": "['id']",
     "image_keys": "['id']"
