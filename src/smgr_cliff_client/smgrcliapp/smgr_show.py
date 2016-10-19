@@ -164,6 +164,30 @@ class Show(Command):
         parser_tag.set_defaults(which='tag')
         self.command_dictionary["tag"] = []
 
+        # Subparser for dhcp_host show
+        parser_dhcp_host = subparsers.add_parser(
+            "dhcp_host", help='Show list of dhcp_hosts')
+        dhcp_host_group = parser_dhcp_host.add_mutually_exclusive_group()
+        dhcp_host_group.add_argument("--host_fqdn",
+                                   help=("FQDN value to match a host to"))
+        parser_dhcp_host.add_argument("--json",
+                                   help="To display output in json format",
+                                   action="store_true")
+        parser_dhcp_host.set_defaults(which='dhcp_host')
+        self.command_dictionary["dhcp_host"] = ['host_fqdn']
+
+        # Subparser for dhcp_subnet show
+        parser_dhcp_subnet = subparsers.add_parser(
+            "dhcp_subnet", help='Show list of dhcp_subnets')
+        dhcp_subnet_group = parser_dhcp_subnet.add_mutually_exclusive_group()
+        dhcp_subnet_group.add_argument("--subnet_address",
+                                   help=("Address of subnet to match to"))
+        parser_dhcp_subnet.add_argument("--json",
+                                   help="To display output in json format",
+                                   action="store_true")
+        parser_dhcp_subnet.set_defaults(which='dhcp_subnet')
+        self.command_dictionary["dhcp_subnet"] = ['subnet_address']
+
         # Subparser for monitoring show
         parser_monitoring = subparsers.add_parser(
             "monitoring", help='Show server monitoring info')
@@ -271,6 +295,38 @@ class Show(Command):
 
     # end def show_cluster
 
+    def show_dhcp_subnet(self, parsed_args):
+        if getattr(parsed_args, "subnet_address", None):
+            match_key = 'subnet_address'
+            match_value = getattr(parsed_args, "subnet_address", None)
+        else:
+            match_key = None
+            match_value = None
+        rest_api_params = {
+            'object': 'dhcp_subnet',
+            'match_key': match_key,
+            'match_value': match_value,
+            'select': None
+        }
+        return rest_api_params
+    #end def show_dhcp_subnet
+
+    def show_dhcp_host(self, parsed_args):
+        if getattr(parsed_args, "host_fqdn", None):
+            match_key = 'host_fqdn'
+            match_value = getattr(parsed_args, "host_fqdn", None)
+        else:
+            match_key = None
+            match_value = None
+        rest_api_params = {
+            'object': 'dhcp_host',
+            'match_key': match_key,
+            'match_value': match_value,
+            'select': None
+        }
+        return rest_api_params
+    #end def show_dhcp_host
+
     def show_all(self):
         rest_api_params = {
             'object': 'all',
@@ -317,6 +373,10 @@ class Show(Command):
             rest_api_params = self.show_cluster(parsed_args)
         elif parsed_args.which == 'tag':
             rest_api_params = self.show_tag()
+        elif parsed_args.which == 'dhcp_host':
+            rest_api_params = self.show_dhcp_host(parsed_args)
+        elif parsed_args.which == 'dhcp_subnet':
+            rest_api_params = self.show_dhcp_subnet(parsed_args)
         elif parsed_args.which == 'all':
             rest_api_params = self.show_all()
         elif parsed_args.which == 'monitoring':

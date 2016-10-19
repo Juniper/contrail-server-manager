@@ -115,6 +115,8 @@ class ServerManagerCLI(App):
             self.default_config["cluster"] = dict(config.items("CLUSTER"))
             self.default_config["image"] = dict(config.items("IMAGE"))
             self.default_config["tag"] = dict(config.items("TAG"))
+            self.default_config["dhcp_host"] = dict(config.items("DHCP_HOST"))
+            self.default_config["dhcp_subnet"] = dict(config.items("DHCP_HOST"))
             env_smgr_ip = os.environ.get('SMGR_IP')
             if getattr(self.options, "smgr_ip", None):
                 self.smgr_ip = getattr(self.options, "smgr_ip", None)
