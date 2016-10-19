@@ -76,6 +76,34 @@ fru_fields = {
     "product_part_number": ""
 }
 
+dhcp_host_fields = {
+    "match_keys": "['host_fqdn']",
+    "primary_keys": "['host_fqdn']",
+    "obj_name": "dhcp_host",
+    "host_fqdn": "",
+    "mac_address": "",
+    "ip_address": "",
+    "host_name": "",
+    "parameters": """{
+                }"""
+}
+
+dhcp_subnet_fields = {
+    "match_keys": "['subnet_address']",
+    "primary_keys": "['subnet_address']",
+    "obj_name": "dhcp_subnet",
+    "subnet_address": "",
+    "subnet_mask": "",
+    "subnet_gateway": "",
+    "subnet_domain": "",
+    "search_domains_list": [],
+    "dns_server_list": [],
+    "parameters": """{
+                }""",
+    "default_lease_time": 21600,
+    "max_lease_time": 43200
+}
+
 email_events = ["reimage_started", "reimage_completed", "provision_completed"]
 server_blocked_fields = ["ssh_private_key"]
 
