@@ -108,6 +108,18 @@
               }
             }
           },
+          "contrail": {
+            "type": "object",
+            "title": "Contrail schema.",
+            "description": "Contrail related parameters.",
+            "properties": {
+              "control_data_interface": {
+                "type": "string",
+                "title": "Control_data_interface schema.",
+                "description": "The name of the interface to be set as the Control Data interface for this server."
+              }
+            }
+          },
           "top_of_rack": {
             "type": "object",
             "description": "Top of Rack configuration for server, listing the different switches connected to the server.",
@@ -186,6 +198,41 @@
                       "title": "Name schema.",
                       "description": "Name of the first interface",
                       "default": ""
+                    },
+                    "type": {
+                      "type": "string",
+                      "title": "Type schema.",
+                      "description": "If interface is a bond interface the type has to be set as bond."
+                    },
+                    "bond_options": {
+                      "type": "object",
+                      "title": "Bond_options schema.",
+                      "description": "The default options for the bond interface.",
+                      "properties": {
+                        "miimon": {
+                          "type": "string",
+                          "title": "Miimon schema.",
+                          "description": "Specify (in milliseconds) how often MII link monitoring occurs.",
+                          "default": "100"
+                        },
+                        "mode": {
+                          "type": "string",
+                          "title": "Mode schema.",
+                          "description": "Specifies the policy followed for the bonding module",
+                          "default": "802.3ad"
+                        },
+                        "xmit_hash_policy": {
+                          "type": "string",
+                          "title": "Xmit_hash_policy schema.",
+                          "description": "The transmit hash policy used for slave selection in mode selected.",
+                          "default": "layer3+4"
+                        }
+                      }
+                    },
+                    "member_interfaces": {
+                      "type": "array",
+                      "title": "Member_interfaces schema.",
+                      "description": "The member interfaces that are slaves of the bond interface"
                     }
                   }
                 }
