@@ -14,6 +14,7 @@ import sys
 import pycurl
 from StringIO import StringIO
 import ConfigParser
+import argparse
 from smgr_client_utils import SmgrClientUtils as smgrutils
 import json
 import urllib
@@ -75,6 +76,9 @@ class Show(Command):
         parser_server.add_argument("--json",
                                    help="To display output in json format",
                                    action="store_true")
+        parser_server.add_argument(
+            "--show_passwords", "-s", action='store_true',
+            help=argparse.SUPPRESS)
         parser_server.set_defaults(which='server')
         self.command_dictionary["server"] = ['server_id', 'mac', 'ip', 'cluster_id', 'tag',
                                              'where', 'discovered', 'select', 'detail']
@@ -136,6 +140,9 @@ class Show(Command):
         parser_cluster.add_argument("--json",
                                    help="To display output in json format",
                                    action="store_true")
+        parser_cluster.add_argument(
+             "--show_passwords", "-s", action='store_true',
+             help=argparse.SUPPRESS)
         parser_cluster.set_defaults(which='cluster')
         self.command_dictionary["cluster"] = ['cluster_id', 'where', 'select', 'detail']
 
@@ -238,6 +245,8 @@ class Show(Command):
         else:
             rest_api_params['match_key'] = None
             rest_api_params['match_value'] = None
+        if getattr(parsed_args, "show_passwords", None):
+            rest_api_params['show_passwords'] = True
         return rest_api_params
 
     def show_cluster(self, parsed_args):
@@ -256,6 +265,8 @@ class Show(Command):
             'match_value': match_value,
             'select': getattr(parsed_args, "select", None)
         }
+        if getattr(parsed_args, "show_passwords", None):
+            rest_api_params['show_passwords'] = True
         return rest_api_params
 
     # end def show_cluster
