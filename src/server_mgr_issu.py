@@ -14,7 +14,7 @@ class SmgrIssuClass(VncServerManager):
         self.new_cluster = entity['new_cluster']
         self.opcode = entity['opcode']
         self.new_image = entity.get('new_image', None)
-        self.compute_tag = entity.get('compute_tag', None)
+        self.compute_tag = entity.get('compute_tag', "")
         self.setup_params()
         if self.check_issu_cluster_status(self.new_cluster):
             self.set_configured_params()
