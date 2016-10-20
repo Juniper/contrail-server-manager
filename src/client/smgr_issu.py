@@ -96,7 +96,7 @@ def do_issu(args_str=None):
     elif args.tag:
         payload['compute_tag'] = args.tag
     else:
-        payload['compute_tag'] = None
+        payload['compute_tag'] = ""
 
     if (not args.no_confirm):
         msg = "Upgrade cluster %s to %s, Contrail Image:%s? (y/N) :" %(
