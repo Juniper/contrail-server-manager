@@ -157,6 +157,7 @@ class SmgrClientUtils():
                           payload=None, match_key=None, match_value=None, detail=False, force=False, method="PUT"):
         try:
             args_str = ""
+            show_pass = False
             response = StringIO()
             headers = ["Content-Type:application/json"]
             url = ""
@@ -170,6 +171,8 @@ class SmgrClientUtils():
             elif method == "GET":
                 if rest_api_params:
                     url = "http://%s:%s/%s" % (ip, port, rest_api_params['object'])
+                    if 'show_passwords' in rest_api_params:
+                        show_pass=True
                     if rest_api_params["select"]:
                         args_str += "select" + "=" \
                                     + urllib.quote_plus(rest_api_params["select"]) + "&"
@@ -185,6 +188,8 @@ class SmgrClientUtils():
                     args_str += "&force"
                 if detail:
                     args_str += "&detail"
+                if show_pass:
+                    args_str += "&show_pass=true"
                 if args_str != '':
                     url += "?" + args_str
             elif method == "DELETE":
