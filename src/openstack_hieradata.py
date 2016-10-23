@@ -75,7 +75,7 @@ openstack::neutron::shared_secret : 'XLbZ3ZzRsMoqwRJcFlmrpoc'
 neutron::bind_port: '9697'
 
 ######## Ceilometer
-openstack::ceilometer::mongo::password: '$__openstack_password__'
+openstack::ceilometer::mongo: '$__openstack_password__'
 openstack::ceilometer::password: '$__openstack_password__'
 openstack::ceilometer::meteringsecret: ''
 
