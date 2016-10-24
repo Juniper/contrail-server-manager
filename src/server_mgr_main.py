@@ -4256,6 +4256,27 @@ class VncServerManager():
                  "management": openstack_ip
              }
         }
+        # if this is issu job for my cluster and role is compute, rabbit should be from old cluster
+        # neutron should be from old cluster
+        issu_params = cluster_params.get("issu", {})
+        server_roles = server.get('roles', [])
+        if issu_params.get('issu_partner', None) and \
+          (server_roles == str(['compute']))  and \
+          (issu_params.get('issu_clusters_synced', "false") == "true"):
+            ssh_hndl = paramiko.SSHClient()
+            ssh_hndl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh_hndl.connect(server['ip_address'],
+                               username = server.get('username', 'root'),
+                               password = server['password'])
+            neutron_url = self.issu_obj.get_set_config_parameters(ssh_hndl,
+                          '/etc/nova/nova.conf', 'url', section = "neutron")
+            m = re.search('[0-9]+(?:\.[0-9]+){3}', neutron_url)
+            neutron_ip = m.group()
+            ssh_hndl.close()
+            openstack_params['nova'] = {
+                'rabbit_hosts' : self.issu_obj.old_rabbit_server,
+                'neutron_ip' : neutron_ip
+            }
         openstack_params['mysql'] = {
              "allowed_hosts": ['localhost', '127.0.0.1'] + mysql_allowed_hosts
         }
