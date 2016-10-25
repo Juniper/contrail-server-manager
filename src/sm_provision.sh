@@ -293,6 +293,12 @@ else
    sed -i "/^\[CLUSTER\]/a domain = ${DEFAULT_DOMAIN}" /opt/contrail/server_manager/client/sm-client-config.ini
 fi
 
+if grep -q domain /etc/contrail/sm-client-config.ini; then
+   sed -i "s|domain.*=*|domain = ${DEFAULT_DOMAIN}|g" /etc/contrail/sm-client-config.ini
+else
+   sed -i "/^\[CLUSTER\]/a domain = ${DEFAULT_DOMAIN}" /etc/contrail/sm-client-config.ini
+fi
+
 # Retrieve info from json files
 cd $PROVISION_DIR && read IMAGE_ID IMAGE_VERSION IMAGE_TYPE <<< $(python -c "import json;\
                                                                   fid = open('image.json', 'r');\
