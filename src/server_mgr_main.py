@@ -468,11 +468,10 @@ class VncServerManager():
                     "Error adding initial config to SM Db. "
                     "The following config data couldn't be added:\n%s") \
                     % (self.config_data)
+        self._monitoring_base_plugin_obj.initialize_features(sm_args=self._args, serverdb=self._serverDb)
         #Create and copy the ssh keys in the target servers if they are not already present
         #This will cover the upgrade case where none of the servers may have the key in it
         gevent.spawn(self._monitoring_base_plugin_obj.setup_keys, self._serverDb)
-        if self._is_monitoring_enabled(self._args.monitoring):
-            self._monitoring_base_plugin_obj.initialize_features(sm_args=self._args, serverdb=self._serverDb)
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -4637,8 +4636,8 @@ class VncServerManager():
         self._args = parser.parse_args(remaining_argv)
         self._server_monitoring_obj = None 
         self._server_inventory_obj = None 
+        self._monitoring_base_plugin_obj = ServerMgrMonBasePlugin()
         if self._is_monitoring_enabled(self._args.monitoring):
-            self._monitoring_base_plugin_obj = ServerMgrMonBasePlugin()
             self._server_monitoring_obj = \
                 self._monitoring_base_plugin_obj.parse_monitoring_args(args_str, args, self._args, self._rev_tags_dict,
                                                                        self._monitoring_base_plugin_obj)
