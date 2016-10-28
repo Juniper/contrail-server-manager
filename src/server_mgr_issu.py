@@ -106,6 +106,13 @@ class SmgrIssuClass(VncServerManager):
             tup = (server['ip_address'], server.get('username', 'root'),
                                                      server['password'])
             self.old_collector_ip_list.append(tup)
+        self.old_database_list = self.role_get_servers(self.old_servers,
+                                                             'database')
+        self.new_collector_list = self.role_get_servers(self.new_servers,
+                                                            'collector')
+        self.new_database_list = self.role_get_servers(self.new_servers,
+                                                             'database')
+
         self.cluster_synced = self.set_cluster_issu_params()
         if self.cluster_synced == "true":
             cluster_params = eval(new_cluster_det['parameters'])
@@ -548,7 +555,10 @@ class SmgrIssuClass(VncServerManager):
             ssh_handl.connect(each[0], username = each[1], password = each[2])
             ssh_handl.exec_command("service supervisor-analytics stop")
             ssh_handl.close()
-        
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                          "ISSU-Finalize: Stopped services on old cluster" \
+                          " for cluster %s" %self.old_cluster)
+
         # issu_post_sync
         ssh_issu_task_master = paramiko.SSHClient()
         ssh_issu_task_master.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -568,47 +578,123 @@ class SmgrIssuClass(VncServerManager):
         err_str = err.read()
         if err_str:
             self.log_and_raise_exception(err_str)
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                          "ISSU-Finalize: Completed issu-post-sync" \
+                          " for cluster %s" %self.new_cluster)
         inp, op, err = ssh_issu_task_master.exec_command(
                                           "contrail-issu-zk-sync -c %s" %(
                                                       self.issu_conf_file))
         err_str = err.read()
         if err_str:
             self.log_and_raise_exception(err_str)
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                          "ISSU-Finalize: Completed issu-zk-sync" \
+                          " for cluster %s" %self.new_cluster)
 
         # issu_contrail_post_new_control
         for each in self.new_config_ip_list:
             ssh_handl = paramiko.SSHClient()
             ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh_handl.connect(each[0], username = each[1], password = each[2])
-            cmd = "openstack-config --set /etc/contrail/supervisord_config.conf" +\
-                  " include files \"/etc/contrail/supervisord_config_files/*.ini\""
-            ssh_handl.exec_command("cmd")
-            ssh_handl.exec_command("service supervisor-config stop")
+            cmd = 'openstack-config --set /etc/contrail/supervisord_config.conf' +\
+                  ' include files "/etc/contrail/supervisord_config_files/*.ini"'
+            ssh_handl.exec_command(cmd)
+            ssh_handl.exec_command("service supervisor-config restart")
             ssh_handl.close()
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                          "ISSU-Finalize: Re-enabled config services" \
+                          " for %s" %self.new_cluster)
 
         # issu_contrail_migrate_nb
         for each in self.openstack_ip_list:
             ssh_handl = paramiko.SSHClient()
             ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh_handl.connect(each[0], username = each[1], password = each[2])
-            # TBD need to reconfigure openstack node to point new cluster
             ssh_handl.close()
 
-        # issu_contrail_finalize_config_node
-        # issu_prune_old_config'
-        #cmd = ''
-        #cmd = "python /opt/contrail/utils/provision_config_node.py"
-        #cmd += " --api_server_ip %s" % self.issu_task_master
-        #cmd += " --host_name %s" % 
-        #cmd += " --host_ip %s" % tgt_ip
-        #cmd += " --oper %s" % oper
-        #cmd += " --admin_user %s --admin_password %s --admin_tenant_name %s"
+        admin_user = "admin"
+        admin_password = self.old_cluster_params['provision']['openstack']\
+                                            ['keystone']['admin_password']
+        admin_tenant_name = "admin"
+        mt_opts = "--admin_user %s --admin_password %s --admin_tenant_name %s" %(
+                                   admin_user, admin_password, admin_tenant_name)
+
+        for server in self.old_config_list:
+            cmd = ''
+            cmd = "python /opt/contrail/utils/provision_config_node.py"
+            cmd += " --api_server_ip %s" %self.issu_task_master[0]
+            cmd += " --host_name %s" %server['host_name']
+            cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
+            cmd += " --oper del %s" %mt_opts
+            ssh_issu_task_master.exec_command(cmd)
+
         # execute('issu_prune_old_collector')
+        for server in self.old_collector_list:
+            cmd = ''
+            cmd = "python /opt/contrail/utils/provision_analytics_node.py"
+            cmd += " --api_server_ip %s" %self.issu_task_master[0]
+            cmd += " --host_name %s" %server['host_name']
+            cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
+            cmd += " --oper del %s" %mt_opts
+            ssh_issu_task_master.exec_command(cmd)
+
         # execute('issu_prune_old_control')
+        for server in self.old_control_list:
+            cmd = ''
+            cmd = "python /opt/contrail/utils/provision_control.py"
+            cmd += " --api_server_ip %s" %self.issu_task_master[0]
+            cmd += " --api_server_port 8082"
+            cmd += " --host_name %s" %server['host_name']
+            cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
+            cmd += " --router_asn %s" %self.old_router_asn
+            cmd += " --oper del %s" %mt_opts
+            ssh_issu_task_master.exec_command(cmd)
+
         # execute('issu_prune_old_database')
+        for server in self.old_database_list:
+            cmd = ''
+            cmd = "python /opt/contrail/utils/provision_database_node.py"
+            cmd += " --api_server_ip %s" %self.issu_task_master[0]
+            cmd += " --host_name %s" %server['host_name']
+            cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
+            cmd += " --oper del %s" %mt_opts
+            ssh_issu_task_master.exec_command(cmd)
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                          "ISSU-Finalize: Pruned old controller nodes" \
+                          " for cluster %s" %self.new_cluster)
+
         # execute('issu_prov_config')
+        for server in self.new_config_list:
+            cmd = ''
+            cmd = "python /opt/contrail/utils/provision_config_node.py"
+            cmd += " --api_server_ip %s" %self.issu_task_master[0]
+            cmd += " --host_name %s" %server['host_name']
+            cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
+            cmd += " --oper add %s" %mt_opts
+            ssh_issu_task_master.exec_command(cmd)
+
         # execute('issu_prov_collector')
+        for server in self.new_collector_list:
+            cmd = ''
+            cmd = "python /opt/contrail/utils/provision_analytics_node.py"
+            cmd += " --api_server_ip %s" %self.issu_task_master[0]
+            cmd += " --host_name %s" %server['host_name']
+            cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
+            cmd += " --oper add %s" %mt_opts
+            ssh_issu_task_master.exec_command(cmd)
+
         # execute('issu_prov_database')
+        for server in self.new_database_list:
+            cmd = ''
+            cmd = "python /opt/contrail/utils/provision_database_node.py"
+            cmd += " --api_server_ip %s" %self.issu_task_master[0]
+            cmd += " --host_name %s" %server['host_name']
+            cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
+            cmd += " --oper add %s" %mt_opts
+            ssh_issu_task_master.exec_command(cmd)
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                          "ISSU-Finalize: Completed ISSU finalize" \
+                          " for cluster %s" %self.new_cluster)
 
         # end _do_finalize_issu
 
