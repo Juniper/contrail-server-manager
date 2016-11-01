@@ -417,7 +417,7 @@ class Add(Command):
                             self.app.print_error_message_and_quit("No id specified for object being added")
             elif not (getattr(parsed_args, "id", None) or getattr(parsed_args, "mac_address", None)) \
                     and smgr_obj != "tag":
-                # 1. Check if parsed args has id for object
+                # Check if parsed args has id for object
                 self.app.print_error_message_and_quit("\nYou need to specify the id or mac_address to add an object"
                                                       " (Arguement --id/--mac_address).\n")
             elif smgr_obj not in self.smgr_objects:
@@ -428,25 +428,10 @@ class Add(Command):
                 self.verify_added_tags(smgr_obj, payload)
             else:
                 payload = {}
-                # 2. Check that id duplicate doesn't exist for this added object
-                resp = smgrutils.send_REST_request(
-                    self.smgr_ip, self.smgr_port,
-                    obj=smgr_obj, detail=True, method="GET")
-                existing_objects_dict = json.loads(resp)
-                existing_objects = existing_objects_dict[smgr_obj]
-                obj_id_list = list()
-                added_obj_id = getattr(parsed_args, "id", None)
-                for ex_obj in existing_objects:
-                    obj_id_list.append(ex_obj["id"])
-                if added_obj_id in obj_id_list:
-                    self.app.print_error_message_and_quit(
-                        "\n" + str(smgr_obj) + " with this id already exists. You cannot add it again.\n")
                 payload[smgr_obj] = list()
-                # 3. Collect object payload from parsed_args and remaining args
+                # Collect object payload from parsed_args and remaining args
                 payload[smgr_obj].append(self.add_object(smgr_obj, parsed_args, remaining_args))
-                # 4. Merge obj_payload with ini defaults, in code defaults (same func)
-                self.merge_with_defaults(smgr_obj, payload)
-                # 5. Verify tags and mandatory params added for given object
+                # Verify tags and mandatory params added for given object
                 for obj_payload in payload[smgr_obj]:
                     if "tag" in obj_payload and smgr_obj == "server":
                         self.verify_added_tags(smgr_obj, obj_payload)
@@ -456,6 +441,8 @@ class Add(Command):
                         self.app.stdout.write("\nMandatory parameters for object " + str(smgr_obj) + " not entered\n")
                         self.app.print_error_message_and_quit("\nList of missing mandatory parameters are: " + str(list(
                             mandatory_params_set.difference(added_params_set))) + "\n")
+            # Merge obj_payload with ini defaults, in code defaults (same func)
+            self.merge_with_defaults(smgr_obj, payload)
         except ValueError as e:
             self.app.stdout.write("\nError in CLI Format - ValueError: " + str(e) + "\n")
             self.app.stdout.write("\nError Message: " + str(e.message) + "\n")
