@@ -2035,6 +2035,8 @@ class VncServerManager():
             environment_dir = "contrail/environment"
             if os.path.isdir(environment_dir):
                 if _ENABLE_NEW_PUPPET_FRAMEWORK:
+                    cmd = ("/bin/rm -rf /etc/puppet/environments/"+ image_id.replace('-','_'))
+                    subprocess.check_call(cmd, shell=True)
                     # distutils keeps a cache of all paths created. Need to
                     # clear this to re add a path that might have been
                     # previously deleted
@@ -2112,6 +2114,8 @@ class VncServerManager():
             output = subprocess.check_output(cmd, shell=True)
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
+            cmd = "/bin/rm -fr %s" %(mirror)
+            subprocess.check_call(cmd, shell=True)
             cmd = "mkdir -p %s" %(mirror)
             subprocess.check_call(cmd, shell=True)
             # change directory to the new one created
@@ -2179,6 +2183,8 @@ class VncServerManager():
 
         if len(dpdk_depends_pkg_list) :
             self._smgr_log.log(self._smgr_log.INFO, "Creating DPDK repo")
+            cmd = ("/bin/rm -fr  %s/dpdk_depends" % mirror)
+            subprocess.check_call(cmd, shell=True)
             cmd = ("mkdir -p %s/dpdk_depends" % mirror)
             subprocess.check_call(cmd, shell=True)
             cmd = ("cp -v -a %s %s/dpdk_depends/" % ( dpdk_depends_pkg_list[0], mirror))
@@ -2207,6 +2213,8 @@ class VncServerManager():
         try:
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
+            cmd = "/bin/rm -fr %s" %(mirror)
+            subprocess.check_call(cmd, shell=True)
             cmd = "mkdir -p %s" %(mirror)
             subprocess.check_call(cmd, shell=True)
             # change directory to the new one created
@@ -2299,6 +2307,8 @@ class VncServerManager():
         try:
             # create a repo-dir where we will create the repo
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
+            cmd = "/bin/rm -fr %s" %(mirror)
+            subprocess.check_call(cmd, shell=True)
             cmd = "mkdir -p %s" %(mirror)
             subprocess.check_call(cmd, shell=True)
             # change directory to the new one created
