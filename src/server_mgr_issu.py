@@ -14,7 +14,9 @@ class SmgrIssuClass(VncServerManager):
         self.new_cluster = entity['new_cluster']
         self.opcode = entity['opcode']
         self.new_image = entity.get('new_image', None)
+        self.old_image = entity.get('old_image', None)
         self.compute_tag = entity.get('compute_tag', "")
+        self.compute_server_id = entity.get('server_id', "")
         self.setup_params()
         if self.check_issu_cluster_status(self.new_cluster):
             self.set_configured_params()
@@ -181,9 +183,9 @@ class SmgrIssuClass(VncServerManager):
         # make sure old cluster doent have any computes left
         if self.role_get_servers(self.old_servers, 'compute'):
             self.log_and_raise("Old cluster %s still has compute nodes" %(
-                                                        self.old_cluster))
+                                                         self.old_cluster))
         provision_item = (self.opcode, self.old_cluster,
-                                       self.new_cluster, self.new_image)
+                                          self.new_cluster, self.new_image)
         self._reimage_queue.put_nowait(provision_item)
         msg = "Queued ISSU-Finalize job for cluster %s" %(
                                                        self.new_cluster)
@@ -194,6 +196,38 @@ class SmgrIssuClass(VncServerManager):
         return req_status
         
     # end do_finalize_issu
+
+    def do_rollback_compute(self):
+        '''recieve rest call from provision_server and queue rollback
+           job to the backend'''
+        if self.compute_server_id:
+            compute = self._serverDb.get_server({"id" :
+                                       self.compute_server_id}, detail=True)[0]
+            if "compute" not in compute['roles']:
+                self.log_and_raise_exception("ISSU-ROLLBACK: Server %s not compute" %(
+                                                    self.compute_server_id))
+        if self.compute_tag:
+            if self.compute_tag == "all_computes":
+                servers = self._serverDb.get_server({"cluster_id" :
+                                       self.new_cluster}, detail=True)
+                computes = self.role_get_servers(servers, "compute")
+            else:
+                computes = self.smgr_obj.get_servers_for_tag(self.compute_tag)
+            for each in computes:
+                if "compute" not in each['roles']:
+                    self.log_and_raise_exception("ISSU-ROLLBACK: Server %s not compute" %(
+                                                                    each['id']))
+        provision_item = (self.opcode, self.old_cluster,
+                                          self.new_cluster, self.old_image,
+                                  self.compute_tag, self.compute_server_id)
+        self._reimage_queue.put_nowait(provision_item)
+        msg = "Queued ISSU-rollback for compute server_id %s, tag %s" %(
+                                  self.compute_server_id, self.compute_tag)
+        self._smgr_log.log(self._smgr_log.DEBUG, msg)
+        req_status = {}
+        req_status['return_code'] = "0"
+        req_status['return_message'] = msg
+        return req_status
 
     def set_cluster_issu_params(self):
         # set issu flag on the involved clusters
@@ -230,10 +264,11 @@ class SmgrIssuClass(VncServerManager):
         return self.check_issu_cluster_status(self.new_cluster)
     # end issu_check_clusters
 
-    def migrate_all_computes(self, compute_list = None):
+    def migrate_all_computes(self, old_cluster, new_cluster, image,
+                                               compute_list = None):
         if not compute_list:
             servers = self._serverDb.get_server({"cluster_id" :
-                                       self.old_cluster}, detail=True)
+                                       old_cluster}, detail=True)
         else:
             servers = compute_list
         computes = []
@@ -242,18 +277,18 @@ class SmgrIssuClass(VncServerManager):
                 computes.append(server)
                 # change the cluster_id for the compute
                 server_data = {"id": server["id"],
-                               "cluster_id": self.new_cluster}
+                               "cluster_id": new_cluster}
                 self._serverDb.modify_server(server_data)
         if len(computes) == 0:
             msg = "ISSU: No compute nodes found in cluster %s" % \
-                            (self.old_cluster)
+                            (old_cluster)
             self.log_and_raise_exception(msg)
         compute_data = {}
         compute_data['server_packages'] = []
         compute_data['servers'] = []
         for compute in computes:
             req_json = {'id': compute['id'],
-                        'package_image_id': self.new_image}
+                        'package_image_id': image}
             ret_data = self.smgr_obj.validate_smgr_provision(
                                 "PROVISION", req_json, issu_flag=True)
             if ret_data['status'] == 0:
@@ -270,7 +305,7 @@ class SmgrIssuClass(VncServerManager):
                 self.log_and_raise_exception(msg)
         provision_server_list, role_sequence, provision_status = \
                                      self.smgr_obj.prepare_provision(compute_data)
-        provision_item = ('provision', provision_server_list, self.new_cluster, 
+        provision_item = ('provision', provision_server_list, new_cluster,
                                                                  role_sequence)
         self._reimage_queue.put_nowait(provision_item)
         self._smgr_log.log(self._smgr_log.DEBUG, 
@@ -285,10 +320,11 @@ class SmgrIssuClass(VncServerManager):
                                "ISSU: No computes were specified for migrate")
             return
         if self.compute_tag == "all_computes":
-            self.migrate_all_computes()
+            self.migrate_all_computes(self.old_cluster, self.new_cluster,
+                                                            self.new_image)
             return
-        # provision tagged computes
         compute_prov = []
+        # update cluster for the computes
         computes = self.smgr_obj.get_servers_for_tag(self.compute_tag)
         if len(computes) == 0:
             msg = "ISSU: No compute nodes found for tag %s" % \
@@ -305,7 +341,8 @@ class SmgrIssuClass(VncServerManager):
                 self.log_and_raise_exception(msg)
             compute_prov.append(each)
         if compute_prov:
-            self.migrate_all_computes(compute_prov)
+            self.migrate_all_computes(self.old_cluster, self.new_cluster,
+                                            self.new_image, compute_prov)
     # migrate_computes
 
     def check_issu_cluster_status(self, cluster):
@@ -697,5 +734,72 @@ class SmgrIssuClass(VncServerManager):
                           " for cluster %s" %self.new_cluster)
 
         # end _do_finalize_issu
+
+    def _do_rollback_compute(self):
+        if self.compute_server_id:
+            computes = self._serverDb.get_server({"id" :
+                                 self.compute_server_id}, detail=True)
+        elif self.compute_tag == "all_computes":
+            servers = self._serverDb.get_server({"cluster_id" :
+                                 self.new_cluster}, detail=True)
+            computes = self.role_get_servers(servers, "compute")
+        else:
+            computes = self.smgr_obj.get_servers_for_tag(self.compute_tag)
+        if len(computes) == 0:
+            msg = "ISSU-ROLLBACK: No compute nodes found for rollback"
+            self.log_and_raise_exception(msg)
+        # remove the packages
+        for compute in computes:
+            # add server rollback flag
+            server_data = {"id": compute["id"],
+                           "parameters": {
+                               "compute-rollback": self.old_cluster
+                               }
+                          }
+            self._serverDb.modify_server(server_data)
+            ssh_handl = paramiko.SSHClient()
+            ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh_handl.connect(compute['ip_address'],
+                              username = compute.get('username', 'root'),
+                              password = compute['password'])
+            vrouter_kmod_pkg = self.get_vrouter_pkg(ssh_handl,
+                                                    'contrail-vrouter-dkms')
+            pkgs = "contrail-setup %s contrail-fabric-utils " \
+               "contrail-install-packages contrail-lib contrail-nodemgr " \
+               "contrail-setup contrail-utils contrail-vrouter-utils " \
+               "python-contrail contrail-openstack-vrouter contrail-nova-vif " \
+               "contrail-setup contrail-vrouter-utils" %vrouter_kmod_pkg
+            cmd = "DEBIAN_FRONTEND=noninteractive apt-get -y remove %s" %pkgs
+            inp, op, err = ssh_handl.exec_command(cmd)
+            err_str = err.read()
+            # remove the sources.list.d entry for new image
+            cmd = "rm -rf /etc/apt/sources.list.d/*"
+            ssh_handl.exec_command(cmd)
+            ssh_handl.close()
+            #if err_str:
+            #    self.log_and_raise_exception("ISSU-ROLLBACK: error removing packages %s"
+            #                                                             %cmd)
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                          "ISSU-Rollback: Removed packages from compute" \
+                          " on %s" %compute['id'])
+        # provision the computes
+        self.migrate_all_computes(self.new_cluster,
+                                  self.old_cluster,
+                                  self.old_image, computes)
+        # after provision complte restart vrouter service on compute, done in status thread
+
+    def get_vrouter_pkg(self, ssh_handl, pkg):
+        cmd = "dpkg -s %s | grep Version: | cut -d' ' -f2 | cut -d'-' -f2" %pkg
+        #execute this command
+        inp, op ,err = ssh_handl.exec_command(cmd)
+        version = op.read().strip()
+        err_str = err.read().strip()
+        if version:
+            return "contrail-vrouter-dkms"
+        if 'is not installed' in err_str or 'is not available' in err_str:
+            cmd = "apt-cache pkgnames contrail-vrouter-$(uname -r)"
+            inp, op, err = ssh_handl.exec_command(cmd)
+            pkg = op.read().strip()
+            return pkg
 
 # end IssuClass

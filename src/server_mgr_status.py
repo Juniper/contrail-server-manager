@@ -157,7 +157,26 @@ class ServerMgrStatusThread(threading.Thread):
                                                              new_image, compute_tag)
                     self._smgr_main._reimage_queue.put_nowait(provision_item)
                     self._smgr_log.log(self._smgr_log.DEBUG, "ISSU sync job queued")
-
+                # if this is compute being rolled back, remove vrouter mod and restart vrouter svc 
+                server_det = self._status_serverDb.get_server({'id': server_id}, detail = True)[0]
+                server_params = eval(server_det['parameters'])
+                if server_params.get("compute-rollback", None) == cluster_id:
+                    cmd = "service supervisor-vrouter stop && " \
+                          "rmmod vrouter && " \
+                          "service supervisor-vrouter start"
+                    ssh_handl = paramiko.SSHClient()
+                    ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                    ssh_handl.connect(server['ip_address'],
+                              username = server.get('username', 'root'),
+                              password = server['password'])
+                    ssh_handl.exec_command(cmd)
+                    # remove the rollback flag
+                    server_data = {"id": server["id"],
+                                   "parameters": {
+                                        "compute-rollback": None
+                                        }
+                                  }
+                    self._status_serverDb.modify_server(server_data)
             if server_state in email_events:
                 self.send_status_mail(server_id, message, message)
         except Exception as e:
