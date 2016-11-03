@@ -109,6 +109,10 @@ $SNIPPET('func_register_if_enabled')
 echo "$server puppet" >> /etc/hosts
 echo "$ip_address $system_name.$system_domain $system_name" >> /etc/hosts
 
+# add hostname file for persistence across reboot
+rm -rf /etc/hostname
+echo "$system_name" >> /etc/hostname
+
 ## Tmp fix, copy the init.d script for puppet agent. This should be included in puppet package install.
 wget -O /etc/init.d/puppet "http://$server:$http_port/cobbler/aux/puppet"
 chmod 755 /etc/init.d/puppet
