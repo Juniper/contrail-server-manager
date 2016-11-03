@@ -106,6 +106,7 @@ _DEF_PUPPET_AGENT_RETRY_POLL_INTERVAL = 20
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
 # this variable and it's use when enabling new puppet framework.
 _ENABLE_NEW_PUPPET_FRAMEWORK = True
+_ERR_INVALID_CONTRAIL_PKG = 'Invalid contrail package. Please specify a valid package'
 
 @bottle.error(403)
 def error_403(err):
@@ -2097,6 +2098,8 @@ class VncServerManager():
             # change dir to the temp dir created
             cwd = os.getcwd()
             os.chdir(tmpdirname)
+            if not os.path.exists(puppet_modules_tgz):
+                raise ServerMgrException(_ERR_INVALID_CONTRAIL_PKG, ERR_OPR_ERROR)
             # Copy the tgz to tempdir
             cmd = ("cp -f %s ." %(puppet_modules_tgz))
             subprocess.check_call(cmd, shell=True)
@@ -2328,6 +2331,8 @@ class VncServerManager():
             #If tgz, then extract the debian package within the tgz and get the puppet manifest tgz
             if tgz_image:
                 tmpdirname = tempfile.mkdtemp()
+                if not glob.glob('contrail-puppet_*.deb'):
+                    raise ServerMgrException(_ERR_INVALID_CONTRAIL_PKG, ERR_OPR_ERROR)
                 cmd = ("dpkg-deb -x $(ls contrail-puppet_*.deb) %s" %(tmpdirname))
                 subprocess.check_call(cmd, shell=True)
                 puppet_modules_tgz_path = tmpdirname + "/opt/contrail/puppet/contrail-puppet-manifest.tgz"
