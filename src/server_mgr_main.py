@@ -46,6 +46,7 @@ from server_mgr_certs import ServerMgrCerts
 from server_mgr_utils import *
 from server_mgr_ssh_client import ServerMgrSSHClient
 from server_mgr_issu import *
+from generate_dhcp_template import *
 
 try:
     from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
@@ -198,6 +199,9 @@ class VncServerManager():
     #dict to hold code defaults
     _code_defaults_dict = {}
     _smgr_config = None
+    _dhcp_host_key_list = ["host_fqdn","ip_address","mac_address","host_name"]
+    _dhcp_subnet_key_list = ["subnet_address","subnet_mask","subnet_gateway","subnet_domain",
+        "search_domains_list","dns_server_list","default_lease_time", "max_lease_time"]
     _server_mask_list = ["password"]
     _cluster_mask_list = ["parameters.password",
                           "parameters.keystone_password",
@@ -299,7 +303,7 @@ class VncServerManager():
     def _prepare_code_defaults(self):
         code_defaults_dict = {}
         obj_list = {"server" : server_fields, "cluster": cluster_fields,
-                                            "image": image_fields}
+            "image": image_fields, "dhcp_host": dhcp_host_fields, "dhcp_subnet": dhcp_subnet_fields}
         for obj_name, obj in obj_list.items():
             obj_cpy = obj.copy()
             pop_items = ["match_keys", "obj_name", "primary_keys"]
@@ -473,6 +477,9 @@ class VncServerManager():
         #This will cover the upgrade case where none of the servers may have the key in it
         gevent.spawn(self._monitoring_base_plugin_obj.setup_keys, self._serverDb)
 
+        #Generate the DHCP template for the SM host only such that cobbler works correctly
+        self._dhcp_template_obj = DHCPTemplateGenerator(self._serverDb)
+
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
         self._pipe_start_app = bottle.app()
@@ -489,6 +496,8 @@ class VncServerManager():
         bottle.route('/chassis-id', 'GET', self.get_server_chassis_id)
         bottle.route('/tag', 'GET', self.get_server_tags)
         bottle.route('/columns', 'GET', self.get_table_columns)
+        bottle.route('/dhcp_subnet', 'GET', self.get_dhcp_subnet)
+        bottle.route('/dhcp_host', 'GET', self.get_dhcp_host)
         if self._server_monitoring_obj:
             bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
             bottle.route('/MonitorInfo', 'GET', self._server_monitoring_obj.get_monitoring_info)
@@ -559,11 +568,15 @@ class VncServerManager():
         bottle.route('/image', 'PUT', self.put_image)
         bottle.route('/cluster', 'PUT', self.put_cluster)
         bottle.route('/tag', 'PUT', self.put_server_tags)
+        bottle.route('/dhcp_subnet', 'PUT', self.put_dhcp_subnet)
+        bottle.route('/dhcp_host', 'PUT', self.put_dhcp_host)
 
         # REST calls for DELETE methods (Remove records)
         bottle.route('/cluster', 'DELETE', self.delete_cluster)
         bottle.route('/server', 'DELETE', self.delete_server)
         bottle.route('/image', 'DELETE', self.delete_image)
+        bottle.route('/dhcp_subnet', 'DELETE', self.delete_dhcp_subnet)
+        bottle.route('/dhcp_host', 'DELETE', self.delete_dhcp_host)
 
         # REST calls for POST methods
         if self._smgr_cobbler:
@@ -602,9 +615,11 @@ class VncServerManager():
             config['image'] = self._serverDb.get_image(detail=detail)
             # always call get_server_tags with detail=True
             config['tag'] = self._serverDb.get_server_tags(detail=True)
+            config['dhcp_host'] = self._serverDb.get_dhcp_host()
+            config['dhcp_subnet'] = self._serverDb.get_dhcp_subnet()
         except Exception as e:
-            self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_ALL,
-                                     False)
+            #self._smgr_trans_log.log(bottle.request, self._smgr_trans_log.GET_SMGR_ALL,
+                                     #False)
             self.log_trace()
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR, None)
             abort(404, resp_msg)
@@ -1114,7 +1129,8 @@ class VncServerManager():
     # end get_select_clause
 
     def validate_smgr_keys(self, entity,
-                   keys = ["id", "mac_address","tag","cluster_id", "where"]):
+                   keys = ["id", "mac_address","tag","cluster_id", "where",
+                           "host_fqdn","subnet_address"]):
         found = False
         for key in keys:
 	    if key in entity:
@@ -1139,6 +1155,10 @@ class VncServerManager():
             validation_data = cluster_fields
         elif type == "IMAGE":
             validation_data = image_fields
+        elif type == "DHCP_SUBNET":
+            validation_data = dhcp_subnet_fields
+        elif type == "DHCP_HOST":
+            validation_data = dhcp_host_fields
         else:
             validation_data = None
 
@@ -1478,6 +1498,64 @@ class VncServerManager():
                      object_item = object_item[element]
         return
 
+    #API Call to list DHCP Hosts
+    def get_dhcp_subnet(self):
+        try:
+            ret_data = self.validate_smgr_request("DHCP_SUBNET", "GET",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
+            dhcp_subnets = self._serverDb.get_dhcp_subnet(match_dict)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_IMAGE)
+        return {"dhcp_subnet": dhcp_subnets}
+    # end get_dhcp_subnet
+
+    #API Call to list DHCP Hosts
+    def get_dhcp_host(self):
+        try:
+            ret_data = self.validate_smgr_request("DHCP_HOST", "GET",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
+            dhcp_hosts = self._serverDb.get_dhcp_host(match_dict)
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_IMAGE)
+        return {"dhcp_host": dhcp_hosts}
+    # end get_dhcp_host
+
     # API Call to list images
     def get_image(self):
         try:
@@ -1805,6 +1883,107 @@ class VncServerManager():
             print 'check'
             # check if old details are there else throw error
 
+    def put_dhcp_host(self):
+        entity = bottle.request.json
+        if (not entity):
+            msg = 'Host FQDN not specified'
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
+        try:
+            self.validate_smgr_entity("dhcp_host", entity)
+            dhcp_hosts = entity.get("dhcp_host", None)
+            for dhcp_host in dhcp_hosts:
+                for key in dhcp_host:
+                    dhcp_host[str(key)] = dhcp_host.pop(key)
+                db_dhcp_hosts = self._serverDb.get_dhcp_host(
+                    {"host_fqdn" : str(dhcp_host['host_fqdn'])})
+                if db_dhcp_hosts:
+                    self.validate_smgr_request("DHCP_HOST", "PUT", bottle.request,
+                                               dhcp_host, True)
+                    self._serverDb.modify_dhcp_host(dhcp_host)
+                else:
+                    self.validate_smgr_request("DHCP_HOST", "PUT", bottle.request,
+                                               dhcp_host)
+                    dhcp_host.pop('parameters')
+                    if set(self._dhcp_host_key_list) == set(dhcp_host.keys()):
+                        self._serverDb.add_dhcp_host(dhcp_host)
+                    else:
+                        msg = "Keys missing from the config sent: " + str(list(set(self._dhcp_host_key_list)-set(dhcp_host.keys()))) + "\n"
+                        self.log_and_raise_exception(msg)
+            stanza = self._dhcp_template_obj.generate_dhcp_template()
+            # Sync the above information
+            if self._smgr_cobbler:
+                self._smgr_cobbler.sync()
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+            self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
+        msg = "DHCP host add/Modify Success"
+        resp_msg = self.form_operartion_data(msg, 0, entity)
+        return resp_msg
+
+    def put_dhcp_subnet(self):
+        entity = bottle.request.json
+        if (not entity):
+            msg = 'Subnet Address not specified'
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
+        try:
+            self.validate_smgr_entity("dhcp_subnet", entity)
+            dhcp_subnets = entity.get("dhcp_subnet", None)
+            for dhcp_subnet in dhcp_subnets:
+                for key in dhcp_subnet:
+                    if not isinstance(dhcp_subnet[key],list):
+                        dhcp_subnet[str(key)] = str(dhcp_subnet.pop(key))
+                    else:
+                        dhcp_subnet[str(key)] = [str(n) for n in dhcp_subnet.pop(key)]
+                    if key in ['dns_server_list','search_domains_list'] and isinstance(dhcp_subnet[str(key)],basestring):
+                        dhcp_subnet[str(key)] = [dhcp_subnet[str(key)]]
+                db_dhcp_subnets = self._serverDb.get_server(
+                    {"id" : dhcp_subnet['subnet_address']}, None, True)
+                if db_dhcp_subnets:
+                    self.validate_smgr_request("DHCP_SUBNET", "PUT", bottle.request,
+                                               dhcp_subnet, True)
+                    self._serverDb.modify_dhcp_subnet(dhcp_subnet)
+                else:
+                    self.validate_smgr_request("DHCP_SUBNET", "PUT", bottle.request,
+                                               dhcp_subnet)
+                    dhcp_subnet.pop('parameters')
+                    if set(self._dhcp_subnet_key_list) == set(dhcp_subnet.keys()):
+                        result = self._serverDb.add_dhcp_subnet(dhcp_subnet)
+                        if result:
+                           self.log_and_raise_exception(result)
+                    else:
+                        msg = "Keys missing from the config sent: " + str(set(self._dhcp_subnet_key_list)) + " " + str(set(dhcp_subnet.keys())) + "\n"
+                        self.log_and_raise_exception(msg)
+            stanza = self._dhcp_template_obj.generate_dhcp_template()
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+            self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
+        msg = "DHCP subnet add/Modify Success"
+        resp_msg = self.form_operartion_data(msg, 0, entity)
+        return resp_msg
 
     def put_server(self):
         entity = bottle.request.json
@@ -2675,6 +2854,84 @@ class VncServerManager():
         return resp_msg
     # end delete_server
 
+    # API call to delete a dhcp subnet from the configuration.
+    def delete_dhcp_subnet(self):
+        try:
+            ret_data = self.validate_smgr_request("DHCP_SUBNET", "DELETE",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                match_dict = {}
+                match_dict[match_key] = match_value
+
+            self._serverDb.delete_dhcp_subnet(match_dict)
+            self._dhcp_template_obj.generate_dhcp_template()
+            # Sync the above information
+            if self._smgr_cobbler:
+                self._smgr_cobbler.sync()
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
+                                     False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
+                                     False)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                        "Unable to delete DHCP Subnet, %s" % (repr(e)))
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                       None)
+            abort(404, resp_msg)
+        #self._smgr_trans_log.log(bottle.request,
+        #                        self._smgr_trans_log.DELETE_SMGR_CFG_SERVER)
+        msg = "DHCP Subnet deleted"
+        resp_msg = self.form_operartion_data(msg, 0, None)
+        return resp_msg
+    # end delete_dhcp_subnet
+    
+    # API call to delete a dhcp host from the configuration.
+    def delete_dhcp_host(self):
+        try:
+            ret_data = self.validate_smgr_request("DHCP_HOST", "DELETE",
+                                                         bottle.request)
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                match_dict = {}
+                match_dict[match_key] = match_value
+
+            self._serverDb.delete_dhcp_host(match_dict)
+            self._dhcp_template_obj.generate_dhcp_template()
+            # Sync the above information
+            if self._smgr_cobbler:
+                self._smgr_cobbler.sync()
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
+                                     False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                self._smgr_trans_log.DELETE_SMGR_CFG_SERVER,
+                                     False)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                        "Unable to delete DHCP Host, %s" % (repr(e)))
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                       None)
+            abort(404, resp_msg)
+        #self._smgr_trans_log.log(bottle.request,
+        #                        self._smgr_trans_log.DELETE_SMGR_CFG_SERVER)
+        msg = "DHCP Host deleted"
+        resp_msg = self.form_operartion_data(msg, 0, None)
+        return resp_msg
+    # end delete_dhcp_host
+
     # API Call to delete an image
     def delete_image(self):
         self._smgr_log.log(self._smgr_log.DEBUG, "delete_image")
@@ -2961,6 +3218,10 @@ class VncServerManager():
             reimage_status = {}
             reimage_status['return_code'] = 0
             reimage_status['server'] = []
+
+            # Get all the DHCP IPs under the control of Cobbler
+            valid_dhcp_ip_list = self.get_dhcp_ips()
+
             for server in servers:
                 cluster = None
                 server_parameters = eval(server['parameters'])
@@ -2972,6 +3233,13 @@ class VncServerManager():
                 cluster_parameters = {}
                 if cluster and cluster[0]['parameters']:
                     cluster_parameters = eval(cluster[0]['parameters'])
+
+                if 'ip_address' in server and server['ip_address']:
+                    if server['ip_address'] not in valid_dhcp_ip_list:
+                        msg = "The server with id %s cannot be reimaged. \
+                               There is no cobbler DHCP configuration for the ip address of this server \
+                               : %s" % (server['id'], server['ip_address'])
+                        raise ServerMgrException(msg)
 
                 image = base_image
                 if not image:
@@ -3471,6 +3739,18 @@ class VncServerManager():
             server_control_list[server['ip_address']] = self.get_control_interface(
                 server)
         return server_control_list
+
+    #Function to get list of all DHCP IPs under control of Cobbler
+    def get_dhcp_ips(self):
+        dhcp_ips = []
+        db_dhcp_hosts = self._serverDb.get_dhcp_host()
+        for host in db_dhcp_hosts:
+            dhcp_ips.append(host['ip_address'])
+        db_dhcp_subnets = self._serverDb.get_dhcp_subnet()
+        for subnet in db_dhcp_subnets:
+            subnet_cidr = self._serverDb.get_cidr(subnet['subnet_address'], subnet['subnet_mask'])
+            dhcp_ips.append(IPNetwork(str(subnet_cidr)))
+        return set(dhcp_ips)
 
     # Function to get map server name to server ip
     # accepts list of server names and returns list of
@@ -4587,12 +4867,16 @@ class VncServerManager():
         cluster_defaults_dict = dict(smgr_config_sections.items("CLUSTER"))
         server_defaults_dict = dict(smgr_config_sections.items("SERVER"))
         image_defaults_dict = dict(smgr_config_sections.items("IMAGE"))
+        dhcp_host_defaults_dict = dict(smgr_config_sections.items("DHCP_HOST"))
+        dhcp_subnet_defaults_dict = dict(smgr_config_sections.items("DHCP_SUBNET"))
 
         obj_cfg_defaults = {}
 
         obj_cfg_defaults["server"] = server_defaults_dict
         obj_cfg_defaults["cluster"] = cluster_defaults_dict
         obj_cfg_defaults["image"] = image_defaults_dict
+        obj_cfg_defaults["dhcp_host"] = dhcp_host_defaults_dict
+        obj_cfg_defaults["dhcp_subnet"] = dhcp_subnet_defaults_dict
 
         return obj_cfg_defaults
 

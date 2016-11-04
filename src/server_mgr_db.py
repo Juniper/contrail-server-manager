@@ -19,6 +19,8 @@ image_table = 'image_table'
 inventory_table = 'inventory_table'
 server_status_table = 'status_table'
 server_tags_table = 'server_tags_table'
+dhcp_subnet_table = 'dhcp_subnet_table'
+dhcp_hosts_table = 'dhcp_hosts_table'
 
 _DUMMY_STR = "DUMMY_STR"
 
@@ -111,6 +113,20 @@ class ServerMgrDb:
                          board_part_number TEXT, product_manfacturer TEXT,
                          product_name TEXT, product_part_number TEXT,
                          UNIQUE (fru_description))""")
+                # Create DHCP subnet table
+                cursor.execute(
+                    "CREATE TABLE IF NOT EXISTS " + dhcp_subnet_table +
+                    """ (subnet_address TEXT PRIMARY KEY NOT NULL,
+                         subnet_gateway TEXT, subnet_mask TEXT, dns_server_list TEXT,
+                         search_domains_list TEXT, subnet_domain TEXT,
+                         dhcp_range TEXT, default_lease_time INTEGER, max_lease_time INTEGER,
+                         UNIQUE (subnet_address))""")
+                # Create DHCP hosts table 
+                cursor.execute(
+                    "CREATE TABLE IF NOT EXISTS " + dhcp_hosts_table +
+                    """ (host_fqdn TEXT PRIMARY KEY NOT NULL,
+                         ip_address TEXT NOT NULL, mac_address TEXT NOT NULL, host_name TEXT,
+                         UNIQUE (host_fqdn))""")
                 # Create server tags table
                 cursor.execute(
                     "CREATE TABLE IF NOT EXISTS " + server_tags_table +
@@ -259,6 +275,8 @@ class ServerMgrDb:
                 DELETE FROM """ + server_tags_table + """;
                 DELETE FROM """ + server_status_table + """;
                 DELETE FROM """ + inventory_table + """;
+                DELETE FROM """ + dhcp_subnet_table + """;
+                DELETE FROM """ + dhcp_hosts_table + """;
                 DELETE FROM """ + image_table + ";")
         except:
             raise e
@@ -468,6 +486,29 @@ class ServerMgrDb:
         return 0
     # End of add_inventory
 
+    def add_dhcp_subnet(self, dhcp_subnet_config):
+        try:
+            dhcp_subnet_config = dict(dhcp_subnet_config)
+            if dhcp_subnet_config and 'subnet_address' in dhcp_subnet_config:
+                dhcp_subnet_config = {k:str(v) for k,v in dhcp_subnet_config.iteritems()}
+                self._add_row(dhcp_subnet_table, dhcp_subnet_config)
+                self._smgr_log.log(self._smgr_log.DEBUG, "ADDED DHCP SUBNET CONFIG FOR SUBNET " + dhcp_subnet_config['subnet_address'])
+        except Exception as e:
+            return e.message
+        return 0
+    # End of add_dhcp_subnet
+
+    def add_dhcp_host(self, dhcp_host_config):
+        try:
+            dhcp_host_config = dict(dhcp_host_config)
+            if dhcp_host_config and 'host_fqdn' in dhcp_host_config:
+                self._add_row(dhcp_hosts_table, dhcp_host_config)
+                self._smgr_log.log(self._smgr_log.DEBUG, "ADDED DHCP HOST CONFIG FOR HOST FQDN " + dhcp_host_config['host_fqdn'])
+        except Exception as e:
+            return e.message
+        return 0
+    # End of add_dhcp_host
+
     def add_server(self, server_data):
         try:
             # covert all unicode strings in dict
@@ -637,15 +678,61 @@ class ServerMgrDb:
         elif type == "image":
             cb = self.get_image
             db_obj = cb(match_dict, unmatch_dict, detail=False)
+        elif type == "dhcp_subnet":
+            cb = self.get_dhcp_subnet
+            db_obj = cb(match_dict, unmatch_dict)
+        elif type == "dhcp_host":
+            cb = self.get_dhcp_host
+            db_obj = cb(match_dict, unmatch_dict)
 
         if not db_obj:
-            msg = "%s not found" % (type)
+            msg = "%s not found for match_dict %s" % (type,match_dict)
             if raise_exception:
                 self.log_and_raise_exception(msg, ERR_OPR_ERROR)
             return False
         return True
     #end of check_obj
 
+    def get_cidr(self, subnet_address, subnet_mask):
+        ip = IPNetwork(str(subnet_address)+'/'+str(subnet_mask))
+        return str(subnet_address) + "/" + str(ip.prefixlen)
+
+    def validate_dhcp_delete(self, obj_type, match_dict=None, unmatch_dict=None, raise_exception=True):
+        if obj_type == "subnet":
+            cb = self.get_dhcp_subnet
+        elif obj_type == "host": 
+            cb = self.get_dhcp_host
+        db_obj = cb(match_dict, unmatch_dict)
+        if not db_obj:
+            msg = "Host or Subnet matching the parameters %s not found." %(match_dict)
+            if raise_exception:
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+            return False
+        if obj_type == "subnet":
+            subnet_obj = db_obj[0]
+            # Get all servers to check if any are under this subnet
+            servers = self.get_server(detail=True) 
+            for server in servers:
+                if IPAddress(server['ip_address']) in IPNetwork(self.get_cidr(subnet_obj["subnet_address"], subnet_obj["subnet_mask"])):
+                    msg = "Server with ID %s is under the subnet %s being deleted. \
+                        Please delete this server first" % (str(server['id']), str(subnet_obj["subnet_address"]))
+                    if raise_exception:
+                        self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+                    return False
+        elif obj_type == "host":
+            host_obj = db_obj[0]
+            # Get all servers to check if any are under this subnet
+            servers = self.get_server(detail=True)
+            for server in servers:
+                if server['ip_address'] == str(host_obj['ip_address']):
+                    msg = "Server with ID %s had been added with IP address of the DHCP node. \
+                        Please delete the server first" % (str(server['id']))
+                    if raise_exception:
+                        self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+                    return False
+        return True
+    #end of validate_dhcp_delete
+ 
     def delete_server(self, match_dict=None, unmatch_dict=None):
         try:
             if match_dict and match_dict.get("mac_address", None):
@@ -677,6 +764,24 @@ class ServerMgrDb:
         except Exception as e:
             raise e
     # End of delete_image
+
+    def delete_dhcp_subnet(self, match_dict=None, unmatch_dict=None):
+        try:
+            self.check_obj("dhcp_subnet", match_dict, unmatch_dict)
+            if self.validate_dhcp_delete("subnet", match_dict, unmatch_dict):
+                self._delete_row(dhcp_subnet_table, match_dict, unmatch_dict)
+        except Exception as e:
+            raise e
+    # End of delete_dhcp_subnet
+
+    def delete_dhcp_host(self, match_dict=None, unmatch_dict=None):
+        try:
+            self.check_obj("dhcp_host", match_dict, unmatch_dict)
+            if self.validate_dhcp_delete("host", match_dict, unmatch_dict):
+                self._delete_row(dhcp_hosts_table, match_dict, unmatch_dict)
+        except Exception as e:
+            raise e
+    # End of delete_dhcp_host
 
     def modify_cluster(self, cluster_data):
         try:
@@ -891,6 +996,63 @@ class ServerMgrDb:
             raise e
     # End of modify_server_tags
 
+    def modify_dhcp_host(self,dhcp_host_config):
+        try:
+            db_dhcp_host = None
+            dhcp_host_config = dict(dhcp_host_config)
+            db_dhcp_host = self.get_dhcp_host({'host_fqdn': str(dhcp_host_config['host_fqdn'])})
+            #Check if object exists
+            if not db_dhcp_host:
+                msg = ("No Host matching the modified FQDN specified")
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+                return db_dhcp_host
+
+            if 'mac_address' in dhcp_host_config:
+                dhcp_host_config['mac_address'] = str(
+                    EUI(dhcp_host_config['mac_address'])).replace("-", ":")
+            host_mac = dhcp_host_config.get('mac_address', None)
+            if host_mac:
+                #Reject if primary key values change
+                if dhcp_host_config['mac_address'] != db_dhcp_host[0]['mac_address']:
+                    msg = ('MAC address cannnot be modified', ERR_OPR_ERROR)
+                    self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+            for k in db_dhcp_host.keys():
+                if k not in dhcp_host_config.keys():
+                    dhcp_host_config[k] = db_dhcp_host[k]
+ 
+            self._modify_row(
+                dhcp_hosts_table, dhcp_host_config,
+                {'mac_address' : db_dhcp_host[0]['mac_address']}, {})
+            self._smgr_log.log(self._smgr_log.DEBUG, "MODIFIED DHCP HOST CONFIG FOR HOST FQDN " + dhcp_host_config['host_fqdn'])
+        except Exception as e:
+            return e.message
+        return 0
+    # End of modify_dhcp_host
+
+    def modify_dhcp_subnet(self,dhcp_subnet_config):
+        try:
+            db_dhcp_subnet = None
+            dhcp_host_config = dict(dhcp_subnet_config)
+            db_dhcp_subnet = self.get_dhcp_subnet({'subnet_address': str(dhcp_subnet_config['subnet_address'])})
+            #Check if object exists
+            if not db_dhcp_subnet:
+                msg = ("No Address matching the Subnet specified. Cannot modify.")
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+                return db_dhcp_subnet
+
+            for k in db_dhcp_subnet.keys():
+                if k not in dhcp_subnet_config.keys():
+                    dhcp_subnet_config[k] = db_dhcp_subnet[k]
+ 
+            self._modify_row(
+                dhcp_subnet_table, dhcp_subnet_config,
+                {'subnet_address' : db_dhcp_subnet[0]['subnet_address']}, {})
+            self._smgr_log.log(self._smgr_log.DEBUG, "MODIFIED DHCP SUBNET CONFIG FOR SUBNET ADDRESS " + dhcp_subnet_config['subnet_addres'])
+        except Exception as e:
+            return e.message
+        return 0
+    # End of modify_dhcp_subnet
+
     def get_image(self, match_dict=None, unmatch_dict=None,
                   detail=False, field_list=None):
         try:
@@ -966,6 +1128,22 @@ class ServerMgrDb:
             raise e
         return servers
     # End of get_server
+
+    def get_dhcp_host(self, match_dict=None, unmatch_dict=None):
+        try:
+            hosts = self._get_items(dhcp_hosts_table, match_dict, unmatch_dict, True, None)
+        except Exception as e:
+            raise e
+        return hosts 
+    # End of get_dhcp_host
+    
+    def get_dhcp_subnet(self, match_dict=None, unmatch_dict=None):
+        try:
+            subnets = self._get_items(dhcp_subnet_table, match_dict, unmatch_dict, True, None)
+        except Exception as e:
+            raise e
+        return subnets 
+    # End of get_dhcp_subnet
 
     def get_inventory(self, match_dict=None, unmatch_dict=None):
         try:
