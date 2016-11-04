@@ -3569,6 +3569,16 @@ class VncServerManager():
                     entity['new_cluster'] = reimage_item[2]
                     self.issu_obj = SmgrIssuClass(self, entity)
                     self.issu_obj._do_finalize_issu()
+                if optype == "issu_rollback":
+                    entity = {}
+                    entity['opcode'] = reimage_item[0]
+                    entity['old_cluster'] = reimage_item[1]
+                    entity['new_cluster'] = reimage_item[2]
+                    entity['old_image'] = reimage_item[3]
+                    entity['compute_tag'] = reimage_item[4]
+                    entity['server_id'] = reimage_item[5]
+                    self.issu_obj = SmgrIssuClass(self, entity)
+                    self.issu_obj._do_rollback_compute()
                 gevent.sleep(0)
             except Exception as e:
                 self._smgr_log.log(
@@ -4778,6 +4788,14 @@ class VncServerManager():
                 # create SmgrIssuClass instance
                 self.issu_obj = SmgrIssuClass(self, entity)
                 prov_status = self.issu_obj.do_finalize_issu()
+                self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.SMGR_PROVISION)
+                return prov_status
+            if entity.get('opcode', '') == "issu_rollback":
+                # create SmgrIssuClass instance
+                # entity includes server_id or tag, new cluster, old_cluster, old_image
+                self.issu_obj = SmgrIssuClass(self, entity)
+                prov_status = self.issu_obj.do_rollback_compute()
                 self._smgr_trans_log.log(bottle.request,
                                  self._smgr_trans_log.SMGR_PROVISION)
                 return prov_status
