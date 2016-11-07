@@ -3897,6 +3897,21 @@ class VncServerManager():
 
     # end storage_get_control_network_mask
 
+    def build_hostnames(self, cluster_servers):
+      hostnames_root = {}
+      hostnames_root['literal'] = True
+      hostnames = {}
+      for server in cluster_servers:
+        hostname=server['host_name']
+        ip_address = self.get_control_ip(server)
+        hostnames[hostname] = {}
+        hostnames[hostname]['name'] = server['host_name']
+        hostnames[hostname]['host_aliases'] = server['host_name'] + "ctrl"
+        hostnames[hostname]['ip'] = ip_address
+
+      hostnames_root['hostnames']=hostnames
+      return hostnames_root
+
     def build_tor_ha_config(self, server, cluster, role_servers):
         tor_ha_config = {}
         tor_ha_config['literal'] = True
@@ -4014,6 +4029,8 @@ class VncServerManager():
             'tor_ha_config': self.build_tor_ha_config(
                 server, cluster, role_servers)
         }
+        contrail_params['system'] = self.build_hostnames(cluster_servers)
+
         # Storage parameters..
         cluster_storage_params = cluster_contrail_prov_params.get("storage", {})
         server_storage_params = server_contrail_prov_params.get("storage", {})
