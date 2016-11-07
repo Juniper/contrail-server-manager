@@ -3910,8 +3910,8 @@ class VncServerManager():
         control_intf = eval(self.get_control_interface(server))
         for key, value in control_intf.iteritems():
           control_ip_prefixlen = "%s/%s" %(str(IPNetwork(value['ip_address']).network), str(IPNetwork(value['ip_address']).prefixlen))
-          msg = "STORAGE: control_ip: %s => %s" %(value['ip_address'], control_ip_prefixlen)
-          self._smgr_log.log(self._smgr_log.DEBUG, msg)
+          #msg = "STORAGE: control_ip: %s => %s" %(value['ip_address'], control_ip_prefixlen)
+          #self._smgr_log.log(self._smgr_log.DEBUG, msg)
           return control_ip_prefixlen
 
         subnet_mask = server.get("subnet_mask", "")
@@ -3965,6 +3965,75 @@ class VncServerManager():
         # end for toragent_server
         return tor_ha_config
     # end build_tor_ha_config
+
+    def generate_storage_pool_config(self, server, cluster_data, role_servers):
+        #pdb.set_trace()
+        pool_config = []
+
+        cluster = self._serverDb.get_cluster(
+                {"id" :  cluster_data['id']}, detail=True)[0]
+
+        cluster_params = eval( cluster.get("parameters", "{}"))
+        cluster_storage_params = ((
+                         cluster_params.get(
+                        "provision", {})).get(
+                            "contrail", {})).get(
+                                "storage", {})
+
+        if 'pool_list' in cluster_storage_params:
+            pool_list = cluster_storage_params['pool_list']
+        else:
+            pool_list = {}
+
+        pool_list['literal'] = True
+        print cluster_storage_params
+
+        for role_server in role_servers['storage-compute']:
+            role_server_params = eval( role_server.get("parameters", "{}"))
+            server_hostname = role_server['host_name']
+            storage_params = ((
+                    role_server_params.get(
+                        "provision", {})).get(
+                            "contrail", {})).get(
+                                "storage", {})
+            if (('storage_osd_disks' in storage_params) and
+                (len(storage_params['storage_osd_disks']) > 0)):
+                #prepend hostname before each disk
+                disks = storage_params['storage_osd_disks']
+                prefix_host = server_hostname + ':'
+                host_pool_config = [prefix_host + x for x in disks]
+                pool_config.extend(host_pool_config)
+                # /dev/sdb
+                # /dev/sdb:pool_name
+                # /dev/sdb:/dev/sdc
+                # /dev/sdb:/dev/sdc:pool_name
+                for disk in disks:
+                    disk_details = disk.split(':')
+                    for disk_name in disk_details:
+                        if not disk_name.startswith('/dev/'):
+                            #we got the pool_name
+                            if disk_name not in pool_list:
+                                pool_list[disk_name] = {}
+                                pool_list[disk_name]['name'] = disk_name
+                                pool_list[disk_name]['uuid'] = str(uuid.uuid4())
+                            else:
+                                print disk_name + "POOL ALREADY Generated"
+            # end if
+
+        cluster_storage_params['pool_list'] = pool_list
+        print pool_list
+        cluster_data = {"id": cluster['id'],
+                        "parameters": {
+                          "provision" : {
+                             "contrail": {
+                               "storage": cluster_storage_params } } } }
+
+        self._serverDb.modify_cluster(cluster_data)
+
+        return pool_config
+
+    #end generate_storage_pool_config
+
 
     def build_calculated_cluster_params(
             self, server, cluster, role_servers, cluster_servers, package):
@@ -4114,11 +4183,14 @@ class VncServerManager():
         contrail_params['storage']['storage_hostnames'] = list(storage_mon_hostname_set)
         if ('storage-master' in roles):
             contrail_params['storage']['storage_chassis_config'] = list(storage_chassis_config_set)
+            pool_config = self.generate_storage_pool_config(server, cluster, role_servers)
+            contrail_params['storage']['pool_config'] = pool_config
+
         control_network = self.storage_get_control_network_mask(
             server, cluster, role_servers, cluster_servers)
 
-        msg = "STORAGE: Control_network : %s" %(control_network)
-        self._smgr_log.log(self._smgr_log.DEBUG, msg)
+        #msg = "storage: control_network : %s" %(control_network)
+        #self._smgr_log.log(self._smgr_log.debug, msg)
 
         contrail_params['storage']['storage_cluster_network'] = control_network
         # Build openstack parameters for openstack modules
