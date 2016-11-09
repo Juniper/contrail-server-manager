@@ -657,18 +657,19 @@ class ServerJsonGenerator(BaseJsonGenerator):
     def _initialize(self, hostobj):
         # set kernel upgrade 'yes' by default
         kernel_upgrade_flag = self.testsetup.testbed.env.get('kernel_upgrade', True)
+        kernel_version = self.testsetup.testbed.env.get('kernel_version', None)
         if kernel_upgrade_flag:
-            kernel_upgrade = 'yes'
+            kernel_upgrade =  True
         else:
-            kernel_upgrade = 'no'
+            kernel_upgrade = False
+        if not kernel_version:
+            kernel_version = ''
         server_dict = {"id": hostobj.hostname,
                        "roles": hostobj.roles,
                        "cluster_id": self.cluster_id,
                        "password": hostobj.password,
                        "domain": hostobj.domain_name,
-                       "parameters": {
-                           "kernel_upgrade" : kernel_upgrade,
-                            },
+                       "parameters": {},
                        "network": {
                            "management_interface": hostobj.interface,
                            "provisioning": "kickstart",
@@ -683,6 +684,8 @@ class ServerJsonGenerator(BaseJsonGenerator):
                         }
         server_dict['parameters']['provision'] = {}
         server_dict['parameters']['provision']['contrail'] = {}
+        server_dict['parameters']['provision']['contrail']['kernel_upgrade'] = kernel_upgrade
+        server_dict['parameters']['provision']['contrail']['kernel_version'] = str(kernel_version)
         server_dict['parameters']['provision']['contrail']['storage'] = {}
         server_dict['parameters']['provision']['contrail']['compute'] = {}
         static_route_list = []
