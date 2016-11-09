@@ -74,11 +74,6 @@ class ServerMgrInventory():
         else:
             rest_api_params['match_key'] = None
             rest_api_params['match_value'] = None
-        if args.type:
-            rest_api_params['select'] = args.type
-            if args.type == "status":
-                rest_api_params['object'] = 'InventoryConf'
-        else:
-            rest_api_params['select'] = None
+        rest_api_params['select'] = None
         return rest_api_params
     # end def show_inv_details
