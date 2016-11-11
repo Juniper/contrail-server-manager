@@ -809,7 +809,7 @@ class ServerMgrDb:
                 for k,v in server_tags.iteritems():
                     server_data[rev_tags_dict[k]] = v
 
-            if "ssh_private_key" and "ssh_public_key" in server_data:
+            if "ssh_private_key" in server_data and "ssh_public_key" in server_data:
                 private_key = str(server_data.pop("ssh_private_key", None))
                 public_key = str(server_data.pop("ssh_public_key", None))
                 server_data["ssh_private_key"] = private_key
