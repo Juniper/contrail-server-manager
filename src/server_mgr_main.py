@@ -1700,7 +1700,9 @@ class VncServerManager():
                 server_parameters = {}
             server_parameters['interface_name'] = mgmt_intf_name
             server['parameters'] = server_parameters
-
+            dhcp = mgmt_intf_obj['dhcp']
+            if not dhcp  and mgmt_intf_obj['d_gw'] is None:
+                raise ServerMgrException("For managment interface configured as static default gateway has to be specified", ERR_OPR_ERROR)
         else:
             print 'check'
             # check if old details are there else throw error
@@ -2950,8 +2952,7 @@ class VncServerManager():
                                 (self._args.listen_ip_addr, server_id)
 
                 _mandatory_reimage_params = {"server_password": "password",
-                            "server_gateway": "gateway","server_domain":"domain",
-                            "server_ifname" :"interface_name"}
+                            "server_domain":"domain", "server_ifname" :"interface_name"}
 
                 msg = ''
                 for k,v in _mandatory_reimage_params.items():
@@ -3054,7 +3055,8 @@ class VncServerManager():
                     bond_opts = intf.get('bond_options', {})
                     member_intfs = self.get_member_interfaces(network_dict,
                                                               intf.get('member_interfaces', []))
-                    if d_gw:
+                    #If bond interface is the management interface you need to set the gateway
+                    if ((mgmt_intf == name) and d_gw):
                         device_str+= ("python /root/interface_setup.py \
 --device %s --members %s --bond-opts \"%s\" --ip %s --gw %s\n") % \
                         (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr, d_gw)
@@ -3064,17 +3066,13 @@ class VncServerManager():
                         (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr)
                     execute_script = True
                 else:
-                    if 'mac_address' in intf:
+                    if 'name' not in intf and 'mac_address' in intf:
                         name = intf['mac_address'].lower()
                     if dhcp:
-                        if d_gw:
-                            device_str+= ("python /root/interface_setup.py --device %s --gw %s --dhcp\n") % \
-                                (name, d_gw)
-                        else:
-                            device_str+= ("python /root/interface_setup.py --device %s --dhcp\n") % \
-                                (name)
+                        device_str+= ("python /root/interface_setup.py --device %s --dhcp\n") %(name)
                     else:
-                        if d_gw:
+                        #For static managment interface pass the default gateway
+                        if (mgmt_intf == name) and d_gw:
                             device_str+= ("python /root/interface_setup.py --device %s --ip %s --gw %s\n") % \
                                (name, ip_addr, d_gw)
                         else:
@@ -3306,7 +3304,7 @@ class VncServerManager():
     def get_control_gateway(self, server):
         control_intf = eval(self.get_control_interface(server))
         for key, value in control_intf.iteritems():
-            if 'gateway' in value and len(value['gateway']):
+            if 'gateway' in value and value['gateway'] != 'None':
                 return str(IPNetwork(value['gateway']).ip)
         if 'gateway' in server and len(server['gateway']):
             return str(IPNetwork(server['gateway']).ip)
