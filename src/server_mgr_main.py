@@ -3443,6 +3443,7 @@ class VncServerManager():
             device_str = "#!/bin/bash\n"
             for intf in interface_list:
                 name = intf['name']
+                intf_name = name
                 ip_addr = intf.get('ip_address', None)
                 if ip_addr is None:
                     continue
@@ -3473,13 +3474,14 @@ class VncServerManager():
                         (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr)
                     execute_script = True
                 else:
-                    if 'name' not in intf and 'mac_address' in intf:
+                    #Take the mac_address as the name as the interface may be renamed after reboot
+                    if 'mac_address' in intf:
                         name = intf['mac_address'].lower()
                     if dhcp:
                         device_str+= ("python /root/interface_setup.py --device %s --dhcp\n") %(name)
                     else:
                         #For static managment interface pass the default gateway
-                        if (mgmt_intf == name) and d_gw:
+                        if (mgmt_intf == intf_name) and d_gw:
                             device_str+= ("python /root/interface_setup.py --device %s --ip %s --gw %s\n") % \
                                (name, ip_addr, d_gw)
                         else:
