@@ -3751,8 +3751,11 @@ class VncServerManager():
     def get_control_gateway(self, server):
         control_intf = eval(self.get_control_interface(server))
         for key, value in control_intf.iteritems():
-            if 'gateway' in value and value['gateway'] != 'None':
-                return str(IPNetwork(value['gateway']).ip)
+            if 'gateway' in value:
+                if value['gateway'].isspace() or not value['gateway'] or value['gateway'] == 'None':
+                    return ''
+                else:
+                    return str(IPNetwork(value['gateway']).ip)
         if 'gateway' in server and len(server['gateway']):
             return str(IPNetwork(server['gateway']).ip)
         else:
