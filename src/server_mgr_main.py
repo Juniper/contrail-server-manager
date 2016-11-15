@@ -3916,6 +3916,7 @@ class VncServerManager():
         sequence_steps = role_sequence.get('steps', [])
         if sequence_steps:
             role_steps_list = sequence_steps[0]
+
         for step_tuple in role_steps_list:
             server_host_name = step_tuple[0]
             servers = self._serverDb.get_server({'host_name': server_host_name}, detail=True)
@@ -3924,6 +3925,24 @@ class VncServerManager():
             server_id = servers[0]['id']
             hiera_file = self.get_server_control_hiera_filename(server_host_name)
             self._smgr_puppet.modify_server_hiera_data(server_host_name, hiera_file, [step_tuple])
+
+        # generate list of tuples based on hostnames
+        #input = [('a', '1'), ('a', '2'), ('b', '1'), ('b', '2')]
+        #output = {'a': [('a', '1'), ('a', '2')], 'b': [('b', '1'), ('b', '2')]}
+        cluster_host_steps = {}
+        if role_steps_list:
+            cluster_host_steps = dict((key[0], []) for key in role_steps_list)
+            for key in role_steps_list:
+                cluster_host_steps[key[0]].append(key)
+
+        #iterate over  following format
+        # {'a': [('a', '1'), ('a', '2')], 'b': [('b', '1'), ('b', '2')]}
+        for hostname in cluster_host_steps:
+            hiera_file = self.get_server_control_hiera_filename(hostname)
+            if not hiera_file:
+                return False
+            host_steps = cluster_host_steps[hostname]
+            self._smgr_puppet.modify_server_hiera_data(hostname, hiera_file, host_steps )
 
     def get_server_control_hiera_filename(self, server_hostname, cluster=None):
         hiera_filename = ''
@@ -4059,11 +4078,25 @@ class VncServerManager():
             provision_role_sequence['steps'].pop(0)
             if provision_role_sequence['steps']:
                 role_steps_list = provision_role_sequence['steps'][0]
-            for new_step_tuple in role_steps_list:
-                hiera_file = self.get_server_control_hiera_filename(new_step_tuple[0])
+
+            # generate list of tuples based on hostnames
+            #input = [('a', '1'), ('a', '2'), ('b', '1'), ('b', '2')]
+            #output = {'a': [('a', '1'), ('a', '2')], 'b': [('b', '1'), ('b', '2')]}
+            cluster_host_steps = {}
+            if role_steps_list:
+                cluster_host_steps = dict((key[0], []) for key in role_steps_list)
+                for key in role_steps_list:
+                    cluster_host_steps[key[0]].append(key)
+
+            #iterate over  following format
+            # {'a': [('a', '1'), ('a', '2')], 'b': [('b', '1'), ('b', '2')]}
+            for hostname in cluster_host_steps:
+                hiera_file = self.get_server_control_hiera_filename(hostname)
                 if not hiera_file:
                     return False
-                self._smgr_puppet.modify_server_hiera_data(new_step_tuple[0], hiera_file, [new_step_tuple])
+                host_steps = cluster_host_steps[hostname]
+                self._smgr_puppet.modify_server_hiera_data(hostname, hiera_file, host_steps )
+
         cluster_data = {'id': cluster_id, 'provision_role_sequence': provision_role_sequence}
         self._serverDb.modify_cluster(cluster_data)
         return True
