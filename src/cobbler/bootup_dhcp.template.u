@@ -21,7 +21,6 @@ host __$HOSTFQDN__ {
     fixed-address __$IPADDRESS__;
     option host-name "__$HOSTNAME__";
     filename "/pxelinux.0";
-    option ntp-servers __$NTP_SERVER_LIST__;
     next-server __$IPADDRESS__;
 }
 
