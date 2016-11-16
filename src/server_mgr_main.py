@@ -479,7 +479,12 @@ class VncServerManager():
         gevent.spawn(self._monitoring_base_plugin_obj.setup_keys, self._serverDb)
 
         #Generate the DHCP template for the SM host only such that cobbler works correctly
+        self._using_dhcp_management = False
         self._dhcp_template_obj = DHCPTemplateGenerator(self._serverDb)
+        dhcp_hosts = self._serverDb.get_dhcp_host()
+        dhcp_subnets = self._serverDb.get_dhcp_subnet()
+        if len(dhcp_hosts) > 1 and len(dhcp_subnets):
+            self._using_dhcp_management = True
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -1914,6 +1919,7 @@ class VncServerManager():
                         msg = "Keys missing from the config sent: " + str(list(set(self._dhcp_host_key_list)-set(dhcp_host.keys()))) + "\n"
                         self.log_and_raise_exception(msg)
             stanza = self._dhcp_template_obj.generate_dhcp_template()
+            self._using_dhcp_management = True
             # Sync the above information
             if self._smgr_cobbler:
                 self._smgr_cobbler.sync()
@@ -1970,6 +1976,7 @@ class VncServerManager():
                         msg = "Keys missing from the config sent: " + str(set(self._dhcp_subnet_key_list)) + " " + str(set(dhcp_subnet.keys())) + "\n"
                         self.log_and_raise_exception(msg)
             stanza = self._dhcp_template_obj.generate_dhcp_template()
+            self._using_dhcp_management = True
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
@@ -3241,8 +3248,8 @@ class VncServerManager():
                 if cluster and cluster[0]['parameters']:
                     cluster_parameters = eval(cluster[0]['parameters'])
 
-                if 'ip_address' in server and server['ip_address']:
-                    if server['ip_address'] not in valid_dhcp_ip_list:
+                if 'ip_address' in server and server['ip_address'] and self._using_dhcp_management:
+                    if str(server['ip_address']) not in valid_dhcp_ip_list:
                         msg = "The server with id %s cannot be reimaged. \
                                There is no cobbler DHCP configuration for the ip address of this server \
                                : %s" % (server['id'], server['ip_address'])
@@ -3764,11 +3771,12 @@ class VncServerManager():
         dhcp_ips = []
         db_dhcp_hosts = self._serverDb.get_dhcp_host()
         for host in db_dhcp_hosts:
-            dhcp_ips.append(host['ip_address'])
+            dhcp_ips.append(str(host['ip_address']))
         db_dhcp_subnets = self._serverDb.get_dhcp_subnet()
         for subnet in db_dhcp_subnets:
             subnet_cidr = self._serverDb.get_cidr(subnet['subnet_address'], subnet['subnet_mask'])
-            dhcp_ips.append(IPNetwork(str(subnet_cidr)))
+            subnet_ip_list = [str(x) for x in IPNetwork(str(subnet_cidr))]
+            dhcp_ips+=subnet_ip_list
         return set(dhcp_ips)
 
     # Function to get map server name to server ip
