@@ -197,11 +197,22 @@ class ServerMgrValidations:
     #Function to get the vips defined for a cluster
     def get_vips_in_cluster(self,cluster):
         cluster_params = eval(cluster['parameters'])
-        internal_vip = cluster_params.get('internal_vip')
-        external_vip = cluster_params.get('external_vip')
-        contrail_internal_vip = cluster_params.get('contrail_internal_vip')
-        contrail_external_vip = cluster_params.get('contrail_external_vip')
-        return (internal_vip, external_vip, contrail_internal_vip, contrail_external_vip) 
+        cluster_provision_params = cluster_params.get("provision", {})
+        if cluster_provision_params:
+            openstack_params = cluster_provision_params.get("openstack", {})
+            ha_params = openstack_params.get("ha", {})
+            internal_vip = ha_params.get('internal_vip', None)
+            external_vip = ha_params.get('external_vip', None)
+            contrail_params = cluster_provision_params.get("contrail", {})
+            contrail_ha_params = contrail_params.get("ha", {})
+            contrail_internal_vip = contrail_ha_params.get('contrail_internal_vip', None)
+            contrail_external_vip = contrail_ha_params.get('contrail_external_vip', None)
+        else:
+            internal_vip = cluster_params.get('internal_vip', None)
+            external_vip = cluster_params.get('external_vip', None)
+            contrail_internal_vip = cluster_params.get('contrail_internal_vip', None)
+            contrail_external_vip = cluster_params.get('contrail_external_vip', None)
+        return (internal_vip, external_vip, contrail_internal_vip, contrail_external_vip)
 
     # Function to validate ext lb params
     def validate_external_lb_params(self, cluster):
