@@ -487,13 +487,11 @@ class VncServerManager():
         bottle.route('/chassis-id', 'GET', self.get_server_chassis_id)
         bottle.route('/tag', 'GET', self.get_server_tags)
         bottle.route('/columns', 'GET', self.get_table_columns)
-        if self._server_monitoring_obj:
-            bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
-            bottle.route('/MonitorInfo', 'GET', self._server_monitoring_obj.get_monitoring_info)
-            bottle.route('/MonitorInfoSummary', 'GET', self._server_monitoring_obj.get_monitoring_info_summary)
-        if self._server_inventory_obj:
-            bottle.route('/InventoryConf', 'GET', self._server_inventory_obj.get_inv_conf_details)
-            bottle.route('/InventoryInfo', 'GET', self._server_inventory_obj.get_inventory_info)
+        bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
+        bottle.route('/MonitorInfo', 'GET', self._server_monitoring_obj.get_monitoring_info)
+        bottle.route('/MonitorInfoSummary', 'GET', self._server_monitoring_obj.get_monitoring_info_summary)
+        bottle.route('/InventoryConf', 'GET', self._server_inventory_obj.get_inv_conf_details)
+        bottle.route('/InventoryInfo', 'GET', self._server_inventory_obj.get_inventory_info)
         bottle.route('/defaults', 'GET', self.get_defaults)
 
         #bottle.route('/logs/<filepath:path>', 'GET', self.get_defaults)
@@ -570,8 +568,7 @@ class VncServerManager():
             bottle.route('/dhcp_event', 'POST', self.process_dhcp_event)
         bottle.route('/server/provision', 'POST', self.provision_server)
         bottle.route('/interface_created', 'POST', self.interface_created)
-     	if self._server_inventory_obj:
-            bottle.route('/run_inventory', 'POST', self._server_inventory_obj.run_inventory)
+        bottle.route('/run_inventory', 'POST', self._server_inventory_obj.run_inventory)
 
     def get_pipe_start_app(self):
         return self._pipe_start_app
@@ -2565,8 +2562,7 @@ class VncServerManager():
             if self._smgr_cobbler:
                 self._smgr_cobbler.sync()
             # Inventory Delete Info Trigger
-            if self._server_inventory_obj:
-                gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "delete", servers)
+            gevent.spawn(self._server_inventory_obj.handle_inventory_trigger, "delete", servers)
             self._smgr_certs.delete_server_cert(server)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -4382,8 +4378,7 @@ class VncServerManager():
     # TBD
     def cleanup(self):
         print "called cleanup"
-        if self._server_monitoring_obj:
-            self._server_monitoring_obj.cleanup(self._monitoring_base_plugin_obj.monitoring_gevent_thread_obj)
+        self._server_monitoring_obj.cleanup(self._monitoring_base_plugin_obj.monitoring_gevent_thread_obj)
 
     # end cleanup
 
@@ -4498,14 +4493,13 @@ class VncServerManager():
                 "Name of JSON file containing list of cluster and servers,"
                 " default None"))
         self._args = parser.parse_args(remaining_argv)
-        self._server_monitoring_obj = None 
-        self._server_inventory_obj = None 
         self._monitoring_base_plugin_obj = ServerMgrMonBasePlugin()
+        self._server_monitoring_obj = self._monitoring_base_plugin_obj
+        self._server_inventory_obj = self._monitoring_base_plugin_obj
         if self._is_monitoring_enabled(self._args.monitoring):
             self._server_monitoring_obj = \
                 self._monitoring_base_plugin_obj.parse_monitoring_args(args_str, args, self._args, self._rev_tags_dict,
                                                                        self._monitoring_base_plugin_obj)
-        if self._is_monitoring_enabled(self._args.monitoring):
             self._server_inventory_obj = \
                 self._monitoring_base_plugin_obj.parse_inventory_args(args_str, args, self._args, self._rev_tags_dict,
                                                                       self._monitoring_base_plugin_obj)
