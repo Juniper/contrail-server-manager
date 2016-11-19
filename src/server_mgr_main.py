@@ -4645,9 +4645,13 @@ class VncServerManager():
                           '/etc/nova/nova.conf', 'url', section = "neutron")
             m = re.search('[0-9]+(?:\.[0-9]+){3}', neutron_url)
             neutron_ip = m.group()
+            old_rabbit_server_str = self.issu_obj.get_set_config_parameters(
+                                            ssh_hndl, '/etc/nova/nova.conf',
+                                        'rabbit_hosts', section = "DEFAULT")
+            old_rabbit_server = old_rabbit_server_str.strip()
             ssh_hndl.close()
             openstack_params['nova'] = {
-                'rabbit_hosts' : self.issu_obj.old_rabbit_server,
+                'rabbit_hosts' : old_rabbit_server,
                 'neutron_ip' : neutron_ip
             }
         openstack_params['mysql'] = {
