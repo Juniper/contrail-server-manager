@@ -208,8 +208,8 @@ class ServerMgrDb:
           self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], host_name))
           if host_name is None or host_name == "":
               server['host_name'] = server_id
-              self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], host_name))
-              update = {'id': server_id, 'host_name': host_name}
+              self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], server['host_name']))
+              update = {'id': server_id, 'host_name': server['host_name'] }
               self.modify_server(update)
 
     ## End of update_server_table
