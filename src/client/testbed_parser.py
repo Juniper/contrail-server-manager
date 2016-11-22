@@ -145,6 +145,7 @@ class Host(object):
         self.host_id = '%s@%s' % (username, ip)
         self.timeout = kwargs.get('timeout', 5)
         self.dpdk_config = {}
+        self.qos = None
 
     def __del__(self):
         log.info('Disconnecting...')
@@ -339,6 +340,10 @@ class Host(object):
         log.debug('Set vgw (%s) for host ID (%s)' % (configs, self.host_id))
         self.vgw = configs
 
+    def set_qos_configs(self,configs):
+        log.debug('Set qos config (%s) for host ID (%s)' % (configs, self.host_id))
+        self.qos = configs
+
     def set_bond_info(self, bond_info):
         log.debug('Set bond (%s) for host ID (%s)' % (bond_info, self.host_id))
         self.bond = bond_info
@@ -471,6 +476,7 @@ class TestSetup(Testbed):
         #self.update_host_static_route()
         #self.update_host_vrouter_params()
         self.update_hosts_dpdk_info()
+        self.update_qos_configs()
 
     def import_testbed_variables(self):
         for key, value in self.testbed.__dict__.items():
@@ -571,6 +577,11 @@ class TestSetup(Testbed):
     def update_virtual_gateway(self):
         for host_id, config in self.vgw.items():
             self.hosts[host_id].set_virtual_gateway(config)
+
+    @is_defined('qos')
+    def update_qos_configs(self):
+        for host_id, config in self.qos.items():
+            self.hosts[host_id].set_qos_configs(config)
 
     @is_defined('tor_agent')
     def update_tor_agent_info(self):
@@ -810,6 +821,19 @@ class ServerJsonGenerator(BaseJsonGenerator):
             server_dict['parameters']['provision']['contrail']['compute']['dpdk']['core_mask'] = hostobj.dpdk_config['coremask']
         return server_dict
 
+    def update_qos_info(self, server_dict, hostobj):
+        if hostobj.qos and isinstance(hostobj.qos,list):
+            if len(hostobj.qos):
+                qos_config = {}
+                for nic_config in hostobj.qos:
+                    if isinstance(nic_config,dict) and "hardware_q_id" in nic_config:
+                        nic_qos_config = nic_config
+                        qos_config[nic_config["hardware_q_id"]] = nic_qos_config
+                        qos_config[nic_config["hardware_q_id"]].pop("hardware_q_id")
+                qos_config["literal"] = True
+                server_dict['parameters']['provision']['contrail']['qos'] = qos_config
+        return server_dict
+
     def update(self):
         for host_id in self.testsetup.hosts:
             hostobj = self.testsetup.hosts[host_id]
@@ -817,6 +841,7 @@ class ServerJsonGenerator(BaseJsonGenerator):
             server_dict = self.update_network_details(server_dict, hostobj)
             server_dict = self.update_parameters_info(server_dict, hostobj)
             server_dict = self.update_dpdk_info(server_dict, hostobj)
+            server_dict = self.update_qos_info(server_dict, hostobj)
             self.dict_data['server'].append(server_dict)
 
     def generate_json_file(self):
