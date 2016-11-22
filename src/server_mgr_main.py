@@ -4404,12 +4404,23 @@ class VncServerManager():
       hostnames_root['literal'] = True
       hostnames = {}
       for server in cluster_servers:
+        #domain could be empty as well.
+        domain = self.get_server_domain(server)
         hostname=server['host_name']
+        if domain != '' :
+            fqdn = hostname + "."+  domain
+        else:
+            fqdn = hostname
+
         ip_address = self.get_control_ip(server)
-        hostnames[hostname] = {}
-        hostnames[hostname]['name'] = server['host_name']
-        hostnames[hostname]['host_aliases'] = server['host_name'] + "ctrl"
-        hostnames[hostname]['ip'] = ip_address
+        hostnames[fqdn] = {}
+        hostnames[fqdn]['name'] = fqdn
+        alias_list = set()
+        #alias_list.add(fqdn)
+        alias_list.add(hostname)
+        alias_list.add(hostname + "ctrl")
+        hostnames[fqdn]['host_aliases'] = list(alias_list)
+        hostnames[fqdn]['ip'] = ip_address
 
       hostnames_root['hostnames']=hostnames
       return hostnames_root
