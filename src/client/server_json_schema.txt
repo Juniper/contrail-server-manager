@@ -77,6 +77,32 @@
                           }
                         }
                       },
+                      "qos": {
+                        "type": "object",
+                        "title": "QoS NIC queue schema",
+                        "description": "The QoS config for a particular NIC",
+                        "properties": {
+                          "<hardware_queue_id>": {
+                            "type": "object",
+                            "properties": {
+                              "default": {
+                                "type": "boolean"
+                              },
+                              "logical_queue": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "scheduling": {
+                                "type": "string"
+                              },
+                              "bandwidth": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                      },
                       "storage": {
                         "type": "object",
                         "title": "Storage schema.",
