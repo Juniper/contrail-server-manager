@@ -2469,8 +2469,7 @@ class VncServerManager():
                 #TODO Raise an exception here
                 self._smgr_log.log(self._smgr_log.ERROR, "Invalid image type")
                 msg = "invalid image type"
-                resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
-                abort(404, resp_msg)
+                raise ServerMgrException(msg)
 
             self._mount_and_copy_iso(dest, copy_path, distro_name,
                                      kernel_file, initrd_file, image_type)
@@ -2489,11 +2488,12 @@ class VncServerManager():
             # Sync the above information
             self._smgr_cobbler.sync()
             return kickstart, kickseed
+        except ServerMgrException as e:
+            self._smgr_log.log(self._smgr_log.ERROR, "Error adding image to cobbler %s" % repr(e))
+            raise
         except Exception as e:
             self._smgr_log.log(self._smgr_log.ERROR, "Error adding image to cobbler %s" % repr(e))
-            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
-                                                                            None)
-            abort(404, resp_msg)
+            raise ServerMgrException(repr(e))
     # End of _add_image_to_cobbler
 
     # API call to delete a cluster from server manager config. Along with
