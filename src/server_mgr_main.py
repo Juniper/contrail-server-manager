@@ -2734,13 +2734,13 @@ class VncServerManager():
                 initrd_file = (
                     "/install/netboot/ubuntu-installer/amd64/initrd.gz")
                 if not ks_file:
-                    ubuntu_ks_file = 'kickstarts/contrail-ubuntu.ks'
+                    ubuntu_ks_file = 'kickstarts/contrail-ubuntu_trusty.ks'
                     kickstart = self._args.html_root_dir + ubuntu_ks_file
                 else:
                     ubuntu_ks_file = 'contrail/images/' + ks_file.split('/').pop()
                 if not kseed_file:
                     ks_file = self._args.html_root_dir + \
-                        "kickstarts/contrail-ubuntu.seed"
+                        "kickstarts/contrail-ubuntu_trusty.seed"
                     kickseed = ks_file
                 else:
                     ks_file = kseed_file
