@@ -18,6 +18,30 @@
                             "storage_repo_id": "",
                             "storage_osd_disks": [],
                             "storage_chassis_id":""
+                        },
+                        "qos": {
+                            "literal" : true,
+                            "3" : {
+                                "logical_queue": ["1", "6-10", "12-15"],
+                                "scheduling": "strict",
+                                "bandwidth": "70"
+                            },
+                            "5" : {
+                                "logical_queue": ["2"],
+                                "scheduling": "rr",
+                                "bandwidth": "75"
+                            },
+                            "8" : {
+                                "logical_queue": ["3-5"],
+                                "scheduling": "rr",
+                                "bandwidth": "75"
+                            },
+                            "1" : {
+                                "default": true,
+                                "logical_queue": ["7"],
+                                "scheduling": "strict",
+                                "bandwidth": "60"
+                            }
                         }
                     }
                 }
