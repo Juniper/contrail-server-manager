@@ -404,8 +404,13 @@ class SmgrIssuClass(VncServerManager):
                   "ISSU: BGP peering between two cluster is configured")
         # disable all but contrail-api, discovery and ifmap on new cluster CFGM
         cmd = 'openstack-config --set /etc/contrail/supervisord_config.conf include files "/etc/contrail/supervisord_config_files/contrail-api.ini  /etc/contrail/supervisord_config_files/contrail-discovery.ini /etc/contrail/supervisord_config_files/ifmap.ini"'
-        self.ssh_new_config.exec_command(cmd)
-        self.ssh_new_config.exec_command("service supervisor-config restart")
+        for each in self.new_config_ip_list:
+            ssh_handl = paramiko.SSHClient()
+            ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh_handl.connect(each[0], username = each[1], password = each[2])
+            self.ssh_handl.exec_command(cmd)
+            self.ssh_handl.exec_command("service supervisor-config restart")
+            self.ssh_handl.close()
 
         # stop haproxy on the openstack node
         # ssh_new_config.exec_command("service haproxy stop")
@@ -642,13 +647,6 @@ class SmgrIssuClass(VncServerManager):
                           "ISSU-Finalize: Re-enabled config services" \
                           " for %s" %self.new_cluster)
 
-        # issu_contrail_migrate_nb
-        for each in self.openstack_ip_list:
-            ssh_handl = paramiko.SSHClient()
-            ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh_handl.connect(each[0], username = each[1], password = each[2])
-            ssh_handl.close()
-
         admin_user = "admin"
         admin_password = self.old_cluster_params['provision']['openstack']\
                                             ['keystone']['admin_password']
@@ -733,6 +731,22 @@ class SmgrIssuClass(VncServerManager):
                           "ISSU-Finalize: Completed ISSU finalize" \
                           " for cluster %s" %self.new_cluster)
 
+        # disable issu task
+        cmd = "openstack-config --del %s program:contrail-issu" %(
+                                               self.issu_svc_file)
+        ssh_issu_task_master.exec_command(cmd)
+        ssh_issu_task_master.exec_command("service supervisor restart")
+ 
+        # bring back all cfgm services previously disabled
+        cmd = "openstack-config --del /etc/contrail/supervisord_config.conf include files"
+        for each in self.new_config_ip_list:
+            ssh_handl = paramiko.SSHClient()
+            ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh_handl.connect(each[0], username = each[1], password = each[2])
+            self.ssh_handl.exec_command(cmd)
+            self.ssh_handl.exec_command("service supervisor-config restart")
+            self.ssh_handl.close()
+        ssh_issu_task_master.close()
         # end _do_finalize_issu
 
     def _do_rollback_compute(self):
