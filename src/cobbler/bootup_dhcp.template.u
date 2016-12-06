@@ -16,12 +16,47 @@ allow bootp;
 ignore client-updates;
 set vendorclass = option vendor-class-identifier;
 
-host __$HOSTFQDN__ {
-    hardware ethernet __$MACADDRESS__;
-    fixed-address __$IPADDRESS__;
-    option host-name "__$HOSTNAME__";
-    filename "/pxelinux.0";
-    next-server __$IPADDRESS__;
+subnet __$SUBNETADDRESS__ netmask __$SUBNETMASK__ {
+    option routers              __$IPADDRESS__;
+    option subnet-mask          __$SUBNETMASK__;
+    option domain-name-servers  __$IPADDRESS__;
+    option domain-search        "__$DOMAIN__";
+    option domain-name          "__$DOMAIN__";
+    option ntp-servers          $next_server;
+    default-lease-time          21600;
+    max-lease-time              43200;
+    next-server                 $next_server;
+    filename                    "/pxelinux.0";
+     on commit {
+         set clip = binary-to-ascii(10, 8, ".", leased-address);
+         set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "commit", clip, clhw);
+         set ClientHost = pick-first-value(host-decl-name,
+                                           option fqdn.hostname,
+                                          option host-name,
+                                           "none");
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "commit", clip, clhw, ClientHost);
+     }
+     on release {
+         set clip = binary-to-ascii(10, 8, ".", leased-address);
+         set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "release", clip, clhw);
+         set ClientHost = pick-first-value(host-decl-name,
+                                           option fqdn.hostname,
+                                           option host-name,
+                                           "none");
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "release", clip, clhw, ClientHost);
+     }
+     on expiry {
+         set clip = binary-to-ascii(10, 8, ".", leased-address);
+         set clhw = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw);
+         set ClientHost = pick-first-value(host-decl-name,
+                                           option fqdn.hostname,
+                                           option host-name,
+                                           "none");
+         execute("/opt/contrail/server_manager/smgr_dhcp_event.py", "expiry", clip, clhw, ClientHost);
+     }
 }
 
 #for dhcp_tag in $dhcp_tags.keys():
