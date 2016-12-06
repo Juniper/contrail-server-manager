@@ -139,23 +139,31 @@ _DEF_SMGR_MAC = '__$MACADDRESS__'
 _DEF_SMGR_FQDN = '__$HOSTFQDN__'
 _DEF_SMGR_HOST_NAME = '__$HOSTNAME__'
 
-smgr_host_config = {
-    "ip_address": _DEF_SMGR_IP,
-    "mac_address": _DEF_SMGR_MAC,
-    "host_fqdn": _DEF_SMGR_FQDN,
-    "host_name": _DEF_SMGR_HOST_NAME
+_DEF_SMGR_SUBNET_ADDRESS = '__$SUBNETADDRESS__'
+_DEF_SMGR_SUBNET_MASK = '__$SUBNETMASK__'
+_DEF_SMGR_DOMAIN = '__$DOMAIN__'
+
+smgr_subnet_config = {
+    "subnet_address": _DEF_SMGR_SUBNET_ADDRESS,
+    "subnet_mask": _DEF_SMGR_SUBNET_MASK,
+    "subnet_gateway": _DEF_SMGR_IP,
+    "subnet_domain": _DEF_SMGR_DOMAIN,
+    "dns_server_list": [_DEF_SMGR_IP],
+    "search_domains_list": [_DEF_SMGR_DOMAIN],
+    "default_lease_time": 21600,
+    "max_lease_time": 43200
 }
 
 class DHCPTemplateGenerator:
 
     def __init__(self, server_db, smgr_config=None):
         ''' Constructor '''
-        self._serverDb = None
+        self._serverDb = server_db
         if smgr_config and isinstance(smgr_config,dict):
             for k in smgr_config.keys():
                 smgr_host_config[k] = smgr_config[k]
-        self._serverDb = server_db
-        self._serverDb.add_dhcp_host(smgr_host_config)
+            self._serverDb.add_dhcp_host(smgr_host_config)
+        self._serverDb.add_dhcp_subnet(smgr_subnet_config)
 
     def get_subnet_stanza(self):
         subnets_stanza = ""
