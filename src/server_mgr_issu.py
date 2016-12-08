@@ -567,6 +567,10 @@ class SmgrIssuClass(VncServerManager):
         # remove BGP peering and finalize issu
 
     # end _do_issu
+    def _execute_cmd(self, handl, cmd):
+        i, o, err = handl.exec_command(cmd)
+        o.read()
+        err.read()
 
     def _do_finalize_issu(self):
         ''' This is called from backend to finalize issu'''
@@ -662,7 +666,7 @@ class SmgrIssuClass(VncServerManager):
             cmd += " --host_name %s" %server['host_name']
             cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
             cmd += " --oper del %s" %mt_opts
-            ssh_issu_task_master.exec_command(cmd)
+            self._execute_cmd(ssh_issu_task_master, cmd)
 
         # execute('issu_prune_old_collector')
         for server in self.old_collector_list:
@@ -672,7 +676,7 @@ class SmgrIssuClass(VncServerManager):
             cmd += " --host_name %s" %server['host_name']
             cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
             cmd += " --oper del %s" %mt_opts
-            ssh_issu_task_master.exec_command(cmd)
+            self._execute_cmd(ssh_issu_task_master, cmd)
 
         # execute('issu_prune_old_control')
         for server in self.old_control_list:
@@ -684,7 +688,7 @@ class SmgrIssuClass(VncServerManager):
             cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
             cmd += " --router_asn %s" %self.old_router_asn
             cmd += " --oper del %s" %mt_opts
-            ssh_issu_task_master.exec_command(cmd)
+            self._execute_cmd(ssh_issu_task_master, cmd)
 
         # execute('issu_prune_old_database')
         for server in self.old_database_list:
@@ -694,7 +698,7 @@ class SmgrIssuClass(VncServerManager):
             cmd += " --host_name %s" %server['host_name']
             cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
             cmd += " --oper del %s" %mt_opts
-            ssh_issu_task_master.exec_command(cmd)
+            self._execute_cmd(ssh_issu_task_master, cmd)
         self._smgr_log.log(self._smgr_log.DEBUG,
                           "ISSU-Finalize: Pruned old controller nodes" \
                           " for cluster %s" %self.new_cluster)
@@ -707,7 +711,7 @@ class SmgrIssuClass(VncServerManager):
             cmd += " --host_name %s" %server['host_name']
             cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
             cmd += " --oper add %s" %mt_opts
-            ssh_issu_task_master.exec_command(cmd)
+            self._execute_cmd(ssh_issu_task_master, cmd)
 
         # execute('issu_prov_collector')
         for server in self.new_collector_list:
@@ -717,7 +721,7 @@ class SmgrIssuClass(VncServerManager):
             cmd += " --host_name %s" %server['host_name']
             cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
             cmd += " --oper add %s" %mt_opts
-            ssh_issu_task_master.exec_command(cmd)
+            self._execute_cmd(ssh_issu_task_master, cmd)
 
         # execute('issu_prov_database')
         for server in self.new_database_list:
@@ -727,26 +731,24 @@ class SmgrIssuClass(VncServerManager):
             cmd += " --host_name %s" %server['host_name']
             cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
             cmd += " --oper add %s" %mt_opts
-            ssh_issu_task_master.exec_command(cmd)
-        self._smgr_log.log(self._smgr_log.DEBUG,
-                          "ISSU-Finalize: Completed ISSU finalize" \
-                          " for cluster %s" %self.new_cluster)
+            self._execute_cmd(ssh_issu_task_master, cmd)
 
         # disable issu task
         cmd = "openstack-config --del %s program:contrail-issu" %(
                                                self.issu_svc_file)
-        ssh_issu_task_master.exec_command(cmd)
-        ssh_issu_task_master.exec_command("service supervisor restart")
+        self._execute_cmd(ssh_issu_task_master, cmd)
+        self._execute_cmd(ssh_issu_task_master, "service supervisor restart")
  
         # bring back all cfgm services previously disabled
-        cmd = "openstack-config --del /etc/contrail/supervisord_config.conf include files"
+        cmd = "openstack-config --del /etc/contrail/supervisord_config.conf"
+        cmd = cmd + " include files /etc/contrail/supervisord_config_files/*.ini"
         for each in self.new_config_ip_list:
             ssh_handl = paramiko.SSHClient()
             ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh_handl.connect(each[0], username = each[1], password = each[2])
-            self.ssh_handl.exec_command(cmd)
-            self.ssh_handl.exec_command("service supervisor-config restart")
-            self.ssh_handl.close()
+            ssh_handl.exec_command(cmd)
+            ssh_handl.exec_command("service supervisor-config restart")
+            ssh_handl.close()
         ssh_issu_task_master.close()
 
         # set issu finalize complete flag
@@ -758,6 +760,10 @@ class SmgrIssuClass(VncServerManager):
                            }
                        }
         self._serverDb.modify_cluster(cluster_data)
+
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                          "ISSU-Finalize: Completed ISSU finalize" \
+                          " for cluster %s" %self.new_cluster)
 
         # end _do_finalize_issu
 
