@@ -410,7 +410,7 @@ class SmgrIssuClass(VncServerManager):
             ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh_handl.connect(each[0], username = each[1], password = each[2])
             ssh_handl.exec_command(cmd)
-            ssh_handl.exec_command("service supervisor-config restart")
+            ssh_handl.exec_command("service supervisor-config stop")
             ssh_handl.close()
 
         # stop haproxy on the openstack node
