@@ -184,7 +184,7 @@ class ServerMgrValidations:
         for server in servers:
             roles_list = server['roles']
             #Check if the server has both config and openstack role assigned to it
-            if 'config' and 'openstack' in roles_list:
+            if 'config' in roles_list and 'openstack' in roles_list:
                 openstack_config_list.append(server)
             #Check if the server has config role assigned to it
             elif 'config' in roles_list:
