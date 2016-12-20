@@ -25,6 +25,10 @@ DAEMON_ARGS="-c /opt/contrail/server_manager/sm-config.ini"
 PIDFILE=/var/run/contrail-server-manager/contrail-server-manager.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
+NAME_ANSIBLE=contrail-server-manager-ansible
+DAEMON_ANSIBLE=/usr/sbin/$NAME_ANSIBLE
+PIDFILE_ANSIBLE=/var/run/contrail-server-manager/contrail-server-manager-ansible.pid
+
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0
 
@@ -56,7 +60,11 @@ do_start()
 #	[ "$RETVAL" = 2 ] && return 2
 	start-stop-daemon --status -v -p $PIDFILE
   	RETVAL="$?"
-        [ "$RETVAL" = 0 ] && return 0
+
+    start-stop-daemon --start -v --pidfile $PIDFILE_ANSIBLE --exec \
+        $DAEMON_ANSIBLE  -- $DAEMON_ARGS
+    RETVAL_ANSIBLE="$?"
+    [ "$RETVAL" = 0 ] && [ "$RETVAL_ANSIBLE" = 0 ] && return 0
 	# Add code here, if necessary, that waits for the process to be ready
 	# to handle requests from services started subsequently which depend
 	# on this one.  As a last resort, sleep for some time.
@@ -82,9 +90,16 @@ do_stop()
 	# needed by services started subsequently.  A last resort is to
 	# sleep for some time.
 
+	start-stop-daemon --stop -v --retry=TERM/30/KILL/5 --pidfile $PIDFILE_ANSIBLE
+    RETVAL_ANSIBLE="$?"
 	# Many daemons don't delete their pidfiles when they exit.
-	rm -f $PIDFILE
-	return "$RETVAL"
+	rm -f $PIDFILE_ANSIBLE
+    if [ "$RETVAL" = 0 ] && [ "$RETVAL_ANSIBLE" = 0 ]; then
+        RETVAL1=0
+    elif [ "$RETVAL" = 2 ] || [ "$RETVAL_ANSIBLE" = 2 ]; then
+        RETVAL1=2
+    fi
+    return $RETVAL1
 }
 
 #
@@ -127,7 +142,14 @@ case "$1" in
                 echo "contrail-server-manager is not running!"
         fi
 
-       ;;
+	start-stop-daemon --status -p $PIDFILE_ANSIBLE
+    if [ "$RETVAL" = 0 ]; then
+        echo "contrail-server-manager-ansible is running!"
+	else
+        echo "contrail-server-manager-ansible is not running!"
+    fi
+    ;;
+
   #reload|force-reload)
 	#
 	# If do_reload() is not implemented then leave this commented out

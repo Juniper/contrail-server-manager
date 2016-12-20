@@ -195,6 +195,11 @@ class SmgrClientUtils():
                     if rest_api_params["match_key"] and rest_api_params["match_value"]:
                         args_str += urllib.quote_plus(rest_api_params["match_key"]) + "=" + \
                                     urllib.quote_plus(rest_api_params["match_value"])
+                    if rest_api_params["object"] == "log" and \
+                            rest_api_params["file_key"]:
+                        args_str += "&" + \
+                        urllib.quote_plus(rest_api_params["file_key"]) + \
+                        "=" + urllib.quote_plus(rest_api_params["file_value"])
 
                 elif obj:
                     url = "http://%s:%s/%s" % (ip, port, obj)
