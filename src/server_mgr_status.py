@@ -74,6 +74,8 @@ class ServerMgrStatusThread(threading.Thread):
         status_bottle_app = Bottle()
         status_bottle_app.route('/server_status', 'POST', self.put_server_status)
         status_bottle_app.route('/server_status', 'PUT', self.put_server_status)
+        status_bottle_app.route('/ansible_status', 'PUT',
+                self.put_ansible_status)
         self._base_obj = self._status_thread_config['base_obj']
 
         try:
@@ -93,6 +95,28 @@ class ServerMgrStatusThread(threading.Thread):
                 return False
         return True
     # end check_issu_cluster_status
+
+    def put_ansible_status(self):
+        #pdb.set_trace()
+        server_hostname= request.query['server_id']
+        server_state = request.query['state']
+        server_data = {}
+        try:
+            result = parse_qs(request.query_string)
+            server_data['status'] = str(result['state'][0])
+            test_servers = self._status_serverDb.get_server({"host_name" : server_hostname}, detail=True)
+            server_id = test_servers[0]['id']
+            server_data['id'] = server_id
+            time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
+            message = server_id + ' ' + server_state + ' ' + time_str
+            self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % message)
+            servers = self._status_serverDb.modify_server( server_data)
+        except Exception as e:
+            #self.log_trace()
+            self._smgr_log.log(self._smgr_log.ERROR, 
+                               "HOST: %s Error modifying server db %s" %
+                               (server_hostname, repr(e)))
+            abort(404, repr(e))
 
     def put_server_status(self):
         print "put-status"
