@@ -157,13 +157,6 @@ def parse_arguments():
                            help=("sql where statement in quotation marks"))
     parser_monitoring.set_defaults(func=mon_querying_obj.show_mon_details)
 
-    # Subparser for logs show
-    parser_logs = subparsers.add_parser("logs", help='Show logs from server')
-    #log_group   = parser_logs.add_mutually_exclusive_group()
-    parser_logs.add_argument("--server_id", help=("server id for server"))
-    parser_logs.add_argument("--file_name", help=("log file on the server"))
-    parser_logs.set_defaults(func=show_log)
-
     return parser
 # end def parse_arguments
 
@@ -179,11 +172,6 @@ def send_REST_request(ip, port, rest_api_params, detail):
         if rest_api_params["match_key"]:
             args_str += urllib.quote_plus(rest_api_params["match_key"]) + "=" \
                 + urllib.quote_plus(rest_api_params["match_value"])
-
-        if rest_api_params['object'] == 'log' and rest_api_params["file_key"]:
-            args_str += "&" + urllib.quote_plus(rest_api_params["file_key"]) + "=" \
-                + urllib.quote_plus(rest_api_params["file_value"])
-
 	if 'show_passwords' in rest_api_params:
             args_str += "&show_pass=true"
         if detail:
@@ -297,28 +285,6 @@ def show_tag(args):
     return rest_api_params
 #end def show_all
 
-def show_log(args):
-    match_key   = None
-    match_value = None
-    file_value  = None
-    file_key    = None
-    if args.server_id:
-        match_key = 'id'
-        match_value = args.server_id
-    if args.file_name:
-        file_key = 'file'
-        file_value = args.file_name
-
-    rest_api_params = {
-        'object' : 'log',
-        'match_key' : match_key,
-        'match_value' : match_value,
-        'file_key' : file_key,
-        'file_value' : file_value,
-        'select' : None
-    }
-    return rest_api_params
-#end def show_log
 
 def show_config(args_str=None):
     parser = parse_arguments()

@@ -218,20 +218,13 @@ class Show(Command):
         parser_columns.set_defaults(which='columns')
         self.command_dictionary["columns"] = ['table']
 
-        #Subparser for logs show
-        parser_logs = subparsers.add_parser("logs", help='Show logs from server')
-        parser_logs.add_argument("--server_id", help=("server id for server"))
-        parser_logs.add_argument("--file_name", help=("log file on the server"))
-        parser_logs.set_defaults(which='logs')
-        self.command_dictionary["logs"] = ['server_id', 'file_name']
-
         for key in self.command_dictionary:
             new_dict = dict()
             new_dict[key] = [str("--" + s) for s in self.command_dictionary[key] if len(s) > 1]
             new_dict[key] += [str("-" + s) for s in self.command_dictionary[key] if len(s) == 1]
             new_dict[key] += ['-h', '--help', '--json']
             self.command_dictionary[key] = new_dict[key]
-        
+
         return parser
 
     def show_image(self, parsed_args):
@@ -367,29 +360,6 @@ class Show(Command):
 
     # end def show_columns
 
-    def show_log(self, args):
-        match_key   = None
-        match_value = None
-        file_value  = None
-        file_key    = None
-        if args.server_id:
-            match_key = 'id'
-            match_value = args.server_id
-        if args.file_name:
-            file_key = 'file'
-            file_value = args.file_name
- 
-        rest_api_params = {
-            'object' : 'log',
-            'match_key' : match_key,
-            'match_value' : match_value,
-            'file_key' : file_key,
-            'file_value' : file_value,
-            'select' : None
-        }
-        return rest_api_params
-    #end def show_log
-
     def take_action(self, parsed_args):
         detail = getattr(parsed_args, 'detail', None)
         rest_api_params = {}
@@ -415,8 +385,6 @@ class Show(Command):
             rest_api_params = inv_querying_obj.show_inv_details(parsed_args)
         elif parsed_args.which == "columns":
             rest_api_params = self.show_columns(parsed_args)
-        elif parsed_args.which == "logs":
-            rest_api_params = self.show_log(parsed_args)
 
         try:
             self.smgr_ip = self.smgr_port = None
@@ -446,8 +414,6 @@ class Show(Command):
         elif parsed_args.which == 'all':
             json_format = True
         elif parsed_args.which == "columns":
-            json_format = True
-        elif parsed_args.which == "logs":
             json_format = True
 
         if resp.startswith("Error"):
