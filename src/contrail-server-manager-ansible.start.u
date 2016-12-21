@@ -1,0 +1,9 @@
+#!/bin/bash
+
+setenforce 0 &> /dev/null
+
+mkdir -p /var/run/contrail-server-manager-ansible/
+echo ""
+echo "Starting SMgr Ansible"
+echo ""
+nohup /opt/contrail/server_manager/ansible/sm_ansible_server.py -c /opt/contrail/server_manager/sm-config.ini 0<&- &> var/run/contrail-server-manager-ansible/contrail-server-manager-ansible.log&

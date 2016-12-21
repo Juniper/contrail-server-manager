@@ -47,6 +47,11 @@ from server_mgr_utils import *
 from server_mgr_ssh_client import ServerMgrSSHClient
 from server_mgr_issu import *
 from generate_dhcp_template import *
+#FIXME:RAMP - start
+#sys.path.append(os.path.join(os.path.dirname(__file__), 'ansible'))
+#from sm_ansible_utils import send_REST_request
+#from server_mgr_docker import SM_Docker
+#FIXME:RAMP - end
 
 try:
     from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
@@ -61,8 +66,8 @@ from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_validations import ServerMgrValidations as ServerMgrValidations
-import pycurl
 import json
+import pycurl
 import xmltodict
 from StringIO import StringIO
 import requests
@@ -78,6 +83,9 @@ bottle.BaseRequest.MEMFILE_MAX = 2 * 102400
 
 _WEB_HOST = '127.0.0.1'
 _WEB_PORT = 9001
+_ANSIBLE_PROVISION_START_ENDPOINT = 'start_provision'
+_ANSIBLE_PROVISION_ENDPOINT = 'run_playbook'
+_ANSIBLE_SRVR_PORT = 9003
 _DEF_CFG_DB = 'cluster_server_mgr.db'
 _DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
 _DEF_SMGR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
@@ -138,6 +146,9 @@ def error_503(err):
     return err.body
 # end error_503
 
+def latest_image(line):
+    pattern = re.compile("^\+ ")
+    return pattern.match(line)
 
 class VncServerManager():
     '''
@@ -153,15 +164,20 @@ class VncServerManager():
     _image_list = ["centos", "fedora", "ubuntu", "redhat",
                    "contrail-ubuntu-package", "contrail-centos-package",
                    "contrail-storage-ubuntu-package",
-                   "esxi5.5", "esxi5.1"]
+                   "esxi5.5", "esxi5.1", "contrail-container-ubuntu"]
     _iso_types = ["centos", "redhat", "ubuntu", "fedora", "esxi5.1", "esxi5.5"]
+
+    # Add here for each container that is built
+    _contrail_container_list = ["contrail-container-ubuntu"]
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
-                      "contrail-storage-ubuntu-package"]
-    _image_category_list = ["image", "package"]
-    _control_roles = ['global_controller', 'loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
+                      "contrail-storage-ubuntu-package",
+                      "contrail-container-ubuntu"]
+    _image_category_list = ["image", "package", "container"]
+    _control_roles = ['global_controller', 'loadbalancer', 'database',
+            'openstack', 'config', 'control', 'collector', 'webui', 'analytics']
     _role_sequence = [(['haproxy'], 'p'),
                       (['loadbalancer'], 'p'),
-                      (['database'], 'p'), (['openstack'], 'p'), 
+                      (['database'], 'p'), (['openstack'], 'p'),
                       (['config'], 'p'), (['control'], 'p'), (['global_controller'], 'p'),
                       (['collector'], 'p'), (['webui'], 'p')]
     _role_step_sequence_ha = [(['keepalived'], 'p'), (['haproxy'], 'p'),
@@ -335,7 +351,7 @@ class VncServerManager():
 
         try:
             self._smgr_validations = ServerMgrValidations()
-        except: 
+        except:
             print "Error Creating ServerMgrValidations object"
 
         if not args_str:
@@ -344,6 +360,9 @@ class VncServerManager():
         self._cfg_obj_defaults = self._read_smgr_object_defaults(self._smgr_config)
         self._cfg_defaults_dict = self._cfg_parse_defaults(self._cfg_obj_defaults)
         self._code_defaults_dict = self._prepare_code_defaults()
+        #FIXME:RAMP - start
+        #self._docker_cli = SM_Docker()
+        #FIXME:RAMP - end
 
         # Reads the tags.ini file to get tags mapping (if it exists)
         if os.path.isfile(self._args.server_manager_base_dir + _SERVER_TAGS_FILE):
@@ -414,7 +433,7 @@ class VncServerManager():
 
         # Start gevent thread for reimage task.
         self._reimage_queue = Queue()
-        gevent.spawn(self._reimage_server_cobbler) 
+        gevent.spawn(self._reimage_server_cobbler)
 
         try:
             # needed for testing...
@@ -501,6 +520,7 @@ class VncServerManager():
         bottle.route('/provision_status', 'GET', self.get_provision_status)
         bottle.route('/chassis-id', 'GET', self.get_server_chassis_id)
         bottle.route('/tag', 'GET', self.get_server_tags)
+        bottle.route('/log', 'GET', self.get_server_logs)
         bottle.route('/columns', 'GET', self.get_table_columns)
         bottle.route('/dhcp_subnet', 'GET', self.get_dhcp_subnet)
         bottle.route('/dhcp_host', 'GET', self.get_dhcp_host)
@@ -557,8 +577,8 @@ class VncServerManager():
                 except Exception as e:  #Actually an error accessing the file or switching to the directory
                     html = "404! Not found."
                 finally:
-                    os.chdir(cwd) 
-            os.chdir(cwd) 
+                    os.chdir(cwd)
+            os.chdir(cwd)
             return html+"</table><hr><br><br></body></html>" #Append the remaining html code
 
 
@@ -644,11 +664,11 @@ class VncServerManager():
             resp_msg = self.form_operartion_data('table not present', ERR_GENERAL_ERROR, None)
             abort(404, resp_msg)
         table_columns = self._serverDb.get_table_columns(table_name[0])
-        self._smgr_trans_log.log(bottle.request, 
+        self._smgr_trans_log.log(bottle.request,
                                  self._smgr_trans_log.GET_SMGR_CFG_TABLE_COLUMNS)
         self._smgr_log.log(self._smgr_log.DEBUG, "Db returned columns for %s: %s" % (table_name[0], table_columns))
         return table_columns
-    # end get_table_columns    
+    # end get_table_columns
 
     # REST API call to get sever manager config - configuration of all
     # CLUSTERs, with all servers and roles is returned. This call
@@ -697,6 +717,55 @@ class VncServerManager():
             self.hide_passwords(x, self._cluster_mask_list)
         return {"cluster": entity}
     # end get_cluster
+
+    def get_server_logs(self):
+        try:
+            query_args = parse_qs(bottle.request.query_string,
+                                    keep_blank_values=True)
+            if not query_args:
+                self._smgr_log.log(self._smgr_log.ERROR,
+                        "required parameter --server_id missing")
+                resp_msg = self.form_operartion_data(
+                        "Usage: server-manager show logs --server_id <id> [--file <log_file_on_server>]", ERR_GENERAL_ERROR,
+                    None)
+                return resp_msg
+            else:
+                sid = query_args.get('id', None)
+                fname = query_args.get('file', None)
+                remote_dir = '/var/log/contrail/'
+
+                server = self._serverDb.get_server(
+                    {"id" : sid[0]}, detail=True)
+                ssh_client = self.create_ssh_connection(server[0]['ip_address'],
+                    'root', server[0]['password'])
+                sftp_client = ssh_client.open_sftp()
+
+                logs = []
+                dict_name = None
+                if fname == None:
+                    # Return list of log files in the /var/log/contrail directory
+                    # logs.append("\nList of log files on server %s:\n" % sid[0])
+                    for filename in sftp_client.listdir(remote_dir):
+                        logs.append(filename)
+                    dict_name = "log files"
+                else:
+                    # Retrun content of speciied log file
+                    remote_file = remote_dir + fname[0]
+                    remote_fd = sftp_client.open(remote_file)
+                    dict_name = fname[0]
+                    try:
+                        for line in remote_fd:
+                            logs.append(line)
+                    finally:
+                        remote_fd.close()
+
+                sftp_client.close()
+                return {dict_name: logs}
+
+        except Exception as e:
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                    None)
+            abort(404, resp_msg)
 
     # REST API call to get list of server tags. The tags are read from
     # .ini file and stored in DB. There is also a copy maintained in a
@@ -927,7 +996,9 @@ class VncServerManager():
             {'cluster_id': cluster_id}, detail=True)
         role_list = [
                 "database", "openstack", "config",
-                "control", "collector", "webui", "compute" ]
+                "control", "collector", "webui", "compute", "analytics",
+                # Container roles
+                "analyticsdb", "agent", "lb" ]
         roles_set = set(role_list)
         # adding role here got the role in hieradata yaml file
         optional_role_list = ["storage-compute", "storage-master", "tsn", "toragent", "loadbalancer", "global_controller"]
@@ -966,6 +1037,14 @@ class VncServerManager():
         seen_twice = set( x for x in seq if x in seen or seen_add(x) )
         # turn the set into a list (as requested)
         return list( seen_twice )
+
+    def get_package_category(self, package_image_id):
+        packages = self._serverDb.get_image(
+            {"id": package_image_id}, detail=True)
+        if not packages:
+            msg = "no package %s found" % (package_image_id)
+            raise ServerMgrException(msg)
+        return packages[0]['category']
 
     def validate_smgr_provision(self, validation_data, request, data=None, issu_flag = False):
         ret_data = {}
@@ -1066,8 +1145,13 @@ class VncServerManager():
             ret_data["servers"] = servers
             ret_data["cluster_id"] = cluster_id
             ret_data["package_image_id"] = package_image_id
-        ret_data['server_packages'] = \
-            self.get_server_packages(servers, package_image_id)
+            if (self.get_package_category(package_image_id) == 'container'):
+                ret_data["category"] = "container";
+                ret_data["server_packages"] = \
+                        self.get_container_packages(servers, package_image_id)
+            else:
+                ret_data['server_packages'] = \
+                        self.get_server_packages(servers, package_image_id)
         return ret_data
     # end validate_smgr_provision
 
@@ -1206,7 +1290,7 @@ class VncServerManager():
     # This function gets storage_chassis_id of all servers configured in
     # the server-manager. If chassis_id is not configured, it returns "[]"
     # empty array. This api helps SM-UI to get all chassis-id configured
-    # in the system abd let admin select any of existing chassis-id or 
+    # in the system abd let admin select any of existing chassis-id or
     # provide a new one.
     def get_server_chassis_id(self):
         try:
@@ -1667,6 +1751,113 @@ class VncServerManager():
         version = sm.get_package_version(tmp_pkg.strip('\n'), image_type)
         return version.strip('\n')
 
+    def diff_string(self, str1, str2):
+        import difflib
+        str1 = re.sub(' +', ' ', str1)
+        str2 = re.sub(' +', ' ', str2)
+        str1=str1.splitlines(True)
+        str2=str2.splitlines(True)
+
+        diff=difflib.ndiff(str1, str2)
+        return ''.join(diff)
+
+    def put_container_image(self, entity, image):
+        new_containers = {}
+        image_id       = image.get("id", None)
+        image_type     = image.get("type", None)
+        image_params   = image.get("parameters", {})
+        #TODO: should be possible to specify version per container
+        # inside the parameters
+        image_version  = image.get("version", None)
+        image_category = image.get("category", None)
+
+        msg = "Image(s) specified refers to external registry. Make \
+                        sure the following image(s) exist(s): "
+        external_image = False
+        local_image    = False
+        for container in image_params.get("containers", None):
+            cpath = container.get("container_path", None)
+            role  = container.get("role", None)
+            if cpath == None or not os.path.exists(cpath):
+                external_image = True
+                if cpath == None:
+                    container_name = self._args.docker_insecure_registries + \
+                             '/' + image_id + '-' + role + ':' +     \
+                             image_version
+                else:
+                    container_name = cpath
+                msg = msg + container_name + " "
+            else:
+                local_image = True
+
+        if external_image == True and local_image == False:
+            resp_msg = self.form_operartion_data(msg, 0, entity)
+
+        for container in image_params.get("containers", None):
+            cpath = container.get("container_path", None)
+            role  = container.get("role", None)
+            if cpath == None or not os.path.exists(cpath):
+                if cpath == None:
+                    container_name = self._args.docker_insecure_registries + \
+                             '/' + image_id + '-' + role + ':' +     \
+                             image_version
+                elif not os.path.exists(cpath):
+                    container_name = cpath
+
+                container["container_image"] = container_name
+                continue
+
+            container_name = self._args.docker_insecure_registries + \
+                             '/' + image_id + '-' + role + ':' +     \
+                             image_version
+
+            self._smgr_log.log(self._smgr_log.INFO,
+                "Loading container image %s ..." % container_name)
+            [status, new_image] = self._docker_cli.load_containers(cpath)
+            if status == False or new_image == None:
+                if status == False:
+                    self._smgr_log.log(self._smgr_log.ERROR,
+                        "Loading container failed for %s" % cpath)
+                    print("Loading container failed for %s" % cpath)
+                    msg = "Loading container failed for %s" % (cpath)
+                    raise ServerMgrException(msg, ERR_OPR_ERROR)
+                    resp_msg = self.form_operartion_data(msg, 0, entity)
+                    return resp_msg
+                else:
+                    # The load image did not result in any new image
+                    continue
+
+            role = container.get("role", None)
+            repo = self._args.docker_insecure_registries + \
+                                     '/' + image_id + '-' + role
+            self._docker_cli.tag_containers(new_image['Id'], repo,
+                                            image_version)
+            self._smgr_log.log(self._smgr_log.INFO,
+                            "Pushing container image %s ..." % container_name)
+            self._docker_cli.push_containers(container_name)
+            self._smgr_log.log(self._smgr_log.INFO,
+                            "Pushed container image %s ..." % container_name)
+            container["container_image"] = container_name
+        #for container ...
+
+        if external_image == False:
+            msg = "Image add/Modify success"
+            resp_msg = self.form_operartion_data(msg, 0, entity)
+            self._smgr_log.log(self._smgr_log.INFO, msg)
+        else:
+            msg = "Image add/Modify success. " + msg
+            self._smgr_log.log(self._smgr_log.INFO, msg)
+
+        image_data = {
+            'id': image_id,
+            'version': image_version,
+            'type': image_type,
+            'category' : image_category,
+            'parameters' : image_params
+        }
+        self._serverDb.add_image(image_data)
+        return resp_msg
+
     def put_image(self):
         entity = bottle.request.json
         try:
@@ -1689,6 +1880,15 @@ class VncServerManager():
                     image_path = image.get("path", None)
                     image_category = image.get("category", None)
                     image_params = image.get("parameters", {})
+                    if (image_type in self._contrail_container_list):
+                        gevent.spawn(self.put_container_image, entity, image)
+                        msg = \
+                        "Image add/Modify happening in the background. "\
+                        "Check /var/log/contrail-server-manager/debug.log "\
+                        "for progress"
+                        resp_msg = self.form_operartion_data(msg, 0, entity)
+                        return resp_msg
+
                     if (not image_id) or (not image_path):
                         self._smgr_log.log(self._smgr_log.ERROR,
                                      "image id or location not specified")
@@ -2912,7 +3112,7 @@ class VncServerManager():
         resp_msg = self.form_operartion_data(msg, 0, None)
         return resp_msg
     # end delete_dhcp_subnet
-    
+
     # API call to delete a dhcp host from the configuration.
     def delete_dhcp_host(self):
         try:
@@ -2972,6 +3172,12 @@ class VncServerManager():
                         msg)
             image = images[0]
             image_id = image['id']
+            if (image['type'] in self._contrail_container_list):
+                self._serverDb.delete_image(image_dict)
+                msg = "Image Deleted"
+                resp_msg = self.form_operartion_data(msg, 0, None)
+                return resp_msg
+
             package = os.path.basename(image['path'])
             if ((image['type'] == 'contrail-ubuntu-package') or
                 (image['type'] == 'contrail-centos-package') or
@@ -3102,7 +3308,6 @@ class VncServerManager():
          self._smgr_log.log(self._smgr_log.ERROR, msg)
          raise ServerMgrException(msg, err_code)
 
-
     def get_package_image(self, package_image_id):
         package_image = {}
         if not package_image_id:
@@ -3112,7 +3317,7 @@ class VncServerManager():
         if not packages:
             msg = "No package %s found" % (package_image_id)
             raise ServerMgrException(msg)
-        if packages[0]['category'] and packages[0]['category'] != 'package':
+        if packages[0]['category'] and packages[0]['category'] != 'package' and packages[0]['category'] != 'container':
             msg = "Target Package Category is not package, it is %s" % (packages[0]['category'])
             raise ServerMgrException(msg)
         if packages[0]['type'] not in self._package_types:
@@ -3519,7 +3724,7 @@ class VncServerManager():
         ipaddr=""
         netmask=""
         gateway=""
-        device="" 
+        device=""
         if not server:
             return routes
         network = eval(server.get('network', '{}'))
@@ -3577,10 +3782,18 @@ class VncServerManager():
                     if provision_server_list:
                         cluster_id = reimage_item[2]
                         role_sequence = reimage_item[3]
+                        #package = server['package']
+                        #if package['category'] == 'container':
+                        #    self._do_ansible_provision_cluster(server['provision_params'],
+                        #            provision_server_list, server['cluster'],
+                        #                               server['cluster_servers'],
+                        #                               server['package'],
+                        #                               server['serverDb'])
+                        #else:
                         for server in provision_server_list:
                             self._do_provision_server(server['provision_params'], server['server'],
-                                server['cluster'], server['cluster_servers'],
-                                server['package'], server['serverDb'])
+                                    server['cluster'], server['cluster_servers'],
+                                    server['package'], server['serverDb'])
                             self._smgr_log.log(self._smgr_log.DEBUG, "provision processed from queue")
                         # Update cluster with role_sequence and apply sequence first step
                         # If no role_sequence present, just update cluster with it.
@@ -3835,6 +4048,44 @@ class VncServerManager():
         print "*** tb_lineno:", exc_traceback.tb_lineno
         '''
 
+    def get_container_packages(self, servers, package_image_id):
+        server_packages = []
+        if package_image_id:
+            package_image_id, package = self.get_package_image(package_image_id)
+            package_type = package['type']
+        for server in servers:
+            server_pkg = {}
+            server_pkg['server'] = server
+            pkg_id = ''
+            package = {}
+            if not package_image_id:
+                pkg_id = server['package_image_id']
+                if pkg_id:
+                    pkg_id, package = self.get_package_image(pkg_id)
+                if not package:
+                    cluster_id = server.get('cluster_id', '')
+                    if not cluster_id:
+                        msg = "Package not found in server %s" % (server['id'])
+                        raise ServerMgrException(msg)
+                    else:
+                        cluster = self._serverDb.get_cluster(
+                            {"id": cluster_id}, detail=True)[0]
+                        pkg_id = cluster['package_image_id']
+                        pkg_id, package = self.get_package_image(pkg_id)
+                        if not package:
+                            msg = "Package not found in server/cluster %s/%s" % \
+                                (server['id'], cluster['id'])
+                            raise ServerMgrException(msg)
+                server_pkg['package_image_id'] = pkg_id
+                server_pkg['package_type'] = package['type']
+            else:
+                server_pkg['package_image_id'] = package_image_id
+                server_pkg['package_type'] = package_type
+            server_packages.append(server_pkg)
+        return server_packages
+    # end get_server_packages
+
+
     def get_server_packages(self, servers, package_image_id):
         server_packages = []
         if package_image_id:
@@ -4020,7 +4271,7 @@ class VncServerManager():
                                                    hiera_file, [step_tuple],
                                                    False)
         return True
-        
+
     def update_provision_role_sequence(self, server_id, status):
         if not server_id or not status or '_' not in status:
             return False
@@ -4051,7 +4302,7 @@ class VncServerManager():
             self.is_sequence_provisioning_available(provisioned_id)
         if not sequence_provisioning_available or not sequence_provisioning:
             return False
-        
+
         provision_role_sequence = cluster.get('provision_role_sequence', '{}')
         if not provision_role_sequence:
             return False
@@ -4258,7 +4509,7 @@ class VncServerManager():
                 if not self.validate_role_sequence(role_sequence):
                     role_sequence = default_role_sequence
             self._smgr_log.log(self._smgr_log.DEBUG,
-                               "Role sequence: %s" % str(role_sequence))           
+                               "Role sequence: %s" % str(role_sequence))
         except Exception as e:
             print repr(e)
             self._smgr_log.log(self._smgr_log.ERROR,
@@ -4274,7 +4525,7 @@ class VncServerManager():
         if not self._smgr_puppet.is_new_provisioning(puppet_manifest_version):
             return provision_role_sequence
         if cluster['provision_role_sequence'] and eval(cluster['provision_role_sequence']):
-            self._smgr_log.log(self._smgr_log.WARN, 
+            self._smgr_log.log(self._smgr_log.WARN,
                                "provision_role_sequence already present:%s" %(cluster['provision_role_sequence']))
         provision_role_sequence['steps'] = []
         provision_role_sequence['completed'] = []
@@ -4521,16 +4772,16 @@ class VncServerManager():
         mysql_allowed_hosts = []
         internal_vip = openstack_ha_params.get("internal_vip", None)
         if internal_vip:
-            mysql_allowed_hosts.append(internal_vip) 
+            mysql_allowed_hosts.append(internal_vip)
         external_vip = openstack_ha_params.get("external_vip", None)
         if external_vip:
-            mysql_allowed_hosts.append(external_vip) 
+            mysql_allowed_hosts.append(external_vip)
         contrail_internal_vip = contrail_ha_params.get("contrail_internal_vip", None)
         if contrail_internal_vip:
-            mysql_allowed_hosts.append(contrail_internal_vip) 
+            mysql_allowed_hosts.append(contrail_internal_vip)
         contrail_external_vip = contrail_ha_params.get("contrail_external_vip", None)
         if contrail_external_vip:
-            mysql_allowed_hosts.append(contrail_external_vip) 
+            mysql_allowed_hosts.append(contrail_external_vip)
         os_ctl_ip_list = [(self.get_control_ip(x)) for x in role_servers["openstack"]]
         config_ctl_ip_list = [(self.get_control_ip(x)) for x in role_servers["config"]]
         os_ip_list = [x.get("ip_address", "") for x in role_servers["openstack"]]
@@ -4571,7 +4822,7 @@ class VncServerManager():
             # end if
             storage_mon_host_ip_set.add(self.get_control_ip(role_server))
             storage_mon_hostname_set.add(role_server['host_name'])
-            if role_server['host_name'] == live_migration_host: 
+            if role_server['host_name'] == live_migration_host:
                 live_migration_ip = self.get_control_ip(role_server)
             if storage_params.get('storage_chassis_id', ""):
                 storage_host_chassis = (
@@ -4593,7 +4844,7 @@ class VncServerManager():
             "storage_virsh_uuid", str(uuid.uuid4()).encode("utf-8"))
         contrail_params['storage']['storage_virsh_uuid'] = storage_virsh_uuid
         contrail_params['storage']['storage_enabled'] = (len(role_servers['storage-compute']) != 0)
-        contrail_params['storage']['live_migration_ip'] = live_migration_ip 
+        contrail_params['storage']['live_migration_ip'] = live_migration_ip
         contrail_params['storage']['storage_ip_list'] = list(storage_mon_host_ip_set)
         contrail_params['storage']['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
         contrail_params['storage']['storage_hostnames'] = list(storage_mon_hostname_set)
@@ -4894,7 +5145,10 @@ class VncServerManager():
                 ret_data = self.validate_smgr_provision(
                                      "PROVISION", req_json, issu_flag=issu_flag)
             if ret_data['status'] == 0:
-                server_packages = ret_data['server_packages']
+                if 'category' in ret_data and ret_data['category'] == 'container':
+                    server_packages = ret_data['package_image_id']
+                else:
+                    server_packages = ret_data['server_packages']
             else:
                 msg = "Error validating request"
                 self.log_and_raise_exception(msg)
@@ -5009,6 +5263,12 @@ class VncServerManager():
             'puppet_agent_retry_poll_interval_seconds': _DEF_PUPPET_AGENT_RETRY_POLL_INTERVAL
         }
 
+        serverMgrAnsibleCfg = {
+                'ansible_srvr_ip': _WEB_HOST,
+                'ansible_srvr_port': _ANSIBLE_SRVR_PORT,
+                'docker_insecure_registries': _WEB_HOST + ":5000"
+        }
+
         if args.config_file:
             config_file = args.config_file
         else:
@@ -5019,9 +5279,18 @@ class VncServerManager():
         try:
             for key in dict(config.items("SERVER-MANAGER")).keys():
                 if key in serverMgrCfg.keys():
-                    serverMgrCfg[key] = dict(config.items("SERVER-MANAGER"))[key]
+                    serverMgrCfg[key] = \
+                            dict(config.items("SERVER-MANAGER"))[key]
                 else:
-                    self._smgr_log.log(self._smgr_log.DEBUG, "Configuration set for invalid parameter: %s" % key)
+                    self._smgr_log.log(self._smgr_log.DEBUG,
+                            "Configuration set for invalid parameter: %s" % key)
+
+            # Read the ansible server ip and port
+            for key in dict(config.items("ANSIBLE-SERVER")).keys():
+                if key in serverMgrAnsibleCfg.keys():
+                    serverMgrCfg[key] = \
+                            dict(config.items("ANSIBLE-SERVER"))[key]
+
 
             self._smgr_log.log(self._smgr_log.DEBUG, "Arguments read form config file %s" % serverMgrCfg)
         except ConfigParser.NoSectionError:
@@ -5141,6 +5410,15 @@ class VncServerManager():
         except Exception as e:
             raise e
     # end _mount_and_copy_iso
+
+    def create_ssh_connection(self, ip, user, pw):
+        try:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.connect(ip, username=user, password=pw)
+            return client
+        except Exception as e:
+            raise e
 
     # Private method to reboot the server after cobbler config is setup.
     # If power address is provided and power management system is configured
@@ -5315,35 +5593,181 @@ class VncServerManager():
             self._smgr_log.log(self._smgr_log.ERROR, msg)
     # end _do_reimage_server
 
+    def get_container_provision_params(self, parent):
+        params     = parent.get("parameters", {})
+        prov       = params.get("provision", {})
+        containers = prov.get("containers", {})
+        return containers
+
+    def get_container_image_for_role(self, role, package):
+        container_image = self._args.docker_insecure_registries + \
+                           '/' + package['id'] + '-' + role + ':' + \
+                           package['version']
+        pparams = package['parameters']
+        for x in pparams['containers']:
+            if x['role'] == role:
+                if "container_image" in x:
+                    container_image = x['container_image']
+                else:
+                    # How can this possible?
+                    # Only when push container failed. This is a backup
+                    msg = "container_image not set for role %s. "\
+                            "Using default: %s" % (role, container_image)
+                    self._smgr_log.log(self._smgr_log.ERROR, msg)
+
+        return container_image
+
+    def set_container_image_for_role(self, params, x, package):
+        img = self.get_container_image_for_role(x, package)
+        if x == 'control':
+            params['controller_image'] = img
+        if x == 'analytics':
+            params['analytics_image'] = img
+        if x == 'analyticsdb':
+            params['analyticsdb_image'] = img
+        if x == 'agent':
+            params['agent_image'] = img
+        if x == 'lb':
+            params['lb_image'] = img
+
+    def _do_ansible_provision_cluster(self, provision_parameters, server_list, cluster,
+                              cluster_servers, package, serverDb):
+        merged_params = {}
+        params   = {}
+        merged_params.update(self.get_container_provision_params(cluster))
+        merged_params.update(self.get_container_provision_params(server))
+        params["ansible_host"] = server['ip_address']
+        params["ansible_user"] = "root"
+        params["ansible_password"] = server['password']
+        for x in eval(server['roles']):
+            srvr_provision_params = server['parameters']['provision']
+            container_params = srvr_provision_params['containers']
+            if not x in merged_params.keys():
+                msg = "Provision Error: server and cluster parameters do " +\
+                      "not contain section for role %s" % x
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+                update = {'id': server['id'],
+                    'status' : msg,
+                    'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                    'provisioned_id': package.get('id', '')}
+                self._serverDb.modify_server(update)
+                return False
+            else:
+                params[x] = merged_params[x]
+
+        cnt = 0
+        numroles = len(eval(server['roles']))
+        send_REST_request(self._args.ansible_srvr_ip,
+                    self._args.ansible_srvr_port,
+                    _ANSIBLE_PROVISION_START_ENDPOINT, params)
+        pp = []
+        for x in eval(server['roles']):
+            params['container_name'] = x
+            self.set_container_image_for_role(params, x, package)
+            params['container_image'] = self.get_container_image_for_role(x,
+                                            package)
+            parameters = { 'server_id': server['id'], 'parameters': params }
+            pp.append(copy.deepcopy(parameters))
+
+        time.sleep(10)
+        send_REST_request(self._args.ansible_srvr_ip,
+                      self._args.ansible_srvr_port,
+                      _ANSIBLE_PROVISION_ENDPOINT, pp)
+        update = {'id': server['id'],
+                'status' : 'provision_issued',
+                'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                'provisioned_id': package.get('id', '')}
+        self._serverDb.modify_server(update)
+
+        return True
+
+    def _do_ansible_provision(self, provision_parameters, server, cluster,
+                              cluster_servers, package, serverDb):
+        merged_params = {}
+        params   = {}
+        merged_params.update(self.get_container_provision_params(cluster))
+        merged_params.update(self.get_container_provision_params(server))
+        params["ansible_host"] = server['ip_address']
+        params["ansible_user"] = "root"
+        params["ansible_password"] = server['password']
+        for x in eval(server['roles']):
+            srvr_provision_params = server['parameters']['provision']
+            container_params = srvr_provision_params['containers']
+            if not x in merged_params.keys():
+                msg = "Provision Error: server and cluster parameters do " +\
+                      "not contain section for role %s" % x
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+                update = {'id': server['id'],
+                    'status' : msg,
+                    'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                    'provisioned_id': package.get('id', '')}
+                self._serverDb.modify_server(update)
+                return False
+            else:
+                params[x] = merged_params[x]
+
+        cnt = 0
+        numroles = len(eval(server['roles']))
+        send_REST_request(self._args.ansible_srvr_ip,
+                    self._args.ansible_srvr_port,
+                    _ANSIBLE_PROVISION_START_ENDPOINT, params)
+        pp = []
+        for x in eval(server['roles']):
+            params['container_name'] = x
+            self.set_container_image_for_role(params, x, package)
+            params['container_image'] = self.get_container_image_for_role(x,
+                                            package)
+            parameters = { 'server_id': server['id'], 'parameters': params }
+            pp.append(copy.deepcopy(parameters))
+
+        time.sleep(10)
+        send_REST_request(self._args.ansible_srvr_ip,
+                      self._args.ansible_srvr_port,
+                      _ANSIBLE_PROVISION_ENDPOINT, pp)
+        update = {'id': server['id'],
+                'status' : 'provision_issued',
+                'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                'provisioned_id': package.get('id', '')}
+        self._serverDb.modify_server(update)
+
+        return True
+
+
+
     # Internal private call to provision server. This is called by REST API
     # provision_server and provision_cluster
     def _do_provision_server(
         self, provision_parameters, server,
         cluster, cluster_servers, package, serverDb):
-        #Start the puppet agent in the target servers
-        gevent.spawn(self._monitoring_base_plugin_obj.gevent_puppet_agent_action, server, serverDb, self._args, "start")
-        try:
-            # Now call puppet to provision the server.
-            self._smgr_puppet.provision_server(
-                provision_parameters,
-                server,
-                cluster,
-                cluster_servers,
-                package,
-                serverDb)
-            self._smgr_certs.create_server_cert(server)
-            # Update Server table with provisioned id
-            update = {'id': server['id'],
+        if package['category'] == 'container':
+            self._do_ansible_provision(provision_parameters, server, cluster,
+                                  cluster_servers, package, serverDb)
+
+        else:
+            #Start the puppet agent in the target servers
+            gevent.spawn(self._monitoring_base_plugin_obj.gevent_puppet_agent_action, server, serverDb, self._args, "start")
+            try:
+                # Now call puppet to provision the server.
+                self._smgr_puppet.provision_server(
+                    provision_parameters,
+                    server,
+                    cluster,
+                    cluster_servers,
+                    package,
+                    serverDb)
+                self._smgr_certs.create_server_cert(server)
+                # Update Server table with provisioned id
+                update = {'id': server['id'],
                       'status' : 'provision_issued',
                       'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
                       'provisioned_id': package.get('id', '')}
-            self._serverDb.modify_server(update)
-        except subprocess.CalledProcessError as e:
-            msg = ("do_provision_server: error %d when executing"
-                   "\"%s\"" %(e.returncode, e.cmd))
-            self._smgr_log.log(self._smgr_log.ERROR, msg)
-        except Exception as e:
-            raise e
+                self._serverDb.modify_server(update)
+            except subprocess.CalledProcessError as e:
+                msg = ("do_provision_server: error %d when executing"
+                       "\"%s\"" %(e.returncode, e.cmd))
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+            except Exception as e:
+                raise e
     # end _do_provision_server
 
     def _create_server_manager_config(self, config):
