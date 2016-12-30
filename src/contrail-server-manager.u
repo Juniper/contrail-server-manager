@@ -61,12 +61,9 @@ do_start()
 	start-stop-daemon --status -v -p $PIDFILE
   	RETVAL="$?"
 
-    #FIXME:RAMP - start
-    RETVAL_ANSIBLE=0
-    #start-stop-daemon --start -v --pidfile $PIDFILE_ANSIBLE --exec \
-    #    $DAEMON_ANSIBLE  -- $DAEMON_ARGS
-    #RETVAL_ANSIBLE="$?"
-    #FIXME:RAMP - end
+    start-stop-daemon --start -v --pidfile $PIDFILE_ANSIBLE --exec \
+        $DAEMON_ANSIBLE  -- $DAEMON_ARGS
+    RETVAL_ANSIBLE="$?"
     [ "$RETVAL" = 0 ] && [ "$RETVAL_ANSIBLE" = 0 ] && return 0
 	# Add code here, if necessary, that waits for the process to be ready
 	# to handle requests from services started subsequently which depend
@@ -93,11 +90,8 @@ do_stop()
 	# needed by services started subsequently.  A last resort is to
 	# sleep for some time.
 
-    #FIXME:RAMP - start
-    RETVAL_ANSIBLE=0
-	#start-stop-daemon --stop -v --retry=TERM/30/KILL/5 --pidfile $PIDFILE_ANSIBLE
-    #RETVAL_ANSIBLE="$?"
-    #FIXME:RAMP - end
+	start-stop-daemon --stop -v --retry=TERM/30/KILL/5 --pidfile $PIDFILE_ANSIBLE
+    RETVAL_ANSIBLE="$?"
 	# Many daemons don't delete their pidfiles when they exit.
 	rm -f $PIDFILE_ANSIBLE
     if [ "$RETVAL" = 0 ] && [ "$RETVAL_ANSIBLE" = 0 ]; then
@@ -148,14 +142,12 @@ case "$1" in
                 echo "contrail-server-manager is not running!"
         fi
 
-    #FIXME:RAMP - start
 	start-stop-daemon --status -p $PIDFILE_ANSIBLE
-    #if [ "$RETVAL" = 0 ]; then
-    #    echo "contrail-server-manager-ansible is running!"
-	#else
-    #    echo "contrail-server-manager-ansible is not running!"
-    #fi
-    #FIXME:RAMP - end
+    if [ "$RETVAL" = 0 ]; then
+        echo "contrail-server-manager-ansible is running!"
+	else
+        echo "contrail-server-manager-ansible is not running!"
+    fi
     ;;
 
   #reload|force-reload)

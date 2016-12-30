@@ -47,11 +47,9 @@ from server_mgr_utils import *
 from server_mgr_ssh_client import ServerMgrSSHClient
 from server_mgr_issu import *
 from generate_dhcp_template import *
-#FIXME:RAMP - start
-#sys.path.append(os.path.join(os.path.dirname(__file__), 'ansible'))
-#from sm_ansible_utils import send_REST_request
-#from server_mgr_docker import SM_Docker
-#FIXME:RAMP - end
+sys.path.append(os.path.join(os.path.dirname(__file__), 'ansible'))
+from sm_ansible_utils import send_REST_request
+from server_mgr_docker import SM_Docker
 
 try:
     from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
@@ -360,9 +358,7 @@ class VncServerManager():
         self._cfg_obj_defaults = self._read_smgr_object_defaults(self._smgr_config)
         self._cfg_defaults_dict = self._cfg_parse_defaults(self._cfg_obj_defaults)
         self._code_defaults_dict = self._prepare_code_defaults()
-        #FIXME:RAMP - start
-        #self._docker_cli = SM_Docker()
-        #FIXME:RAMP - end
+        self._docker_cli = SM_Docker()
 
         # Reads the tags.ini file to get tags mapping (if it exists)
         if os.path.isfile(self._args.server_manager_base_dir + _SERVER_TAGS_FILE):
@@ -5266,7 +5262,7 @@ class VncServerManager():
         serverMgrAnsibleCfg = {
                 'ansible_srvr_ip': _WEB_HOST,
                 'ansible_srvr_port': _ANSIBLE_SRVR_PORT,
-                'docker_insecure_registries': _WEB_HOST + ":5000"
+                'docker_insecure_registries': _WEB_HOST + ":5100"
         }
 
         if args.config_file:

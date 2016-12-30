@@ -23,7 +23,7 @@ _DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
 _DEF_ANSIBLE_SRVR_CFG_FILE = _DEF_SMGR_BASE_DIR + 'sm-config.ini'
 _WEB_HOST = '127.0.0.1'
 _ANSIBLE_SRVR_PORT = 9003
-_ANSIBLE_REGISTRY = '0.0.0.0:5000'
+_ANSIBLE_REGISTRY = '0.0.0.0:5100'
 _ANSIBLE_REGISTRY_INSECURE = True
 _ANSIBLE_PLAYBOOK = '/opt/contrail/server_manager/ansible/playbooks/contrail-ansible/site.yml'
 
