@@ -105,6 +105,9 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
 
             params["config_file_dest"]   = '/etc/contrailctl/' + rl + '.conf'
             params["config_file_src"]    = pbook_dir + '/contrailctl/' + rl + '.conf'
+            inv["[all:vars]"] = []
+            inv["[all:vars]"].append("docker_install_method="+str(args.docker_install_method))
+            inv["[all:vars]"].append("docker_package_name="+str(args.docker_package_name))
             print "config file is %s" % params["config_file_dest"]
 
             if self.current_status == self.STATUS_VALID:
