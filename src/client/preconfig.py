@@ -59,7 +59,7 @@ class Utils(object):
                             required=True,
                             help='IP Address of Server Manager Node')
         parser.add_argument('--server-manager-repo-port',
-                            default=9003,
+                            default=80,
                             help='Port Number of Server Manager Node which hosts repos')
         parser.add_argument('--log-file',
                             default='preconfig.log',
@@ -85,6 +85,7 @@ class Utils(object):
             contents = fid.read()
         server_json = json.loads(contents)
         for host_dict in server_json['server']:
+            print "Configuring  => " + host_dict['id']
             hostobj = Server(host_dict, args.server_manager_ip,
                              args.server_manager_repo_port)
             hostobj.connect()
@@ -228,7 +229,7 @@ class Server(object):
         self.install_packages()
         self.setup_interface()
         # Setup static routes if defined
-        if getattr(self, 'network', None) and 'routes' in self.network:
+        if getattr(self, 'network', None) and 'routes' in self.network and len(self.network['routes']) > 0:
             self.setup_static_routes()
         self.preconfig_ntp_config()
         self.preconfig_puppet_config()
@@ -316,7 +317,7 @@ class Server(object):
         cmd = r'%s ' % iface_script_path
         cmd += r'--device %s --ip %s ' % (iface_info['name'],
                                          iface_info['ip_address'])
-        if 'member_interfaces' in iface_info.keys():
+        if 'member_interfaces' in iface_info.keys() and len(iface_info['member_interfaces']) > 0 :
             cmd += r'--members %s ' % " ".join(iface_info['member_interfaces'])
         if iface_info['ip_address'] == self.ip and 'gateway' in iface_info.keys():
             cmd += r'--gw %s ' % iface_info['gateway']
