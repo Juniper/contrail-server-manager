@@ -53,11 +53,35 @@ class SM_Docker():
     def push_containers(self, image):
         try:
             stream = self._docker_client.push(image, stream=True)
-            for line in stream:
-                self._smgr_log.log(self._smgr_log.INFO, line)
         except Exception as e:
             msg = "docker push failed for image %s: %s" % (image, e)
             #raise ServerMgrException(msg, ERR_OPR_ERROR)
-            self._smgr_log.log(self._smgr_log.INFO, msg)
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            return False
+
+        progress = 0
+        for line in stream:
+            if "connection refused" in line:
+                msg = "docker push failed for image %s: %s" % (image, line)
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+                return False
+
+            s = eval(line)
+            #NOTE: example line is:
+            # {"status":"Pushing","progressDetail":{"current":1536,
+            #  "total":2913},"progress":"[====\u003e # ]
+            # If docker python API changes the format of this, the next
+            # assignment will be broken.
+            try:
+                current = s['progressDetail']['current']
+                total   = s['progressDetail']['total']
+                cur_progress = int(round((float(current)/float(total))*100))
+                # Log every 20% of progress
+                if (cur_progress >= progress + 20):
+                    progress = cur_progress
+                    self._smgr_log.log(self._smgr_log.INFO, line)
+            except KeyError:
+                #self._smgr_log.log(self._smgr_log.DEBUG, line)
+                continue
 
 ###############################################################################
