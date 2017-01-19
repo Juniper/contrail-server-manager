@@ -1830,7 +1830,14 @@ class VncServerManager():
                                             image_version)
             self._smgr_log.log(self._smgr_log.INFO,
                             "Pushing container image %s ..." % container_name)
-            self._docker_cli.push_containers(container_name)
+            if self._docker_cli.push_containers(container_name) == False:
+                self._smgr_log.log(self._smgr_log.ERROR,
+                    "Pushing container failed for %s" % container_name)
+                msg = "Pushing container failed for %s" % (container_name)
+                #raise ServerMgrException(msg, ERR_OPR_ERROR)
+                resp_msg = self.form_operartion_data(msg, 0, entity)
+                return resp_msg
+
             self._smgr_log.log(self._smgr_log.INFO,
                             "Pushed container image %s ..." % container_name)
             container["container_image"] = container_name
