@@ -1,0 +1,1239 @@
+{
+  "$schema": "",
+  "type": "object",
+  "title": "Root schema.",
+  "description": "",
+  "properties": {
+    "cluster": {
+      "type": "array",
+      "title": "Cluster schema.",
+      "description": "Cluster JSON can describe multiple cluster configs.",
+      "items": {
+        "type": "object",
+        "title": "0 schema.",
+        "description": "First Cluster",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id schema.",
+            "description": "Id of the cluster being added. This is a mandatory parameter."
+          },
+          "parameters": {
+            "type": "object",
+            "title": "Parameters schema.",
+            "description": "List of all the parameters being set for this cluster.",
+            "properties": {
+              "provision": {
+                "type": "object",
+                "title": "Provision schema.",
+                "description": "Cluster Provision Parameters - New format",
+                "properties": {
+                  "containers": {
+                    "type": "object",
+                    "title": "Containers schema.",
+                    "description": "Provision Parameters for Contrail Container Components",
+                    "properties": {
+                      "agent": {
+                        "type": "object",
+                        "title": "Agent schema.",
+                        "description": "Provision Parameters for Agent Container",
+                        "properties": {
+                          "GLOBAL": {
+                            "type": "object",
+                            "title": "GLOBAL schema.",
+                            "description": "GLOBAL section : All global configurations which would affect multiple sections or globally applicable configurations would be coming here.",
+                            "properties": {
+                              "controller_ip": {
+                                "type": "string",
+                                "title": "Controller_ip schema.",
+                                "description": "An IP address using which one can connect to all public services within controller container. This can be a virtual IP handled by load balancer in case of multi-node controllers."
+                              }
+                            }
+                          },
+                          "KEYSTONE": {
+                            "type": "object",
+                            "title": "KEYSTONE schema.",
+                            "description": "Section to get informtion about the keystone to be used by contrail. Only for openstack orchestration.",
+                            "properties": {
+                              "ip": {
+                                "type": "string",
+                                "title": "Ip schema.",
+                                "description": "Ip address of the host running keystone",
+                                "default": "127.0.0.1"
+                              },
+                              "admin_port": {
+                                "type": "integer",
+                                "title": "Admin_port schema.",
+                                "description": "Keystone admin port in which the keystone is listening.",
+                                "default": 35357
+                              },
+                              "public_port": {
+                                "type": "integer",
+                                "title": "Public_port schema.",
+                                "description": "Keystone public port in which the keystone is listening.",
+                                "default": 5000
+                              },
+                              "version": {
+                                "type": "string",
+                                "title": "Version schema.",
+                                "description": "Version of keystone to be used.",
+                                "default": "v2.0"
+                              },
+                              "auth_protocol": {
+                                "type": "string",
+                                "title": "Auth_protocol schema.",
+                                "description": "Protocol used by keystone(http/https)",
+                                "default": "http"
+                              },
+                              "admin_user": {
+                                "type": "string",
+                                "title": "Admin_user schema.",
+                                "description": "Name of the admin user in keystone.",
+                                "default": "admin"
+                              },
+                              "admin_tenant": {
+                                "type": "string",
+                                "title": "Admin_tenant schema.",
+                                "description": "keystone admin tenant's name.",
+                                "default": "admin"
+                              },
+                              "admin_password": {
+                                "type": "string",
+                                "title": "Admin_password schema.",
+                                "description": "Password of the keystone admin user.",
+                                "default": "admin"
+                              }
+                            }
+                          },
+                          "DEFAULT": {
+                            "type": "object",
+                            "title": "DEFAULT schema.",
+                            "description": "All default configs would come here",
+                            "properties": {
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Default log_level",
+                                "default": "SYS_NOTICE"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "control": {
+                        "type": "object",
+                        "title": "Control schema.",
+                        "description": "Controller container parameters",
+                        "properties": {
+                          "DEFAULT": {
+                            "type": "object",
+                            "title": "DEFAULT schema.",
+                            "description": "All default configs would come here",
+                            "properties": {
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Default log_level",
+                                "default": "SYS_NOTICE"
+                              }
+                            }
+                          },
+                          "GLOBAL": {
+                            "type": "object",
+                            "title": "GLOBAL schema.",
+                            "description": "All global configurations which would affect multiple sections or globally applicable configurations would be coming here.",
+                            "properties": {
+                              "cloud_orchestrator": {
+                                "type": "string",
+                                "title": "Cloud_orchestrator schema.",
+                                "description": "what cloud orchestrator is being used, options are: kubernetes, openstack, mesos",
+                                "default": "openstack"
+                              },
+                              "external_lb": {
+                                "type": "boolean",
+                                "title": "External_lb schema.",
+                                "description": "Flag to identify the whether the loadbalancer is internaly hosted in the lb container or managed externally.",
+                                "default": false
+                              },
+                              "controller_list": {
+                                "type": "string",
+                                "title": "Controller_list schema.",
+                                "description": "An array/list representation of controller server IP addresses - this will be used to configure rabbitmq, zookeeper,cassandra",
+                                "default": "['127.0.0.1']"
+                              },
+                              "controller_ip": {
+                                "type": "string",
+                                "title": "Controller_ip schema.",
+                                "description": "An IP address using which one can connect to all public services within controller container.",
+                                "default": "127.0.0.1"
+                              },
+                              "analytics_ip": {
+                                "type": "string",
+                                "title": "Analytics_ip schema.",
+                                "description": "An IP address using which one can connect to analytics-api service within analytics container.",
+                                "default": "127.0.0.1"
+                              },
+                              "external_rabbitmq_servers": {
+                                "type": "string",
+                                "title": "External_rabbitmq_servers schema.",
+                                "description": "array/list representation of rabbitmq servers",
+                                "default": ""
+                              },
+                              "external_zk_servers": {
+                                "type": "string",
+                                "title": "External_zk_servers schema.",
+                                "description": "array/list representation of zookeeper servers",
+                                "default": ""
+                              },
+                              "external_cassanrda_servers": {
+                                "type": "string",
+                                "title": "External_cassanrda_servers schema.",
+                                "description": "array/list representation of cassandra servers",
+                                "default": ""
+                              },
+                              "multi_tenancy": {
+                                "type": "boolean",
+                                "title": "Multi_tenancy schema.",
+                                "description": "Enable or disable multi_tenancy",
+                                "default": false
+                              },
+                              "ifmap_server": {
+                                "type": "string",
+                                "title": "Ifmap_server schema.",
+                                "description": "ifmap server address to use in various service configurations",
+                                "default": "127.0.0.1"
+                              }
+                            }
+                          },
+                          "KEYSTONE": {
+                            "type": "object",
+                            "title": "KEYSTONE schema.",
+                            "description": "Section to get informtion about the keystone to be used by contrail. Only for openstack orchestration.",
+                            "properties": {
+                              "ip": {
+                                "type": "string",
+                                "title": "Ip schema.",
+                                "description": "Ip address of the host running keystone",
+                                "default": "127.0.0.1"
+                              },
+                              "admin_port": {
+                                "type": "integer",
+                                "title": "Admin_port schema.",
+                                "description": "Keystone admin port in which the keystone is listening.",
+                                "default": 35357
+                              },
+                              "public_port": {
+                                "type": "integer",
+                                "title": "Public_port schema.",
+                                "description": "Keystone public port in which the keystone is listening.",
+                                "default": 5000
+                              },
+                              "version": {
+                                "type": "string",
+                                "title": "Version schema.",
+                                "description": "Version of keystone to be used.",
+                                "default": "v2.0"
+                              },
+                              "auth_protocol": {
+                                "type": "string",
+                                "title": "Auth_protocol schema.",
+                                "description": "Protocol used by keystone(http/https)",
+                                "default": "http"
+                              },
+                              "admin_user": {
+                                "type": "string",
+                                "title": "Admin_user schema.",
+                                "description": "Name of the admin user in keystone.",
+                                "default": "admin"
+                              },
+                              "admin_tenant": {
+                                "type": "string",
+                                "title": "Admin_tenant schema.",
+                                "description": "keystone admin tenant's name.",
+                                "default": "admin"
+                              },
+                              "admin_password": {
+                                "type": "string",
+                                "title": "Admin_password schema.",
+                                "description": "Password of the keystone admin user.",
+                                "default": "admin"
+                              }
+                            }
+                          },
+                          "CONTROL": {
+                            "type": "object",
+                            "title": "CONTROL schema.",
+                            "description": "Control section parameters",
+                            "properties": {
+                              "asn": {
+                                "type": "integer",
+                                "title": "Asn schema.",
+                                "description": "ASN Number",
+                                "default": 64512
+                              },
+                              "external_routers": {
+                                "type": "array",
+                                "title": "External_routers schema.",
+                                "description": "List of external routers"
+                              },
+                              "bgp_port": {
+                                "type": "integer",
+                                "title": "Bgp_port schema.",
+                                "description": "BGP port number",
+                                "default": 179
+                              },
+                              "introspect_port": {
+                                "type": "integer",
+                                "title": "Introspect_port schema.",
+                                "description": "Introspect port for debugging",
+                                "default": 8083
+                              },
+                              "xmpp_server_port": {
+                                "type": "integer",
+                                "title": "Xmpp_server_port schema.",
+                                "description": "xmpp server port",
+                                "default": 5269
+                              },
+                              "log_file": {
+                                "type": "string",
+                                "title": "Log_file schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-control.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "log level",
+                                "default": "SYS_NOTICE"
+                              },
+                              "sandesh_send_rate_limit": {
+                                "type": "integer",
+                                "title": "Sandesh_send_rate_limit schema.",
+                                "description": "Sandesh send rate limit can be used to throttle system logs transmitted per second",
+                                "default": 100
+                              }
+                            }
+                          },
+                          "DNS": {
+                            "type": "object",
+                            "title": "DNS schema.",
+                            "description": "DNS parameters for controller",
+                            "properties": {
+                              "named_config_file": {
+                                "type": "string",
+                                "title": "Named_config_file schema.",
+                                "description": "named config file",
+                                "default": "contrail-named.conf"
+                              },
+                              "named_config_directory": {
+                                "type": "string",
+                                "title": "Named_config_directory schema.",
+                                "description": "named config directory",
+                                "default": "/etc/contrail/dns"
+                              },
+                              "named_log_file": {
+                                "type": "string",
+                                "title": "Named_log_file schema.",
+                                "description": "named log file",
+                                "default": "/var/log/contrail/contrail-named.log"
+                              },
+                              "rndc_config_file": {
+                                "type": "string",
+                                "title": "Rndc_config_file schema.",
+                                "description": "rndc config file",
+                                "default": "contrail-rndc.conf"
+                              },
+                              "introspect_port": {
+                                "type": "integer",
+                                "title": "Introspect_port schema.",
+                                "description": "Introspect port for debug",
+                                "default": 8092
+                              },
+                              "dns_server_port": {
+                                "type": "integer",
+                                "title": "Dns_server_port schema.",
+                                "description": "DNS server port",
+                                "default": 53
+                              },
+                              "log_file": {
+                                "type": "string",
+                                "title": "Log_file schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-dns.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "log level",
+                                "default": "SYS_NOTICE"
+                              }
+                            }
+                          },
+                          "CONFIGDB": {
+                            "type": "object",
+                            "title": "CONFIGDB schema.",
+                            "description": "Config DB parameters",
+                            "properties": {
+                              "data_directory": {
+                                "type": "string",
+                                "title": "Data_directory schema.",
+                                "description": "data_directory path",
+                                "default": ""
+                              },
+                              "ssd_data_directory": {
+                                "type": "string",
+                                "title": "Ssd_data_directory schema.",
+                                "description": "ssd_data_directory path",
+                                "default": ""
+                              },
+                              "db_user": {
+                                "type": "string",
+                                "title": "Db_user schema.",
+                                "description": "db_user",
+                                "default": ""
+                              },
+                              "db_password": {
+                                "type": "string",
+                                "title": "Db_password schema.",
+                                "description": "db_password",
+                                "default": ""
+                              },
+                              "external_db_servers": {
+                                "type": "string",
+                                "title": "External_db_servers schema.",
+                                "description": "external_db_servers list",
+                                "default": ""
+                              },
+                              "external_zk_servers": {
+                                "type": "string",
+                                "title": "External_zk_servers schema.",
+                                "description": "External Zookeeper servers list",
+                                "default": ""
+                              }
+                            }
+                          },
+                          "API": {
+                            "type": "object",
+                            "title": "API schema.",
+                            "description": "API Service Parameters",
+                            "properties": {
+                              "log_file": {
+                                "type": "string",
+                                "title": "Log_file schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-api.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              },
+                              "ifmap_username": {
+                                "type": "string",
+                                "title": "Ifmap_username schema.",
+                                "description": "IFmap username",
+                                "default": "api-server"
+                              },
+                              "ifmap_password": {
+                                "type": "string",
+                                "title": "Ifmap_password schema.",
+                                "description": "IFmap password",
+                                "default": "api-server"
+                              },
+                              "list_optimization_enabled": {
+                                "type": "boolean",
+                                "title": "List_optimization_enabled schema.",
+                                "description": "Enable optimizations to list resources",
+                                "default": true
+                              },
+                              "listen_port": {
+                                "type": "integer",
+                                "title": "Listen_port schema.",
+                                "description": "Listen port for contrail api service",
+                                "default": 8082
+                              },
+                              "listen_address": {
+                                "type": "string",
+                                "title": "Listen_address schema.",
+                                "description": "Listen address for contrail api service",
+                                "default": "0.0.0.0"
+                              }
+                            }
+                          },
+                          "SCHEMA": {
+                            "type": "object",
+                            "title": "SCHEMA schema.",
+                            "description": "Schema service parameters",
+                            "properties": {
+                              "log": {
+                                "type": "string",
+                                "title": "Log schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-schema.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              },
+                              "ifmap_username": {
+                                "type": "string",
+                                "title": "Ifmap_username schema.",
+                                "description": "IFmap username",
+                                "default": "schema-transformer"
+                              },
+                              "ifmap_password": {
+                                "type": "string",
+                                "title": "Ifmap_password schema.",
+                                "description": "IFmap password",
+                                "default": "schema-transformer"
+                              }
+                            }
+                          },
+                          "DISCOVERY": {
+                            "type": "object",
+                            "title": "DISCOVERY schema.",
+                            "description": "Discovery service parameters",
+                            "properties": {
+                              "listen_address": {
+                                "type": "string",
+                                "title": "Listen_address schema.",
+                                "description": "Listen Address for discovery service",
+                                "default": "0.0.0.0"
+                              },
+                              "listen_port": {
+                                "type": "integer",
+                                "title": "Listen_port schema.",
+                                "description": "Listen port for discovery service",
+                                "default": 5998
+                              },
+                              "log": {
+                                "type": "string",
+                                "title": "Log schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-discovery.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              },
+                              "ttl_min": {
+                                "type": "integer",
+                                "title": "Ttl_min schema.",
+                                "description": "minimim time to allow client to cache service information (seconds)",
+                                "default": 300
+                              },
+                              "ttl_max": {
+                                "type": "integer",
+                                "title": "Ttl_max schema.",
+                                "description": "maximum time to allow client to cache service information (seconds)",
+                                "default": 1800
+                              },
+                              "hc_interval": {
+                                "type": "integer",
+                                "title": "Hc_interval schema.",
+                                "description": "health check ping interval <=0 for disabling",
+                                "default": 5
+                              },
+                              "hc_max_miss": {
+                                "type": "integer",
+                                "title": "Hc_max_miss schema.",
+                                "description": "maximum hearbeats to miss before server will declare publisher out of service",
+                                "default": 3
+                              },
+                              "ttl_short": {
+                                "type": "integer",
+                                "title": "Ttl_short schema.",
+                                "description": "use short TTL for agressive rescheduling if all services are not up",
+                                "default": 1
+                              },
+                              "dns_server_policy": {
+                                "type": "string",
+                                "title": "Dns_server_policy schema.",
+                                "description": "specify policy to use when assigning services - [load-balance | round-robin | fixed]",
+                                "default": "fixed"
+                              }
+                            }
+                          },
+                          "DEVICE_MANAGER": {
+                            "type": "object",
+                            "title": "DEVICE_MANAGER schema.",
+                            "description": "Device Manager service parameters",
+                            "properties": {
+                              "log": {
+                                "type": "string",
+                                "title": "Log schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-device-manager.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              }
+                            }
+                          },
+                          "SVC_MONITOR": {
+                            "type": "object",
+                            "title": "SVC_MONITOR schema.",
+                            "description": "SVC monitor service parameters",
+                            "properties": {
+                              "ifmap_username": {
+                                "type": "string",
+                                "title": "Ifmap_username schema.",
+                                "description": "IFmap username",
+                                "default": "svc-monitor"
+                              },
+                              "ifmap_password": {
+                                "type": "string",
+                                "title": "Ifmap_password schema.",
+                                "description": "IFmap password",
+                                "default": "svc-monitor"
+                              },
+                              "log": {
+                                "type": "string",
+                                "title": "Log schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-svc-monitor.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              }
+                            }
+                          },
+                          "IFMAP": {
+                            "type": "object",
+                            "title": "IFMAP schema.",
+                            "description": "IFMAP service parameters",
+                            "properties": {
+                              "server_port": {
+                                "type": "integer",
+                                "title": "Server_port schema.",
+                                "description": "IFMAP server port",
+                                "default": 8443
+                              }
+                            }
+                          },
+                          "WEBUI": {
+                            "type": "object",
+                            "title": "WEBUI schema.",
+                            "description": "Contrail WEBUI parameters",
+                            "properties": {
+                              "http_listen_port": {
+                                "type": "integer",
+                                "title": "Http_listen_port schema.",
+                                "description": "HTTP Listen port",
+                                "default": 8080
+                              },
+                              "https_listen_port": {
+                                "type": "integer",
+                                "title": "Https_listen_port schema.",
+                                "description": "HTTPS listen port",
+                                "default": 8143
+                              }
+                            }
+                          },
+                          "OPENSHIFT": {
+                            "type": "object",
+                            "title": "OPENSHIFT schema.",
+                            "description": "Openshift parameters",
+                            "properties": {
+                              "token": {
+                                "type": "string",
+                                "title": "Token schema.",
+                                "description": "Openshift master token",
+                                "default": ""
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "analytics": {
+                        "type": "object",
+                        "title": "Analytics schema.",
+                        "description": "Analytics container paramters",
+                        "properties": {
+                          "DEFAULT": {
+                            "type": "object",
+                            "title": "DEFAULT schema.",
+                            "description": "All default configs would come here",
+                            "properties": {
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Default log_level",
+                                "default": "SYS_NOTICE"
+                              }
+                            }
+                          },
+                          "GLOBAL": {
+                            "type": "object",
+                            "title": "GLOBAL schema.",
+                            "description": "GLOBAL section parameters",
+                            "properties": {
+                              "external_lb": {
+                                "type": "boolean",
+                                "title": "External_lb schema.",
+                                "description": "Flag to identify the whether the loadbalancer is internaly hosted in the lb container or externally managed",
+                                "default": false
+                              },
+                              "controller_list": {
+                                "type": "string",
+                                "title": "Controller_list schema.",
+                                "description": "An array/list representation of controller server IP addresses - this will be used to configure rabbitmq, zookeeper, cassandra servers",
+                                "default": "['127.0.0.1']"
+                              },
+                              "analyticsdb_list": {
+                                "type": "string",
+                                "title": "Analyticsdb_list schema.",
+                                "description": "An array/list representation of analyticsdb server IP addresses - this will be used to configure cassandra and kafka servers",
+                                "default": "['127.0.0.1']"
+                              },
+                              "controller_ip": {
+                                "type": "string",
+                                "title": "Controller_ip schema.",
+                                "description": "An IP address using which one can connect to all public services within controller container.",
+                                "default": "127.0.0.1"
+                              },
+                              "uve_partition_count": {
+                                "type": "integer",
+                                "title": "Uve_partition_count schema.",
+                                "description": "this configuration set number of partitions for UVE Data to improve analytics performance",
+                                "default": 30
+                              },
+                              "analytics_data_ttl": {
+                                "type": "integer",
+                                "title": "Analytics_data_ttl schema.",
+                                "description": "ttl for messages and object logs",
+                                "default": -1
+                              },
+                              "analytics_flow_ttl": {
+                                "type": "integer",
+                                "title": "Analytics_flow_ttl schema.",
+                                "description": "ttl for flow data",
+                                "default": -1
+                              },
+                              "analytics_statistics_ttl": {
+                                "type": "integer",
+                                "title": "Analytics_statistics_ttl schema.",
+                                "description": "ttl for statistics data",
+                                "default": -1
+                              },
+                              "analytics_config_audit_ttl": {
+                                "type": "integer",
+                                "title": "Analytics_config_audit_ttl schema.",
+                                "description": "ttl for config audit data coming into collector",
+                                "default": -1
+                              }
+                            }
+                          },
+                          "KEYSTONE": {
+                            "type": "object",
+                            "title": "KEYSTONE schema.",
+                            "description": "Section to get informtion about the keystone to be used by contrail. Only for openstack orchestration.",
+                            "properties": {
+                              "ip": {
+                                "type": "string",
+                                "title": "Ip schema.",
+                                "description": "Ip address of the host running keystone",
+                                "default": "127.0.0.1"
+                              },
+                              "admin_port": {
+                                "type": "integer",
+                                "title": "Admin_port schema.",
+                                "description": "Keystone admin port in which the keystone is listening.",
+                                "default": 35357
+                              },
+                              "public_port": {
+                                "type": "integer",
+                                "title": "Public_port schema.",
+                                "description": "Keystone public port in which the keystone is listening.",
+                                "default": 5000
+                              },
+                              "version": {
+                                "type": "string",
+                                "title": "Version schema.",
+                                "description": "Version of keystone to be used.",
+                                "default": "v2.0"
+                              },
+                              "auth_protocol": {
+                                "type": "string",
+                                "title": "Auth_protocol schema.",
+                                "description": "Protocol used by keystone(http/https)",
+                                "default": "http"
+                              },
+                              "admin_user": {
+                                "type": "string",
+                                "title": "Admin_user schema.",
+                                "description": "Name of the admin user in keystone.",
+                                "default": "admin"
+                              },
+                              "admin_tenant": {
+                                "type": "string",
+                                "title": "Admin_tenant schema.",
+                                "description": "keystone admin tenant's name.",
+                                "default": "admin"
+                              },
+                              "admin_password": {
+                                "type": "string",
+                                "title": "Admin_password schema.",
+                                "description": "Password of the keystone admin user.",
+                                "default": "admin"
+                              }
+                            }
+                          },
+                          "ALARM_GEN": {
+                            "type": "object",
+                            "title": "ALARM_GEN schema.",
+                            "description": "ALARM GEN params",
+                            "properties": {
+                              "log": {
+                                "type": "string",
+                                "title": "Log schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-alarm-gen.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              },
+                              "introspect_port": {
+                                "type": "integer",
+                                "title": "Introspect_port schema.",
+                                "description": "Introspect port for debug",
+                                "default": 5995
+                              }
+                            }
+                          },
+                          "ANALYTICS_API": {
+                            "type": "object",
+                            "title": "ANALYTICS_API schema.",
+                            "description": "Analytics API parameters",
+                            "properties": {
+                              "introspect_port": {
+                                "type": "integer",
+                                "title": "Introspect_port schema.",
+                                "description": "Introspect port for debug",
+                                "default": 8090
+                              },
+                              "listen_port": {
+                                "type": "integer",
+                                "title": "Listen_port schema.",
+                                "description": "Listen port",
+                                "default": 8081
+                              },
+                              "listen_address": {
+                                "type": "string",
+                                "title": "Listen_address schema.",
+                                "description": "Listen address",
+                                "default": "0.0.0.0"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              },
+                              "log": {
+                                "type": "string",
+                                "title": "Log schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-analytics-api.log"
+                              },
+                              "sandesh_send_rate_limit": {
+                                "type": "integer",
+                                "title": "Sandesh_send_rate_limit schema.",
+                                "description": "Sandesh send rate limit can be used to throttle system logs transmitted per second",
+                                "default": 100
+                              },
+                              "aaa_mode": {
+                                "type": "string",
+                                "title": "Aaa_mode schema.",
+                                "description": "RBAC configuration for analytics api - no-auth/cloud-admin/rbac",
+                                "default": "no-auth"
+                              }
+                            }
+                          },
+                          "ANALYTICS_COLLECTOR": {
+                            "type": "object",
+                            "title": "ANALYTICS_COLLECTOR schema.",
+                            "description": "Analytics Collector parameters",
+                            "properties": {
+                              "log": {
+                                "type": "string",
+                                "title": "Log schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-collector.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              },
+                              "introspect_port": {
+                                "type": "integer",
+                                "title": "Introspect_port schema.",
+                                "description": "Introspect port for debug",
+                                "default": 8089
+                              },
+                              "listen_port": {
+                                "type": "integer",
+                                "title": "Listen_port schema.",
+                                "description": "Listen port",
+                                "default": 8086
+                              },
+                              "listen_address": {
+                                "type": "string",
+                                "title": "Listen_address schema.",
+                                "description": "Listen address",
+                                "default": "0.0.0.0"
+                              },
+                              "syslog_port": {
+                                "type": "integer",
+                                "title": "Syslog_port schema.",
+                                "description": "TCP and UDP ports to listen on for receiving syslog messages. -1 to disable.",
+                                "default": -1
+                              },
+                              "sflow_port": {
+                                "type": "integer",
+                                "title": "Sflow_port schema.",
+                                "description": "UDP port to listen on for receiving sFlow messages. -1 to disable.",
+                                "default": 6343
+                              },
+                              "ipfix_port": {
+                                "type": "integer",
+                                "title": "Ipfix_port schema.",
+                                "description": "UDP port to listen on for receiving ipfix messages. -1 to disable.",
+                                "default": 4739
+                              },
+                              "sandesh_send_rate_limit": {
+                                "type": "integer",
+                                "title": "Sandesh_send_rate_limit schema.",
+                                "description": "Sandesh send rate limit can be used to throttle system logs transmitted per second",
+                                "default": 100
+                              }
+                            }
+                          },
+                          "QUERY_ENGINE": {
+                            "type": "object",
+                            "title": "QUERY_ENGINE schema.",
+                            "description": "Query Engine Parameters",
+                            "properties": {
+                              "log": {
+                                "type": "string",
+                                "title": "Log schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-query-engine.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              },
+                              "introspect_port": {
+                                "type": "integer",
+                                "title": "Introspect_port schema.",
+                                "description": "Introspect port for debug",
+                                "default": 8091
+                              }
+                            }
+                          },
+                          "SNMP_COLLECTOR": {
+                            "type": "object",
+                            "title": "SNMP_COLLECTOR schema.",
+                            "description": "SNMP Collector parameters",
+                            "properties": {
+                              "log": {
+                                "type": "string",
+                                "title": "Log schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-snmp-collector.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              },
+                              "introspect_port": {
+                                "type": "integer",
+                                "title": "Introspect_port schema.",
+                                "description": "Introspect port for debug",
+                                "default": 5920
+                              },
+                              "scan_frequency": {
+                                "type": "integer",
+                                "title": "Scan_frequency schema.",
+                                "description": "SNMP scan frequency",
+                                "default": 600
+                              },
+                              "fast_scan_frequency": {
+                                "type": "integer",
+                                "title": "Fast_scan_frequency schema.",
+                                "description": "SNMP Fast scan frequency",
+                                "default": 60
+                              }
+                            }
+                          },
+                          "TOPOLOGY": {
+                            "type": "object",
+                            "title": "TOPOLOGY schema.",
+                            "description": "Topology parameters",
+                            "properties": {
+                              "log": {
+                                "type": "string",
+                                "title": "Log schema.",
+                                "description": "Log file location",
+                                "default": "/var/log/contrail/contrail-topology.log"
+                              },
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Log level",
+                                "default": "SYS_NOTICE"
+                              },
+                              "introspect_port": {
+                                "type": "integer",
+                                "title": "Introspect_port schema.",
+                                "description": "Introspect port for debug",
+                                "default": 5921
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "analyticsdb": {
+                        "type": "object",
+                        "title": "Analyticsdb schema.",
+                        "description": "Analytics DB container params",
+                        "properties": {
+                          "DEFAULT": {
+                            "type": "object",
+                            "title": "DEFAULT schema.",
+                            "description": "All default configs would come here",
+                            "properties": {
+                              "log_level": {
+                                "type": "string",
+                                "title": "Log_level schema.",
+                                "description": "Default log_level",
+                                "default": "SYS_NOTICE"
+                              }
+                            }
+                          },
+                          "GLOBAL": {
+                            "type": "object",
+                            "title": "GLOBAL schema.",
+                            "description": "Global section parameters",
+                            "properties": {
+                              "controller_ip": {
+                                "type": "string",
+                                "title": "Controller_ip schema.",
+                                "description": "An IP address using which one can connect to all public services within controller container.",
+                                "default": "127.0.0.1"
+                              },
+                              "controller_list": {
+                                "type": "string",
+                                "title": "Controller_list schema.",
+                                "description": "An array/list representation of controller server IP addresses - this will be used to configure rabbitmq, zookeeper, cassandra servers",
+                                "default": "['127.0.0.1']"
+                              },
+                              "analyticsdb_list": {
+                                "type": "string",
+                                "title": "Analyticsdb_list schema.",
+                                "description": "list of analyticsdb server IP addresses",
+                                "default": "['127.0.0.1']"
+                              }
+                            }
+                          },
+                          "KEYSTONE": {
+                            "type": "object",
+                            "title": "KEYSTONE schema.",
+                            "description": "Section to get informtion about the keystone to be used by contrail. Only for openstack orchestration.",
+                            "properties": {
+                              "ip": {
+                                "type": "string",
+                                "title": "Ip schema.",
+                                "description": "Ip address of the host running keystone",
+                                "default": "127.0.0.1"
+                              },
+                              "admin_port": {
+                                "type": "integer",
+                                "title": "Admin_port schema.",
+                                "description": "Keystone admin port in which the keystone is listening.",
+                                "default": 35357
+                              },
+                              "public_port": {
+                                "type": "integer",
+                                "title": "Public_port schema.",
+                                "description": "Keystone public port in which the keystone is listening.",
+                                "default": 5000
+                              },
+                              "version": {
+                                "type": "string",
+                                "title": "Version schema.",
+                                "description": "Version of keystone to be used.",
+                                "default": "v2.0"
+                              },
+                              "auth_protocol": {
+                                "type": "string",
+                                "title": "Auth_protocol schema.",
+                                "description": "Protocol used by keystone(http/https)",
+                                "default": "http"
+                              },
+                              "admin_user": {
+                                "type": "string",
+                                "title": "Admin_user schema.",
+                                "description": "Name of the admin user in keystone.",
+                                "default": "admin"
+                              },
+                              "admin_tenant": {
+                                "type": "string",
+                                "title": "Admin_tenant schema.",
+                                "description": "keystone admin tenant's name.",
+                                "default": "admin"
+                              },
+                              "admin_password": {
+                                "type": "string",
+                                "title": "Admin_password schema.",
+                                "description": "Password of the keystone admin user.",
+                                "default": "admin"
+                              }
+                            }
+                          },
+                          "CASSANDRA": {
+                            "type": "object",
+                            "title": "CASSANDRA schema.",
+                            "description": "Cassandra section parameters",
+                            "properties": {
+                              "version": {
+                                "type": "string",
+                                "title": "Version schema.",
+                                "description": "Cassandra version to use",
+                                "default": "2.2"
+                              },
+                              "version_branch": {
+                                "type": "string",
+                                "title": "Version_branch schema.",
+                                "description": "Cassandra version branch to use",
+                                "default": "2.2"
+                              },
+                              "commitlog_dir": {
+                                "type": "string",
+                                "title": "Commitlog_dir schema.",
+                                "description": "Directory to store commitlogs - prefered to use high performance disk",
+                                "default": "/var/lib/cassandra/commitlog"
+                              },
+                              "saved_caches_dir": {
+                                "type": "string",
+                                "title": "Saved_caches_dir schema.",
+                                "description": "The directory location where table key and row caches are stored",
+                                "default": "/var/lib/cassandra/saved_caches"
+                              },
+                              "data_dirs": {
+                                "type": "array",
+                                "title": "Data_dirs schema.",
+                                "description": "List of directory location where table data is stored (in SSTables)."
+                              },
+                              "listen_address": {
+                                "type": "string",
+                                "title": "Listen_address schema.",
+                                "description": "This must be an IP address - not 0.0.0.0",
+                                "default": "127.0.0.1"
+                              },
+                              "java_max_heap_size": {
+                                "type": "string",
+                                "title": "Java_max_heap_size schema.",
+                                "description": "JAVA memory configurations - max heap size",
+                                "default": "512M"
+                              },
+                              "java_max_heap_newsize": {
+                                "type": "string",
+                                "title": "Java_max_heap_newsize schema.",
+                                "description": "JAVA memory configurations - max heap newsize",
+                                "default": "100M"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "lb": {
+                        "type": "object",
+                        "title": "Lb schema.",
+                        "description": "Load balancer container parameters",
+                        "properties": {
+                          "GLOBAL": {
+                            "type": "object",
+                            "title": "GLOBAL schema.",
+                            "description": "GLOBAL section params",
+                            "properties": {
+                              "controller_list": {
+                                "type": "string",
+                                "title": "Controller_list schema.",
+                                "description": " An array/list representation of controller server IP addresses, which will be used to configure hproxy backend servers",
+                                "default": "['127.0.0.1']"
+                              },
+                              "analytics_list": {
+                                "type": "string",
+                                "title": "Analytics_list schema.",
+                                "description": "An array/list representation of analytics server IP addresses, which will be used to configure hproxy backend servers",
+                                "default": "['127.0.0.1']"
+                              }
+                            }
+                          },
+                          "HAPROXY": {
+                            "type": "object",
+                            "title": "HAPROXY schema.",
+                            "description": "HAPROXY section parameters",
+                            "properties": {
+                              "haproxy_auth_user": {
+                                "type": "string",
+                                "title": "Haproxy_auth_user schema.",
+                                "description": "auth user to access haproxy stats",
+                                "default": "haproxy"
+                              },
+                              "haproxy_auth_password": {
+                                "type": "string",
+                                "title": "Haproxy_auth_password schema.",
+                                "description": "auth user's password to access haproxy stats",
+                                "default": ""
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "openstack": {
+                    "type": "object",
+                    "title": "Openstack schema.",
+                    "description": "Openstack parameters",
+                    "properties": {
+                      "external_openstack_ip": {
+                        "type": "string",
+                        "title": "External_openstack_ip schema.",
+                        "description": "External IP to reach the openstack cluster"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

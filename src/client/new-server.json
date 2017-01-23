@@ -12,6 +12,15 @@
                             "dpdk": {
                                 "core_mask": "",
                                 "huge_pages": ""
+                            },
+                            "sriov": {
+                                "literal": true,
+                                "p5p1": {
+                                    "VF": 7,
+                                    "physnets": [
+                                        "physnet1"
+                                    ]
+                                }
                             }
                         },
                         "storage": {
