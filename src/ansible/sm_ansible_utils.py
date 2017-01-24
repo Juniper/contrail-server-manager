@@ -5,6 +5,36 @@ import ConfigParser
 import json
 from StringIO import StringIO
 
+# Role strings
+CONTROLLER_CONTAINER  = "contrail-controller"
+ANALYTICS_CONTAINER   = "contrail-analytics"
+ANALYTICSDB_CONTAINER = "contrail-analyticsdb"
+AGENT_CONTAINER       = "contrail-agent"
+LB_CONTAINER          = "contrail-lb"
+BARE_METAL_COMPUTE    = "compute" 
+
+# Add new roles and corresponding container_name here
+_container_names = { CONTROLLER_CONTAINER  : 'controller',
+                     ANALYTICS_CONTAINER   : 'analytics',
+                     ANALYTICSDB_CONTAINER : 'analyticsdb',
+                     LB_CONTAINER          : 'lb',
+                     AGENT_CONTAINER       : 'agent',
+                     BARE_METAL_COMPUTE    : 'agent' }
+_valid_roles = _container_names.keys()
+
+_inventory_group = { CONTROLLER_CONTAINER  : "contrail-controllers",
+                     ANALYTICS_CONTAINER   : "contrail-analytics",
+                     ANALYTICSDB_CONTAINER : "contrail-analyticsdb",
+                     LB_CONTAINER          : "contrail-lb",
+                     AGENT_CONTAINER       : "contrail-compute",
+                     BARE_METAL_COMPUTE    : "contrail-compute" }
+
+_container_img_keys = { CONTROLLER_CONTAINER  : "controller_image",
+                        ANALYTICS_CONTAINER   : "analytics_image",
+                        ANALYTICSDB_CONTAINER : "analyticsdb_image",
+                        LB_CONTAINER          : "lb_image",
+                        AGENT_CONTAINER       : "agent_image" }
+
 def send_REST_request(ip, port, endpoint, payload,
                       method='POST', urlencode=False):
     try:
