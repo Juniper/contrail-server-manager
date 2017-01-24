@@ -50,6 +50,9 @@ class SM_Docker():
     def tag_containers(self, image, repo, tag):
         return self._docker_client.tag(image, repo, tag)
 
+    def remove_containers(self, image):
+        return self._docker_client.remove_image(image, force=True)
+
     def push_containers(self, image):
         try:
             stream = self._docker_client.push(image, stream=True)

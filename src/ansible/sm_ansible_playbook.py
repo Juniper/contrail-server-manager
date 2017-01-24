@@ -1,5 +1,6 @@
 import os
 import sys
+import urllib
 import multiprocessing
 import ConfigParser
 import tempfile
@@ -11,6 +12,9 @@ from ansible.inventory import Inventory
 from ansible.executor.playbook_executor import PlaybookExecutor
 
 from sm_ansible_utils import *
+from sm_ansible_utils import _valid_roles
+from sm_ansible_utils import _inventory_group
+from sm_ansible_utils import _container_names
 
 """
     wrapper class inspired from
@@ -33,6 +37,8 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
                          "container_image"]
 
         params = entity.get("parameters", None)
+        if params['container_name'] == 'compute':
+            return self.STATUS_VALID
 
         for x in keys_to_check:
             if not x in params.keys():
@@ -59,6 +65,9 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
         except IOError as e:
             return ("Playbook not found : %s" % pbook)
 
+        if params['container_name'] not in _valid_roles:
+            return ("Invalid Role:%s" % params['container_name'])
+
         return self.STATUS_VALID
 
 
@@ -80,34 +89,20 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
             self.pbook_path         = parameters["ansible_playbook"]
             self.role               = parameters["container_name"]
             pbook_dir = os.path.dirname(self.pbook_path)
-            rl = self.role
-            if self.role == 'control':
-                rl = 'controller'
-                inv["[contrail-controllers]"] = self.server
-                if "contrail-controllers" not in inv["[all:children]"]:
-                    inv["[all:children]"].append("contrail-controllers")
-            elif self.role == 'analytics':
-                inv["[contrail-analytics]"] = self.server
-                if "contrail-analytics" not in inv["[all:children]"]:
-                    inv["[all:children]"].append("contrail-analytics")
-            elif self.role == 'analyticsdb':
-                inv["[contrail-analyticsdb]"] = self.server
-                if "contrail-analyticsdb" not in inv["[all:children]"]:
-                    inv["[all:children]"].append("contrail-analyticsdb")
-            elif self.role == 'agent':
-                inv["[contrail-compute]"] = self.server
-                if "contrail-compute" not in inv["[all:children]"]:
-                    inv["[all:children]"].append("contrail-compute")
-            elif self.role == 'lb':
-                inv["[contrail-lb]"] = self.server
-                if "contrail-lb" not in inv["[all:children]"]:
-                    inv["[all:children]"].append("contrail-lb")
+            if self.current_status != self.STATUS_VALID:
+                break
+            inv_key = "[" + _inventory_group[self.role] + "]"
+            inv[inv_key] = self.server
+            if _inventory_group[self.role] not in inv["[all:children]"]:
+                inv["[all:children]"].append(_inventory_group[self.role])
 
-            params["config_file_dest"]   = '/etc/contrailctl/' + rl + '.conf'
-            params["config_file_src"]    = pbook_dir + '/contrailctl/' + rl + '.conf'
-            inv["[all:vars]"] = []
-            inv["[all:vars]"].append("docker_install_method="+str(args.docker_install_method))
-            inv["[all:vars]"].append("docker_package_name="+str(args.docker_package_name))
+            params["config_file_dest"]   = '/etc/contrailctl/' + \
+                    _container_names[self.role] + '.conf'
+            params["config_file_src"]    = pbook_dir + '/contrailctl/' + \
+                    _container_names[self.role] + '.conf'
+            #inv["[all:vars]"] = []
+            #inv["[all:vars]"].append("docker_install_method="+str(args.docker_install_method))
+            #inv["[all:vars]"].append("docker_package_name="+str(args.docker_package_name))
             print "config file is %s" % params["config_file_dest"]
 
             if self.current_status == self.STATUS_VALID:
@@ -149,6 +144,7 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
 
     def run(self):
         #import pdb; pdb.set_trace()
+        stats = None
         if self.current_status == self.STATUS_VALID:
             self.current_status = self.STATUS_IN_PROGRESS
             status_resp = { "server_id" : self.srvrid,
@@ -156,7 +152,8 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
                             "state" : self.current_status }
             send_REST_request(self.args.ansible_srvr_ip,
                               self.args.ansible_srvr_port,
-                              "playbook_status", status_resp, method='PUT')
+                              "playbook_status", urllib.urlencode(status_resp),
+                              method='PUT', urlencode=True)
             rv = self.pb_executor.run()
             print "RUN DONE"
             stats = self.pb_executor._tqm._stats
@@ -182,14 +179,17 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
                             "state" : self.current_status }
             send_REST_request(self.args.ansible_srvr_ip,
                     self.args.ansible_srvr_port,
-                              "playbook_status", status_resp, method='PUT')
+                              "playbook_status", urllib.urlencode(status_resp),
+                              method='PUT', urlencode=True)
             print self.current_status
-            return stats
         else:
             print "Validation Failed"
             status_resp = { "server_id" : self.srvrid,
                             "role" : self.role,
                             "state" : self.current_status }
+            self.current_status = self.STATUS_FAILED
             send_REST_request(self.args.ansible_srvr_ip,
                     self.args.ansible_srvr_port,
-                              "playbook_status", status_resp, method='PUT')
+                              "playbook_status", urllib.urlencode(status_resp),
+                              method='PUT', urlencode=True)
+        return stats
