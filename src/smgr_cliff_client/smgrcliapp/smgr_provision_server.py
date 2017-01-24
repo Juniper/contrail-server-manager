@@ -57,11 +57,16 @@ class Provision(Command):
         group.add_argument("--interactive", "-I", action="store_true",
                            help=("flag that user wants to enter the server "
                                  " parameters for provisioning manually"))
+        parser.add_argument("--compute_image_id",
+                           help=("image_id for the contrail-install-package.deb"
+                           " package"))
         parser.add_argument("--no_confirm", "-F", action="store_true",
                             help=("flag to bypass confirmation message, "
                                   "default = do not bypass"))
         self.command_dictionary["provision"] = ["server_id", "cluster_id", "tag", "where",
-                                                "interactive", "no_confirm",
+                                                "interactive",
+                                                "compute_image_id",
+                                                "no_confirm",
                                                 "provision_params_file", "f", "F", "I"]
         for key in self.command_dictionary:
             new_dict = dict()
@@ -120,6 +125,7 @@ class Provision(Command):
         match_key = None
         match_value = None
         match_param = None
+        compute_img_id = None
         if getattr(parsed_args, "server_id", None):
             match_key = 'id'
             match_value = getattr(parsed_args, "server_id", None)
@@ -139,7 +145,11 @@ class Provision(Command):
         else:
             pass
 
+        if getattr(parsed_args, "compute_image_id", None):
+            compute_img_id = getattr(parsed_args, "compute_image_id", None)
         payload['package_image_id'] = getattr(parsed_args, "package_image_id", None)
+        if compute_img_id != None:
+            payload['compute_image_id'] = compute_img_id
         if match_key and match_value:
             payload[match_key] = match_value
         if provision_params:
