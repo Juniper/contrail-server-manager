@@ -37,7 +37,18 @@ install
 # Clear the Master Boot Record
 zerombr
 # Allow anaconda to partition the system as needed
-autopart
+part /boot --fstype ext4 --size=1024
+part swap --recommended
+part pv.01      --size=1000     --grow  --ondisk=sda
+volgroup $system_name-vg00 pv.01
+# /     => 10%
+# /var  => 70%
+# /home => 5%
+# /tmp  => 10%
+logvol /     --vgname=$system_name-vg00 --fstype=ext4 --percent=10 --name=lv_root
+logvol /tmp  --vgname=$system_name-vg00 --fstype=ext4 --percent=10 --name=lv_tmp
+logvol /home --vgname=$system_name-vg00 --fstype=ext4 --percent=5  --name=lv_home
+logvol /var  --vgname=$system_name-vg00 --fstype=ext4 --percent=70 --name=lv_var
 
 
 %pre
