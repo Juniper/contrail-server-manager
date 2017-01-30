@@ -100,6 +100,7 @@
                             "admin_tenant": "admin",
                             "service_tenant": "services",
                             "auth_protocol": "http",
+                            "mysql_service_password": "",
                             "auth_port": 35357
                         },
                         "neutron" : {
@@ -112,7 +113,8 @@
                             "port": ""
                         },
                         "mysql": {
-                            "root_password": "c0ntrail123"
+                            "root_password": "c0ntrail123",
+                            "allowed_hosts": []
                         },
                         "ha": {
                             "internal_vip": "",
