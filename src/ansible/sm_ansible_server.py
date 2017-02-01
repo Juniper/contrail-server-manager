@@ -86,8 +86,8 @@ class SMAnsibleServer():
         args, remaining_argv = conf_parser.parse_known_args(args_str)
 
         serverCfg = {
-            'docker_install_method': _DOCKER_INSTALL_METHOD,
-            'docker_package_name': _DOCKER_PACKAGE_NAME,
+            #'docker_install_method': _DOCKER_INSTALL_METHOD,
+            #'docker_package_name': _DOCKER_PACKAGE_NAME,
             'ansible_srvr_ip': _WEB_HOST,
             'ansible_srvr_port': _ANSIBLE_SRVR_PORT,
             'docker_insecure_registries': _ANSIBLE_REGISTRY,
