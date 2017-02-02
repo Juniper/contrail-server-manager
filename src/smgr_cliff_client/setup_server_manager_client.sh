@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-HOST_IP_LIST=`ifconfig | sed -n -e 's/:127\.0\.0\.1 //g' -e 's/ *inet addr:\([0-9.]\+\).*/\1/gp'`
+HOST_IP_LIST=`ifconfig | sed -n -e 's/:127\.0\.0\.1 //g' -e 's/:172\.17\.0\.1//g' -e 's/ *inet addr:\([0-9.]\+\).*/\1/gp'`
 HOST_IP=`echo $HOST_IP_LIST | cut -d' ' -f1`
 if [ -f /opt/contrail/contrail_server_manager/IP.txt ];
 then
