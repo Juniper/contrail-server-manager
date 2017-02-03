@@ -1735,6 +1735,7 @@ class VncServerManager():
                         #find sku of package (juno/kilo/liberty)
                         package_sku = self.find_package_sku(image_id, image_type)
                         image_params['sku'] = package_sku
+                        self.cleanup_package_install(image_id, image_type)
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
                             image_id, image_type, image_version, image_path)
@@ -4364,6 +4365,20 @@ class VncServerManager():
                 servers, role)
         return role_servers
     #end get_role_servers
+
+    #NOTE: Don't call before find_package_sku
+    def cleanup_package_install(self, image_id, image_type):
+        if image_type == "contrail-ubuntu-package":
+            cmd = ("/bin/rm %s/contrail/repo/%s/*.deb" % (self._args.html_root_dir, image_id))
+            subprocess.check_call(cmd, shell=True)
+        # NO clean up needed for rpm packages
+        #elif image_type == "contrail-centos-package":
+            #cmd = ("/bin/rm %s/contrail/repo/%s/*.deb" % (self._args.html_root_dir, image_id))
+            #subprocess.check_call(cmd, shell=True)
+        elif image_type == "contrail-storage-ubuntu-package":
+            cmd = ("/bin/rm %s/contrail/repo/%s/*.deb" % (self._args.html_root_dir, image_id))
+            subprocess.check_call(cmd, shell=True)
+        
 
     def find_package_sku(self, image_id, image_type):
         if image_type == "contrail-ubuntu-package":
