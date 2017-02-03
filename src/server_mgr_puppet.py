@@ -119,6 +119,7 @@ class ServerMgrPuppet:
         # end with
         fh.close()
         shutil.copy(temp_file, site_file)
+        os.chmod(site_file, 0644)
         os.remove(temp_file)
     # end def delete_node_entry
 
