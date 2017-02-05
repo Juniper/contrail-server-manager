@@ -410,11 +410,16 @@ class UbuntuInterface(BaseInterface):
     def create_vlan_interface(self):
         '''Create interface config for vlan sub interface'''
         interface = 'vlan'+self.vlan
-        cfg = ['auto %s' %interface,
-               'iface %s inet static' %interface,
-               'address %s' %self.ipaddr,
-               'netmask  %s' %self.netmask,
-               'vlan-raw-device %s' %self.device]
+        if self.dhcp:
+            cfg = ['auto %s' %interface,
+                   'iface %s inet dhcp' %interface,
+                   'vlan-raw-device %s' %self.device]
+        else:
+            cfg = ['auto %s' %interface,
+                   'iface %s inet static' %interface,
+                   'address %s' %self.ipaddr,
+                   'netmask  %s' %self.netmask,
+                   'vlan-raw-device %s' %self.device]
         if self.gw:
             cfg.append('gateway %s' %self.gw)
         if self.mtu:

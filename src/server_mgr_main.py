@@ -3045,8 +3045,16 @@ class VncServerManager():
                 d_gw = intf.get('default_gateway', None)
                 dhcp = intf.get('dhcp', None)
                 mtu = intf.get('mtu', '')
+                vlan = intf.get('vlan','')
+
                 if mtu:
                     mtu = '--mtu %s' %mtu
+
+                if vlan:
+                    vlan = '--vlan %s' %vlan
+                else:
+                    vlan = ''
+
                 type = intf.get('type', None)
                 #form string
                 if type and type.lower() == 'bond':
@@ -3055,32 +3063,32 @@ class VncServerManager():
                                                               intf.get('member_interfaces', []))
                     if dhcp:
                         device_str+= ("python /root/interface_setup.py \
---device %s --members %s --bond-opts \"%s\" --dhcp\n") % \
-                        (name, " ".join(member_intfs), json.dumps(bond_opts))
+--device %s --members %s --bond-opts \"%s\" --dhcp %s\n") % \
+                        (name, " ".join(member_intfs), json.dumps(bond_opts), vlan)
                     #If bond interface is the management interface you need to set the gateway
                     elif ((mgmt_intf == name) and d_gw):
                         device_str+= ("python /root/interface_setup.py \
---device %s --members %s --bond-opts \"%s\" --ip %s --gw %s\n") % \
-                        (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr, d_gw)
+--device %s --members %s --bond-opts \"%s\" --ip %s --gw %s %s\n") % \
+                        (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr, d_gw, vlan)
                     else:
                         device_str+= ("python /root/interface_setup.py \
---device %s --members %s --bond-opts \"%s\" --ip %s\n") % \
-                        (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr)
+--device %s --members %s --bond-opts \"%s\" --ip %s %s\n") % \
+                        (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr, vlan)
                     execute_script = True
                 else:
                     #Take the mac_address as the name as the interface may be renamed after reboot
                     if 'mac_address' in intf:
                         name = intf['mac_address'].lower()
                     if dhcp:
-                        device_str+= ("python /root/interface_setup.py --device %s --dhcp\n") %(name)
+                        device_str+= ("python /root/interface_setup.py --device %s --dhcp %s\n") %(name, vlan)
                     else:
                         #For static managment interface pass the default gateway
                         if (mgmt_intf == intf_name) and d_gw:
-                            device_str+= ("python /root/interface_setup.py --device %s --ip %s --gw %s\n") % \
-                               (name, ip_addr, d_gw)
+                            device_str+= ("python /root/interface_setup.py --device %s --ip %s --gw %s %s\n") % \
+                               (name, ip_addr, d_gw, vlan)
                         else:
-                            device_str+= ("python /root/interface_setup.py --device %s --ip %s\n") % \
-                               (name, ip_addr)
+                            device_str+= ("python /root/interface_setup.py --device %s --ip %s %s\n") % \
+                               (name, ip_addr, vlan)
                 execute_script = True
             # Build route configuration and add it
             route_str = self.build_route_cfg(server)
