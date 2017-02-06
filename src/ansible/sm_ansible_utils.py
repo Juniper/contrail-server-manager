@@ -75,20 +75,28 @@ def create_inv_file(fname, dictionary):
                 invfile.write('\n')
                 invfile.write(value)
                 invfile.write('\n')
-            if isinstance(value, list):
-                continue
-
-
-        for key, value in dictionary.items():
-            if isinstance(value, str):
-                continue
-
+                invfile.write('\n')
             if isinstance(value, list):
                 invfile.write(key)
                 invfile.write('\n')
-                for x in value:
-                    invfile.write(x)
+                for item in value:
+                    invfile.write(item)
                     invfile.write('\n')
+                invfile.write('\n')
+            if isinstance(value, dict):
+                invfile.write(key)
+                invfile.write('\n')
+                for k, v in value.items():
+                    if isinstance(v, str) or isinstance(v, bool):
+                        invfile.write(k+"=")
+                        invfile.write(str(v))
+                        invfile.write('\n')
+                        invfile.write('\n')
+                    if isinstance(v, list) or isinstance(v, dict):
+                        invfile.write(k+"=")
+                        invfile.write(str(v))
+                        invfile.write('\n')
+                        invfile.write('\n')
 
 
 '''
@@ -123,5 +131,15 @@ def create_conf_file(ini_file, dictionary={}):
     create_sections(config, dictionary)
     with open(ini_file, 'w') as configfile:
         config.write(configfile)
+
+def update_inv_file(ini_file, section, dictionary={}):
+    if not ini_file:
+        return
+    config = ConfigParser.SafeConfigParser()
+    create_sections(config, dictionary)
+    with open(ini_file, 'a') as configfile:
+        config.write(configfile)
+
+
 
 

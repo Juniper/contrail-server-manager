@@ -51,6 +51,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'ansible'))
 from sm_ansible_utils import send_REST_request
 from sm_ansible_utils import _container_img_keys
 from sm_ansible_utils import _valid_roles
+from sm_ansible_utils import _inventory_group
+from sm_ansible_utils import BARE_METAL_COMPUTE
 from server_mgr_docker import SM_Docker
 
 try:
@@ -3773,6 +3775,83 @@ class VncServerManager():
                           (device, ipaddr, netmask, gateway)
         return routes_str
 
+    def hosts_in_inventory(self, inventory):
+        hosts = []
+        for role in _valid_roles:
+            grp = "[" + _inventory_group[role] + "]"
+            if grp in inventory.keys():
+                for h in inventory[grp]:
+                    if h not in hosts:
+                        hosts.append(h)
+        return hosts
+
+    def _do_ansible_provision_cluster(self, server_list, cluster, package):
+        pp = []
+        inv = {}
+        params   = {}
+        cluster_inv = self.get_container_inventory(cluster)
+        merged_inv = cluster_inv
+        if not cluster_inv:
+            msg = "No Inventory definition found in cluster json"
+            self.log_and_raise_exception(msg)
+
+        for s in self.hosts_in_inventory(cluster_inv):
+            servers = self._serverDb.get_server({'ip_address': s}, detail=True)
+            if not servers:
+                continue
+            server = servers[0]
+            server_inv = self.get_container_inventory(server)
+            self.merge_dict(server_inv, merged_inv)
+            merged_inv = server_inv
+
+            #FIXME: Get ansible user from config/json and use "root" as default
+            # and add it to host_vars in the ansible inventory
+            merged_inv["[all:vars]"]["ansible_user"]="root"
+            merged_inv["[all:vars]"]["ansible_password"] = \
+                    server["password"]
+            for x in eval(server['roles']):
+                self.set_container_image_for_role(
+                        merged_inv['[all:vars]'], x, package)
+
+        if "contrail_image_id" in package.keys():
+            merged_inv['[all:vars]']["contrail_apt_repo"] = \
+                "http://puppet/contrail/repo/" + \
+                package["contrail_image_id"] + " contrail main"
+        inv["inventory"] = merged_inv
+        parameters = { 'server_id': server['id'], 'parameters': inv }
+        pp.append(copy.deepcopy(parameters))
+
+        #send_REST_request(self._args.ansible_srvr_ip,
+        #            self._args.ansible_srvr_port,
+        #            _ANSIBLE_PROVISION_START_ENDPOINT, params)
+
+        #time.sleep(10)
+        send_REST_request(self._args.ansible_srvr_ip,
+                      self._args.ansible_srvr_port,
+                      _ANSIBLE_PROVISION_ENDPOINT, pp)
+        update = {'id': server['id'],
+                'status' : 'provision_issued',
+                'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                'provisioned_id': package.get('id', '')}
+        self._serverDb.modify_server(update)
+
+        return True
+
+
+    def is_role_in_cluster(self, role, provision_server_list):
+        for server in provision_server_list:
+           if role in server['server']['roles']:
+               return True
+
+        return False
+
+    def get_server_for_role(self, role, provision_server_list):
+        for server in provision_server_list:
+            for r in eval(server['server']['roles']):
+                if role == r:
+                    return server
+
+        return None
 
     # This function runs on a separate gevent thread and processes requests for reimage.
     def _reimage_server_cobbler(self):
@@ -3814,11 +3893,50 @@ class VncServerManager():
                     if provision_server_list:
                         cluster_id = reimage_item[2]
                         role_sequence = reimage_item[3]
-                        for server in provision_server_list:
-                            self._do_provision_server(server['provision_params'], server['server'],
+                        # package will be same for all servers. So its ok to
+                        # decide based on the first.
+                        package = provision_server_list[0]['package']
+                        cluster = provision_server_list[0]['cluster']
+                        if package['category'] == 'container':
+                            self._do_ansible_provision_cluster(
+                                    provision_server_list, cluster, package)
+                            if self.is_role_in_cluster('openstack',
+                                    provision_server_list) and \
+                                     package['contrail_image_id']:
+                                server = self.get_server_for_role('openstack',
+                                        provision_server_list)
+                                if server == None:
+                                    continue
+                                contrail_images = \
+                                      self._serverDb.get_image({"id": \
+                                      str(package['contrail_image_id'])},
+                                      detail=True)
+                                if contrail_images:
+                                    contrail_package = contrail_images[0]
+                                    contrail_pkg_image_id = \
+                                        str(package['contrail_image_id'])
+                                    contrail_pkg_image_id, contrail_package =  \
+                                        self.get_package_image(\
+                                            contrail_pkg_image_id)
+                                    if "parameters" in contrail_package:
+                                        contrail_package["parameters"] = \
+                                           eval(contrail_package["parameters"])
+                                        contrail_package["calc_params"] = \
+                                           package.get("calc_params",{})
+                                    self._do_provision_server(
+                                           server['provision_params'],
+                                           server['server'],
+                                           server['cluster'],
+                                           server['cluster_servers'],
+                                           contrail_package,
+                                           server['serverDb'])
+                        else:
+
+                            for server in provision_server_list:
+                                self._do_provision_server(server['provision_params'], server['server'],
                                     server['cluster'], server['cluster_servers'],
                                     server['package'], server['serverDb'])
-                            self._smgr_log.log(self._smgr_log.DEBUG, "provision processed from queue")
+                                self._smgr_log.log(self._smgr_log.DEBUG, "provision processed from queue")
                         # Update cluster with role_sequence and apply sequence first step
                         # If no role_sequence present, just update cluster with it.
                         self.update_cluster_provision(cluster_id, role_sequence)
@@ -5674,13 +5792,38 @@ class VncServerManager():
     # end _do_reimage_server
 
     def get_container_provision_params(self, parent):
+        containers = {}
         params     = parent.get("parameters", {})
-        prov       = params.get("provision", {})
-        containers = prov.get("containers", {})
+        if isinstance(params, unicode):
+            pparams = eval(params)
+            prov    = pparams.get("provision", {})
+        else:
+            prov       = params.get("provision", {})
+
+        if (prov):
+            containers = prov.get("containers", {})
         return containers
 
+    def get_container_inventory(self, parent):
+        inventory = {}
+        params     = parent.get("parameters", {})
+        if isinstance(params, unicode):
+            pparams = eval(params)
+            prov    = pparams.get("provision", {})
+        else:
+            prov       = params.get("provision", {})
+
+        if (prov):
+            containers = prov.get("containers", {})
+
+        if (containers):
+            inventory = containers.get("inventory", {})
+
+        return inventory
+
+
     def get_container_image_for_role(self, role, package):
-        if role == 'compute':
+        if role == BARE_METAL_COMPUTE:
             return None
         container_image = self._args.docker_insecure_registries + \
                            '/' + package['id'] + '-' + role + ':' + \
@@ -5779,8 +5922,7 @@ class VncServerManager():
                     str(package['contrail_image_id'])}, detail=True)
                 if contrail_images:
                     contrail_package = contrail_images[0]
-                    contrail_package_image_id, contrail_package = self.get_package_image(
-                                               str(package['contrail_image_id']))
+                    contrail_package_image_id, contrail_package = self.get_package_image(str(package['contrail_image_id']))
                     if "parameters" in contrail_package:
                         contrail_package["parameters"] = eval(contrail_package["parameters"])
                         contrail_package["calc_params"] = package.get("calc_params",{})
