@@ -51,7 +51,10 @@ class SM_Docker():
         return self._docker_client.tag(image, repo, tag)
 
     def remove_containers(self, image):
-        return self._docker_client.remove_image(image, force=True)
+        try:
+            self._docker_client.remove_image(image, force=True)
+        except:
+            pass
 
     def push_containers(self, image):
         try:

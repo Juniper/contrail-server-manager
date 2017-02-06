@@ -157,9 +157,8 @@ class SMAnsibleServer():
 
     def playbook_status(self):
         server_hostname = bottle.request.query['server_id']
-        server_role     = bottle.request.query['role']
         server_status   = bottle.request.query['state']
-        self.host_run_results[server_hostname][server_role] = server_status
+        self.host_run_results[server_hostname] = server_status
 
         status_resp = {
                     "server_id" : server_hostname,

@@ -28,17 +28,15 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
     STATUS_SUCCESS = "Provision_Success"
     STATUS_FAILED  = "Provision_Failed"
 
-    def validate_provision_params(self, entity, defaults):
+    def validate_provision_params(self, inv, defaults):
 
-        keys_to_check = ["ansible_playbook", "container_name", "ansible_host",
-                         "ansible_user", "ansible_password",
+        keys_to_check = ["ansible_playbook",
                          "docker_insecure_registries",
-                         "docker_registry_insecure", "container_name",
-                         "container_image"]
+                         "docker_registry_insecure"]
 
-        params = entity.get("parameters", None)
-        if params['container_name'] == 'compute':
-            return self.STATUS_VALID
+        params = inv.get("[all:vars]", None)
+        if params == None:
+            return ("[all:vars] not defined")
 
         for x in keys_to_check:
             if not x in params.keys():
@@ -65,54 +63,32 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
         except IOError as e:
             return ("Playbook not found : %s" % pbook)
 
-        if params['container_name'] not in _valid_roles:
-            return ("Invalid Role:%s" % params['container_name'])
-
         return self.STATUS_VALID
 
 
     def __init__(self, json_entity, args):
         super(ContrailAnsiblePlayBook, self).__init__()
-        inv = {}
-        inv["[all:children]"] = []
         controllers = []
         analytics = []
         analyticsdb = []
         lb = []
         agent = []
+        inv_file = None
         for params in json_entity:
             srvrid = params.get("server_id", None)
             parameters = params.get("parameters", None)
-            self.current_status = self.validate_provision_params(params, args)
+            inventory = parameters["inventory"]
+            self.current_status = self.validate_provision_params(inventory, args)
             self.srvrid             = srvrid
-            self.server             = parameters["ansible_host"]
-            self.pbook_path         = parameters["ansible_playbook"]
-            self.role               = parameters["container_name"]
+            self.pbook_path         = inventory["[all:vars]"]["ansible_playbook"]
             pbook_dir = os.path.dirname(self.pbook_path)
             if self.current_status != self.STATUS_VALID:
                 break
-            inv_key = "[" + _inventory_group[self.role] + "]"
-            inv[inv_key] = self.server
-            if _inventory_group[self.role] not in inv["[all:children]"]:
-                inv["[all:children]"].append(_inventory_group[self.role])
-
-            params["config_file_dest"]   = '/etc/contrailctl/' + \
-                    _container_names[self.role] + '.conf'
-            params["config_file_src"]    = pbook_dir + '/contrailctl/' + \
-                    _container_names[self.role] + '.conf'
-            #inv["[all:vars]"] = []
-            #inv["[all:vars]"].append("docker_install_method="+str(args.docker_install_method))
-            #inv["[all:vars]"].append("docker_package_name="+str(args.docker_package_name))
-            print "config file is %s" % params["config_file_dest"]
-
-            if self.current_status == self.STATUS_VALID:
-                create_conf_file(params["config_file_src"],
-                                 parameters[parameters["container_name"]])
 
         inv_dir = pbook_dir + '/inventory/'
         inv_file = \
             tempfile.NamedTemporaryFile(dir=inv_dir, delete=False).name
-        create_inv_file(inv_file, inv)
+        create_inv_file(inv_file, inventory)
 
         self.var_mgr            = VariableManager()
         self.ldr                = DataLoader()
@@ -148,7 +124,6 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
         if self.current_status == self.STATUS_VALID:
             self.current_status = self.STATUS_IN_PROGRESS
             status_resp = { "server_id" : self.srvrid,
-                            "role" : self.role,
                             "state" : self.current_status }
             send_REST_request(self.args.ansible_srvr_ip,
                               self.args.ansible_srvr_port,
@@ -175,7 +150,6 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
                 self.current_status = self.STATUS_FAILED
 
             status_resp = { "server_id" : self.srvrid,
-                            "role" : self.role,
                             "state" : self.current_status }
             send_REST_request(self.args.ansible_srvr_ip,
                     self.args.ansible_srvr_port,
@@ -185,7 +159,6 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
         else:
             print "Validation Failed"
             status_resp = { "server_id" : self.srvrid,
-                            "role" : self.role,
                             "state" : self.current_status }
             self.current_status = self.STATUS_FAILED
             send_REST_request(self.args.ansible_srvr_ip,
