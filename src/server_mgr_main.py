@@ -3813,7 +3813,8 @@ class VncServerManager():
                 self.set_container_image_for_role(
                         merged_inv['[all:vars]'], x, package)
 
-        if "contrail_image_id" in package.keys():
+        if "contrail_image_id" in package.keys() and \
+            package["contrail_image_id"]:
             merged_inv['[all:vars]']["contrail_apt_repo"] = \
                 "http://puppet/contrail/repo/" + \
                 package["contrail_image_id"] + " contrail main"
@@ -4880,9 +4881,6 @@ class VncServerManager():
         if package.get('category', None) == "container":
             if package.get('contrail_image_id', None):
                 contrail_params['contrail_repo_name'] = [package.get('contrail_image_id', '')]
-            else:
-                msg = "Please provide contrail_image_id to do puppet provision"
-                self.log_and_raise_exception(msg)
         else:
             contrail_params['contrail_repo_name'] = [package.get('id', '')]
         # contrail_repo_type (not used by 3.0 code, maintained for pre-3.0)
