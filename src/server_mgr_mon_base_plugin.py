@@ -802,8 +802,10 @@ class ServerMgrMonBasePlugin():
                 sshclient.close()
             except Exception as e:
                 if action == "start":
-                    server_state = server['status']
-                    if server_state == "reimage_started" or server_state == "restart_issued" or server_state == "reimage_completed":
+                    servers = self._serverDb.get_server({"id": server['id']}, detail=True)
+                    server_state = servers[0]['status']
+                    if server_state == "reimage_started" or server_state == "restart_issued" \
+                       or server_state == "reimage_completed" or server_state == "provision_issued":
                         self._provision_immediately_after_reimage = True 
                 if sshclient:
                     sshclient.close()
