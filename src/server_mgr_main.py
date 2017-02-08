@@ -5821,7 +5821,7 @@ class VncServerManager():
 
 
     def get_container_image_for_role(self, role, package):
-        if role == BARE_METAL_COMPUTE:
+        if role == BARE_METAL_COMPUTE or role == 'openstack':
             return None
         container_image = self._args.docker_insecure_registries + \
                            '/' + package['id'] + '-' + role + ':' + \
