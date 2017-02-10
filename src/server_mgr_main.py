@@ -5804,6 +5804,7 @@ class VncServerManager():
 
     def get_container_inventory(self, parent):
         inventory = {}
+        containers = {}
         params     = parent.get("parameters", {})
         if isinstance(params, unicode):
             pparams = eval(params)
