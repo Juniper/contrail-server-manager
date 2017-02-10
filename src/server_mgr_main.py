@@ -162,15 +162,13 @@ class VncServerManager():
     _image_list = ["centos", "fedora", "ubuntu", "redhat",
                    "contrail-ubuntu-package", "contrail-centos-package",
                    "contrail-storage-ubuntu-package",
-                   "esxi5.5", "esxi5.1", "contrail-container-ubuntu"]
+                   "esxi5.5", "esxi5.1"]
     _iso_types = ["centos", "redhat", "ubuntu", "fedora", "esxi5.1", "esxi5.5"]
 
     # Add here for each container that is built
-    _contrail_container_list = ["contrail-container-ubuntu"]
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
-                      "contrail-storage-ubuntu-package",
-                      "contrail-container-ubuntu"]
-    _image_category_list = ["image", "package", "container"]
+                      "contrail-storage-ubuntu-package"]
+    _image_category_list = ["image", "package"]
     _control_roles = ['global_controller', 'loadbalancer', 'database',
             'openstack', 'config', 'control', 'collector', 'webui']
     _role_sequence = [(['haproxy'], 'p'),
@@ -990,9 +988,6 @@ class VncServerManager():
         # get list of all servers in this cluster
         servers = self._serverDb.get_server(
             {'cluster_id': cluster_id}, detail=True)
-        if self.get_package_category(pkg_id) == 'container':
-            # Validation happens in sm_ansible_playbook.py
-            return 0
 
         role_list = [
                 "database", "openstack", "config",
@@ -1036,13 +1031,13 @@ class VncServerManager():
         # turn the set into a list (as requested)
         return list( seen_twice )
 
-    def get_package_category(self, package_image_id):
+    def get_package_parameters(self, package_image_id):
         packages = self._serverDb.get_image(
             {"id": package_image_id}, detail=True)
         if not packages:
             msg = "no package %s found" % (package_image_id)
             raise ServerMgrException(msg)
-        return packages[0]['category']
+        return packages[0]['parameters']
 
     def validate_smgr_provision(self, validation_data, request, data=None, issu_flag = False):
         ret_data = {}
@@ -1143,13 +1138,11 @@ class VncServerManager():
             ret_data["servers"] = servers
             ret_data["cluster_id"] = cluster_id
             ret_data["package_image_id"] = package_image_id
-            if (self.get_package_category(package_image_id) == 'container'):
+            if (eval(self.get_package_parameters(package_image_id)).get("containers",None)):
                 ret_data["category"] = "container";
                 ret_data["server_packages"] = \
                         self.get_container_packages(servers, package_image_id)
-                contrail_img_id = entity.get("contrail_image_id", None)
-                if contrail_img_id != None:
-                    ret_data["contrail_image_id"] = contrail_img_id
+                ret_data["contrail_image_id"] = package_img_id
             else:
                 ret_data['server_packages'] = \
                         self.get_server_packages(servers, package_image_id)
@@ -1765,6 +1758,7 @@ class VncServerManager():
     def put_container_image(self, entity, image):
         new_containers = {}
         image_id       = image.get("id", None)
+        image_path     = image.get("path", None)
         image_type     = image.get("type", None)
         image_params   = image.get("parameters", {})
         #TODO: should be possible to specify version per container
@@ -1818,6 +1812,7 @@ class VncServerManager():
             [status, new_image] = self._docker_cli.load_containers(cpath)
             if status == False or new_image == None:
                 if status == False:
+                    self._serverDb.delete_image({'id': str(eval(image['id']))})
                     self._smgr_log.log(self._smgr_log.ERROR,
                         "Loading container failed for %s" % cpath)
                     print("Loading container failed for %s" % cpath)
@@ -1837,6 +1832,7 @@ class VncServerManager():
             self._smgr_log.log(self._smgr_log.INFO,
                             "Pushing container image %s ..." % container_name)
             if self._docker_cli.push_containers(container_name) == False:
+                self._serverDb.delete_image({'id': str(eval(image['id']))})
                 self._smgr_log.log(self._smgr_log.ERROR,
                     "Pushing container failed for %s" % container_name)
                 msg = "Pushing container failed for %s" % (container_name)
@@ -1857,16 +1853,32 @@ class VncServerManager():
         else:
             msg = "Image add/Modify success. " + msg
             self._smgr_log.log(self._smgr_log.INFO, msg)
-
         image_data = {
             'id': image_id,
-            'version': image_version,
+            'path': image_path,
             'type': image_type,
-            'category' : image_category,
             'parameters' : image_params
         }
-        self._serverDb.add_image(image_data)
+        self._serverDb.modify_image(image_data)
         return resp_msg
+
+    def validate_container_image(self, image_params, entity, image):
+        for container in image_params.get("containers", None):
+            role  = container.get("role", None)
+            if role not in _valid_roles:
+                 self._smgr_log.log(self._smgr_log.ERROR,
+                     "Invalid role in image json: %s" % role)
+                 msg = "Invalid role in image json: %s" % role
+                 raise ServerMgrException(msg, ERR_OPR_ERROR)
+                 resp_msg = self.form_operartion_data(msg, 0, entity)
+                 return resp_msg
+
+        gevent.spawn(self.put_container_image, entity, image)
+        msg = \
+        "Image add/Modify of containers happening in the background. "\
+        "Check /var/log/contrail-server-manager/debug.log "\
+        "for progress"
+        return msg
 
     def put_image(self):
         entity = bottle.request.json
@@ -1890,24 +1902,6 @@ class VncServerManager():
                     image_path = image.get("path", None)
                     image_category = image.get("category", None)
                     image_params = image.get("parameters", {})
-                    if (image_type in self._contrail_container_list):
-                        for container in image_params.get("containers", None):
-                            role  = container.get("role", None)
-                            if role not in _valid_roles:
-                                self._smgr_log.log(self._smgr_log.ERROR,
-                                        "Invalid role in image json: %s" % role)
-                                msg = "Invalid role in image json: %s" % role
-                                raise ServerMgrException(msg, ERR_OPR_ERROR)
-                                resp_msg = self.form_operartion_data(msg, 0, entity)
-                                return resp_msg
-
-                        gevent.spawn(self.put_container_image, entity, image)
-                        msg = \
-                        "Image add/Modify happening in the background. "\
-                        "Check /var/log/contrail-server-manager/debug.log "\
-                        "for progress"
-                        resp_msg = self.form_operartion_data(msg, 0, entity)
-                        return resp_msg
 
                     if (not image_id) or (not image_path):
                         self._smgr_log.log(self._smgr_log.ERROR,
@@ -1936,6 +1930,7 @@ class VncServerManager():
                     #Get the file type
                     cmd = 'file %s'%image_path
                     output = subprocess.check_output(cmd, shell=True)
+                    additional_ret_msg = ""
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") ):
                         if not self.validate_package_id(image_id):
@@ -1956,6 +1951,9 @@ class VncServerManager():
                         package_sku = self.find_package_sku(image_id, image_type)
                         image_params['sku'] = package_sku
                         self.cleanup_package_install(image_id, image_type)
+                        container_list = image_params.get("containers", None)
+                        if container_list and image_type == "contrail-ubuntu-package":
+                            additional_ret_msg = self.validate_container_image(image_params, entity, image)
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
                             image_id, image_type, image_version, image_path)
@@ -2018,7 +2016,7 @@ class VncServerManager():
 
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_IMAGE)
-        msg = "Image add/Modify success"
+        msg = "Image add/Modify success" + " " + str(additional_ret_msg)
         resp_msg = self.form_operartion_data(msg, 0, entity)
         return resp_msg
 
@@ -3193,16 +3191,14 @@ class VncServerManager():
                         msg)
             image = images[0]
             image_id = image['id']
-            if (image['type'] in self._contrail_container_list):
-                image_params   = image.get("parameters", {})
+            image_params   = image.get("parameters", {})
+
+            container_list = (eval(image_params)).get("containers", None)
+            if container_list and image['type'] == 'contrail-ubuntu-package':
                 for container in (eval(image_params)).get("containers", None):
                     if "docker_image_id" in container.keys():
                         print "removing %s" % container["docker_image_id"]
                         self._docker_cli.remove_containers(container["docker_image_id"])
-                self._serverDb.delete_image(image_dict)
-                msg = "Image Deleted"
-                resp_msg = self.form_operartion_data(msg, 0, None)
-                return resp_msg
 
             package = os.path.basename(image['path'])
             if ((image['type'] == 'contrail-ubuntu-package') or
@@ -3343,7 +3339,7 @@ class VncServerManager():
         if not packages:
             msg = "No package %s found" % (package_image_id)
             raise ServerMgrException(msg)
-        if packages[0]['category'] and packages[0]['category'] != 'package' and packages[0]['category'] != 'container':
+        if packages[0]['category'] and packages[0]['category'] != 'package':
             msg = "Target Package Category is not package, it is %s" % (packages[0]['category'])
             raise ServerMgrException(msg)
         if packages[0]['type'] not in self._package_types:
