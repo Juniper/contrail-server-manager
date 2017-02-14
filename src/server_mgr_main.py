@@ -984,7 +984,7 @@ class VncServerManager():
             msg = "In a Cluster with only Openstack role defined, you need to configure openstack::openstack_manage_amqp = true\n"
             self.log_and_raise_exception(msg)
 
-    def _validate_roles(self, cluster_id, pkg_id):
+    def _validate_roles(self, cluster_id, pkg_id, ret_data):
         # get list of all servers in this cluster
         servers = self._serverDb.get_server(
             {'cluster_id': cluster_id}, detail=True)
@@ -1014,6 +1014,7 @@ class VncServerManager():
 
         unknown_roles = cluster_unique_roles.difference(roles_set)
         unknown_roles.difference_update(optional_role_set)
+        unknown_roles.difference_update(_valid_roles)
 
         if len(unknown_roles):
             msg = "Unknown Roles: %s" % \
@@ -1133,19 +1134,19 @@ class VncServerManager():
             if not cluster_id:
                 msg =  ("No Cluster associated with server %s") % (match_value)
                 self.log_and_raise_exception(msg)
-            self._validate_roles(cluster_id, package_image_id)
+            if (eval(self.get_package_parameters(package_image_id)).get("containers",None)):
+                ret_data["server_packages"] = \
+                        self.get_container_packages(servers, package_image_id)
+                ret_data["contrail_image_id"] = package_image_id
+                ret_data["category"] = "container"
+            else:
+                ret_data['server_packages'] = \
+                        self.get_server_packages(servers, package_image_id)
+            self._validate_roles(cluster_id, package_image_id, ret_data)
             ret_data["status"] = 0
             ret_data["servers"] = servers
             ret_data["cluster_id"] = cluster_id
             ret_data["package_image_id"] = package_image_id
-            if (eval(self.get_package_parameters(package_image_id)).get("containers",None)):
-                ret_data["category"] = "container";
-                ret_data["server_packages"] = \
-                        self.get_container_packages(servers, package_image_id)
-                ret_data["contrail_image_id"] = package_img_id
-            else:
-                ret_data['server_packages'] = \
-                        self.get_server_packages(servers, package_image_id)
         return ret_data
     # end validate_smgr_provision
 
@@ -3894,9 +3895,7 @@ class VncServerManager():
                         # decide based on the first.
                         package = provision_server_list[0]['package']
                         cluster = provision_server_list[0]['cluster']
-                        if package['category'] == 'container':
-                            self._do_ansible_provision_cluster(
-                                    provision_server_list, cluster, package)
+                        if package["parameters"].get("containers",None):
                             if self.is_role_in_cluster('openstack',
                                     provision_server_list) and \
                                      package['contrail_image_id']:
@@ -3937,6 +3936,20 @@ class VncServerManager():
                         # Update cluster with role_sequence and apply sequence first step
                         # If no role_sequence present, just update cluster with it.
                         self.update_cluster_provision(cluster_id, role_sequence)
+                        if package["parameters"].get("containers",None):
+                            #TODO: Temporary - Block ansible provision till openstack provision completes
+                            server = self.get_server_for_role('openstack',
+                                    provision_server_list)
+                            openstack_server_id = str(server['server']['id'])
+                            wait_for_openstack_provision_flag = True
+                            while wait_for_openstack_provision_flag:
+                                gevent.sleep(10)
+                                status_for_server = self._serverDb.get_server({'host_name': openstack_server_id}, detail=True)[0]
+                                server_status = str(status_for_server["status"])
+                                if server_status == "provision_completed":
+                                     wait_for_openstack_provision_flag = False
+                            self._do_ansible_provision_cluster(
+                                    provision_server_list, cluster, package)
                 if optype == 'issu':
                     if not self.issu_obj:
                         entity = {}
@@ -4874,7 +4887,7 @@ class VncServerManager():
         contrail_params = {}
         openstack_params = {}
         # contrail_repo_name
-        if package.get('category', None) == "container":
+        if package_params.get('containers', None):
             if package.get('contrail_image_id', None):
                 contrail_params['contrail_repo_name'] = [package.get('contrail_image_id', '')]
         else:
@@ -5842,113 +5855,37 @@ class VncServerManager():
         if img != None:
             params[_container_img_keys[x]] = img
 
-
-    def _do_ansible_provision(self, provision_parameters, server, cluster,
-                              cluster_servers, package, serverDb):
-        merged_params = {}
-        params   = {}
-        merged_params.update(self.get_container_provision_params(cluster))
-        merged_params.update(self.get_container_provision_params(server))
-        params["ansible_host"] = server['ip_address']
-        params["ansible_user"] = "root"
-        params["ansible_password"] = server['password']
-        server_roles_list = eval(server['roles'])
-        if not (len(set(server_roles_list).intersection(set(_valid_roles)))):
-            msg = "No ansible roles for this server, skipping to puppet provision"
-            self._smgr_log.log(self._smgr_log.ERROR, msg)
-            return False
-        puppet_roles = set(server_roles_list).difference(set(_valid_roles))
-        server_roles_list = set(server_roles_list) - set(puppet_roles)
-        for x in server_roles_list:
-            srvr_provision_params = server['parameters']['provision']
-            container_params = srvr_provision_params['containers']
-            if not x in merged_params.keys():
-                msg = "Provision Error: server and cluster parameters do " +\
-                      "not contain section for role %s" % x
-                self._smgr_log.log(self._smgr_log.ERROR, msg)
-                update = {'id': server['id'],
-                    'status' : msg,
-                    'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
-                    'provisioned_id': package.get('id', '')}
-                self._serverDb.modify_server(update)
-                return False
-            else:
-                params[x] = merged_params[x]
-
-        cnt = 0
-        numroles = len(server_roles_list)
-        send_REST_request(self._args.ansible_srvr_ip,
-                    self._args.ansible_srvr_port,
-                    _ANSIBLE_PROVISION_START_ENDPOINT, params)
-        pp = []
-        for x in server_roles_list:
-            params['container_name'] = x
-            self.set_container_image_for_role(params, x, package)
-            params['container_image'] = self.get_container_image_for_role(x,
-                                            package)
-            parameters = { 'server_id': server['id'], 'parameters': params }
-            pp.append(copy.deepcopy(parameters))
-
-        time.sleep(10)
-        send_REST_request(self._args.ansible_srvr_ip,
-                      self._args.ansible_srvr_port,
-                      _ANSIBLE_PROVISION_ENDPOINT, pp)
-        update = {'id': server['id'],
-                'status' : 'provision_issued',
-                'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
-                'provisioned_id': package.get('id', '')}
-        self._serverDb.modify_server(update)
-
-        return True
-
-
-
     # Internal private call to provision server. This is called by REST API
     # provision_server and provision_cluster
     def _do_provision_server(
         self, provision_parameters, server,
         cluster, cluster_servers, package, serverDb):
-        
-        if package['category'] == 'container':
-            self._do_ansible_provision(provision_parameters, server, cluster,
-                                  cluster_servers, package, serverDb)
-            if ('compute' in server['roles'] or 'openstack' in server['roles']) and package['contrail_image_id']:
-                contrail_images = self._serverDb.get_image({"id":
-                    str(package['contrail_image_id'])}, detail=True)
-                if contrail_images:
-                    contrail_package = contrail_images[0]
-                    contrail_package_image_id, contrail_package = self.get_package_image(str(package['contrail_image_id']))
-                    if "parameters" in contrail_package:
-                        contrail_package["parameters"] = eval(contrail_package["parameters"])
-                        contrail_package["calc_params"] = package.get("calc_params",{})
-                    self._do_provision_server(provision_parameters, server,
-                            cluster, cluster_servers, contrail_package, serverDb)
-        else:
-            #Start the puppet agent in the target servers
-            gevent.spawn(self._monitoring_base_plugin_obj.gevent_puppet_agent_action, server, serverDb, self._args, "start")
-            try:
-                # Now call puppet to provision the server.
-                self._smgr_puppet.provision_server(
-                    provision_parameters,
-                    server,
-                    cluster,
-                    cluster_servers,
-                    package,
-                    serverDb)
-                self._smgr_certs.create_server_cert(server)
-                # Update Server table with provisioned id
-                update = {'id': server['id'],
-                      'status' : 'provision_issued',
-                      'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
-                      'provisioned_id': package.get('id', '')}
-                self._serverDb.modify_server(update)
-            except subprocess.CalledProcessError as e:
-                msg = ("do_provision_server: error %d when executing"
-                       "\"%s\"" %(e.returncode, e.cmd))
-                self._smgr_log.log(self._smgr_log.ERROR, msg)
-            except Exception as e:
-                raise e
-    # end _do_provision_server
+
+        #Start the puppet agent in the target servers
+        gevent.spawn(self._monitoring_base_plugin_obj.gevent_puppet_agent_action, server, serverDb, self._args, "start")
+        try:
+            # Now call puppet to provision the server.
+            self._smgr_puppet.provision_server(
+                provision_parameters,
+                server,
+                cluster,
+                cluster_servers,
+                package,
+                serverDb)
+            self._smgr_certs.create_server_cert(server)
+            # Update Server table with provisioned id
+            update = {'id': server['id'],
+                  'status' : 'provision_issued',
+                  'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                  'provisioned_id': package.get('id', '')}
+            self._serverDb.modify_server(update)
+        except subprocess.CalledProcessError as e:
+            msg = ("do_provision_server: error %d when executing"
+                   "\"%s\"" %(e.returncode, e.cmd))
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+        except Exception as e:
+            raise e
+# end _do_provision_server
 
     def _create_server_manager_config(self, config):
         try:
