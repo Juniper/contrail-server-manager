@@ -12,7 +12,7 @@ class SM_Docker():
     _docker_client = None
 
     def __init__(self):
-        self._docker_client = Client()
+        self._docker_client = Client(timeout=240)
         self._smgr_log      = ServerMgrlogger()
 
     def new_image(self, pre, post):
