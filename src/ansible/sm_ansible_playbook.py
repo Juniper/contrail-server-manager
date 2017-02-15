@@ -76,6 +76,7 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
         inv_file = None
         for params in json_entity:
             srvrid = params.get("server_id", None)
+            cluster_id = params.get("cluster_id", None)
             parameters = params.get("parameters", None)
             inventory = parameters["inventory"]
             self.current_status = self.validate_provision_params(inventory, args)
@@ -86,13 +87,16 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
                 break
 
         inv_dir = pbook_dir + '/inventory/'
-        inv_file = \
-            tempfile.NamedTemporaryFile(dir=inv_dir, delete=False).name
+        if cluster_id == None:
+            inv_file = \
+                tempfile.NamedTemporaryFile(dir=inv_dir, delete=False).name
+        else:
+            inv_file = cluster_id + ".inv"
         create_inv_file(inv_file, inventory)
 
         self.var_mgr            = VariableManager()
         self.ldr                = DataLoader()
-        self.var_mgr.extra_vars = params['parameters']
+        #self.var_mgr.extra_vars = params['parameters']
         self.args               = args
         self.inventory          = Inventory(loader=self.ldr,
                                             variable_manager=self.var_mgr,
