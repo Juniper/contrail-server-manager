@@ -3851,6 +3851,23 @@ class VncServerManager():
 
         return None
 
+    #TODO: Temporary - Block ansible provision till openstack provision completes
+    # If no openstack role in cluster, the ansible provision kicks off immediately
+    def manage_ansible_provision(self, provision_server_list, cluster, package):
+        server = self.get_server_for_role('openstack',
+                provision_server_list)
+        if server:
+            openstack_server_id = str(server['server']['id'])
+            wait_for_openstack_provision_flag = True
+            while wait_for_openstack_provision_flag:
+                gevent.sleep(10)
+                status_for_server = self._serverDb.get_server({'host_name': openstack_server_id}, detail=True)[0]
+                server_status = str(status_for_server["status"])
+                if server_status == "provision_completed":
+                   wait_for_openstack_provision_flag = False
+        self._do_ansible_provision_cluster(
+                provision_server_list, cluster, package)
+
     # This function runs on a separate gevent thread and processes requests for reimage.
     def _reimage_server_cobbler(self):
         self._smgr_log.log(self._smgr_log.DEBUG,
@@ -3937,19 +3954,7 @@ class VncServerManager():
                         # If no role_sequence present, just update cluster with it.
                         self.update_cluster_provision(cluster_id, role_sequence)
                         if package["parameters"].get("containers",None):
-                            #TODO: Temporary - Block ansible provision till openstack provision completes
-                            server = self.get_server_for_role('openstack',
-                                    provision_server_list)
-                            openstack_server_id = str(server['server']['id'])
-                            wait_for_openstack_provision_flag = True
-                            while wait_for_openstack_provision_flag:
-                                gevent.sleep(10)
-                                status_for_server = self._serverDb.get_server({'host_name': openstack_server_id}, detail=True)[0]
-                                server_status = str(status_for_server["status"])
-                                if server_status == "provision_completed":
-                                     wait_for_openstack_provision_flag = False
-                            self._do_ansible_provision_cluster(
-                                    provision_server_list, cluster, package)
+                            gevent.spawn(self.manage_ansible_provision, provision_server_list, cluster, package)
                 if optype == 'issu':
                     if not self.issu_obj:
                         entity = {}
