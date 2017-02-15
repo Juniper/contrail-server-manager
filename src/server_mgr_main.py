@@ -52,6 +52,7 @@ from sm_ansible_utils import send_REST_request
 from sm_ansible_utils import _container_img_keys
 from sm_ansible_utils import _valid_roles
 from sm_ansible_utils import _inventory_group
+from sm_ansible_utils import AGENT_CONTAINER
 from sm_ansible_utils import BARE_METAL_COMPUTE
 from server_mgr_docker import SM_Docker
 
@@ -3816,7 +3817,8 @@ class VncServerManager():
                 "http://puppet/contrail/repo/" + \
                 package["contrail_image_id"] + " contrail main"
         inv["inventory"] = merged_inv
-        parameters = { 'server_id': server['id'], 'parameters': inv }
+        parameters = { 'server_id': server['id'], 'cluster_id': cluster['id'],
+                       'parameters': inv }
         pp.append(copy.deepcopy(parameters))
 
         #send_REST_request(self._args.ansible_srvr_ip,
@@ -5163,6 +5165,44 @@ class VncServerManager():
         }
     # end build_calculated_package_params
 
+    def build_calculated_inventory_params(self, cluster, cluster_servers):
+        calc_inventory = {}
+        cur_inventory  = self.get_container_inventory(cluster)
+        if "[all:children]" not in cur_inventory.keys():
+            cur_inventory["[all:children]"] = []
+        if "[all:vars]" not in cur_inventory.keys():
+            cur_inventory["[all:vars]"] = {}
+        ansible_roles_set = set(_valid_roles)
+
+        for x in cluster_servers:
+            server_roles = eval(x.get('roles', '[]'))
+            server_roles_set = set(server_roles)
+            if len(ansible_roles_set.intersection(server_roles_set)) == 0:
+                continue
+
+            for role in server_roles:
+                if role in _valid_roles:
+                    if role == BARE_METAL_COMPUTE:
+                        cur_inventory["[all:vars]"]["contrail_compute_mode"] = \
+                                "bare_metal"
+                    if role == AGENT_CONTAINER:
+                        cur_inventory["[all:vars]"]["contrail_compute_mode"] = \
+                                "container"
+                    grp = "[" + _inventory_group[role] + "]"
+                    if grp in cur_inventory:
+                        if not any(x["ip_address"] in y for y in \
+                                cur_inventory[grp]):
+                            cur_inventory[grp].append(x["ip_address"])
+                        if _inventory_group[role] not in \
+                                cur_inventory["[all:children]"]:
+                            cur_inventory["[all:children]"].append(\
+                                        _inventory_group[role])
+                    else:
+                        cur_inventory[grp] = [ x["ip_address"] ]
+                        cur_inventory["[all:children]"].append(_inventory_group[role])
+
+    # end build_calculated_inventory_params
+
     def build_calculated_provision_params(
             self, server, cluster, role_servers, cluster_servers, package):
         # Build cluster calculated parameters
@@ -5174,6 +5214,8 @@ class VncServerManager():
         # Build package calculated parameters
         self.build_calculated_package_params(
             server, cluster, package)
+        # Build calculated inventory parameters
+        self.build_calculated_inventory_params(cluster, cluster_servers)
     # end build_calculated_provision_params
 
     def prepare_provision(self, provisioning_data):
