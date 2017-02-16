@@ -4890,6 +4890,7 @@ class VncServerManager():
         if package_params.get('containers', None):
             if package.get('contrail_image_id', None):
                 contrail_params['contrail_repo_name'] = [package.get('contrail_image_id', '')]
+            contrail_params['ansible_provision'] = True
         else:
             contrail_params['contrail_repo_name'] = [package.get('id', '')]
         # contrail_repo_type (not used by 3.0 code, maintained for pre-3.0)
