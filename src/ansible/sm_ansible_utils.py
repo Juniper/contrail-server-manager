@@ -5,6 +5,13 @@ import ConfigParser
 import json
 from StringIO import StringIO
 
+SM_STATUS_PORT = "9002"
+STATUS_VALID = "parameters_valid"
+STATUS_IN_PROGRESS = "provision_in_progress"
+STATUS_SUCCESS = "provision_completed"
+STATUS_FAILED  = "provision_failed"
+
+
 # Role strings
 CONTROLLER_CONTAINER  = "contrail-controller"
 ANALYTICS_CONTAINER   = "contrail-analytics"

@@ -104,7 +104,7 @@ class ServerMgrStatusThread(threading.Thread):
         try:
             result = parse_qs(request.query_string)
             server_data['status'] = str(result['state'][0])
-            test_servers = self._status_serverDb.get_server({"host_name" : server_hostname}, detail=True)
+            test_servers = self._status_serverDb.get_server({"ip_address" : server_hostname}, detail=True)
             server_id = test_servers[0]['id']
             server_data['id'] = server_id
             time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())

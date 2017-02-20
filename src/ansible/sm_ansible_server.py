@@ -68,7 +68,6 @@ class SMAnsibleServer():
         self.app = bottle.app()
         bottle.route('/start_provision', 'POST', self.start_provision)
         bottle.route('/run_playbook', 'POST', self.start_playbook)
-        bottle.route('/playbook_status', 'PUT', self.playbook_status)
 
     def _parse_args(self, args_str):
         '''
@@ -154,23 +153,6 @@ class SMAnsibleServer():
         # completes and the next status query is made
         bottle.response.headers['Content-Type'] = 'application/json'
         return json.dumps({'status': 'Provision in Progress'})
-
-    def playbook_status(self):
-        server_hostname = bottle.request.query['server_id']
-        server_status   = bottle.request.query['state']
-        self.host_run_results[server_hostname] = server_status
-
-        status_resp = {
-                    "server_id" : server_hostname,
-                    "state" : server_status
-                    #"state" : self.host_run_results[server_hostname]
-        }
-        send_REST_request(self._args.ansible_srvr_ip,
-                          "9002", "ansible_status",
-                          urllib.urlencode(status_resp), method='PUT',
-                          urlencode=True)
-        return json.dumps(status_resp)
-
 
 def main(args_str=None):
     '''
