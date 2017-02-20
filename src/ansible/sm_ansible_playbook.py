@@ -123,12 +123,6 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
         stats = None
         if self.current_status == self.STATUS_VALID:
             self.current_status = self.STATUS_IN_PROGRESS
-            status_resp = { "server_id" : self.srvrid,
-                            "state" : self.current_status }
-            send_REST_request(self.args.ansible_srvr_ip,
-                              self.args.ansible_srvr_port,
-                              "playbook_status", urllib.urlencode(status_resp),
-                              method='PUT', urlencode=True)
             rv = self.pb_executor.run()
             print "RUN DONE"
             stats = self.pb_executor._tqm._stats
@@ -149,20 +143,8 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
             else:
                 self.current_status = self.STATUS_FAILED
 
-            status_resp = { "server_id" : self.srvrid,
-                            "state" : self.current_status }
-            send_REST_request(self.args.ansible_srvr_ip,
-                    self.args.ansible_srvr_port,
-                              "playbook_status", urllib.urlencode(status_resp),
-                              method='PUT', urlencode=True)
             print self.current_status
         else:
             print "Validation Failed"
-            status_resp = { "server_id" : self.srvrid,
-                            "state" : self.current_status }
             self.current_status = self.STATUS_FAILED
-            send_REST_request(self.args.ansible_srvr_ip,
-                    self.args.ansible_srvr_port,
-                              "playbook_status", urllib.urlencode(status_resp),
-                              method='PUT', urlencode=True)
         return stats

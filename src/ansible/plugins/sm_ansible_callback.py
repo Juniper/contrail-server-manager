@@ -1,12 +1,19 @@
 import os
 import sys
+import urllib
+import ConfigParser
 from datetime import datetime
 from ansible.plugins.callback import CallbackBase
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from sm_ansible_utils import send_REST_request
+
 class PlayLogger:
+    default_config = dict()
+    SM_STATUS_PORT = 9002
     """
     Store log output in a single object
     One object per Ansible run
@@ -14,6 +21,13 @@ class PlayLogger:
     def __init__(self):
         self.log = ''
         self.runtime = 0
+        self.defaults_file = "/etc/contrail/sm-client-config.ini"
+        config = ConfigParser.SafeConfigParser()
+        config.read([self.defaults_file])
+        self.default_config["smgr"] = dict(config.items("SERVER-MANAGER"))
+        self.smgr_ip = self.default_config["smgr"]["listen_ip_addr"]
+        f = open("/var/log/contrail-server-manager/debug.log", "a")
+        f.write("Ansible callback init - smgr_ip: %s" % self.smgr_ip)
         try:
             self._sm_logger = ServerMgrlogger()
         except:
@@ -189,6 +203,18 @@ class CallbackModule(CallbackBase):
                 "skipped: %s" % (t['skipped']),
                 "failed: %s" % (t['failures']),
             )
+
+            if int(t['failures']) == 0:
+                status_resp = { "server_id" : h,
+                                "state" : "Ansible_Provision_Succeeded" }
+            else:
+                status_resp = { "server_id" : h,
+                        "state" : "Ansible_Provision_Failed:" }
+
+            send_REST_request(self.logger.smgr_ip,
+                              "9002",
+                              "ansible_status", urllib.urlencode(status_resp),
+                              method='PUT', urlencode=True)
 
             self.logger.append(msg)
 
