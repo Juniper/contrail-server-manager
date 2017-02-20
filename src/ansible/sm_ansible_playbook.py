@@ -15,18 +15,17 @@ from sm_ansible_utils import *
 from sm_ansible_utils import _valid_roles
 from sm_ansible_utils import _inventory_group
 from sm_ansible_utils import _container_names
+from sm_ansible_utils import SM_STATUS_PORT
+from sm_ansible_utils import STATUS_IN_PROGRESS
+from sm_ansible_utils import STATUS_VALID
+from sm_ansible_utils import STATUS_SUCCESS
+from sm_ansible_utils import STATUS_FAILED
 
 """
     wrapper class inspired from
     http://docs.ansible.com/ansible/developing_api.html
 """
 class ContrailAnsiblePlayBook(multiprocessing.Process):
-
-    STATUS_VALID = "Parameters_Valid"
-    STATUS_IN_PROGRESS = "In_Progress"
-    STATUS_FILE_NOT_FOUND = "Playbook_Path_Error"
-    STATUS_SUCCESS = "Provision_Success"
-    STATUS_FAILED  = "Provision_Failed"
 
     def validate_provision_params(self, inv, defaults):
 
@@ -50,7 +49,7 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
                     params['ansible_playbook'] = \
                      defaults.ansible_playbook
                 else:
-                    return ("%s not defined in parameters" % x)
+                    return ("%s not defined in inventory" % x)
 
         for k,v in vars(defaults).iteritems():
             if not k in params.keys():
@@ -63,42 +62,33 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
         except IOError as e:
             return ("Playbook not found : %s" % pbook)
 
-        return self.STATUS_VALID
+        return STATUS_VALID
 
 
     def __init__(self, json_entity, args):
         super(ContrailAnsiblePlayBook, self).__init__()
-        controllers = []
-        analytics = []
-        analyticsdb = []
         lb = []
         agent = []
         inv_file = None
-        for params in json_entity:
-            srvrid = params.get("server_id", None)
-            parameters = params.get("parameters", None)
-            inventory = parameters["inventory"]
-            self.current_status = self.validate_provision_params(inventory, args)
-            self.srvrid             = srvrid
-            self.pbook_path         = inventory["[all:vars]"]["ansible_playbook"]
-            pbook_dir = os.path.dirname(self.pbook_path)
-            if self.current_status != self.STATUS_VALID:
-                break
+        self.hosts_in_inv = json_entity[0]["hosts_in_inv"]
+        cluster_id = json_entity[0]["cluster_id"]
+        parameters = json_entity[0]["parameters"]
+        inventory = parameters["inventory"]
+        self.current_status = self.validate_provision_params(inventory, args)
+        self.pbook_path         = inventory["[all:vars]"]["ansible_playbook"]
+        pbook_dir = os.path.dirname(self.pbook_path)
 
         inv_dir = pbook_dir + '/inventory/'
-        inv_file = \
-            tempfile.NamedTemporaryFile(dir=inv_dir, delete=False).name
+        inv_file = inv_dir + cluster_id + ".inv"
         create_inv_file(inv_file, inventory)
 
         self.var_mgr            = VariableManager()
         self.ldr                = DataLoader()
-        self.var_mgr.extra_vars = params['parameters']
         self.args               = args
         self.inventory          = Inventory(loader=self.ldr,
                                             variable_manager=self.var_mgr,
                                             host_list=inv_file)
         self.var_mgr.set_inventory(self.inventory)
-
 
         Options = namedtuple('Options', ['connection', 'forks', 'module_path',
                              'become', 'become_method', 'become_user', 'check',
@@ -118,51 +108,33 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
                                             options=self.options,
                                             passwords=self.pws)
 
+    def update_status(self):
+        for h in self.hosts_in_inv:
+            status_resp = { "server_id" : h,
+                            "state" : self.current_status }
+            send_REST_request(self.args.ansible_srvr_ip,
+                              SM_STATUS_PORT, "ansible_status", 
+                              urllib.urlencode(status_resp),
+                              method='PUT', urlencode=True)
+
     def run(self):
         #import pdb; pdb.set_trace()
         stats = None
-        if self.current_status == self.STATUS_VALID:
-            self.current_status = self.STATUS_IN_PROGRESS
-            status_resp = { "server_id" : self.srvrid,
-                            "state" : self.current_status }
-            send_REST_request(self.args.ansible_srvr_ip,
-                              self.args.ansible_srvr_port,
-                              "playbook_status", urllib.urlencode(status_resp),
-                              method='PUT', urlencode=True)
+        if self.current_status == STATUS_VALID:
+            self.current_status = STATUS_IN_PROGRESS
+            
+            self.update_status()
             rv = self.pb_executor.run()
-            print "RUN DONE"
             stats = self.pb_executor._tqm._stats
 
-            run_success = True
-            hosts = sorted(stats.processed.keys())
-            for h in hosts:
-                t = stats.summarize(h)
-                if t['unreachable'] > 0 or t['failures'] > 0:
-                    run_success = False
-
-            # send callback to the function "record_logs" in the callback
-            # plugin in the plugins directory
-            self.pb_executor._tqm.send_callback('record_logs')
-
             if rv == 0:
-                self.current_status = self.STATUS_SUCCESS
+                self.current_status = STATUS_SUCCESS
             else:
-                self.current_status = self.STATUS_FAILED
+                self.current_status = STATUS_FAILED
 
-            status_resp = { "server_id" : self.srvrid,
-                            "state" : self.current_status }
-            send_REST_request(self.args.ansible_srvr_ip,
-                    self.args.ansible_srvr_port,
-                              "playbook_status", urllib.urlencode(status_resp),
-                              method='PUT', urlencode=True)
-            print self.current_status
+            # No need to update_status here. Per node status gets sent from
+            # sm_ansible_callback.py
+
         else:
-            print "Validation Failed"
-            status_resp = { "server_id" : self.srvrid,
-                            "state" : self.current_status }
-            self.current_status = self.STATUS_FAILED
-            send_REST_request(self.args.ansible_srvr_ip,
-                    self.args.ansible_srvr_port,
-                              "playbook_status", urllib.urlencode(status_resp),
-                              method='PUT', urlencode=True)
+            self.update_status()
         return stats

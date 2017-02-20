@@ -3777,9 +3777,10 @@ class VncServerManager():
         for role in _valid_roles:
             grp = "[" + _inventory_group[role] + "]"
             if grp in inventory.keys():
-                for h in inventory[grp]:
-                    if h not in hosts:
-                        hosts.append(h)
+                for ip in inventory[grp]:
+                    h = ip.split()
+                    if h[0] not in hosts:
+                        hosts.append(h[0])
         return hosts
 
     def _do_ansible_provision_cluster(self, server_list, cluster, package):
@@ -3816,14 +3817,10 @@ class VncServerManager():
                 "http://puppet/contrail/repo/" + \
                 package["contrail_image_id"] + " contrail main"
         inv["inventory"] = merged_inv
-        parameters = { 'server_id': server['id'], 'parameters': inv }
+        parameters = { 'hosts_in_inv': self.hosts_in_inventory(cluster_inv), 
+                       'cluster_id': cluster['id'], 'parameters': inv }
         pp.append(copy.deepcopy(parameters))
 
-        #send_REST_request(self._args.ansible_srvr_ip,
-        #            self._args.ansible_srvr_port,
-        #            _ANSIBLE_PROVISION_START_ENDPOINT, params)
-
-        #time.sleep(10)
         send_REST_request(self._args.ansible_srvr_ip,
                       self._args.ansible_srvr_port,
                       _ANSIBLE_PROVISION_ENDPOINT, pp)
