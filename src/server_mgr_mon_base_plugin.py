@@ -72,7 +72,6 @@ class ServerMgrMonBasePlugin():
     _discovery_port = None
     _default_ipmi_username = None
     _default_ipmi_password = None
-    _provision_immediately_after_reimage = False
     DEBUG = "debug"
     INFO = "info"
     WARN = "warn"
@@ -531,9 +530,9 @@ class ServerMgrMonBasePlugin():
         server = servers[0]
         success = self.copy_ssh_keys_to_server(str(server["ip_address"]), str(server["id"]))
 
-        self._smgr_log.log(self._smgr_log.DEBUG, "COPY-KEY: Host: " + server["id"] + " /Status: " + str(success))
+        self._smgr_log.log(self._smgr_log.DEBUG, "COPY-KEY: Host: " + server["id"] + " /Status: " + str(success) + "/PROV_STATUS: " + str(server["provision_immediately_after_reimage"]))
 
-        if success and self._provision_immediately_after_reimage == True:
+        if success and server["provision_immediately_after_reimage"] == "true":
             gevent.spawn(self.gevent_puppet_agent_action, server, self._serverDb, sm_args, "start")
         if success and self.inventory_config_set:
             try:
@@ -793,7 +792,12 @@ class ServerMgrMonBasePlugin():
                     output = sshclient.exec_command(enable_puppet_svc_cmd)
                     output = sshclient.exec_command("service puppet start")
                     self._smgr_log.log("debug", "Successfully started the puppet agent on the server " + str(server['id']))
-                    self._provision_immediately_after_reimage = False
+                    update = {'id': server['id'],
+                              'provision_immediately_after_reimage': "false"
+                             }
+                    self._serverDb.modify_server(update)
+                    s1 = self._serverDb.get_server({"id": server['id']}, detail=True)
+                    self._smgr_log.log("debug", "PROVISION_STATUS1: " + str(s1['id'])+ "/FLAG: " + str(s1["provision_immediately_after_reimage"]))
                 else:
                     output = sshclient.exec_command(disable_puppet_svc_cmd)
                     output = sshclient.exec_command("service puppet stop")
@@ -806,7 +810,12 @@ class ServerMgrMonBasePlugin():
                     server_state = servers[0]['status']
                     if server_state == "reimage_started" or server_state == "restart_issued" \
                        or server_state == "reimage_completed" or server_state == "provision_issued":
-                        self._provision_immediately_after_reimage = True 
+                        update = {'id': server['id'],
+                                  'provision_immediately_after_reimage': "true"
+                                 }
+                        self._serverDb.modify_server(update)
+                        s2 = self._serverDb.get_server({"id": server['id']}, detail=True)
+                        self._smgr_log.log("debug", "PROVISION_STATUS2:" + str(s2['id'])+ "/FLAG: " + str(s2["provision_immediately_after_reimage"]))
                 if sshclient:
                     sshclient.close()
                 self._smgr_log.log(self._smgr_log.ERROR, "Gevent SSH Connect Exception for server id: " + server['id'] + " Error : " + str(e))

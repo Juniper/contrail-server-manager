@@ -2251,6 +2251,7 @@ class VncServerManager():
                                                bottle.request, server)
                     server['status'] = "server_added"
                     server['discovered'] = "false"
+                    server['provision_immediately_after_reimage'] = "false"
                     self._serverDb.add_server(server)
                     # Trigger to collect monitoring info
 
