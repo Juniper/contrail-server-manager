@@ -52,6 +52,7 @@ from sm_ansible_utils import send_REST_request
 from sm_ansible_utils import _container_img_keys
 from sm_ansible_utils import _valid_roles
 from sm_ansible_utils import _inventory_group
+from sm_ansible_utils import AGENT_CONTAINER
 from sm_ansible_utils import BARE_METAL_COMPUTE
 from server_mgr_docker import SM_Docker
 
@@ -3798,9 +3799,6 @@ class VncServerManager():
             if not servers:
                 continue
             server = servers[0]
-            server_inv = self.get_container_inventory(server)
-            self.merge_dict(server_inv, merged_inv)
-            merged_inv = server_inv
 
             #FIXME: Get ansible user from config/json and use "root" as default
             # and add it to host_vars in the ansible inventory
@@ -4083,6 +4081,15 @@ class VncServerManager():
             if role_type in role_set:
                 servers.append(server)
         return servers
+
+    # Function to get control_data_interface name
+    def get_control_interface_name(self, server):
+        contrail = server.get('contrail', "")
+        if contrail and eval(contrail):
+            contrail_dict = eval(contrail)
+            return contrail_dict.get('control_data_interface', "")
+        else:
+            return server['intf_control']
 
     # Function to get control interface for a specified server.
     def get_control_interface(self, server):
@@ -5166,6 +5173,186 @@ class VncServerManager():
         }
     # end build_calculated_package_params
 
+    def get_cluster_openstack_cfg_section(self, cluster, section):
+        params = cluster.get("parameters", {})
+        if params:
+            prov = params.get("provision", {})
+            if prov:
+                ops = prov.get("openstack", {})
+                if section in ops.keys():
+                    return ops[section]
+        return {}
+
+    def get_calculated_global_config_dict(self, cluster, cluster_srvrs):
+        global_cfg = dict()
+        cluster_ks_cfg = \
+                self.get_cluster_openstack_cfg_section(cluster, "keystone")
+        if cluster_ks_cfg:
+            ks_service_tenant = cluster_ks_cfg.get("service_tenant", "")
+            if ks_service_tenant:
+                global_cfg["service_tenant"] = ks_service_tenant
+
+            global_cfg["external_rabbitmq_servers"] = []
+            hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
+            if hacfg:
+                global_cfg["external_rabbitmq_servers"] = \
+                        [hacfg["internal_vip"]]
+            else:
+                for x in cluster_srvrs:
+                    if "openstack" in eval(x.get('roles', '[]')):
+                        global_cfg["external_rabbitmq_servers"].append(\
+                                self.get_control_ip(x))
+        return global_cfg
+
+
+    def get_calculated_keystone_config_dict(self, cluster, cluster_srvrs):
+        keystone_cfg = dict()
+        cluster_ks_cfg = \
+                self.get_cluster_openstack_cfg_section(cluster, "keystone")
+        if cluster_ks_cfg:
+            ks_admin_user = cluster_ks_cfg.get("admin_user", "")
+            if ks_admin_user:
+                keystone_cfg["admin_user"] = ks_admin_user
+
+            ks_admin_pw = cluster_ks_cfg.get("admin_password", "")
+            if ks_admin_pw:
+                keystone_cfg["admin_password"] = ks_admin_pw
+
+            ks_admin_tenant = cluster_ks_cfg.get("admin_tenant", "")
+            if ks_admin_tenant:
+                keystone_cfg["admin_tenant"] = ks_admin_tenant
+
+            ks_service_tenant = cluster_ks_cfg.get("service_tenant", "")
+            if ks_service_tenant:
+                keystone_cfg["service_tenant"] = ks_service_tenant
+
+            ks_auth_proto = cluster_ks_cfg.get("auth_protocol", "")
+            if ks_auth_proto:
+                keystone_cfg["auth_protocol"] = ks_auth_proto
+
+            hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
+            if hacfg:
+                keystone_cfg["ip"] = hacfg["internal_vip"]
+            else:
+                for x in cluster_srvrs:
+                    if "openstack" in eval(x.get('roles', '[]')):
+                        keystone_cfg["ip"] = self.get_control_ip(x)
+        return keystone_cfg
+
+    #end  get_calculated_keystone_config_dict
+
+
+    # Rules for the calculated inventory:
+    # 1. [<contrail-roles>] entries in json inventory is retained. If it is not
+    #    already present, the IP address of the node with the appropriate role
+    #    gets appended to the list
+    # 2. Variables in server json given under "vars" section gets treated as 
+    #    host_vars in the inventory
+    # 3. Variables in server json given under "[all:vars]" will overwrite the
+    #    value existing in cluster json. Note that if same variable is defined
+    #    in more than one server json, it is not deterministic which value will
+    #    override. Recommended practice is not to have "[all:vars]" section in
+    #    server json.
+    # 4. If a keystone_config section is present in cluster json (under
+    #    [all:vars] section, those values  will be used. Else keystone ip,
+    #    admin_password and admin_token will be derived from the cluster DB.
+    #    In case of more than 1 openstack role in the cluster the user is
+    #    expected to provide the right VIP in the [all:vars] : {
+    #    "keystone_config" : { "ip": <VIP>...}} dictionary else the IP of the
+    #    last openstack node in the cluster DB is picked.
+    def build_calculated_inventory_params(self, cluster, cluster_servers):
+        grp_line = None
+        open_stk_srvr = None
+        need_ansible = False
+
+        #This function is a no-op for clusters involving only puppet
+        ansible_roles_set = set(_valid_roles)
+        for x in cluster_servers:
+            server_roles = eval(x.get('roles', '[]'))
+            server_roles_set = set(server_roles)
+            if len(ansible_roles_set.intersection(server_roles_set)) != 0:
+               need_ansible = True
+               break
+        if need_ansible == False:
+            return
+
+        cur_inventory = self.get_container_inventory(cluster)
+        if "[all:children]" not in cur_inventory.keys():
+            cur_inventory["[all:children]"] = []
+        if "[all:vars]" not in cur_inventory.keys():
+            cur_inventory["[all:vars]"] = {}
+
+        for x in cluster_servers:
+            vr_if_str = None
+            server_roles = eval(x.get('roles', '[]'))
+            server_roles_set = set(server_roles)
+            if len(ansible_roles_set.intersection(server_roles_set)) == 0:
+                continue
+            srvr_allvars  = self.get_inventory_all_vars(x)
+            srvr_vars = self.get_inventory_vars(x)
+            grp_line = str(x["ip_address"])
+            ctrl_data_intf = self.get_control_interface_name(x)
+            if ctrl_data_intf:
+                vr_if_str = " vrouter_physical_interface=" + ctrl_data_intf
+            for k,v in srvr_vars.iteritems():
+                grp_line = grp_line + " " + k + "=" + v
+
+            for role in server_roles:
+                if role in _valid_roles:
+                    if role == BARE_METAL_COMPUTE:
+                        cur_inventory["[all:vars]"]["contrail_compute_mode"] = \
+                                "bare_metal"
+                    if role == AGENT_CONTAINER:
+                        cur_inventory["[all:vars]"]["contrail_compute_mode"] = \
+                                "container"
+                    grp = "[" + _inventory_group[role] + "]"
+                    if grp in cur_inventory:
+                        if not any(x["ip_address"] in y for y in \
+                                cur_inventory[grp]):
+                            if role == BARE_METAL_COMPUTE or \
+                                    role == AGENT_CONTAINER:
+                                cur_inventory[grp].append(grp_line + vr_if_str)
+                            else:
+                                cur_inventory[grp].append(grp_line)
+                        else:
+                            indx = next(i for i,k in \
+                                    enumerate(cur_inventory[grp]) if \
+                                    x["ip_address"] in k)
+                            if (role == BARE_METAL_COMPUTE or \
+                                    role == AGENT_CONTAINER) and \
+                                    "vrouter_physical_interface" not in \
+                                    cur_inventory[grp][indx]: 
+                                cur_inventory[grp][indx] = \
+                                        cur_inventory[grp][indx] + grp_line + \
+                                        vr_if_str
+                            else:
+                                cur_inventory[grp][indx] = \
+                                        cur_inventory[grp][indx] + grp_line
+
+                        if _inventory_group[role] not in \
+                                cur_inventory["[all:children]"]:
+                            cur_inventory["[all:children]"].append(\
+                                        _inventory_group[role])
+                    else:
+                        cur_inventory[grp] = [ grp_line ]
+                        cur_inventory["[all:children]"].append(\
+                                _inventory_group[role])
+            self.merge_dict(cur_inventory["[all:vars]"], srvr_allvars)
+        # for x in cluster_servers
+
+        if "keystone_config" not in cur_inventory["[all:vars]"].keys():
+            cur_inventory["[all:vars]"]["keystone_config"] = {}
+        self.merge_dict(cur_inventory["[all:vars]"]["keystone_config"],
+                            self.get_calculated_keystone_config_dict(cluster,
+                                cluster_servers))
+
+        if "global_config" not in cur_inventory["[all:vars]"].keys():
+            cur_inventory["[all:vars]"]["global_config"] = {}
+        self.merge_dict(cur_inventory["[all:vars]"]["global_config"],
+                            self.get_calculated_global_config_dict(cluster,
+                                cluster_servers))
+    # end build_calculated_inventory_params
+
     def build_calculated_provision_params(
             self, server, cluster, role_servers, cluster_servers, package):
         # Build cluster calculated parameters
@@ -5177,6 +5364,8 @@ class VncServerManager():
         # Build package calculated parameters
         self.build_calculated_package_params(
             server, cluster, package)
+        # Build calculated inventory parameters
+        self.build_calculated_inventory_params(cluster, cluster_servers)
     # end build_calculated_provision_params
 
     def prepare_provision(self, provisioning_data):
@@ -5813,6 +6002,43 @@ class VncServerManager():
         if (prov):
             containers = prov.get("containers", {})
         return containers
+
+    def get_inventory_all_vars(self, parent):
+        inventory = {}
+        containers = {}
+        params     = parent.get("parameters", {})
+        if isinstance(params, unicode):
+            pparams = eval(params)
+            prov    = pparams.get("provision", {})
+        else:
+            prov       = params.get("provision", {})
+
+        if (prov):
+            containers = prov.get("containers", {})
+
+        if (containers):
+            inventory = containers.get("inventory", {})
+
+        return inventory.get("[all:vars]", {})
+
+    def get_inventory_vars(self, parent):
+        inventory = {}
+        containers = {}
+        params     = parent.get("parameters", {})
+        if isinstance(params, unicode):
+            pparams = eval(params)
+            prov    = pparams.get("provision", {})
+        else:
+            prov       = params.get("provision", {})
+
+        if (prov):
+            containers = prov.get("containers", {})
+
+        if (containers):
+            inventory = containers.get("inventory", {})
+
+        return inventory.get("vars", {})
+
 
     def get_container_inventory(self, parent):
         inventory = {}
