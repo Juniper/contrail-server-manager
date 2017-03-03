@@ -3812,7 +3812,7 @@ class VncServerManager():
         if "contrail_image_id" in package.keys() and \
             package["contrail_image_id"]:
             merged_inv['[all:vars]']["contrail_apt_repo"] = \
-                "http://puppet/contrail/repo/" + \
+                "[arch=amd64] http://puppet/contrail/repo/" + \
                 package["contrail_image_id"] + " contrail main"
         inv["inventory"] = merged_inv
         parameters = { 'hosts_in_inv': self.hosts_in_inventory(cluster_inv), 
