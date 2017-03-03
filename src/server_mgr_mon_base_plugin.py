@@ -787,15 +787,25 @@ class ServerMgrMonBasePlugin():
                     enable_puppet_svc_cmd = "chkconfig puppet on"
                     disable_puppet_svc_cmd = "chkconfig puppet off"
                 else:
-                    enable_puppet_svc_cmd = "sed -i 's/START=.*$/START=yes/' /etc/default/puppet"
-                    disable_puppet_svc_cmd = "sed -i 's/START=.*$/START=no/' /etc/default/puppet"
+                    enable_puppet_svc_cmd = " sed -i 's/START=.*$/START=yes/' /etc/default/puppet && "\
+                                            "/usr/bin/puppet resource service puppet ensure=running enable=true "
+                    disable_puppet_svc_cmd = " sed -i 's/START=.*$/START=no/' /etc/default/puppet && " \
+                                             "/usr/bin/puppet resource service puppet ensure=stopped enable=false "
+
+                self._smgr_log.log("debug", "PUPPET START Command is %s" %enable_puppet_svc_cmd)
                 if action == "start":
                     output = sshclient.exec_command(enable_puppet_svc_cmd)
-                    output = sshclient.exec_command("service puppet start")
+                    self._smgr_log.log("debug", "OUTPUT1 is %s" %output)
+                    output = sshclient.exec_command("puppet agent --enable")
+                    self._smgr_log.log("debug", "OUTPUT2 is %s" %output)
+                    output = sshclient.exec_command("service puppet restart")
+                    self._smgr_log.log("debug", "OUTPUT3 is %s" %output)
+
                     self._smgr_log.log("debug", "Successfully started the puppet agent on the server " + str(server['id']))
                     self._provision_immediately_after_reimage = False
                 else:
                     output = sshclient.exec_command(disable_puppet_svc_cmd)
+                    output = sshclient.exec_command("puppet agent --disable")
                     output = sshclient.exec_command("service puppet stop")
                     self._smgr_log.log("debug", "Successfully stopped the puppet agent on the server " + str(server['id']))
                 success = True
