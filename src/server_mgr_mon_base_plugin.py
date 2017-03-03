@@ -787,8 +787,10 @@ class ServerMgrMonBasePlugin():
                     enable_puppet_svc_cmd = "chkconfig puppet on"
                     disable_puppet_svc_cmd = "chkconfig puppet off"
                 else:
-                    enable_puppet_svc_cmd = "sed -i 's/START=.*$/START=yes/' /etc/default/puppet"
-                    disable_puppet_svc_cmd = "sed -i 's/START=.*$/START=no/' /etc/default/puppet"
+                    #enable_puppet_svc_cmd = "sed -i 's/START=.*$/START=yes/' /etc/default/puppet"
+                    enable_puppet_svc_cmd = "/usr/bin/puppet resource service puppet ensure=running enable=true"
+                    #disable_puppet_svc_cmd = "sed -i 's/START=.*$/START=no/' /etc/default/puppet"
+                    disable_puppet_svc_cmd = "/usr/bin/puppet resource service puppet ensure=stopped enable=false"
                 if action == "start":
                     output = sshclient.exec_command(enable_puppet_svc_cmd)
                     output = sshclient.exec_command("service puppet start")
