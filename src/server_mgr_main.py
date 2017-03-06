@@ -1857,11 +1857,12 @@ class VncServerManager():
             self._smgr_log.log(self._smgr_log.INFO, msg)
         image_data = {
             'id': image_id,
-            'path': image_path,
+            'version': image_version,
             'type': image_type,
-            'parameters' : image_params
-        }
-        self._serverDb.modify_image(image_data)
+            'path': image_path,
+            'category' : image_category,
+            'parameters' : image_params}
+        self._serverDb.add_image(image_data)
         return resp_msg
 
     def validate_container_image(self, image_params, entity, image):
@@ -1873,17 +1874,18 @@ class VncServerManager():
                  msg = "Invalid role in image json: %s" % role
                  raise ServerMgrException(msg, ERR_OPR_ERROR)
                  resp_msg = self.form_operartion_data(msg, 0, entity)
-                 return resp_msg
+                 return False, resp_msg
 
         gevent.spawn(self.put_container_image, entity, image)
         msg = \
         "Image add/Modify of containers happening in the background. "\
         "Check /var/log/contrail-server-manager/debug.log "\
         "for progress"
-        return msg
+        return False, msg
 
     def put_image(self):
         entity = bottle.request.json
+        add_db = True
         try:
             self.validate_smgr_entity("image", entity)
             images = entity.get("image", None)
@@ -1955,7 +1957,7 @@ class VncServerManager():
                         self.cleanup_package_install(image_id, image_type)
                         container_list = image_params.get("containers", None)
                         if container_list and image_type == "contrail-ubuntu-package":
-                            additional_ret_msg = self.validate_container_image(image_params, entity, image)
+                            add_db, additional_ret_msg = self.validate_container_image(image_params, entity, image)
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
                             image_id, image_type, image_version, image_path)
@@ -1985,14 +1987,15 @@ class VncServerManager():
                                     self._add_image_to_cobbler(image_id, image_type,
                                     image_version, image_path,
                                     kickstart_dest, kickseed_dest)
-                    image_data = {
-                        'id': image_id,
-                        'version': image_version,
-                        'type': image_type,
-                        'path': image_path,
-                        'category' : image_category,
-                        'parameters' : image_params}
-                    self._serverDb.add_image(image_data)
+                    if add_db:
+                        image_data = {
+                            'id': image_id,
+                            'version': image_version,
+                            'type': image_type,
+                            'path': image_path,
+                            'category' : image_category,
+                            'parameters' : image_params}
+                        self._serverDb.add_image(image_data)
         except subprocess.CalledProcessError as e:
             msg = ("put_image: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
