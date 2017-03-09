@@ -3715,31 +3715,31 @@ class VncServerManager():
                     if dhcp:
                         device_str+= ("python /root/interface_setup.py \
 --device %s --members %s --bond-opts \"%s\" --dhcp %s\n") % \
-                        (name, " ".join(member_intfs), json.dumps(bond_opts), vlan)
+                        (name, " ".join(member_intfs), json.dumps(bond_opts), mtu)
                     #If bond interface is the management interface you need to set the gateway
                     elif ((mgmt_intf == name) and d_gw):
                         device_str+= ("python /root/interface_setup.py \
 --device %s --members %s --bond-opts \"%s\" --ip %s --gw %s %s\n") % \
-                        (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr, d_gw, vlan)
+                        (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr, d_gw, mtu)
                     else:
                         device_str+= ("python /root/interface_setup.py \
 --device %s --members %s --bond-opts \"%s\" --ip %s %s\n") % \
-                        (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr, vlan)
+                        (name, " ".join(member_intfs), json.dumps(bond_opts), ip_addr, mtu)
                     execute_script = True
                 else:
                     #Take the mac_address as the name as the interface may be renamed after reboot
                     if 'mac_address' in intf:
                         name = intf['mac_address'].lower()
                     if dhcp:
-                        device_str+= ("python /root/interface_setup.py --device %s --dhcp %s\n") %(name, vlan)
+                        device_str+= ("python /root/interface_setup.py --device %s --dhcp %s\n") %(name, mtu)
                     else:
                         #For static managment interface pass the default gateway
                         if (mgmt_intf == intf_name) and d_gw:
                             device_str+= ("python /root/interface_setup.py --device %s --ip %s --gw %s %s\n") % \
-                               (name, ip_addr, d_gw, vlan)
+                               (name, ip_addr, d_gw, mtu)
                         else:
                             device_str+= ("python /root/interface_setup.py --device %s --ip %s %s\n") % \
-                               (name, ip_addr, vlan)
+                               (name, ip_addr, mtu)
                 execute_script = True
             # Build route configuration and add it
             route_str = self.build_route_cfg(server)
