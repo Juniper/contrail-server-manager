@@ -4094,6 +4094,13 @@ class VncServerManager():
         else:
             return server['intf_control']
 
+    # Function to get control_data_interface name
+    def get_mgmt_interface_name(self, server):
+        contrail = server.get('network', "")
+        if contrail and eval(contrail):
+            contrail_dict = eval(contrail)
+            return contrail_dict.get('management_interface', "")
+
     # Function to get control interface for a specified server.
     def get_control_interface(self, server):
         contrail = server.get('contrail', "")
@@ -5299,6 +5306,7 @@ class VncServerManager():
 
         for x in cluster_servers:
             vr_if_str = None
+            var_list = ""
             server_roles = eval(x.get('roles', '[]'))
             server_roles_set = set(server_roles)
             if len(ansible_roles_set.intersection(server_roles_set)) == 0:
@@ -5309,8 +5317,12 @@ class VncServerManager():
             ctrl_data_intf = self.get_control_interface_name(x)
             if ctrl_data_intf:
                 vr_if_str = " vrouter_physical_interface=" + ctrl_data_intf
+            else:
+                vr_if_str = " vrouter_physical_interface=" + \
+                        self.get_mgmt_interface_name(x)
+
             for k,v in srvr_vars.iteritems():
-                grp_line = grp_line + " " + k + "=" + v
+                var_list = var_list + " " + k + "=" + v
 
             for role in server_roles:
                 if role in _valid_roles:
@@ -5329,20 +5341,6 @@ class VncServerManager():
                                 cur_inventory[grp].append(grp_line + vr_if_str)
                             else:
                                 cur_inventory[grp].append(grp_line)
-                        else:
-                            indx = next(i for i,k in \
-                                    enumerate(cur_inventory[grp]) if \
-                                    x["ip_address"] in k)
-                            if (role == BARE_METAL_COMPUTE or \
-                                    role == AGENT_CONTAINER) and \
-                                    "vrouter_physical_interface" not in \
-                                    cur_inventory[grp][indx]:
-                                cur_inventory[grp][indx] = \
-                                        cur_inventory[grp][indx] + grp_line + \
-                                        vr_if_str
-                            else:
-                                cur_inventory[grp][indx] = \
-                                        cur_inventory[grp][indx] + grp_line
 
                         if _inventory_group[role] not in \
                                 cur_inventory["[all:children]"]:
@@ -5357,6 +5355,13 @@ class VncServerManager():
 
                         cur_inventory["[all:children]"].append(\
                                 _inventory_group[role])
+
+                    indx = next(i for i,k in \
+                            enumerate(cur_inventory[grp]) if \
+                            x["ip_address"] in k)
+                    cur_inventory[grp][indx] = \
+                            cur_inventory[grp][indx] + var_list
+
             self.merge_dict(cur_inventory["[all:vars]"], srvr_allvars)
         # for x in cluster_servers
 
