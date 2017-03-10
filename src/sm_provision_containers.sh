@@ -337,7 +337,15 @@ cd $PROVISION_DIR && server-manager add server -f ${SERVER_JSON_PATH}
 
 echo "$arrow Provisioning the cluster"
 # Provision the cluster
-# TODO: Have a way of knowing when the containers have been loaded and pushed to docker registry
+
+check_image=`server-manager display image --image_id ${CONTRAIL_IMAGE_ID} --json | grep ${CONTRAIL_IMAGE_ID} | awk '{print $2}'`
+while [[ "$check_image" != "\"${CONTRAIL_IMAGE_ID}\"" ]]
+do
+  sleep 15
+  echo "Waiting for containers to get loaded"
+  check_image=`server-manager display image --image_id ${CONTRAIL_IMAGE_ID} --json | grep ${CONTRAIL_IMAGE_ID} | awk '{print $2}'`
+done
+
 cd $PROVISION_DIR && server-manager provision -F --cluster_id $CLUSTER_ID ${CONTRAIL_IMAGE_ID}
 
 end_time=$(date +"%s")
