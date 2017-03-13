@@ -3841,28 +3841,30 @@ class VncServerManager():
 
         return False
 
-    def get_server_for_role(self, role, provision_server_list):
+    def get_servers_for_role(self, role, provision_server_list):
+        server_role_list = []
         for server in provision_server_list:
             for r in eval(server['server']['roles']):
                 if role == r:
-                    return server
+                    server_role_list.append(server)
 
-        return None
+        return server_role_list
 
     #TODO: Temporary - Block ansible provision till openstack provision completes
     # If no openstack role in cluster, the ansible provision kicks off immediately
     def manage_ansible_provision(self, provision_server_list, cluster, package):
-        server = self.get_server_for_role('openstack',
+        servers = self.get_servers_for_role('openstack',
                 provision_server_list)
-        if server:
-            openstack_server_id = str(server['server']['id'])
-            wait_for_openstack_provision_flag = True
-            while wait_for_openstack_provision_flag:
-                gevent.sleep(10)
-                status_for_server = self._serverDb.get_server({'host_name': openstack_server_id}, detail=True)[0]
-                server_status = str(status_for_server["status"])
-                if server_status == "provision_completed":
-                   wait_for_openstack_provision_flag = False
+        if len(servers):
+            for server in servers:
+                openstack_server_id = str(server['server']['id'])
+                wait_for_openstack_provision_flag = True
+                while wait_for_openstack_provision_flag:
+                    gevent.sleep(10)
+                    status_for_server = self._serverDb.get_server({'host_name': openstack_server_id}, detail=True)[0]
+                    server_status = str(status_for_server["status"])
+                    if server_status == "provision_completed":
+                        wait_for_openstack_provision_flag = False
         self._do_ansible_provision_cluster(
                 provision_server_list, cluster, package)
 
@@ -3914,9 +3916,9 @@ class VncServerManager():
                             if self.is_role_in_cluster('openstack',
                                     provision_server_list) and \
                                      package['contrail_image_id']:
-                                server = self.get_server_for_role('openstack',
+                                servers = self.get_servers_for_role('openstack',
                                         provision_server_list)
-                                if server == None:
+                                if not len(servers):
                                     continue
                                 contrail_images = \
                                       self._serverDb.get_image({"id": \
@@ -3934,13 +3936,14 @@ class VncServerManager():
                                            eval(contrail_package["parameters"])
                                         contrail_package["calc_params"] = \
                                            package.get("calc_params",{})
-                                    self._do_provision_server(
-                                           server['provision_params'],
-                                           server['server'],
-                                           server['cluster'],
-                                           server['cluster_servers'],
-                                           contrail_package,
-                                           server['serverDb'])
+                                    for server in servers:
+                                        self._do_provision_server(
+                                               server['provision_params'],
+                                               server['server'],
+                                               server['cluster'],
+                                               server['cluster_servers'],
+                                               contrail_package,
+                                               server['serverDb'])
                         else:
 
                             for server in provision_server_list:
