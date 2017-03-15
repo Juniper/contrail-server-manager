@@ -116,14 +116,6 @@ deb-src http://security.ubuntu.com/ubuntu trusty-security universe
 deb http://security.ubuntu.com/ubuntu trusty-security multiverse
 deb-src http://security.ubuntu.com/ubuntu trusty-security multiverse
 
-## Medibuntu - Ubuntu 14.04 "Trusty Tahr"
-## Please report any bug on https://bugs.launchpad.net/medibuntu/
-deb http://packages.medibuntu.org/ trusty free non-free
-deb-src http://packages.medibuntu.org/ trusty free non-free
-
-# Google software repository
-deb http://dl.google.com/linux/deb/ stable non-free
-
 EOF
 
 # Get additional packages
