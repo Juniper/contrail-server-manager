@@ -79,9 +79,6 @@ deb-src http://security.ubuntu.com/ubuntu xenial-security universe
 deb http://security.ubuntu.com/ubuntu xenial-security multiverse
 deb-src http://security.ubuntu.com/ubuntu xenial-security multiverse
 
-# Google software repository
-deb http://dl.google.com/linux/deb/ stable non-free
-
 EOF
 
 # Get additional packages

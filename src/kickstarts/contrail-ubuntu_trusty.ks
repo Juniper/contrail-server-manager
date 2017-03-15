@@ -121,9 +121,6 @@ deb-src http://security.ubuntu.com/ubuntu trusty-security multiverse
 deb http://packages.medibuntu.org/ trusty free non-free
 deb-src http://packages.medibuntu.org/ trusty free non-free
 
-# Google software repository
-deb http://dl.google.com/linux/deb/ stable non-free
-
 EOF
 
 # Get additional packages
