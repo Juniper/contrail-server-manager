@@ -5255,6 +5255,45 @@ class VncServerManager():
 
     #end  get_calculated_keystone_config_dict
 
+    # Returns a string of "k1=v1 k2=v2 ..." that can be appended to the group
+    # line in the inventory like below:
+    # [contrail-compute]
+    # 1.1.1.1 k1=v1 k2=v2 ...
+    def build_calculated_srvr_inventory_params(self, srvr):
+        ansible_roles_set = set(_valid_roles)
+        vr_if_str = ""
+        var_list = ""
+
+        server_roles = eval(srvr.get('roles', '[]'))
+        server_roles_set = set(server_roles)
+        if len(ansible_roles_set.intersection(server_roles_set)) == 0:
+            return var_list
+
+        srvr_vars = self.get_inventory_vars(srvr)
+
+        # FIXME: Remove vrouter_physical_interface after it gets derived within
+        # the Ansible node role
+        ctrl_data_intf = self.get_control_interface_name(srvr)
+        if ctrl_data_intf:
+            vr_if_str = " vrouter_physical_interface=" + ctrl_data_intf
+        else:
+            # get_mgmt_interface_name will always return a valid interface name
+            # because management_interface is a mandatory parameter for a server
+            vr_if_str = " vrouter_physical_interface=" + \
+                    self.get_mgmt_interface_name(srvr)
+        if BARE_METAL_COMPUTE in server_roles or \
+                AGENT_CONTAINER in server_roles:
+            var_list = vr_if_str
+
+        for k,v in srvr_vars.iteritems():
+            var_list = var_list + " " + k + "=" + v
+
+        # calculate ctrl_data_ip
+        if ctrl_data_intf:
+            var_list = var_list + " " + "ctrl_data_ip=" + \
+                    self.get_control_ip(srvr)
+        return var_list
+
 
     # Rules for the calculated inventory:
     # 1. [<contrail-roles>] entries in json inventory is retained. If it is not
@@ -5309,23 +5348,14 @@ class VncServerManager():
 
         for x in cluster_servers:
             vr_if_str = None
-            var_list = ""
             server_roles = eval(x.get('roles', '[]'))
             server_roles_set = set(server_roles)
             if len(ansible_roles_set.intersection(server_roles_set)) == 0:
                 continue
             srvr_allvars  = self.get_inventory_all_vars(x)
-            srvr_vars = self.get_inventory_vars(x)
             grp_line = str(x["ip_address"])
-            ctrl_data_intf = self.get_control_interface_name(x)
-            if ctrl_data_intf:
-                vr_if_str = " vrouter_physical_interface=" + ctrl_data_intf
-            else:
-                vr_if_str = " vrouter_physical_interface=" + \
-                        self.get_mgmt_interface_name(x)
 
-            for k,v in srvr_vars.iteritems():
-                var_list = var_list + " " + k + "=" + v
+            var_list = self.build_calculated_srvr_inventory_params(x)
 
             for role in server_roles:
                 if role in _valid_roles:
@@ -5339,22 +5369,14 @@ class VncServerManager():
                     if grp in cur_inventory:
                         if not any(x["ip_address"] in y for y in \
                                 cur_inventory[grp]):
-                            if role == BARE_METAL_COMPUTE or \
-                                    role == AGENT_CONTAINER:
-                                cur_inventory[grp].append(grp_line + vr_if_str)
-                            else:
-                                cur_inventory[grp].append(grp_line)
+                            cur_inventory[grp].append(grp_line)
 
                         if _inventory_group[role] not in \
                                 cur_inventory["[all:children]"]:
                             cur_inventory["[all:children]"].append(\
                                         _inventory_group[role])
                     else:
-                        if role == BARE_METAL_COMPUTE or \
-                                role == AGENT_CONTAINER:
-                            cur_inventory[grp] = [ grp_line + vr_if_str ]
-                        else:
-                            cur_inventory[grp] = [ grp_line ]
+                        cur_inventory[grp] = [ grp_line ]
 
                         cur_inventory["[all:children]"].append(\
                                 _inventory_group[role])
