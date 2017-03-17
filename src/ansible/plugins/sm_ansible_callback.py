@@ -65,6 +65,12 @@ class CallbackModule(CallbackBase):
         self.start_time = datetime.now()
 
     def v2_runner_on_failed(self, result, ignore_errors=False):
+        err_str = ""
+        if ignore_errors:
+            err_str = "ignored error"
+        else:
+            err_str = "fatal"
+
         delegated_vars = result._result.get('_ansible_delegated_vars', None)
 
         # Catch an exception
@@ -84,13 +90,13 @@ class CallbackModule(CallbackBase):
             self._process_items(result)
         else:
             if delegated_vars:
-                self.logger.append("fatal: [%s -> %s]: FAILED! => %s" %
-                        (result._host.get_name(),
+                self.logger.append("%s: [%s -> %s]: FAILED! => %s" %
+                        (err_str, result._host.get_name(),
                          delegated_vars['ansible_host'],
                          self._dump_results(result._result)))
             else:
-                self.logger.append("fatal: [%s]: FAILED! => %s" %
-                        (result._host.get_name(),
+                self.logger.append("%s: [%s]: FAILED! => %s" %
+                        (err_str, result._host.get_name(),
                          self._dump_results(result._result)))
 
 
