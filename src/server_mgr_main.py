@@ -3155,7 +3155,7 @@ class VncServerManager():
                 intf_dict = {}
                 name = intf['name']
                 ip_addr = intf.get('ip_address', None)
-                if ip_addr is None:
+                if ip_addr is None or len(ip_addr.strip()) == 0:
                     continue
                 ip = IPNetwork(ip_addr)
                 intf_dict['ip'] = str(ip.ip)
@@ -3459,7 +3459,7 @@ class VncServerManager():
                 name = intf['name']
                 intf_name = name
                 ip_addr = intf.get('ip_address', None)
-                if ip_addr is None:
+                if ip_addr is None or len(ip_addr.strip()) == 0:
                     continue
                 ip = IPNetwork(ip_addr)
                 d_gw = intf.get('default_gateway', None)
