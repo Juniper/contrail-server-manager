@@ -193,7 +193,14 @@ class ServerMgrStatusThread(threading.Thread):
                     ssh_handl.connect(server['ip_address'],
                               username = server.get('username', 'root'),
                               password = server['password'])
-                    ssh_handl.exec_command(cmd)
+                    # for bug 1648268 collect output for the failed command
+                    i, o ,err = ssh_handl.exec_command(cmd)
+                    self._smgr_log.log(self._smgr_log.DEBUG, 
+                                       "ISSU-ROLLBACK: rmmod op is %s" %(
+                                                               o.read()))
+                    self._smgr_log.log(self._smgr_log.DEBUG, 
+                                       "ISSU-ROLLBACK: rmmod err is %s" %(
+                                                              err.read()))
                     # remove the rollback flag
                     server_data = {"id": server["id"],
                                    "parameters": {
