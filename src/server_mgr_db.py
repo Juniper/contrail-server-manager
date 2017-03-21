@@ -207,10 +207,13 @@ class ServerMgrDb:
           server_id = server.get('id',"")
           self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], host_name))
           if host_name is None or host_name == "":
-              server['host_name'] = server_id
-              self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], server['host_name']))
-              update = {'id': server_id, 'host_name': server['host_name'] }
-              self.modify_server(update)
+              server['host_name'] = server_id.lower()
+          else :
+              server['host_name'] = host_name.lower()
+
+          self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], server['host_name']))
+          update = {'id': server_id, 'host_name': server['host_name'] }
+          self.modify_server(update)
 
     ## End of update_server_table
 
@@ -520,10 +523,10 @@ class ServerMgrDb:
 
             host_name = server_data.pop('host_name', None)
             if host_name is None or host_name == "":
-                host_name = server_data['id']
+                host_name = server_data['id'].lower()
 
             if host_name:
-                server_data['host_name'] = str(host_name)
+                server_data['host_name'] = str(host_name).lower()
 
             msg = "ADD-SERVER: ID=> %s : %s:%s" %(server_data['id'],server_data['host_name'], host_name)
             self._smgr_log.log(self._smgr_log.ERROR, msg)
@@ -899,11 +902,11 @@ class ServerMgrDb:
                 if host_name is "":
                     ## admin is trying to delete the hostname, this is not
                     ## allowed, we copy the id to host_name
-                    server_data['host_name'] = server_data['id']
+                    server_data['host_name'] = server_data['id'].lower()
                     msg = "MODIFY-SERVER: ID=> %s : %s" %(server_data['id'],server_data['host_name'])
                     self._smgr_log.log(self._smgr_log.ERROR, msg)
                 elif host_name != "":
-                    server_data['host_name'] = host_name
+                    server_data['host_name'] = host_name.lower()
 
             # Store roles list as a text field
             roles = server_data.pop("roles", None)
