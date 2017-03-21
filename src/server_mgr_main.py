@@ -3746,8 +3746,8 @@ class VncServerManager():
             if route_str:
                 device_str+= route_str
                 execute_script = True
-            sh_file_name = "/var/www/html/contrail/config_file/%s.sh" % (server['id'])
-            rm_filename = "rm /etc/init.d/%s.sh" %(server['id'])
+            sh_file_name = "/var/www/html/contrail/config_file/%s.sh" % (server['host_name'])
+            rm_filename = "rm /etc/init.d/%s.sh" %(server['host_name'])
             f = open(sh_file_name, "w")
             f.write(device_str)
             f.write(rm_filename)

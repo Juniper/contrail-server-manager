@@ -123,7 +123,7 @@ class ServerMgrStatusThread(threading.Thread):
         #query_args = parse_qs(urlparse(bottle.request.url).query,
                                       #keep_blank_values=True)
         #match_key, match_value = query_args.popitem()
-        server_hostname= request.query['server_id']
+        server_hostname= request.query['server_id'].lower()
         server_state = request.query['state']
         body = request.body.read()
         server_data = {}
