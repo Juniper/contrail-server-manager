@@ -245,7 +245,8 @@ class SmgrIssuClass(VncServerManager):
                                 "issu_compute_tag": self.compute_tag,
                                 "issu_task_master": (self.new_config_ip,
                                                      self.new_config_username,
-                                                     self.new_config_password)
+                                                     self.new_config_password),
+                                "issu_finalized": "false"
                                 }
                            }
                        }
@@ -747,6 +748,17 @@ class SmgrIssuClass(VncServerManager):
             self.ssh_handl.exec_command("service supervisor-config restart")
             self.ssh_handl.close()
         ssh_issu_task_master.close()
+
+        # set issu finalize complete flag
+        cluster_data = {"id": self.new_cluster,
+                        "parameters": {
+                            "issu": {
+                                "issu_finalized": "true",
+                                }
+                           }
+                       }
+        self._serverDb.modify_cluster(cluster_data)
+
         # end _do_finalize_issu
 
     def _do_rollback_compute(self):
