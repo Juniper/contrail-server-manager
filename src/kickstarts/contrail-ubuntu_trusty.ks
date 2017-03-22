@@ -54,7 +54,7 @@ deb http://puppet/thirdparty_packages/ ./
 EOF
 
 apt-get update
-apt-get -y install puppet
+apt-get -y install  ruby=1:1.9.3.4 ruby-json=1.6.3-1 ruby-augeas=0.5.0-2 puppet-common=3.7.3-1puppetlabs1 puppet=3.7.3-1puppetlabs1
 
 #cp /etc/apt/sources.list.orig /etc/apt/sources.list
 

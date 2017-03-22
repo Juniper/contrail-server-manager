@@ -115,7 +115,13 @@ class Server(object):
         self.extra_packages_12_04 = ['puppet=3.7.3-1puppetlabs1', 'python-netaddr',
                                      'ifenslave-2.6=1.1.0-19ubuntu5', 'sysstat',
                                      'ethtool']
-        self.extra_packages_14_04 = ['puppet=3.7.3-1puppetlabs1', 'python-netaddr',
+        self.extra_packages_14_04 = ['ruby=1:1.9.3.4','ruby-json=1.6.3-1',
+                                     'ruby-augeas=0.5.0-2',
+                                     'puppet-common=3.7.3-1puppetlabs1',
+                                     'puppet=3.7.3-1puppetlabs1', 'python-netaddr',
+                                     'ifenslave-2.6=2.4ubuntu1', 'sysstat',
+                                     'ethtool']
+        self.extra_packages_16_04 = ['puppet', 'python-netaddr',
                                      'ifenslave-2.6=2.4ubuntu1', 'sysstat',
                                      'ethtool']
 
@@ -299,6 +305,8 @@ class Server(object):
             packages_list = self.extra_packages_12_04
         elif os_type.lower() == 'ubuntu' and version == '14.04':
             packages_list = self.extra_packages_14_04
+        elif os_type.lower() == 'ubuntu' and version == '16.04':
+            packages_list = self.extra_packages_16_04
         else:
             raise RuntimeError('UnSupported OS type (%s)' % self.os_version)
 
