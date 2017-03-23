@@ -19,6 +19,7 @@ ANALYTICSDB_CONTAINER = "contrail-analyticsdb"
 AGENT_CONTAINER       = "contrail-agent"
 LB_CONTAINER          = "contrail-lb"
 BARE_METAL_COMPUTE    = "contrail-compute"
+_DEF_BASE_PLAYBOOKS_DIR = "/opt/contrail/server_manager/ansible/playbooks"
 
 # Add new roles and corresponding container_name here
 _container_names = { CONTROLLER_CONTAINER  : 'controller',
