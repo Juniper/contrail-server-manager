@@ -2,6 +2,7 @@ import os
 import sys
 import pycurl
 import ConfigParser
+import subprocess
 import json
 from StringIO import StringIO
 
@@ -105,6 +106,26 @@ def create_inv_file(fname, dictionary):
                         invfile.write('\n')
                         invfile.write('\n')
 
+
+'''
+SM Lite + Ansible Provision related functions
+'''
+
+def ansible_verify_provision_complete(smlite_server, smlite_non_mgmt_ip):
+    try:
+        cmd = ("lsmod | grep vrouter")
+        output = subprocess.check_output(cmd, shell=True)
+        if "vrouter" not in output:
+            return False
+        cmd = ("ifconfig vhost0 | grep %s" %(smlite_non_mgmt_ip))
+        output = subprocess.check_output(cmd, shell=True)
+        if str(smlite_non_mgmt_ip) not in output:
+            return False
+        return True
+    except subprocess.CalledProcessError as e:
+        raise e
+    except Exception as e:
+        raise e
 
 '''
 Recursively process the dictionary and create the INI format file

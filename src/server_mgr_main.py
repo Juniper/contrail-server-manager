@@ -49,6 +49,7 @@ from server_mgr_issu import *
 from generate_dhcp_template import *
 sys.path.append(os.path.join(os.path.dirname(__file__), 'ansible'))
 from sm_ansible_utils import send_REST_request
+from sm_ansible_utils import ansible_verify_provision_complete
 from sm_ansible_utils import _container_img_keys
 from sm_ansible_utils import _valid_roles
 from sm_ansible_utils import _inventory_group
@@ -605,6 +606,8 @@ class VncServerManager():
         bottle.route('/server/provision', 'POST', self.provision_server)
         bottle.route('/interface_created', 'POST', self.interface_created)
         bottle.route('/run_inventory', 'POST', self._server_inventory_obj.run_inventory)
+
+        self.verify_smlite_provision()
 
     def get_pipe_start_app(self):
         return self._pipe_start_app
@@ -3786,6 +3789,37 @@ class VncServerManager():
                     if h[0] not in hosts:
                         hosts.append(h[0])
         return hosts
+
+    def verify_smlite_provision(self):
+        smgr_ip = self._args.listen_ip_addr
+        servers = self._serverDb.get_server({'ip_address': smgr_ip}, detail=True)
+        if servers:
+            smlite_server = servers[0]
+            smlite_server_status = smlite_server["status"]
+            if smlite_server_status == "provision_in_progress":
+                server_control_ip = self.get_control_ip(smlite_server)
+                result = ansible_verify_provision_complete(smlite_server, server_control_ip)
+                if result:
+                    update = {'id': smlite_server['id'],
+                              'status' : 'provision_completed',
+                              'last_update': strftime(
+                                 "%Y-%m-%d %H:%M:%S", gmtime())}
+                    self._smgr_log.log(self._smgr_log.INFO,
+                         "Completed SM Lite provisioning for server %s" % \
+                                           (smlite_server['id']))
+                else:
+                    update = {'id': smlite_server['id'],
+                              'status' : 'provision_failed',
+                              'last_update': strftime(
+                                 "%Y-%m-%d %H:%M:%S", gmtime())}
+                    self._smgr_log.log(self._smgr_log.ERROR,
+                         "Failed SMLite provisioning for server %s" % \
+                                           (smlite_server['id']))
+                self._serverDb.modify_server(update)
+            else:
+                self._smgr_log.log(self._smgr_log.INFO,
+                    "SMLite provisioning has either not kicked off or is complete for server %s" % \
+                                       (smlite_server['id']))
 
     def _do_ansible_provision_cluster(self, server_list, cluster, package):
         pp = []
