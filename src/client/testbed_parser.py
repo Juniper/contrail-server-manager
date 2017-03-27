@@ -18,6 +18,7 @@ from collections import defaultdict
 
 # Testbed Converter Version
 __version__ = '1.0'
+DEF_TRANS_DICT='/opt/contrail/server_manager/client/parameter-translation-dict.json'
 
 log = logging.getLogger('testbed_parser')
 log.setLevel(logging.DEBUG)
@@ -64,9 +65,10 @@ class Utils(object):
         parser.add_argument('--testbed',
                             required=True,
                             help='Absolute path to testbed file')
+        parser.add_argument('--translation-dict',
+                            help='Absolute path to translation dictionary file')
         parser.add_argument('--contrail-packages',
                             nargs='+',
-                            required=True,
                             help='Absolute path to Contrail Package file, '\
                                  'Multiple files can be separated with space')
         parser.add_argument('--contrail-storage-packages',
@@ -127,11 +129,15 @@ class Utils(object):
         storage_keys = Utils.get_section_from_ini_file(args.storage_keys_ini_file, 'STORAGE-KEYS')
         cluster_json = ClusterJsonGenerator(testsetup=testsetup,
                                             storage_keys=storage_keys)
-        cluster_json.generate_json_file()
-        package_files = args.contrail_packages + args.contrail_storage_packages
-        image_json = ImageJsonGenerator(testsetup=testsetup,
-                                        package_files=package_files)
-        image_json.generate_json_file()
+        translation_dict = args.translation_dict
+        if not translation_dict:
+            translation_dict = DEF_TRANS_DICT
+        cluster_json.generate_json_file(translation_dict)
+        if args.contrail_packages and args.contrail_storage_packages:
+            package_files = args.contrail_packages + args.contrail_storage_packages
+            image_json = ImageJsonGenerator(testsetup=testsetup,
+                                            package_files=package_files)
+            image_json.generate_json_file()
 
 class Host(object):
     def __init__(self, ip, username, password, **kwargs):
@@ -633,6 +639,7 @@ class BaseJsonGenerator(object):
         to_string = kwargs.get('to_string', True)
         to_lower = kwargs.get('to_lower', False)
         is_boolean = kwargs.get('is_boolean', False)
+        is_list = kwargs.get('is_list', False)
         log.debug('Adding Variable (%s)' % destination_variable_name)
         log.debug('Source Variable: (%s) Destination Variable: (%s) ' \
                   'Source Variable Name (%s) Destination Variable Name (%s) ' \
@@ -647,6 +654,8 @@ class BaseJsonGenerator(object):
                     value = str(value).lower()
                 elif is_boolean:
                     value = (str(value).lower() == "true")
+                elif is_list:
+                    value = eval(str(value))
                 else:
                     value = str(value)
 
@@ -855,9 +864,8 @@ class ClusterJsonGenerator(BaseJsonGenerator):
         self.storage_keys = kwargs.get('storage_keys', None)
         self.dict_data = {"cluster": []}
 
-    def _initialize(self):
-        translation_dict = {}
-        with open('/opt/contrail/server_manager/client/parameter-translation-dict.json') as json_file:
+    def _initialize(self, translation_dict):
+        with open(translation_dict) as json_file:
             translation_dict = json.load(json_file)
         cluster_dict = {"id": self.cluster_id, "parameters": {}}
         cluster_dict['parameters']['provision'] = {}
@@ -886,13 +894,18 @@ class ClusterJsonGenerator(BaseJsonGenerator):
                     is_boolean = True
                 else:
                     is_boolean = False
+                if data_format == "list":
+                    is_list = True
+                else:
+                    is_list = False
                 self.set_if_defined(source_variable_name, dest_var, source_variable=source_variable,
                                     destination_variable_name=str(dest_var_name), to_lower=to_lower,
-                                    is_boolean=is_boolean, function=function_to_use)
+                                    is_boolean=is_boolean, is_list=is_list, function=function_to_use)
         return cluster_dict
 
-    def generate_json_file(self):
-        cluster_dict = self._initialize()
+    def generate_json_file(self,translation_dict):
+
+        cluster_dict = self._initialize(translation_dict)
         self.dict_data['cluster'].append(cluster_dict)
         self.generate()
 
