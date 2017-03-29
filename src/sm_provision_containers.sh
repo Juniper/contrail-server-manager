@@ -21,6 +21,7 @@ arrow="---->"
 
 # Defaults
 SOURCES_LIST="sources_list"
+TESTBED=""
 DEFAULT_DOMAIN=""
 CONTRAIL_PKG=""
 CONTRAIL_STORAGE_PKG=""
@@ -38,6 +39,7 @@ SM_WEBUI_PORT=""
 CLUSTER_JSON_PATH=""
 SERVER_JSON_PATH=""
 IMAGE_JSON_PATH=""
+TRANSLATION_DICT_PATH="/opt/contrail/server_manager/client/container-parameter-translation-dict.json"
 
 function usage()
 {
@@ -54,6 +56,7 @@ function usage()
     echo -e "\t-cj|--cluster-json"
     echo -e "\t-sj|--server-json"
     echo -e "\t-ij|--image-json"
+    echo -e "\t-t|--testbed <testbed.py>"
     echo -e "\t-nr|--no-local-repo"
     echo -e "\t-nm|--no-sm-mon"
     echo -e "\t-nw|--no-sm-webui"
@@ -77,12 +80,8 @@ while [[ $# > 0 ]]
         CONTRAIL_PKG="$2"
         shift # past argument
         ;;
-        -cs|--contrail-storage-package)
-        CONTRAIL_STORAGE_PKG="$2"
-        shift # past argument
-        ;;
-        -sk|--storage-keys-ini-file)
-        STORAGE_KEYS_INI="$2"
+        -t|--testbed)
+        TESTBED="$2"
         shift # past argument
         ;;
         -d|--default-domain)
@@ -144,13 +143,6 @@ while [[ $# > 0 ]]
     shift # past argument or value
 done
 
-# Verify Mandatory Arguments exists
-if [ "$CLUSTER_JSON_PATH" == "" ] || [ "$SERVER_JSON_PATH" == "" ] || [ "$IMAGE_JSON_PATH" == "" ]; then
-   echo "ONE OF CLUSTER SERVER OR IMAGE JSON PATHS MISSING"
-   echo ${CLUSTER_JSON_PATH} ${SERVER_JSON_PATH} ${IMAGE_JSON_PATH}
-   exit
-fi
-
 function get_real_path ()
 {
     eval contrail_package=$1
@@ -161,47 +153,6 @@ function get_real_path ()
     fi
 }
 
-# Update with real path
-CLUSTER_JSON_PATH=$(get_real_path $CLUSTER_JSON_PATH)
-SERVER_JSON_PATH=$(get_real_path $SERVER_JSON_PATH)
-IMAGE_JSON_PATH=$(get_real_path $IMAGE_JSON_PATH)
-
-# Retrieve info from json files
-read CONTRAIL_IMAGE_ID CONTRAIL_IMAGE_VERSION CONTRAIL_IMAGE_TYPE CONTRAIL_PKG <<< $(python -c "import json;\
-                                                          fid = open('${IMAGE_JSON_PATH}', 'r');\
-                                                          contents = fid.read();\
-                                                          cjson = json.loads(contents);\
-                                                          fid.close();\
-                                                          print cjson['image'][0]['id'],\
-                                                                cjson['image'][0]['version'],\
-                                                                cjson['image'][0]['type'],\
-                                                                cjson['image'][0]['path']")
-
-read CLUSTER_ID <<< $(python -c "import json;\
-                        fid = open('${CLUSTER_JSON_PATH}', 'r');\
-                        data = json.load(fid);\
-                        fid.close();\
-                        print data['cluster'][0]['id']")
-
-# Verify Mandatory Arguments exists
-if [ "$CONTRAIL_PKG" == "" ] || [ "$CONTRAIL_IMAGE_TYPE" == "" ] || [ "$CONTRAIL_IMAGE_ID" == "" ]; then
-    echo "PGK DETAILS MISSING"
-    exit
-fi
-
-if [ "$CONTRAIL_IMAGE_TYPE" != "contrail-ubuntu-package" ]; then
-    echo "PACKAGE TYPE IS WRONG"
-    exit
-fi
-
-if [ "$CLUSTER_ID" == "" ]; then
-    echo "CLUSTER ID MISSING"
-    exit
-fi
-
-if [ -f "$CONTRAIL_STORAGE_PKG" ]; then
-    CONTRAIL_STORAGE_PKG=$(get_real_path $CONTRAIL_STORAGE_PKG)
-fi
 
 function unmount_contrail_local_repo()
 {
@@ -272,6 +223,29 @@ function cleanup_puppet_agent()
    set -e
 }
 
+# Temporarily use Image JSON along with Testbed.py
+if [ "$IMAGE_JSON_PATH" == "" ]; then
+   echo "IMAGE JSON PATH MISSING"
+   exit
+fi
+IMAGE_JSON_PATH=$(get_real_path $IMAGE_JSON_PATH)
+# Retrieve info from json files
+read CONTRAIL_IMAGE_ID CONTRAIL_IMAGE_VERSION CONTRAIL_IMAGE_TYPE CONTRAIL_PKG <<< $(python -c "import json;\
+                                                          fid = open('${IMAGE_JSON_PATH}', 'r');\
+                                                          contents = fid.read();\
+                                                          cjson = json.loads(contents);\
+                                                          fid.close();\
+                                                          print cjson['image'][0]['id'],\
+                                                                cjson['image'][0]['version'],\
+                                                                cjson['image'][0]['type'],\
+                                                                cjson['image'][0]['path']")
+
+# Verify Mandatory Image Arguments exists
+if [ "$CONTRAIL_PKG" == "" ] || [ "$CONTRAIL_IMAGE_TYPE" == "" ] || [ "$CONTRAIL_IMAGE_ID" == "" ]; then
+    echo "PGK DETAILS MISSING"
+    exit
+fi
+
 if [ "$CLEANUP_PUPPET_AGENT" != "" ]; then
    echo "$arrow Remove puppet agent, if it is present"
    cleanup_puppet_agent
@@ -306,6 +280,53 @@ then
   sed -i "s|config.https_port =.*|config.https_port = '${SM_WEBUI_PORT}';|g" /etc/contrail/config.global.sm.js
   service supervisor-webui-sm restart >> $log_file 2>&1
 fi
+
+if [ ! -z "$TESTBED" ]
+then
+    echo "$space$arrow Convert testbed.py to server manager entities"
+    # Convert testbed.py to server manager object json files
+    optional_args=""
+    if [ ! -z "$CLUSTER_ID" ]; then
+        optional_args="$optional_args --cluster-id $CLUSTER_ID"
+    fi
+
+    optional_args="$optional_args --translation-dict $TRANSLATION_DICT_PATH"
+
+    cd $PROVISION_DIR && /opt/contrail/server_manager/client/testbed_parser.py --testbed ${TESTBED} $optional_args
+    # Retrieve info from json files
+    cd $PROVISION_DIR && CLUSTER_ID=$(python -c "import json;\
+                                      fid = open('cluster.json', 'r');\
+                                      data = json.load(fid);\
+                                      fid.close();\
+                                      print data['cluster'][0]['id']")
+
+    CLUSTER_JSON_PATH="$PROVISION_DIR/cluster.json"
+    SERVER_JSON_PATH="$PROVISION_DIR/server.json"
+else
+    # Verify Mandatory Arguments exists
+    if [ "$CLUSTER_JSON_PATH" == "" ] || [ "$SERVER_JSON_PATH" == "" ]; then
+       echo "ONE OF CLUSTER OR SERVER JSON PATHS MISSING"
+       exit
+    fi
+
+    # Update with real path
+    CLUSTER_JSON_PATH=$(get_real_path $CLUSTER_JSON_PATH)
+    SERVER_JSON_PATH=$(get_real_path $SERVER_JSON_PATH)
+
+    read CLUSTER_ID <<< $(python -c "import json;\
+                            fid = open('${CLUSTER_JSON_PATH}', 'r');\
+                            data = json.load(fid);\
+                            fid.close();\
+                            print data['cluster'][0]['id']")
+
+    if [ "$CLUSTER_ID" == "" ]; then
+        echo "CLUSTER ID MISSING"
+        exit
+    fi
+
+fi
+
+optional_args=""
 
 if [ ! -z "$CLUSTER_ID" ]; then
     optional_args="$optional_args --cluster-id $CLUSTER_ID"

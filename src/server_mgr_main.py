@@ -5374,7 +5374,10 @@ class VncServerManager():
         if "[all:children]" not in cur_inventory.keys():
             cur_inventory["[all:children]"] = []
         if "[all:vars]" not in cur_inventory.keys():
-            cur_inventory["[all:vars]"] = {}
+            if "all_vars" in cur_inventory.keys():
+                cur_inventory["[all:vars]"] = cur_inventory.pop("all_vars")
+            else:
+                cur_inventory["[all:vars]"] = {}
 
         for x in cluster_servers:
             vr_if_str = None

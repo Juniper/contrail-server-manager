@@ -1,0 +1,150 @@
+{
+  "kernel_upgrade": {
+    "newname": "contrail.kernel_upgrade",
+    "newformat": "boolean"
+  },
+  "kernel_version": {
+    "newname": "contrail.kernel_version",
+    "newformat": "string"
+  },
+  "manage_neutron": {
+    "newname": "contrail.config.manage_neutron",
+    "newformat": "boolean"
+  },
+  "config_ip_list": {
+    "newname": "contrail.config.config_ip_list",
+    "newformat": "list"
+  },
+  "keystone.ip": {
+    "newname": "openstack.keystone.ip",
+    "newformat": "string"
+  },
+  "keystone.admin_password": {
+    "newname": "openstack.keystone.admin_password",
+    "newformat": "string"
+  },
+  "keystone.admin_user": {
+    "newname": "openstack.keystone.admin_user",
+    "newformat": "string"
+  },
+  "keystone.admin_tenant": {
+    "newname": "openstack.keystone.admin_tenant",
+    "newformat": "string"
+  },
+  "keystone.service_tennant": {
+    "newname": "openstack.keystone.service_tenant",
+    "newformat": "string"
+  },
+  "keystone_region_name": {
+    "newname": "openstack.keystone.region_name",
+    "newformat": "string"
+  },
+  "openstack_multi_tenancy": {
+    "newname": "openstack.multi_tenancy",
+    "newformat": "boolean"
+  },
+  "openstack.manage_amqp": {
+    "newname": "openstack.openstack_manage_amqp",
+    "newformat": "boolean"
+  },
+  "enable_ceilometer": {
+    "newname": "openstack.enable_ceilometer",
+    "newformat": "boolean"
+  },
+  "cloud_orchestrator": {
+    "newname": "containers.inventory.all_vars.global_config.cloud_orchestrator",
+    "newformat": "string"
+  },
+  "external_lb": {
+    "newname": "containers.inventory.all_vars.global_config.external_lb",
+    "newformat": "boolean"
+  },
+  "controller_list": {
+    "newname": "containers.inventory.all_vars.global_config.controller_list",
+    "newformat": "list"
+  },
+  "analytics_list": {
+    "newname": "containers.inventory.all_vars.global_config.analytics_list",
+    "newformat": "list"
+  },
+  "external_rabbitmq_servers": {
+    "newname": "containers.inventory.all_vars.global_config.external_rabbitmq_servers",
+    "newformat": "string"
+  },
+  "external_zookeeper_servers": {
+    "newname": "containers.inventory.all_vars.global_config.external_zookeeper_servers",
+    "newformat": "string"
+  },
+  "external_configdb_servers": {
+    "newname": "containers.inventory.all_vars.global_config.external_configdb_servers",
+    "newformat": "string"
+  },
+  "config_server_list": {
+    "newname": "containers.inventory.all_vars.global_config.config_server_list",
+    "newformat": "list"
+  },
+  "config_seed_list": {
+    "newname": "containers.inventory.all_vars.global_config.config_seed_list",
+    "newformat": "list"
+  },
+  "analyticsdb_seed_list": {
+    "newname": "containers.inventory.all_vars.global_config.analyticsdb_seed_list",
+    "newformat": "list"
+  },
+  "analyticsdb_list": {
+    "newname": "containers.inventory.all_vars.global_config.analyticsdb_list",
+    "newformat": "list"
+  },
+  "compute_list": {
+    "newname": "containers.inventory.all_vars.global_config.compute_list",
+    "newformat": "list"
+  },
+  "xmpp_dns_auth_enable": {
+    "newname": "containers.inventory.all_vars.global_config.xmpp_dns_auth_enable",
+    "newformat": "boolean"
+  },
+  "xmpp_auth_enable": {
+    "newname": "containers.inventory.all_vars.global_config.xmpp_auth_enable",
+    "newformat": "boolean"
+  },
+  "uve_partition_count": {
+    "newname": "containers.inventory.all_vars.global_config.uve_partition_count",
+    "newformat": "string"
+  },
+  "multi_tenancy": {
+    "newname": "containers.inventory.all_vars.global_config.multi_tenancy",
+    "newformat": "string"
+  },
+  "container.keystone_ip": {
+    "newname": "containers.inventory.all_vars.keystone_config.ip",
+    "newformat": "string"
+  },
+  "container.keystone_admin_password": {
+    "newname": "containers.inventory.all_vars.keystone_config.admin_password",
+    "newformat": "string"
+  },
+  "container.keystone_admin_port": {
+    "newname": "containers.inventory.all_vars.keystone_config.admin_port",
+    "newformat": "string"
+  },
+  "container.keystone_public_port": {
+    "newname": "containers.inventory.all_vars.keystone_config.public_port",
+    "newformat": "string"
+  },
+  "container.keystone_auth_protocol": {
+    "newname": "containers.inventory.all_vars.keystone_config.auth_protocol",
+    "newformat": "string"
+  },
+  "container.keystone_admin_user": {
+    "newname": "containers.inventory.all_vars.keystone_config.admin_user",
+    "newformat": "string"
+  },
+  "container.keystone_admin_tenant": {
+    "newname": "containers.inventory.all_vars.keystone_config.admin_tenant",
+    "newformat": "string"
+  },
+  "contrail_compute_mode": {
+    "newname": "containers.inventory.all_vars.contrail_compute_mode",
+    "newformat": "string"
+  }
+}
