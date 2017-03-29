@@ -71,6 +71,9 @@ class Utils(object):
                             nargs='+',
                             help='Absolute path to Contrail Package file, '\
                                  'Multiple files can be separated with space')
+        parser.add_argument('--contrail-cloud-package',
+                            nargs='+',
+                            help='Absolute path to Contrail Docker Cloud Package file')
         parser.add_argument('--contrail-storage-packages',
                             nargs='+',
                             default=[],
@@ -90,6 +93,10 @@ class Utils(object):
         if len(args) == 0:
             parser.print_help()
             sys.exit(2)
+        if cliargs.contrail_cloud_package:
+            cliargs.contrail_cloud_package = [('contrail_cloud_package', pkg_file) \
+                for pkg_file in Utils.get_abspath(*Utils.is_file_exists(*cliargs.contrail_cloud_package))]
+
         if cliargs.contrail_packages:
             cliargs.contrail_packages = [('contrail_packages', pkg_file) \
                 for pkg_file in Utils.get_abspath(*Utils.is_file_exists(*cliargs.contrail_packages))]
@@ -133,11 +140,16 @@ class Utils(object):
         if not translation_dict:
             translation_dict = DEF_TRANS_DICT
         cluster_json.generate_json_file(translation_dict)
-        if args.contrail_packages:
-            package_files = args.contrail_packages + args.contrail_storage_packages
+        cloud_package=False
+        if args.contrail_packages or args.contrail_cloud_package:
+            if args.contrail_packages:
+                package_files = args.contrail_packages + args.contrail_storage_packages
+            elif args.contrail_cloud_package:
+                package_files = args.contrail_cloud_package
+                cloud_package=True
             image_json = ImageJsonGenerator(testsetup=testsetup,
                                             package_files=package_files)
-            image_json.generate_json_file()
+            image_json.generate_json_file(cloud_package)
 
 class Host(object):
     def __init__(self, ip, username, password, **kwargs):
@@ -962,8 +974,10 @@ class ImageJsonGenerator(BaseJsonGenerator):
             category = self.package_types.get(ext[0], category)
         return category
 
-    def get_package_type(self, package_file, package_type):
+    def get_package_type(self, package_file, package_type, cloud_package):
         package_type = package_type.replace('_', '-').replace('-packages', '')
+        if cloud_package:
+            return 'contrail-ubuntu-package'
         if package_file.endswith('.rpm'):
             dist = 'centos'
         elif package_file.endswith('.deb') or package_file.endswith('.tgz'):
@@ -978,22 +992,26 @@ class ImageJsonGenerator(BaseJsonGenerator):
         md5sum = pid.read().strip()
         return md5sum.split()[0]
 
-    def _initialize(self, package_file, package_type):
+    def _initialize(self, package_file, package_type, cloud_package):
         version = ImageUtils.get_version(package_file, self.testsetup.os_type)
         image_id = ImageUtils.get_image_id(version, package_type)
         image_dict = {
             "id": image_id,
             "category": self.get_category(package_file),
             "version": version,
-            "type": self.get_package_type(package_file, package_type),
+            "type": self.get_package_type(package_file, package_type,cloud_package),
             "path": package_file,
         }
         log.debug('Created Basic image_dict: %s' % image_dict)
         return image_dict
 
-    def generate_json_file(self):
+    def generate_json_file(self,cloud_package=False):
         for package_type, package_file in self.package_files:
-            image_dict = self._initialize(package_file, package_type)
+            image_dict = self._initialize(package_file, package_type, cloud_package)
+            if cloud_package:
+                image_dict["parameters"] = { "contrail-container-package": True }
+            else:
+                image_dict["parameters"] = {}
             self.dict_data['image'].append(image_dict)
             self.generate()
 

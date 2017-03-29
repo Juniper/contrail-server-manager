@@ -24,8 +24,6 @@ SOURCES_LIST="sources_list"
 TESTBED=""
 DEFAULT_DOMAIN=""
 CONTRAIL_PKG=""
-CONTRAIL_STORAGE_PKG=""
-STORAGE_KEYS_INI=""
 HOSTIP=""
 NOEXTERNALREPOS=""
 INSTALL_SM_LITE="install_sm_lite"
@@ -48,8 +46,6 @@ function usage()
     echo "$0"
     echo -e "\t-h --help"
     echo -e "\t-c|--contrail-package <pkg>"
-    echo -e "\t-cs|--contrail-storage-package <pkg>"
-    echo -e "\t-sk|--storage-keys-ini-file <file>"
     echo -e "\t-d|--default-domain <domain name>"
     echo -e  "\t-ni|--no-install-sm-lite"
     echo -e "\t-cp|--cleanup-puppet-agent"
@@ -87,9 +83,6 @@ while [[ $# > 0 ]]
         -d|--default-domain)
         DEFAULT_DOMAIN="$2"
         shift # past argument
-        ;;
-        -nr|--no-local-repo)
-        NO_LOCAL_REPO=0
         ;;
         -ni|--no-install-sm-lite)
         INSTALL_SM_LITE=""
@@ -153,99 +146,6 @@ function get_real_path ()
     fi
 }
 
-
-function unmount_contrail_local_repo()
-{
-    echo "$arrow Removing contrail local repo - $LOCAL_REPO_DIR"
-    # Remove local repo dir
-    if [ -d $LOCAL_REPO_DIR ]; then
-        rm -rf $LOCAL_REPO_DIR
-    fi
-
-    # Remove preference file
-    if [ -f /etc/apt/preferences.d/contrail_local_repo ]; then
-        rm -f /etc/apt/preferences.d/contrail_local_repo
-    fi
-
-    set +e
-    grep "^deb file:$LOCAL_REPO_DIR ./" /etc/apt/sources.list
-    exit_status=$?
-    set -e
-    if [ $exit_status == 0 ]; then
-        sed -i "s#deb file:$LOCAL_REPO_DIR ./##g" /etc/apt/sources.list
-        apt-get update >> $log_file 2>&1
-    fi
-}
-
-function mount_contrail_local_repo()
-{
-    set -e
-    # check if package is available
-    if [ ! -f "$CONTRAIL_PKG" ]; then
-        echo "ERROR: $CONTRAIL_PKG : No Such file..."
-        exit 2
-    fi
-
-    # mount package and create local repo
-    echo "$space$arrow Creating local lepo -- $LOCAL_REPO_DIR"
-    set +e
-    grep "^deb file:$LOCAL_REPO_DIR ./" /etc/apt/sources.list
-    exit_status=$?
-    set -e
-
-    if [ $exit_status != 0 ]; then
-        mkdir -p $LOCAL_REPO_DIR
-        file_type=$(file $CONTRAIL_PKG | cut -f2 -d' ')
-        if [ "$file_type" == "Debian" ]; then
-           dpkg -x $CONTRAIL_PKG $LOCAL_REPO_DIR >> $log_file 2>&1
-           (cd $LOCAL_REPO_DIR && tar xfz opt/contrail/contrail_packages/*.tgz >> $log_file 2>&1)
-        elif [ "$file_type" == "gzip" ]; then
-           tar xzf $CONTRAIL_PKG -C $LOCAL_REPO_DIR >> $log_file 2>&1
-        else
-           echo "ERROR: $CONTRAIL_PKG: Invalid package"
-           exit 2
-        fi
-        (cd $LOCAL_REPO_DIR && DEBIAN_FRONTEND=noninteractive dpkg -i binutils_*.deb dpkg-dev_*.deb libdpkg-perl_*.deb make_*.deb patch_*.deb >> $log_file 2>&1)
-        (cd $LOCAL_REPO_DIR && dpkg-scanpackages . | gzip -9c > Packages.gz | >> $log_file 2>&1)
-        datetime_string=$(date +%Y_%m_%d__%H_%M_%S)
-        cp /etc/apt/sources.list /etc/apt/sources.list.contrail.$datetime_string
-        echo >> /etc/apt/sources.list
-        sed -i "1 i\deb file:$LOCAL_REPO_DIR ./" /etc/apt/sources.list
-        cp -v /opt/contrail/contrail_server_manager/contrail_local_preferences /etc/apt/preferences.d/contrail_local_repo >> $log_file 2>&1
-        apt-get update >> $log_file 2>&1
-    fi
-}
-
-function cleanup_puppet_agent()
-{
-   set +e
-   apt-get -y --purge autoremove puppet puppet-common hiera >> $log_file 2>&1
-   set -e
-}
-
-# Temporarily use Image JSON along with Testbed.py
-if [ "$IMAGE_JSON_PATH" == "" ]; then
-   echo "IMAGE JSON PATH MISSING"
-   exit
-fi
-IMAGE_JSON_PATH=$(get_real_path $IMAGE_JSON_PATH)
-# Retrieve info from json files
-read CONTRAIL_IMAGE_ID CONTRAIL_IMAGE_VERSION CONTRAIL_IMAGE_TYPE CONTRAIL_PKG <<< $(python -c "import json;\
-                                                          fid = open('${IMAGE_JSON_PATH}', 'r');\
-                                                          contents = fid.read();\
-                                                          cjson = json.loads(contents);\
-                                                          fid.close();\
-                                                          print cjson['image'][0]['id'],\
-                                                                cjson['image'][0]['version'],\
-                                                                cjson['image'][0]['type'],\
-                                                                cjson['image'][0]['path']")
-
-# Verify Mandatory Image Arguments exists
-if [ "$CONTRAIL_PKG" == "" ] || [ "$CONTRAIL_IMAGE_TYPE" == "" ] || [ "$CONTRAIL_IMAGE_ID" == "" ]; then
-    echo "PGK DETAILS MISSING"
-    exit
-fi
-
 if [ "$CLEANUP_PUPPET_AGENT" != "" ]; then
    echo "$arrow Remove puppet agent, if it is present"
    cleanup_puppet_agent
@@ -253,13 +153,6 @@ fi
 
 # Install sever manager 
 if [ "$INSTALL_SM_LITE" != "" ]; then
-   # Create a local repo from contrail-install packages
-   # so packages from this repo gets preferred
-   if [ $NO_LOCAL_REPO != 0 ]; then
-       echo "$arrow Provision contrail local repo"
-       mount_contrail_local_repo
-       LOCAL_REPO_MOUNTED=1
-   fi
 
    echo "$arrow Install server manager without cobbler option"
    pushd /opt/contrail/contrail_server_manager >> $log_file 2>&1
@@ -272,6 +165,7 @@ if [ "$INSTALL_SM_LITE" != "" ]; then
    fi
    ./setup.sh --all --smlite ${NO_SM_MON} ${NO_SM_WEBUI} $optional_args
    popd >> $log_file 2>&1
+
 fi 
 
 if [ -f /etc/contrail/config.global.sm.js ]  && [ "$SM_WEBUI_PORT" != "" ]
@@ -283,6 +177,16 @@ fi
 
 if [ ! -z "$TESTBED" ]
 then
+    # Verify Mandatory Arguments exists
+    if [ "$TESTBED" == "" ] || [ "$CONTRAIL_PKG" == "" ]; then
+       echo "ONE OF CONTRAIL CLOUD IMAGE OR TESTBED MISSING"
+       exit
+    fi
+
+    # Update with real path
+    CONTRAIL_PKG=$(get_real_path $CONTRAIL_PKG)
+    TESTBED=$(get_real_path $TESTBED)
+
     echo "$space$arrow Convert testbed.py to server manager entities"
     # Convert testbed.py to server manager object json files
     optional_args=""
@@ -292,7 +196,7 @@ then
 
     optional_args="$optional_args --translation-dict $TRANSLATION_DICT_PATH"
 
-    cd $PROVISION_DIR && /opt/contrail/server_manager/client/testbed_parser.py --testbed ${TESTBED} $optional_args
+    cd $PROVISION_DIR && /opt/contrail/server_manager/client/testbed_parser.py --testbed ${TESTBED} --contrail-cloud-package ${CONTRAIL_PKG} $optional_args
     # Retrieve info from json files
     cd $PROVISION_DIR && CLUSTER_ID=$(python -c "import json;\
                                       fid = open('cluster.json', 'r');\
@@ -302,16 +206,18 @@ then
 
     CLUSTER_JSON_PATH="$PROVISION_DIR/cluster.json"
     SERVER_JSON_PATH="$PROVISION_DIR/server.json"
+    IMAGE_JSON_PATH="$PROVISION_DIR/image.json"
 else
     # Verify Mandatory Arguments exists
-    if [ "$CLUSTER_JSON_PATH" == "" ] || [ "$SERVER_JSON_PATH" == "" ]; then
-       echo "ONE OF CLUSTER OR SERVER JSON PATHS MISSING"
+    if [ "$CLUSTER_JSON_PATH" == "" ] || [ "$SERVER_JSON_PATH" == "" ] || [ "$IMAGE_JSON_PATH" == "" ]; then
+       echo "ONE OF CLUSTER IMAGE OR SERVER JSON PATHS MISSING"
        exit
     fi
 
     # Update with real path
     CLUSTER_JSON_PATH=$(get_real_path $CLUSTER_JSON_PATH)
     SERVER_JSON_PATH=$(get_real_path $SERVER_JSON_PATH)
+    IMAGE_JSON_PATH=$(get_real_path $IMAGE_JSON_PATH)
 
     read CLUSTER_ID <<< $(python -c "import json;\
                             fid = open('${CLUSTER_JSON_PATH}', 'r');\
@@ -326,6 +232,23 @@ else
 
 fi
 
+# Retrieve info from json files
+read CONTRAIL_IMAGE_ID CONTRAIL_IMAGE_VERSION CONTRAIL_IMAGE_TYPE CONTRAIL_PKG <<< $(python -c "import json;\
+                                                          fid = open('${IMAGE_JSON_PATH}', 'r');\
+                                                          contents = fid.read();\
+                                                          cjson = json.loads(contents);\
+                                                              fid.close();\
+                                                              print cjson['image'][0]['id'],\
+                                                                    cjson['image'][0]['version'],\
+                                                                    cjson['image'][0]['type'],\
+                                                                    cjson['image'][0]['path']")
+
+# Verify Mandatory Image Arguments exists
+if [ "$CONTRAIL_PKG" == "" ] || [ "$CONTRAIL_IMAGE_TYPE" == "" ] || [ "$CONTRAIL_IMAGE_ID" == "" ]; then
+    echo "CONTRAIL PACKAGE DETAILS MISSING"
+    exit
+fi
+
 optional_args=""
 
 if [ ! -z "$CLUSTER_ID" ]; then
@@ -338,11 +261,6 @@ SERVER_MGR_IP=$(grep listen_ip_addr /opt/contrail/server_manager/sm-config.ini |
 cd $PROVISION_DIR && /opt/contrail/server_manager/client/preconfig.py --server-json ${SERVER_JSON_PATH} \
                                                                       --server-manager-ip ${SERVER_MGR_IP} \
                                                                       --server-manager-repo-port 80
-
-# Remove contrail local repo if any
-if [[ $LOCAL_REPO_MOUNTED -eq 1 ]]; then
-    unmount_contrail_local_repo
-fi
 
 echo "$arrow Adding server manager objects to server manager database"
 if grep -q domain /etc/contrail/sm-client-config.ini; then
