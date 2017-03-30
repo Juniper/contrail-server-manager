@@ -57,6 +57,9 @@ from sm_ansible_utils import _inventory_group
 from sm_ansible_utils import AGENT_CONTAINER
 from sm_ansible_utils import BARE_METAL_COMPUTE
 from sm_ansible_utils import _DEF_BASE_PLAYBOOKS_DIR 
+from sm_ansible_utils import CONTROLLER_CONTAINER
+from sm_ansible_utils import ANALYTICS_CONTAINER
+from sm_ansible_utils import LB_CONTAINER
 from server_mgr_docker import SM_Docker
 
 try:
@@ -353,6 +356,30 @@ class VncServerManager():
             self._smgr_validations = ServerMgrValidations()
         except:
             print "Error Creating ServerMgrValidations object"
+
+        # Dict used to map sections in the ansible inventory to a function that
+        # calculates values for the respective sections. Do not change the keys
+        # in this dictionary unless to make it conform to the name in the
+        # inventory definition.
+        self._inventory_calc_funcs = {
+            "global_config"         : self.get_calculated_global_cfg_dict,
+            "keystone_config"       : self.get_calculated_keystone_cfg_dict,
+            "control_config"        : self.get_calculated_control_cfg_dict,
+            "dns_config"            : self.get_calculated_dns_cfg_dict,
+            "cassandra_config"      : self.get_calculated_cassandra_cfg_dict,
+            "api_config"            : self.get_calculated_api_cfg_dict,
+            "schema_config"         : self.get_calculated_schema_cfg_dict,
+            "device_mgr_config"     : self.get_calculated_dev_mgr_cfg_dict,
+            "svc_mon_config"        : self.get_calculated_svc_mon_cfg_dict,
+            "webui_config"          : self.get_calculated_webui_cfg_dict,
+            "alarm_gen_config"      : self.get_calculated_alarmgen_cfg_dict,
+            "analytics_api_config"  : self.get_calculated_analytics_api_cfg_dict,
+            "analytics_collector_config" :self.get_calculated_analytics_coll_cfg_dict,
+            "query_engine_config"   : self.get_calculated_query_engine_cfg_dict,
+            "snmp_collector_config" : self.get_calculated_snmp_coll_cfg_dict,
+            "topology_config"       : self.get_calculated_topo_cfg_dict
+        }
+                
 
         if not args_str:
             args_str = sys.argv[1:]
@@ -3918,7 +3945,6 @@ class VncServerManager():
 
         return True
 
-
     def is_role_in_cluster(self, role, provision_server_list):
         for server in provision_server_list:
            if role in server['server']['roles']:
@@ -5285,15 +5311,113 @@ class VncServerManager():
                     return ops[section]
         return {}
 
-    def get_calculated_global_config_dict(self, cluster, cluster_srvrs):
+    def get_calculated_control_cfg_dict(self, cluster, cluster_srvrs):
+        control_cfg = dict()
+        return control_cfg
+    #end  get_calculated_control_cfg_dict
+
+    def get_calculated_dns_cfg_dict(self, cluster, cluster_srvrs):
+        control_cfg = dict()
+        return control_cfg
+    #end  get_calculated_dns_cfg_dict
+
+    def get_calculated_cassandra_cfg_dict(self, cluster, cluster_srvrs):
+        cassandra_cfg = dict()
+        return cassandra_cfg
+    #end  get_calculated_cassandra_cfg_dict
+
+    def get_calculated_api_cfg_dict(self, cluster, cluster_srvrs):
+        api_cfg = dict()
+        return api_cfg
+    #end  get_calculated_api_cfg_dict
+
+    def get_calculated_schema_cfg_dict(self, cluster, cluster_srvrs):
+        schema_cfg = dict()
+        return schema_cfg
+    #end  get_calculated_schema_cfg_dict
+
+    def get_calculated_dev_mgr_cfg_dict(self, cluster, cluster_srvrs):
+        dev_mgr_cfg = dict()
+        return dev_mgr_cfg
+    #end  get_calculated_dev_mgr_cfg_dict
+
+    def get_calculated_svc_mon_cfg_dict(self, cluster, cluster_srvrs):
+        svc_mon_cfg = dict()
+        return svc_mon_cfg
+    #end  get_calculated_svc_mon_cfg_dict
+
+    def get_calculated_webui_cfg_dict(self, cluster, cluster_srvrs):
+        webui_cfg = dict()
+        return webui_cfg
+    #end  get_calculated_webui_cfg_dict
+
+    def get_calculated_alarmgen_cfg_dict(self, cluster, cluster_srvrs):
+        alarmgen_cfg = dict()
+        return alarmgen_cfg
+    #end  get_calculated_alarmgen_cfg_dict
+
+    def get_calculated_analytics_api_cfg_dict(self, cluster, cluster_srvrs):
+        analytics_api_cfg = dict()
+        return analytics_api_cfg
+    #end  get_calculated_analytics_api_cfg_dict
+
+    def get_calculated_analytics_coll_cfg_dict(self, cluster, cluster_srvrs):
+        analytics_coll_cfg = dict()
+        return analytics_coll_cfg
+    #end  get_calculated_analytics_coll_cfg_dict
+
+    def get_calculated_query_engine_cfg_dict(self, cluster, cluster_srvrs):
+        query_engine_cfg = dict()
+        return query_engine_cfg
+    #end  get_calculated_query_engine_cfg_dict
+
+    def get_calculated_snmp_coll_cfg_dict(self, cluster, cluster_srvrs):
+        snmp_coll_cfg = dict()
+        return snmp_coll_cfg
+    #end  get_calculated_snmp_coll_cfg_dict
+
+    def get_calculated_topo_cfg_dict(self, cluster, cluster_srvrs):
+        topo_cfg = dict()
+        return topo_cfg
+    #end  get_calculated_topo_cfg_dict
+
+    def get_calculated_global_cfg_dict(self, cluster, cluster_srvrs):
         global_cfg = dict()
+        tmp_cfg = dict()
+        tmp_cfg["controller_list"] = []
+        tmp_cfg["config_server_list"] = []
+        tmp_cfg["analytics_list"] = []
+        lb_ip = None
+        # Calculate controller_ip and config_ip
+        # 1. If there is a LB in the cluster use that IP for controller_ip,
+        #    config_ip, analytics_ip.
+        # 2. If no LB in cluster, use the first controller IP
+        for x in cluster_srvrs:
+            x_ip = self.get_control_ip(x)
+            if LB_CONTAINER in eval(x.get('roles', '[]')):
+                lb_ip = x_ip
+            if CONTROLLER_CONTAINER in eval(x.get('roles', '[]')):
+                tmp_cfg["controller_list"].append(x_ip)
+                tmp_cfg["config_server_list"].append(x_ip)
+            if ANALYTICS_CONTAINER in eval(x.get('roles', '[]')):
+                tmp_cfg["analytics_list"].append(x_ip)
+
+        if lb_ip:
+            global_cfg["controller_ip"] = lb_ip
+            global_cfg["config_ip"] = lb_ip
+            global_cfg["analytics_ip"] = lb_ip
+
+        if not lb_ip and  global_cfg["controller_list"]:
+            global_cfg["conroller_ip"] = tmp_cfg["cotroller_list"][0]
+            global_cfg["config_ip"] = tmp_cfg["cotroller_list"][0]
+
+        if not lb_ip and global_cfg["analytics_list"]:
+            global_cfg["analytics_ip"] = tmp_cfg["analytics_list"][0]
+
+        # Calculate external Rabbitmq server list
         cluster_ks_cfg = \
                 self.get_cluster_openstack_cfg_section(cluster, "keystone")
         if cluster_ks_cfg:
-            ks_service_tenant = cluster_ks_cfg.get("service_tenant", "")
-            if ks_service_tenant:
-                global_cfg["service_tenant"] = ks_service_tenant
-
             global_cfg["external_rabbitmq_servers"] = []
             hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
             if hacfg:
@@ -5304,11 +5428,10 @@ class VncServerManager():
                     if "openstack" in eval(x.get('roles', '[]')):
                         global_cfg["external_rabbitmq_servers"].append(\
                                 self.get_control_ip(x))
+
         return global_cfg
 
-
-
-    def get_calculated_keystone_config_dict(self, cluster, cluster_srvrs):
+    def get_calculated_keystone_cfg_dict(self, cluster, cluster_srvrs):
         keystone_cfg = dict()
         cluster_ks_cfg = \
                 self.get_cluster_openstack_cfg_section(cluster, "keystone")
@@ -5325,9 +5448,9 @@ class VncServerManager():
             if ks_admin_tenant:
                 keystone_cfg["admin_tenant"] = ks_admin_tenant
 
-            ks_serv_tenant = cluster_ks_cfg.get("service_tenant", "")
-            if ks_serv_tenant:
-                keystone_cfg["service_tenant"] = ks_serv_tenant
+            ks_auth_port = cluster_ks_cfg.get("auth_port", "")
+            if ks_auth_port:
+                keystone_cfg["admin_port"] = ks_auth_port
 
             ks_proto = cluster_ks_cfg.get("auth_protocol", "")
             if ks_proto:
@@ -5341,8 +5464,7 @@ class VncServerManager():
                     if "openstack" in eval(x.get('roles', '[]')):
                         keystone_cfg["ip"] = self.get_control_ip(x)
         return keystone_cfg
-
-    #end  get_calculated_keystone_config_dict
+    #end  get_calculated_keystone_cfg_dict
 
     # Returns a string of "k1=v1 k2=v2 ..." that can be appended to the group
     # line in the inventory like below:
@@ -5358,7 +5480,7 @@ class VncServerManager():
         if len(ansible_roles_set.intersection(server_roles_set)) == 0:
             return var_list
 
-        srvr_vars = self.get_inventory_vars(srvr)
+        srvr_vars = self.get_contrail_4(srvr)
 
         # FIXME: Remove vrouter_physical_interface after it gets derived within
         # the Ansible node role
@@ -5375,7 +5497,7 @@ class VncServerManager():
             var_list = vr_if_str
 
         for k,v in srvr_vars.iteritems():
-            var_list = var_list + " " + k + "=" + v
+            var_list = var_list + " " + k + "=" + str(v)
 
         # calculate ctrl_data_ip
         if ctrl_data_intf:
@@ -5388,18 +5510,13 @@ class VncServerManager():
     # 1. [<contrail-roles>] entries in json inventory is retained. If it is not
     #    already present, the IP address of the node with the appropriate role
     #    gets appended to the list
-    # 2. Variables in server json given under "vars" section gets treated as 
+    # 2. Variables in server json given under "contrail_4" section gets treated as 
     #    host_vars in the inventory
-    # 3. Variables in server json given under "[all:vars]" will overwrite the
-    #    value existing in cluster json. Note that if same variable is defined
-    #    in more than one server json, it is not deterministic which value will
-    #    override. Recommended practice is not to have "[all:vars]" section in
-    #    server json.
-    # 4. If a keystone_config section is present in cluster json (under
-    #    [all:vars] section, those values  will be used. Else keystone ip,
+    # 3. If a keystone_config section is present in cluster json (under
+    #    contrail_4 section, those values  will be used. Else keystone ip,
     #    admin_password and admin_token will be derived from the cluster DB.
     #    In case of more than 1 openstack role in the cluster the user is
-    #    expected to provide the right VIP in the [all:vars] : {
+    #    expected to provide the right VIP in the contrail_4 : {
     #    "keystone_config" : { "ip": <VIP>...}} dictionary else the IP of the
     #    last openstack node in the cluster DB is picked.
     def build_calculated_inventory_params(self, cluster, cluster_servers):
@@ -5418,25 +5535,20 @@ class VncServerManager():
         if need_ansible == False:
             return
 
-        # If "inventory" section is not present in the cluster json, create it
-        cur_inventory = self.get_container_inventory(cluster)
-        if not cur_inventory:
-            prov = cluster["parameters"]["provision"]
-            if not prov:
-                cluster["parameters"]["provision"] = {}
+        # what is defined by user in the cluster json
+        contrail_4 = self.get_contrail_4(cluster)
 
-            cluster["parameters"]["provision"]["containers"] = {}
-            cluster["parameters"]["provision"]["containers"]["inventory"] = {}
-            cur_inventory = \
-                   cluster["parameters"]["provision"]["containers"]["inventory"]
+        # cluster['parameters']['provision']['containers']['inventory'] contains
+        # the dictionary corresponding to the inventory that is going to be
+        # generated for ansible. This needs to be part of the cluster object as
+        # this gets referenced at a later point in _do_ansible_provision_cluster
+        cluster["parameters"]["provision"]["containers"] = {}
+        cluster["parameters"]["provision"]["containers"]["inventory"] = {}
+        cur_inventory = \
+               cluster["parameters"]["provision"]["containers"]["inventory"]
 
-        if "[all:children]" not in cur_inventory.keys():
-            cur_inventory["[all:children]"] = []
-        if "[all:vars]" not in cur_inventory.keys():
-            if "all_vars" in cur_inventory.keys():
-                cur_inventory["[all:vars]"] = cur_inventory.pop("all_vars")
-            else:
-                cur_inventory["[all:vars]"] = {}
+        cur_inventory["[all:children]"] = []
+        cur_inventory["[all:vars]"] = copy.deepcopy(contrail_4)
 
         for x in cluster_servers:
             vr_if_str = None
@@ -5444,9 +5556,9 @@ class VncServerManager():
             server_roles_set = set(server_roles)
             if len(ansible_roles_set.intersection(server_roles_set)) == 0:
                 continue
-            srvr_allvars  = self.get_inventory_all_vars(x)
             grp_line = str(x["ip_address"])
 
+            # The host specific variables from contrail_4 of the server json
             var_list = self.build_calculated_srvr_inventory_params(x)
 
             for role in server_roles:
@@ -5478,21 +5590,19 @@ class VncServerManager():
                             x["ip_address"] in k)
                     cur_inventory[grp][indx] = \
                             cur_inventory[grp][indx] + var_list
-
-            self.merge_dict(cur_inventory["[all:vars]"], srvr_allvars)
         # for x in cluster_servers
 
-        if "keystone_config" not in cur_inventory["[all:vars]"].keys():
-            cur_inventory["[all:vars]"]["keystone_config"] = {}
-        self.merge_dict(cur_inventory["[all:vars]"]["keystone_config"],
-                            self.get_calculated_keystone_config_dict(cluster,
-                                cluster_servers))
+        # merge values for various dicts of the inventory
+        for cfg,func in self._inventory_calc_funcs.iteritems():
+            tmp_dict = func(cluster, cluster_servers)
+            # Check if the calculated params need to get merged with user
+            # overridden values
+            if tmp_dict or cfg in cur_inventory["[all:vars]"].keys():
+                if cfg not in cur_inventory["[all:vars]"].keys():
+                    cur_inventory["[all:vars]"][cfg] = {}
+                self.merge_dict(cur_inventory["[all:vars]"][cfg], tmp_dict)
+                print "Found cfg for %s in inventory..." % cfg
 
-        if "global_config" not in cur_inventory["[all:vars]"].keys():
-            cur_inventory["[all:vars]"]["global_config"] = {}
-        self.merge_dict(cur_inventory["[all:vars]"]["global_config"],
-                            self.get_calculated_global_config_dict(cluster,
-                                cluster_servers))
     # end build_calculated_inventory_params
 
     def build_calculated_provision_params(
@@ -6145,41 +6255,14 @@ class VncServerManager():
             containers = prov.get("containers", {})
         return containers
 
-    def get_inventory_all_vars(self, parent):
-        inventory = {}
-        containers = {}
+    def get_contrail_4(self, parent):
         params     = parent.get("parameters", {})
         if isinstance(params, unicode):
             pparams = eval(params)
             prov    = pparams.get("provision", {})
         else:
             prov       = params.get("provision", {})
-
-        if (prov):
-            containers = prov.get("containers", {})
-
-        if (containers):
-            inventory = containers.get("inventory", {})
-
-        return inventory.get("[all:vars]", {})
-
-    def get_inventory_vars(self, parent):
-        inventory = {}
-        containers = {}
-        params     = parent.get("parameters", {})
-        if isinstance(params, unicode):
-            pparams = eval(params)
-            prov    = pparams.get("provision", {})
-        else:
-            prov       = params.get("provision", {})
-
-        if (prov):
-            containers = prov.get("containers", {})
-
-        if (containers):
-            inventory = containers.get("inventory", {})
-
-        return inventory.get("vars", {})
+        return prov.get("contrail_4", {})
 
     def get_container_inventory(self, parent):
         inventory = {}
