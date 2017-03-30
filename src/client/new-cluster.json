@@ -8,6 +8,125 @@
                 "gateway": "10.204.221.46",
                 "password": "abcd",
                 "provision": {
+                    "contrail_4": {
+                        "vrouter_physical_interface":"",
+                        "ansible_user":"root",
+                        "ansible_connection":"ssh",
+                        "ansible_become":true,
+                        "ansible_ssh_private_key_file":"~/.ssh/id_rsa",
+                        "docker_registry": "",
+                        "docker_registry_insecure": true,
+                        "controller_image": "",
+                        "analytics_image": "",
+                        "lb_image": "",
+                        "analyticsdb_image": "",
+                        "agent_image": "",
+                        "contrail_compute_mode": "bare_metal",
+                        "docker_install_method": "package",
+                        "docker_package_name": "docker-engine",
+                        "docker_network_bridge":false,
+                        "keystone_config" : {
+                            "ip": "", 
+                            "admin_password": "",
+                            "admin_port": "35357",
+                            "public_port": "5000",
+                            "auth_protocol": "http",
+                            "admin_user": "root",
+                            "admin_tenant": "admin"
+                        },
+                        "global_config": {
+                            "log_level": "SYS_INFO",
+                            "cloud_orchestrator": "openstack",
+                            "external_lb": false,
+                            "controller_list": [],
+                            "controller_ip":"",
+                            "config_ip":"",
+                            "analytics_ip":"",
+                            "config_server_list": [],
+                            "analytics_list": [],
+                            "analyticsdb_seed_list": [],
+                            "config_seed_list": [],
+                            "external_rabbitmq_servers" : [],
+                            "external_zookeeper_servers": [],
+                            "external_cassandra_servers": [],
+                            "external_configdb_servers" : [],
+                            "xmpp_auth_enable": false,
+                            "xmpp_dns_auth_enable": false,
+                            "uve_partition_count": "",
+                            "multi_tenancy": false
+                        },
+                        "control_config": {
+                            "asn": 64512,
+                            "bgp_port": 179,
+                            "introspect_port": 8083,
+                            "xmpp_server_port": 5269,
+                            "log_level": "SYS_NOTICE",
+                        },
+                        "dns_config": {
+                            "introspect_port": 8092,
+                            "dns_server_port": 53,
+                            "log_level": "SYS_NOTICE"
+                        },
+                        "cassandra_config": {
+                            "commitlog_dir": "/var/lib/cassandra/commitlog",
+                            "data_dirs": ["/var/lib/cassandra/data"],
+                            "java_max_heap_size": "512M",
+                            "java_max_heap_newsize": "100M"
+                        },
+                        "api_config": {
+                            "log_level": "SYS_NOTICE",
+                            "listen_port": 8082,
+                            "listen_address": "0.0.0.0"
+                        },
+                        "schema_config": {
+                            "log_level": "SYS_NOTICE"
+                        },
+                        "device_manager_config": {
+                            "log_level": "SYS_NOTICE"
+                        },
+                        "svc_monitor_config": {
+                            "log_level": "SYS_NOTICE"
+                        },
+                        "webui_config": {
+                            "http_listen_port": 8080,
+                            "https_listen_port": 8143
+                        },
+                        "alarm_gen_config": {
+                            "log_level": "SYS_NOTICE",
+                            "introspect_port": 5995
+                        },
+                        "analytics_api_config": {
+                            "introspect_port": 8090,
+                            "listen_port": 8081,
+                            "listen_address": "0.0.0.0",
+                            "log_level": "SYS_NOTICE",
+                            "log": "/var/log/contrail/contrail-analytics-api.log",
+                            "aaa_mode": "no-auth"
+                        },
+                        "analytics_collector_config": {
+                            "log_level": "SYS_CONFIG",
+                            "introspect_port": 8089,
+                            "listen_port": 8086,
+                            "listen_address": "0.0.0.0"
+                        },
+                        "query_engine_config": {
+                            "log": "/var/log/contrail/contrail-query-engine.log",
+                            "log_level": "SYS_NOTICE",
+                            "introspect_port": 8091
+                        },
+                        "snmp_collector_config": {
+                            "log": "/var/log/contrail/contrail-snmp-collector.log",
+                            "log_level": "SYS_NOTICE",
+                            "introspect_port": 5920,
+                            "scan_frequencey": 600,
+                            "fast_scan_frequency": 60
+                        },
+                        "topology_config": {
+                            "log": "/var/log/contrail/contrail-topology.log",
+                            "log_level": "SYS_NOTICIE",
+                            "introspect_port": 5921
+                        }
+                    },
                     "contrail": {
                         "kernel_upgrade": true,
                         "kernel_version": "",

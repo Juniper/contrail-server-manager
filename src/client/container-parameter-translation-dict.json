@@ -52,99 +52,271 @@
     "newformat": "boolean"
   },
   "cloud_orchestrator": {
-    "newname": "containers.inventory.all_vars.global_config.cloud_orchestrator",
+    "newname": "contrail_4.global_config.cloud_orchestrator",
     "newformat": "string"
   },
   "external_lb": {
-    "newname": "containers.inventory.all_vars.global_config.external_lb",
+    "newname": "contrail_4.global_config.external_lb",
     "newformat": "boolean"
   },
   "controller_list": {
-    "newname": "containers.inventory.all_vars.global_config.controller_list",
+    "newname": "contrail_4.global_config.controller_list",
     "newformat": "list"
   },
   "analytics_list": {
-    "newname": "containers.inventory.all_vars.global_config.analytics_list",
+    "newname": "contrail_4.global_config.analytics_list",
     "newformat": "list"
   },
   "external_rabbitmq_servers": {
-    "newname": "containers.inventory.all_vars.global_config.external_rabbitmq_servers",
-    "newformat": "string"
+    "newname": "contrail_4.global_config.external_rabbitmq_servers",
+    "newformat": "list"
   },
   "external_zookeeper_servers": {
-    "newname": "containers.inventory.all_vars.global_config.external_zookeeper_servers",
-    "newformat": "string"
+    "newname": "contrail_4.global_config.external_zookeeper_servers",
+    "newformat": "list"
   },
   "external_configdb_servers": {
-    "newname": "containers.inventory.all_vars.global_config.external_configdb_servers",
-    "newformat": "string"
+    "newname": "contrail_4.global_config.external_configdb_servers",
+    "newformat": "list"
   },
   "config_server_list": {
-    "newname": "containers.inventory.all_vars.global_config.config_server_list",
+    "newname": "contrail_4.global_config.config_server_list",
     "newformat": "list"
   },
   "config_seed_list": {
-    "newname": "containers.inventory.all_vars.global_config.config_seed_list",
+    "newname": "contrail_4.global_config.config_seed_list",
     "newformat": "list"
   },
   "analyticsdb_seed_list": {
-    "newname": "containers.inventory.all_vars.global_config.analyticsdb_seed_list",
+    "newname": "contrail_4.global_config.analyticsdb_seed_list",
     "newformat": "list"
   },
   "analyticsdb_list": {
-    "newname": "containers.inventory.all_vars.global_config.analyticsdb_list",
+    "newname": "contrail_4.global_config.analyticsdb_list",
     "newformat": "list"
   },
   "compute_list": {
-    "newname": "containers.inventory.all_vars.global_config.compute_list",
+    "newname": "contrail_4.global_config.compute_list",
     "newformat": "list"
   },
   "xmpp_dns_auth_enable": {
-    "newname": "containers.inventory.all_vars.global_config.xmpp_dns_auth_enable",
+    "newname": "contrail_4.global_config.xmpp_dns_auth_enable",
     "newformat": "boolean"
   },
   "xmpp_auth_enable": {
-    "newname": "containers.inventory.all_vars.global_config.xmpp_auth_enable",
+    "newname": "contrail_4.global_config.xmpp_auth_enable",
     "newformat": "boolean"
   },
   "uve_partition_count": {
-    "newname": "containers.inventory.all_vars.global_config.uve_partition_count",
-    "newformat": "string"
+    "newname": "contrail_4.global_config.uve_partition_count",
+    "newformat": "integer"
   },
   "multi_tenancy": {
-    "newname": "containers.inventory.all_vars.global_config.multi_tenancy",
-    "newformat": "string"
+    "newname": "contrail_4.global_config.multi_tenancy",
+    "newformat": "boolean"
   },
   "container.keystone_ip": {
-    "newname": "containers.inventory.all_vars.keystone_config.ip",
+    "newname": "contrail_4.keystone_config.ip",
     "newformat": "string"
   },
   "container.keystone_admin_password": {
-    "newname": "containers.inventory.all_vars.keystone_config.admin_password",
+    "newname": "contrail_4.keystone_config.admin_password",
     "newformat": "string"
   },
   "container.keystone_admin_port": {
-    "newname": "containers.inventory.all_vars.keystone_config.admin_port",
-    "newformat": "string"
+    "newname": "contrail_4.keystone_config.admin_port",
+    "newformat": "integer"
   },
   "container.keystone_public_port": {
-    "newname": "containers.inventory.all_vars.keystone_config.public_port",
-    "newformat": "string"
+    "newname": "contrail_4.keystone_config.public_port",
+    "newformat": "integer"
   },
   "container.keystone_auth_protocol": {
-    "newname": "containers.inventory.all_vars.keystone_config.auth_protocol",
+    "newname": "contrail_4.keystone_config.auth_protocol",
     "newformat": "string"
   },
   "container.keystone_admin_user": {
-    "newname": "containers.inventory.all_vars.keystone_config.admin_user",
+    "newname": "contrail_4.keystone_config.admin_user",
     "newformat": "string"
   },
   "container.keystone_admin_tenant": {
-    "newname": "containers.inventory.all_vars.keystone_config.admin_tenant",
+    "newname": "contrail_4.keystone_config.admin_tenant",
     "newformat": "string"
   },
+  "control_config.asn": {
+      "newname": "contrail_4.control_config.asn",
+      "newformat": "integer"
+  },
+  "control_config.bgp_port": {
+      "newname": "contrail_4.control_config.bgp_port",
+      "newformat": "integer"
+  },
+  "control_config.introspect_port": {
+      "newname": "contrail_4.control_config.introspect_port",
+      "newformat": "integer"
+  },
+  "control_config.xmpp_server_port": {
+      "newname": "contrail_4.control_config.xmpp_server_port",
+      "newformat": "integer"
+  },
+  "control_config.log_level": {
+      "newname": "contrail_4.control_config.log_level",
+      "newformat": "string"
+  },
+  "dns_config.introspect_port": {
+      "newname": "contrail_4.dns_config.introspect_port",
+      "newformat": "integer"
+  },
+  "dns_config.dns_server_port": {
+      "newname": "contrail_4.dns_config.dns_server_port",
+      "newformat": "integer"
+  },
+  "dns_config.log_level": {
+      "newname": "contrail_4.dns_config.log_level",
+      "newformat": "string"
+  },
+  "cassandra_config.commitlog_dir": {
+      "newname": "contrail_4.cassandra_config.commitlog_dir",
+      "newformat": "string"
+  },
+  "cassandra_config.data_dirs": {
+      "newname": "contrail_4.cassandra_config.data_dirs",
+      "newformat": "list"
+  },
+  "cassandra_config.java_max_heap_size": {
+      "newname": "contrail_4.cassandra_config.java_max_heap_size",
+      "newformat": "string"
+  },
+  "cassandra_config.java_max_heap_newsize": {
+      "newname": "contrail_4.cassandra_config.java_max_heap_newsize",
+      "newformat": "string"
+  },
+  "api_config.log_level": {
+      "newname": "contrail_4.api_config.log_level",
+      "newformat": "string"
+  },
+  "api_config.listen_port": {
+      "newname": "contrail_4.api_config.listen_port",
+      "newformat": "integer"
+  },
+  "api_config.listen_address": {
+      "newname": "contrail_4.api_config.listen_address",
+      "newformat": "string"
+  },
+  "schema_config.log_level": {
+      "newname": "contrail_4.schema_config.log_level",
+      "newformat": "string"
+  },
+  "device_manager_config.log_level": {
+      "newname": "contrail_4.device_manager_config.log_level",
+      "newformat": "string"
+  },
+  "svc_monitor_config.log_level": {
+      "newname": "contrail_4.svc_monitor_config.log_level",
+      "newformat": "string"
+  },
+  "webui_config.http_listen_port": {
+      "newname": "contrail_4.webui_config.http_listen_port",
+      "newformat": "integer"
+  },
+  "webui_config.https_listen_port": {
+      "newname": "contrail_4.webui_config.https_listen_port",
+      "newformat": "integer"
+  },
+  "alarm_gen_config.log_level": {
+      "newname": "contrail_4.alarm_gen_config.log_level",
+      "newformat": "string"
+  },
+  "alarm_gen_config.introspect_port": {
+      "newname": "contrail_4.alarm_gen_config.introspect_port",
+      "newformat": "integer"
+  },
+  "analytics_api_config.log_level": {
+      "newname": "contrail_4.analytics_api_config.log_level",
+      "newformat": "string"
+  },
+  "analytics_api_config.introspect_port": {
+      "newname": "contrail_4.analytics_api_config.introspect_port",
+      "newformat": "integer"
+  },
+  "analytics_api_config.listen_port": {
+      "newname": "contrail_4.analytics_api_config.listen_port",
+      "newformat": "integer"
+  },
+  "analytics_api_config.listen_address": {
+      "newname": "contrail_4.analytics_api_config.listen_address",
+      "newformat": "string"
+  },
+  "analytics_api_config.log": {
+      "newname": "contrail_4.analytics_api_config.log",
+      "newformat": "string"
+  },
+  "analytics_api_config.aaa_mode": {
+      "newname": "contrail_4.analytics_api_config.aaa_mode",
+      "newformat": "string"
+  },
+  "analytics_collector_config.log_level": {
+      "newname": "contrail_4.analytics_collector_config.log_level",
+      "newformat": "string"
+  },
+  "analytics_collector_config.introspect_port": {
+      "newname": "contrail_4.analytics_collector_config.introspect_port",
+      "newformat": "integer"
+  },
+  "analytics_collector_config.listen_port": {
+      "newname": "contrail_4.analytics_collector_config.listen_port",
+      "newformat": "integer"
+  },
+  "analytics_collector_config.listen_address": {
+      "newname": "contrail_4.analytics_collector_config.listen_address",
+      "newformat": "string"
+  },
+  "query_engine_config.log_level": {
+      "newname": "contrail_4.query_engine_config.log_level",
+      "newformat": "string"
+  },
+  "query_engine_config.introspect_port": {
+      "newname": "contrail_4.query_engine_config.introspect_port",
+      "newformat": "integer"
+  },
+  "query_engine_config.log": {
+      "newname": "contrail_4.query_engine_config.log",
+      "newformat": "string"
+  },
+  "snmp_collector_config.log_level": {
+      "newname": "contrail_4.snmp_collector_config.log_level",
+      "newformat": "string"
+  },
+  "snmp_collector_config.introspect_port": {
+      "newname": "contrail_4.snmp_collector_config.introspect_port",
+      "newformat": "integer"
+  },
+  "snmp_collector_config.log": {
+      "newname": "contrail_4.snmp_collector_config.log",
+      "newformat": "string"
+  },
+  "snmp_collector_config.scan_frequency": {
+      "newname": "contrail_4.snmp_collector_config.scan_frequency",
+      "newformat": "integer"
+  },
+  "snmp_collector_config.fast_scan_frequency": {
+      "newname": "contrail_4.snmp_collector_config.fast_scan_frequency",
+      "newformat": "integer"
+  },
+  "topology_config.log_level": {
+      "newname": "contrail_4.topology_config.log_level",
+      "newformat": "string"
+  },
+  "topology_config.log": {
+      "newname": "contrail_4.topology_config.log",
+      "newformat": "string"
+  },
+  "topology_config.introspect_port": {
+      "newname": "contrail_4.topology_config.introspect_port",
+      "newformat": "integer"
+  },
   "contrail_compute_mode": {
-    "newname": "containers.inventory.all_vars.contrail_compute_mode",
+    "newname": "contrail_4.contrail_compute_mode",
     "newformat": "string"
   }
 }
