@@ -1,0 +1,7 @@
+The registry.tar.gz is the docker registry container downloaded from the docker
+official registry on 31 March 2017. 
+
+# docker images
+REPOSITORY          TAG                 IMAGE ID            CREATED        SIZE
+registry            2                   047218491f8c        4 weeks ago   33.2 MB
+
