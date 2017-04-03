@@ -25,7 +25,6 @@ TESTBED=""
 DEFAULT_DOMAIN=""
 CONTRAIL_PKG=""
 HOSTIP=""
-NOEXTERNALREPOS=""
 INSTALL_SM_LITE="install_sm_lite"
 CLEANUP_PUPPET_AGENT=""
 NO_LOCAL_REPO=1
@@ -53,7 +52,6 @@ function usage()
     echo -e "\t-sj|--server-json"
     echo -e "\t-ij|--image-json"
     echo -e "\t-t|--testbed <testbed.py>"
-    echo -e "\t-nr|--no-local-repo"
     echo -e "\t-nm|--no-sm-mon"
     echo -e "\t-nw|--no-sm-webui"
     echo -e "\t-swp|--sm-webui-port"
@@ -119,9 +117,6 @@ while [[ $# > 0 ]]
         IMAGE_JSON_PATH="$2"
         shift # past argument
         ;;
-        --no-external-repos)
-        NOEXTERNALREPOS="True"
-        ;;
         -h|--help)
         usage
         exit
@@ -160,10 +155,7 @@ if [ "$INSTALL_SM_LITE" != "" ]; then
    if [ ! -z "$HOSTIP" ]; then
        optional_args="--hostip=$HOSTIP"
    fi
-   if [ ! -z "$NOEXTERNALREPOS" ]; then
-       optional_args+=" --no-external-repos"
-   fi
-   ./setup.sh --all --smlite ${NO_SM_MON} ${NO_SM_WEBUI} $optional_args
+   ./setup.sh --all --smlite ${NO_SM_MON} ${NO_SM_WEBUI} --no-external-repos $optional_args
    popd >> $log_file 2>&1
 
 fi 
