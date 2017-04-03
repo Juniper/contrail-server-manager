@@ -1949,6 +1949,11 @@ class VncServerManager():
                                      "image id or location not specified")
                         raise ServerMgrException("image id or location \
                                  not specified", ERR_OPR_ERROR)
+                    if image_id[0].isdigit():
+                       self._smgr_log.log(self._smgr_log.ERROR,
+                                     "Image ID cannot start with digit")
+                       raise ServerMgrException("Image ID cannot start with digit",
+                                 ERR_OPR_ERROR)
                     if (image_type not in self._image_list):
                         msg = "image type not specified or invalid for image %s" %(
                                     image_id)
