@@ -118,6 +118,9 @@ class Server(object):
         self.extra_packages_14_04 = ['puppet=3.7.3-1puppetlabs1', 'python-netaddr',
                                      'ifenslave-2.6=2.4ubuntu1', 'sysstat',
                                      'ethtool']
+        self.extra_packages_16_04 = ['puppet=3.8.5-2', 'python-netaddr',
+                                     'ifenslave-2.6=2.4ubuntu1', 'sysstat',
+                                     'ethtool']
 
     def __del__(self):
         log.info('Disconnecting...')
@@ -212,8 +215,12 @@ class Server(object):
 
     def get_os_version(self):
         log.debug('Retrieve OS version')
-        cmd = r'python -c "import platform; print platform.linux_distribution()"'
+        cmd = r'python -c "import platform; print (platform.linux_distribution())"'
         status, output = self.exec_cmd(cmd)
+        if status != 0:
+          cmd = r'python3 -c "import platform; print (platform.linux_distribution())"'
+          status, output = self.exec_cmd(cmd)
+          version_info = output
         version_info = literal_eval(output)
         return version_info
 
@@ -226,6 +233,7 @@ class Server(object):
         self.preconfig_hosts_file()
         self.preconfig_unauthenticated_packages()
         self.preconfig_repos()
+        self.preconfig_1604_repos()
         self.install_packages()
         self.setup_interface()
         # Setup static routes if defined
@@ -276,6 +284,27 @@ class Server(object):
             log.info('Configure Allow Unauthenticated true')
             self.exec_cmd('echo %s >> /etc/apt/apt.conf' % apt_auth, error_on_fail=True)
 
+    def preconfig_1604_repos(self):
+        os_type, version, misc = self.os_version
+        if os_type.lower() == 'ubuntu' and version != '16.04':
+            return
+
+        repo_entry = r'deb http://%s:%s/thirdparty_packages_ubuntu_1604/ ./' % ('puppet', self.server_manager_repo_port)
+        repo_entry_verify = r'%s.*\/thirdparty_packages_ubuntu_1604' % 'puppet'
+        status, output = self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify)
+        if status:
+            log.info('/etc/apt/sources.list has no thirdparty_packages 1604 '
+                     'repo entry')
+            log.debug('Backup existing sources.list')
+            self.exec_cmd(r'cp /etc/apt/sources.list '\
+                          '/etc/apt/sources.list_$(date +%Y_%m_%d__%H_%M_%S).contrailbackup')
+            log.debug('Adding Repo Entry (%s) to /etc/apt/sources.list' % repo_entry)
+            self.exec_cmd('echo >> /etc/apt/sources.list', error_on_fail=True)
+            self.exec_cmd(r"sed -i '1 i\%s' /etc/apt/sources.list" % repo_entry)
+            self.exec_cmd('apt-get update')
+            self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify,
+                          error_on_fail=True)
+
     def preconfig_repos(self):
         repo_entry = r'deb http://%s:%s/thirdparty_packages/ ./' % ('puppet', self.server_manager_repo_port)
         repo_entry_verify = r'%s.*\/thirdparty_packages' % 'puppet'
@@ -299,6 +328,8 @@ class Server(object):
             packages_list = self.extra_packages_12_04
         elif os_type.lower() == 'ubuntu' and version == '14.04':
             packages_list = self.extra_packages_14_04
+        elif os_type.lower() == 'ubuntu' and version == '16.04':
+            packages_list = self.extra_packages_16_04
         else:
             raise RuntimeError('UnSupported OS type (%s)' % self.os_version)
 
