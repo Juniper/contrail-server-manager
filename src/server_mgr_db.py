@@ -21,6 +21,7 @@ server_status_table = 'status_table'
 server_tags_table = 'server_tags_table'
 dhcp_subnet_table = 'dhcp_subnet_table'
 dhcp_hosts_table = 'dhcp_hosts_table'
+hw_data_table='hw_data_table'
 
 _DUMMY_STR = "DUMMY_STR"
 
@@ -134,6 +135,11 @@ class ServerMgrDb:
                          value TEXT,
                          UNIQUE (tag_id),
                          UNIQUE (value))""")
+
+                cursor.execute("CREATE TABLE IF NOT EXISTS " + hw_data_table +
+                               """ (uuid TEXT PRIMARY KEY NOT NULL,
+                                    basic_hw TEXT,
+                                    full_hw TEXT)""")
                 # Add columns for image_table
                 self._add_table_column(cursor, image_table, "category", "TEXT")
                 # Add columns for cluster_table
@@ -169,7 +175,6 @@ class ServerMgrDb:
     # End of __init__
 
     def update_image_version(self, image):
-        #pdb.set_trace()
         if not image:
            return
 
@@ -218,7 +223,6 @@ class ServerMgrDb:
     ## End of update_server_table
 
     def update_image_table(self):
-        #pdb.set_trace()
         images = self.get_image(None, detail=True)
         for image in images:
             self.update_image_version(image)
@@ -280,6 +284,7 @@ class ServerMgrDb:
                 DELETE FROM """ + inventory_table + """;
                 DELETE FROM """ + dhcp_subnet_table + """;
                 DELETE FROM """ + dhcp_hosts_table + """;
+                DELETE FROM """ + hw_data_table + """;
                 DELETE FROM """ + image_table + ";")
         except:
             raise e
@@ -489,6 +494,15 @@ class ServerMgrDb:
         return 0
     # End of add_inventory
 
+    #hw_data must contain, uuid, dict of basic_hw, detail_hw
+    def add_hw_data(self, hw_data):
+        try:
+             self._add_row(hw_data_table, hw_data)
+             self._smgr_log.log(self._smgr_log.DEBUG, "ADD DETAILS" + hw_data['uuid'])
+
+        except Exception as e:
+            return e.message
+
     def add_dhcp_subnet(self, dhcp_subnet_config):
         try:
             dhcp_subnet_config = dict(dhcp_subnet_config)
@@ -686,6 +700,9 @@ class ServerMgrDb:
             db_obj = cb(match_dict, unmatch_dict)
         elif type == "dhcp_host":
             cb = self.get_dhcp_host
+            db_obj = cb(match_dict, unmatch_dict)
+        elif type == "hw_data":
+            cb = self.get_hw_data
             db_obj = cb(match_dict, unmatch_dict)
 
         if not db_obj:
@@ -1056,6 +1073,21 @@ class ServerMgrDb:
         return 0
     # End of modify_dhcp_subnet
 
+    #hw_data must contain, uuid, dict of basic_hw, detail_hw
+    def modify_hw_data(self, hw_data):
+        uuid=hw_data['uuid']
+        try:
+             if (self.check_obj("hw_data", {'uuid': uuid}, raise_exception=False)) :
+                 self._smgr_log.log(self._smgr_log.DEBUG, "UUID exists")
+                 self._modify_row(hw_data_table, hw_data, {'uuid': uuid}, {})
+             else:
+                 self._add_row(hw_data_table, hw_data)
+                 self._smgr_log.log(self._smgr_log.DEBUG, "UUID doesn't exist")
+               
+
+        except Exception as e:
+            return e.message
+
     def get_image(self, match_dict=None, unmatch_dict=None,
                   detail=False, field_list=None):
         try:
@@ -1147,6 +1179,14 @@ class ServerMgrDb:
             raise e
         return subnets 
     # End of get_dhcp_subnet
+
+    def get_hw_data(self, match_dict=None, unmatch_dict=None):
+        try:
+            hw_data = self._get_items(hw_data_table, match_dict, unmatch_dict, True, None)
+        except Exception as e:
+            raise e
+        return hw_data
+    # End of get_hw_data
 
     def get_inventory(self, match_dict=None, unmatch_dict=None):
         try:
