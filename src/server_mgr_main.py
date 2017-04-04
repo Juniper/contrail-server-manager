@@ -1977,32 +1977,40 @@ class VncServerManager():
                     cmd = 'file %s'%image_path
                     output = subprocess.check_output(cmd, shell=True)
                     additional_ret_msg = ""
+                    pkg_type = None
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") ):
-                        if "contrail-container-package" in image_params and image_params["contrail-container-package"]:
+                        smutil = ServerMgrUtil()
+                        if output and 'gzip' in output:
+                            # get the tgz package type
+                            pkg_type = smutil.get_tgz_package_type(image_path)
+                        if (pkg_type == "contrail-cloud-docker-tgz" or pkg_type == "contrail-networking-docker-tgz"):
+                            # get the tgz package type
+                            pkg_type = smutil.get_tgz_package_type(image_path)
                             puppet_package_path, playbooks_version, container_params = _create_container_repo(
                                 image_id, image_type, image_version, image_path, self._args)
-                            puppet_manifest_version, sequence_provisioning_available, puppet_version  = self._add_puppet_modules(
-                                puppet_package_path, image_id)
-                            image_params["puppet_manifest_version"] = puppet_manifest_version
-                            image_params["sequence_provisioning_available"] = sequence_provisioning_available
-                            image_params["puppet_version"] = puppet_version
-                            #Get the contrail package version
+                            # check if the image added is a cloud docker image
+                            if pkg_type == "contrail-cloud-docker-tgz":
+                                puppet_manifest_version, sequence_provisioning_available, puppet_version \
+                                  = self._add_puppet_modules(puppet_package_path, image_id)
+                                image_params["puppet_manifest_version"] = puppet_manifest_version
+                                # find sku of package (juno/kilo/liberty)
+                                package_sku = self.find_package_sku(image_id, image_type, image_params, pkg_type)
+                                image_params['sku'] = package_sku
+                                image_params["sequence_provisioning_available"] = sequence_provisioning_available
+                                image_params["puppet_version"] = puppet_version
+                            # Get the contrail package version
                             for key in container_params:
                                 image_params[key] = container_params[key]
-
-                            #find sku of package (juno/kilo/liberty)
-                            package_sku = self.find_package_sku(image_id, image_type, image_params)
-                            image_params['sku'] = package_sku
+                            add_db, additional_ret_msg = self.validate_container_image(image_params, entity, image, image_params.pop("cleanup_list"))
                             image_params['version'] = playbooks_version
                             image_params['playbooks_version'] = playbooks_version
-                            add_db, additional_ret_msg = self.validate_container_image(image_params, entity, image, image_params.pop("cleanup_list"))
+                            image_params['contrail-container-package'] = True
                             image["parameters"] = image_params
                         else:
                             if not self.validate_package_id(image_id):
                                 msg =  ("Id given %s,Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
                                 self.log_and_raise_exception(msg)
-
                             puppet_manifest_version, sequence_provisioning_available, puppet_version  = self._create_repo(
                                 image_id, image_type, image_version, image_path)
                             image_params['puppet_manifest_version'] = \
@@ -2017,9 +2025,6 @@ class VncServerManager():
                             package_sku = self.find_package_sku(image_id, image_type, image_params)
                             image_params['sku'] = package_sku
                             self.cleanup_package_install(image_id, image_type)
-                            container_list = image_params.get("containers", None)
-                            if container_list and image_type == "contrail-ubuntu-package":
-                                add_db, additional_ret_msg = self.validate_container_image(image_params, entity, image, [])
                     elif image_type == "contrail-storage-ubuntu-package":
                         self._create_repo(
                             image_id, image_type, image_version, image_path)
@@ -2437,6 +2442,12 @@ class VncServerManager():
         image_version = bottle.request.forms.version
         image_type = bottle.request.forms.type
         image_category = bottle.request.forms.category
+        image_data = {
+         'id': image_id,
+         'version': image_version,
+         'type': image_type,
+         'category' : image_category
+        }
         msg = ""
         if (image_type not in self._image_list):
             msg = "Invalid Image type for %s" % (image_id)
@@ -2475,28 +2486,38 @@ class VncServerManager():
                     open_file.write(file_obj.file.read())
             image_params = {}
             cmd = 'file %s'%dest
+            pkg_type = None
             output = subprocess.check_output(cmd, shell=True)
             if ((image_type == "contrail-centos-package") or
                 (image_type == "contrail-ubuntu-package")):
-                if "contrail-container-package" in image_params and image_params["contrail-container-package"]:
+                smutil = ServerMgrUtil()
+                if output and 'gzip' in output:
+                    # get the tgz package type
+                    pkg_type = smutil.get_tgz_package_type(dest)
+                if (pkg_type == "contrail-cloud-docker-tgz" or pkg_type == "contrail-networking-docker-tgz"):
                     puppet_package_path, playbooks_version, container_params = _create_container_repo(
-                        image_id, image_type, image_version, image_path, self._args)
-                    puppet_manifest_version, sequence_provisioning_available, puppet_version  = self._add_puppet_modules(
-                        puppet_package_path, image_id)
-                    image_params["puppet_manifest_version"] = puppet_manifest_version
-                    image_params["sequence_provisioning_available"] = sequence_provisioning_available
-                    image_params["puppet_version"] = puppet_version
+                        image_id, image_type, image_version, dest, self._args)
+                    # check if the image added is a cloud docker image
+                    if pkg_type == "contrail-cloud-docker-tgz":
+                        puppet_manifest_version, sequence_provisioning_available, puppet_version \
+                              = self._add_puppet_modules(puppet_package_path, image_id)
+                        image_params["puppet_manifest_version"] = puppet_manifest_version
+                        image_params["sequence_provisioning_available"] = sequence_provisioning_available
+                        image_params["puppet_version"] = puppet_version
+                        # find sku of package (juno/kilo/liberty)
+                        package_sku = self.find_package_sku(image_id, image_type, image_params, pkg_type)
+                        image_params['sku'] = package_sku
                     #Get the contrail package version
                     for key in container_params:
                         image_params[key] = container_params[key]
 
-                    #find sku of package (juno/kilo/liberty)
-                    package_sku = self.find_package_sku(image_id, image_type, image_params)
-                    image_params['sku'] = package_sku
                     image_params['version'] = playbooks_version
                     image_params['playbooks_version'] = playbooks_version
-                    image["parameters"] = image_params
-                    additional_ret_msg = self.validate_container_image(image_params, entity, image)
+                    image_params['contrail-container-package'] = True
+                    image_data.update({'path': dest})
+                    image_data.update({'parameters' : image_params})
+                    entity = bottle.request.json
+                    additional_ret_msg = self.validate_container_image(image_params, entity, image_data, image_params.pop("cleanup_list"))
                 else:
                     if not self.validate_package_id(image_id):
                         msg =  ("Id given %s, Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
@@ -2538,13 +2559,8 @@ class VncServerManager():
                 self._add_image_to_cobbler(image_id, image_type,
                                            image_version, dest,
                                            kickstart_dest, kickseed_dest)
-            image_data = {
-                'id': image_id,
-                'version': image_version,
-                'type': image_type,
-                'path': dest,
-                'category' : image_category,
-                'parameters' : image_params}
+            image_data.update({'path': dest})
+            image_data.update({'parameters' : image_params})
             self._serverDb.add_image(image_data)
             # Removing the package/image from /etc/contrail_smgr/images/ after it has been added
             os.remove(dest)
@@ -3278,6 +3294,7 @@ class VncServerManager():
                         msg)
             image = images[0]
             image_id = image['id']
+            image_path = image['path']
             image_params = eval(image.get("parameters", {}))
 
             container_list = image_params.get("containers", None)
@@ -4912,10 +4929,10 @@ class VncServerManager():
             subprocess.check_call(cmd, shell=True)
         
 
-    def find_package_sku(self, image_id, image_type, image_params):
+    def find_package_sku(self, image_id, image_type, image_params, pkg_type=None):
         version = None
         if image_type == "contrail-ubuntu-package":
-            if "contrail-container-package" in image_params and image_params["contrail-container-package"]:
+            if pkg_type == "contrail-cloud-docker-tgz":
                 nova_api_package = self._args.html_root_dir+"contrail/repo/"+image_id + '/contrail-repo/nova-api_*.deb'
             else:
                 nova_api_package = self._args.html_root_dir+"contrail/repo/"+image_id + '/nova-api_*.deb'

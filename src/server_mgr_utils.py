@@ -26,7 +26,40 @@ class ServerMgrUtil():
         # end convert_unicode(input)
         return convert_unicode
     convert_unicode = staticmethod(convert_unicode())
-  
+
+    # function to check and return if the given image is a container
+    # image
+    def is_container_image(self, image_path):
+      output = self.command_output("file "+image_path)
+      if output and 'gzip compressed data' in output:
+          pkg_type = self.get_tgz_package_type(image_path)
+          if ((pkg_type == "contrail-cloud-docker-tgz")\
+             or (pkg_type == "contrail-networking-docker-tgz")):
+             return True
+      return False
+
+    # local function to return the output of executing a shell command
+    def command_output(self, cmd):
+        try:
+            result = subprocess.check_output(cmd, shell = True).strip()
+        except subprocess.CalledProcessError as e:
+            result = None
+        return result
+
+    # this function returns the package type given the image
+    def get_tgz_package_type(self,img_path):
+       base_cmd = "tar --wildcards -tzf " +img_path +" "
+       cmd = base_cmd + "contrail-puppet*"
+       if self.command_output(cmd) is not None:
+         return "contrail-install-tgz"
+       cmd = base_cmd + "contrail-networking-docker*"
+       if self.command_output(cmd) is not None:
+         return "contrail-cloud-docker-tgz"
+       cmd = base_cmd + "contrail-networking-dependents*"
+       if self.command_output(cmd) is not None:
+         return "contrail-networking-docker-tgz"
+       return None
+
     def get_package_version(self,package, image_type):
         if (image_type == "contrail-ubuntu-package" or image_type == "contrail-storage-ubuntu-package"):
             version = subprocess.check_output(['dpkg-deb', '-f',str(package),'Version'])
