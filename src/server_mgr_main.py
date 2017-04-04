@@ -9,6 +9,7 @@
                  are part of the contrail cluster of nodes, interacting
                  together to provide a scalable virtual network system.
 """
+import pprint
 import os
 import glob
 import sys
@@ -108,6 +109,24 @@ _DEF_PUPPET_AGENT_RETRY_POLL_INTERVAL = 20
 # this variable and it's use when enabling new puppet framework.
 _ENABLE_NEW_PUPPET_FRAMEWORK = True
 _ERR_INVALID_CONTRAIL_PKG = 'Invalid contrail package. Please specify a valid package'
+DEFAULT_PATH_LSTOPO_XML='/var/www/html/contrail/lstopo/'
+
+ALLOCATE_IP_ADDRESS=True
+DEFAULT_IP_ADDR_POOL1="data_network"
+DEFAULT_IP_ADDR_POOL2= {
+  "mgmt_network": {
+    "subnet"   : "192.168.99.0/24",
+    "dgateway" : "192.168.99.1",
+    "dhcp"     : True
+  },
+  "data_network": {
+    "subnet"   : "10.10.10.0/24",
+    "dgateway" : "10.10.10.1",
+    "dhcp"     : False
+  }
+}
+
+HTTP_SERVER='http://10.84.22.139/'
 
 @bottle.error(403)
 def error_403(err):
@@ -228,6 +247,54 @@ class VncServerManager():
                          ]
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
+    _ip_pool = {}
+
+    def startup_ip_pools(self):
+      ip_pool = {}
+      for pool_name in DEFAULT_IP_ADDR_POOL2:
+        print pool_name
+        pool_data = DEFAULT_IP_ADDR_POOL2[pool_name]
+        ip_pool[pool_name] = {}
+        ip_pool[pool_name]['details'] = {}
+        ip_pool[pool_name]['details']['dhcp'] = pool_data['dhcp']
+        ip_pool[pool_name]['details']['plen'] = IPNetwork(pool_data['subnet']).prefixlen
+        ip_pool[pool_name]['details']['dgateway'] = pool_data['dgateway']
+        ip_pool[pool_name]['pool'] = {}
+        for ipaddr in IPNetwork(pool_data['subnet']):
+            ip_pool[pool_name]['pool'][str(ipaddr)] = {}
+            ip_pool[pool_name]['pool'][str(ipaddr)]['ip'] = str(ipaddr )
+            ip_pool[pool_name]['pool'][str(ipaddr)]['used'] = False
+
+        self._ip_pool = ip_pool
+      pprint.pprint(self._ip_pool)
+        
+    def allocate_ip_from_pool(self,consumed_ip, pool_name=None):
+        if pool_name is None:
+          pool_name = DEFAULT_IP_ADDR_POOL1
+
+        ip_pool = self._ip_pool[pool_name]
+        ip_pool['pool'][consumed_ip['ip']]['used'] = True
+
+    def get_ip_from_pool(self,pool_name=None):
+        if pool_name is None:
+          pool_name = DEFAULT_IP_ADDR_POOL1
+
+        ip_pool = self._ip_pool[pool_name]
+        allocated_ip = {}
+        #pprint.pprint(ip_pool)
+        for ip in ip_pool['pool']:
+          #print ip
+          if ip_pool['pool'][ip]['used'] == False:
+            allocated_ip['ip'] = ip
+            allocated_ip['plen'] = ip_pool['details']['plen']
+            allocated_ip['dhcp'] = ip_pool['details']['dhcp']
+            allocated_ip['dgateway'] = ip_pool['details']['dgateway']
+            print "AVAIL"
+            return allocated_ip
+        print "NO ADDR AVAIL"
+        
+        return ""
+        
 
     def _is_cobbler_enabled(self, cobbler):
         if cobbler.lower() == 'true':
@@ -414,6 +481,7 @@ class VncServerManager():
 
         # Start gevent thread for reimage task.
         self._reimage_queue = Queue()
+        self.startup_ip_pools()
         gevent.spawn(self._reimage_server_cobbler) 
 
         try:
@@ -504,6 +572,7 @@ class VncServerManager():
         bottle.route('/columns', 'GET', self.get_table_columns)
         bottle.route('/dhcp_subnet', 'GET', self.get_dhcp_subnet)
         bottle.route('/dhcp_host', 'GET', self.get_dhcp_host)
+        bottle.route('/hardware_info', 'GET', self.get_hw_data)
         bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
         bottle.route('/MonitorInfo', 'GET', self._server_monitoring_obj.get_monitoring_info)
         bottle.route('/MonitorInfoSummary', 'GET', self._server_monitoring_obj.get_monitoring_info_summary)
@@ -566,6 +635,7 @@ class VncServerManager():
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
         bottle.route('/image/upload', 'PUT', self.upload_image)
         bottle.route('/status', 'PUT', self.put_status)
+        bottle.route('/hw_server', 'PUT', self.add_hw_server)
 
         #smgr_add
         bottle.route('/server', 'PUT', self.put_server)
@@ -778,15 +848,19 @@ class VncServerManager():
         return ret_data
 
     def validate_smgr_put(self, validation_data, request, data=None,
-                                                        modify = False):
+                                modify = False, internal_req=None):
         ret_data = {}
         ret_data['status'] = 1
         try:
-            json_data = json.load(request.body)
+            if internal_req is None:
+              json_data = json.load(request.body)
         except ValueError as e :
             msg = "Invalid JSON data : %s " % e
             self.log_and_raise_exception(msg)
-        entity = request.json
+        if internal_req is not None:
+            entity = internal_req
+        else :
+            entity = request.json
         #check if json data is present
         if (not entity):
             msg = "No JSON data specified"
@@ -1148,7 +1222,7 @@ class VncServerManager():
 
 
     def validate_smgr_request(self, type, oper, request, data = None, modify =
-                              False):
+                              False, internal_req = None):
         self._smgr_log.log(self._smgr_log.DEBUG, "validate_smgr_request")
         ret_data = {}
         ret_data['status'] = 1
@@ -1168,7 +1242,7 @@ class VncServerManager():
         if oper == "GET":
             ret_val_data = self.validate_smgr_get(validation_data, request, data)
         elif oper == "PUT":
-            ret_val_data = self.validate_smgr_put(validation_data, request, data, modify)
+            ret_val_data = self.validate_smgr_put(validation_data, request, data, modify, internal_req)
         elif oper == "DELETE":
             ret_val_data = self.validate_smgr_delete(validation_data, request, data)
         elif oper == "PROVISION":
@@ -1559,6 +1633,62 @@ class VncServerManager():
         return {"dhcp_host": dhcp_hosts}
     # end get_dhcp_host
 
+    # [RE]Generate HTML file for now
+    def get_hw_data(self):
+       hw_data=self._serverDb.get_hw_data()
+       str_host=""
+       html_start = "<html> <head> <meta http-equiv='refresh' content='5'> " \
+                    "<style> table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: center; padding: 8px; } </style>" \
+                    "</head> <body> <table > <tr> <th>UUID</th> <th>Vendor</th> <th># CPU</th> <th>RAM (GB)</th> <th>Network</th> <th>Disks</th> <th>TopoLogy XML</th> </tr>"
+       html_end = "</table> </body> </html>"
+       host_rows = ""
+       for host_details in hw_data:
+           host = eval(host_details['basic_hw'])
+           str_host = str_host + host_details['uuid']+ "<=>"
+           uuid_cell = "<td> <a href=" + host['topo_url'] + ">"+ host_details['uuid'] + "</a></td>"
+           if 'system' in host:
+             vendor = host['system']['vendor']
+           else :
+             vendor = "UNKNOWN"
+           vendor_cell = "<td>" + vendor + "</td>"
+           num_cpu = "<td>" + host['cpu'] + "</td>"
+           ram_gb = "<td>" + host['mem_GB'] + "</td>"
+           topo_xml = host['topo_url'].replace("svg", "xml")
+           topology_cell = "<td> <a href="+ topo_xml + "> Full XML Data </a></td>"
+           network_cell = "<td>"+ str(host['network'])+ "</td>"
+           network_rows=""
+           for nic in host['network']:
+               eth_details = host['network'][nic]
+               ifname = eth_details['name']
+               mac_addr = eth_details['serial']
+               link_status = eth_details['link']
+               nic_driver = eth_details['driver']
+               if link_status == "yes":
+                   link_color=" bgcolor='#00cc00'"
+               else:
+                   link_color=" bgcolor='#ff5050'"
+               network_rows = network_rows + "<tr" + link_color+ "><td>" +ifname+"</td><td>"+mac_addr+"</td><td>"+ nic_driver+ "</td></tr>"
+
+           network_cell = "<td><table>"+ network_rows +"</table></td>"
+           disk_rows = ""
+           for disk in host['disk']:
+             disk_name = host['disk'][disk]['name']
+             disk_size = host['disk'][disk]['size']
+             disk_rows = disk_rows + "<tr><td>" + disk_name+"</td><td>" + disk_size+"</td></tr>"
+
+           disk_cell = "<td><table>"+ disk_rows +"</table></td>"
+
+           host_row="<tr>" + uuid_cell + vendor_cell + num_cpu + ram_gb +network_cell+disk_cell+ topology_cell+"</tr>"
+           host_rows = host_rows + host_row 
+           
+       html_page = html_start + host_rows + html_end
+
+       outfile=open(DEFAULT_PATH_LSTOPO_XML+"hardware_details_full.html", 'w')
+       outfile.write(html_page)
+       outfile.close()
+       
+       return {"hw_data": {}}
+
     # API Call to list images
     def get_image(self):
         try:
@@ -1939,6 +2069,30 @@ class VncServerManager():
         resp_msg = self.form_operartion_data(msg, 0, entity)
         return resp_msg
 
+    def add_hw_server(self):
+        entity = bottle.request.json
+        self._smgr_log.log(self._smgr_log.DEBUG, "ADD_HW_SERVER")
+        #self._smgr_log.log(self._smgr_log.DEBUG, entity)
+        server_uuid = entity.get("server_uuid", "")
+        outfile = open('/root/lshw-data/'+ server_uuid, 'w') 
+        json.dump(entity, outfile)
+        outfile.close()
+        concise_hw_data = self.parse_hw_data(entity)
+        
+        add_hw_data = {'uuid': server_uuid,
+                       'basic_hw': str(concise_hw_data),
+                       'full_hw': str(entity)}
+
+        
+        result = self._serverDb.modify_hw_data(add_hw_data)
+        summary_file=DEFAULT_PATH_LSTOPO_XML+server_uuid+'.summary'
+        outfile=open(summary_file, 'w')
+        outfile.write(json.dumps(concise_hw_data, sort_keys=True, indent=4))
+        outfile.close()
+        msg = "HW ADDED Successfully"
+        resp_msg = self.form_operartion_data(msg, 0, entity)
+        return resp_msg
+
     def put_dhcp_subnet(self):
         entity = bottle.request.json
         if (not entity):
@@ -1993,8 +2147,14 @@ class VncServerManager():
         resp_msg = self.form_operartion_data(msg, 0, entity)
         return resp_msg
 
-    def put_server(self):
+    def put_server(self, internal_json = None):
         entity = bottle.request.json
+        print "ADD SERVER"
+        #pprint.pprint(internal_json)
+        #pprint.pprint(entity)
+        if internal_json is not None:
+            entity = internal_json
+
         if (not entity):
             msg = 'Server MAC or server_id not specified'
             resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
@@ -2029,7 +2189,8 @@ class VncServerManager():
                 else:
                     new_servers.append(server)
                     self.validate_smgr_request("SERVER", "PUT",
-                                               bottle.request, server)
+                                               bottle.request,
+                                               server, False,internal_json)
                     server['status'] = "server_added"
                     server['discovered'] = "false"
                     self._serverDb.add_server(server)
@@ -5382,6 +5543,274 @@ class VncServerManager():
         except Exception as e:
             raise e
     # end _create_server_manager_config
+
+    def generate_server_data(self,hw_json):
+        
+        mgmt_ifname = hw_json['mgmt_ifname']
+        if_data = hw_json['if_data']
+        #pprint.pprint(if_data)
+        ipmi_address = hw_json['ipmi']['ip']
+        server_data = {}
+        self._smgr_log.log(self._smgr_log.DEBUG, "MGMT")
+        self._smgr_log.log(self._smgr_log.DEBUG, mgmt_ifname)
+        mgmt_mac = ""
+        network_data = []
+        for ifname in if_data:
+           if_detail = {}
+           lldp_data=if_data[ifname]['lldp']
+           if lldp_data != "":
+             #pprint.pprint(lldp_data)
+             lldp_data = lldp_data.split('\n')
+             lldp_dict = {}
+             for value in lldp_data:
+               if "=" in value.decode("utf-8"):
+                 k,v = value.split("=")
+                 lldp_dict[k] = v
+             port_id = lldp_dict["lldp."+ifname+".port.descr"]
+             sname   = lldp_dict["lldp."+ifname+".chassis.name"]
+             rid     = lldp_dict["lldp."+ifname+".rid"]
+             #pprint.pprint (lldp_dict)
+           else:
+             port_id = ""
+             sname   = ""
+             rid     = ""
+             
+           self._smgr_log.log(self._smgr_log.DEBUG, ifname)
+           if_mac = if_data[ifname]['mac']
+           if mgmt_ifname == ifname:
+             mgmt_mac = if_data[ifname]['mac']
+
+           if_detail['name'] = ifname
+           if_detail['sw_name'] = sname
+           if_detail['sw_rid'] = rid
+           if_detail['sw_port'] = port_id
+           if_detail['mac_address']  = if_mac.rstrip()
+           if ALLOCATE_IP_ADDRESS == True:
+             ip_address = self.get_ip_from_pool()
+             print ip_address
+             if_detail['ip_address'] = ip_address['ip']+'/'+str(ip_address['plen'])
+             if_detail['dhcp'] = ip_address['dhcp']
+             if_detail['default_gateway'] = ip_address['dgateway']
+             self.allocate_ip_from_pool(ip_address)
+
+           network_data.append(if_detail)
+
+        disk_data = hw_json["disks"]
+        all_disks = {}
+        if disk_data != "":
+          disk_data = disk_data.split("\n")
+          disk_data = [x for x in disk_data if x]
+          pprint.pprint(disk_data)
+          for disk_line in disk_data:
+            if "TYPE=\"disk\"" in disk_line:
+              disk_info = disk_line.split(" ")
+              print disk_info
+              disk_dict = {}
+              for value in disk_info:
+                print value
+                k,v = value.split("=")
+                disk_dict[k] = v
+              #print disk_dict
+              disk_name = "/dev/" + disk_dict["NAME"][1:-1]
+              all_disks[disk_name] = {}
+              all_disks[disk_name]['name'] = disk_name
+              all_disks[disk_name]['size'] = disk_dict["SIZE"][1:-1]
+              #all_disks[disk_name]['model'] = disk_dict["MODEL"]
+              if disk_dict["ROTA"][1:-1] == "0":
+                all_disks[disk_name]['ssd'] = True
+              else:
+                all_disks[disk_name]['ssd'] = False
+
+
+        pprint.pprint( all_disks)
+        server_id = "cc-" + mgmt_mac.replace(":", "").rstrip()
+        server_data['id']      = server_id
+        server_data['password'] = "dg-c0ntrail"
+        server_data['domain'] = "contrail.juniper.net"
+        server_data['ipmi_address'] = ipmi_address.rstrip()
+        server_data['parameters']  = {}
+        server_data['parameters']['all_disks'] = all_disks
+        server_data['network']  = {}
+        server_data['network']['management_interface'] = mgmt_ifname
+        server_data['network']['interfaces'] = network_data
+        server_array = []
+        server_array.append(server_data)
+        add_server = {}
+        add_server['server']=server_array
+        outfile = open('/tmp/hw-discover/'+ server_id, 'w') 
+        outfile.write(json.dumps(add_server, sort_keys=True, indent=4 ))
+        outfile.close
+        if ALLOCATE_IP_ADDRESS == True:
+            self.put_server(internal_json = add_server)
+        
+        self._smgr_log.log(self._smgr_log.DEBUG,server_id)
+
+
+    def parse_hw_data(self,hw_json):
+        self.generate_server_data(hw_json)
+        system_details  = self.get_system_details(hw_json)
+        cpu_details     = self.calculate_cpu(hw_json)
+        memory_details  = self.calculate_memory(hw_json)
+        disk_details    = self.calculate_disks(hw_json)
+        #network_details = self.calculate_networks(hw_json)
+        lstopo_file     = self.generate_lstopo(hw_json)
+        lstopo_url      = HTTP_SERVER+ lstopo_file.replace(_DEF_HTML_ROOT_DIR, '')
+        basic_hw_data={}
+        basic_hw_data['system'] = system_details
+        basic_hw_data['cpu'] = str(cpu_details)
+        basic_hw_data['memory'] = str(memory_details)
+        basic_hw_data['mem_GB'] = str(memory_details/(1024*1024*1024))
+        basic_hw_data['disk'] = disk_details
+        basic_hw_data['network'] = ""
+        basic_hw_data['topology'] = lstopo_file
+        basic_hw_data['topo_url'] = lstopo_url
+        return basic_hw_data
+
+    def get_system_details(self, hw_json):
+        system_details = {}
+        system_details['vendor'] = hw_json['hw_specs']['vendor']
+        system_details['product'] = "UNKOWN"
+
+        return system_details
+
+    def generate_lstopo(self,hw_json):
+        uuid=hw_json['server_uuid']
+        lstopo_xml_data=hw_json['lstopo']
+        xml_filename=DEFAULT_PATH_LSTOPO_XML+uuid+'.xml'
+        svg_filename=DEFAULT_PATH_LSTOPO_XML+uuid+'.svg'
+        print xml_filename
+        outfile=open(xml_filename, 'w')
+        outfile.write(lstopo_xml_data)
+        outfile.close()
+
+        svg_data=subprocess.Popen(['/usr/bin/lstopo', '--output-format', 'svg' , '--input', xml_filename], stdout=subprocess.PIPE).communicate()[0]
+        outfile=open(svg_filename, 'w')
+        outfile.write(svg_data)
+        outfile.close()
+
+        return svg_filename
+
+    def calculate_networks(self, hw_json):
+        uuid=hw_json['server_uuid']
+        #print uuid
+        hw_details=hw_json['hw_specs']['children']
+        total_cores = 0
+        network_details = {}
+        #pprint.pprint(hw_details)
+        return network_details
+        for i,hw_data in enumerate(hw_details):
+          if hw_data['class'] == 'bus':
+	    for j,data in enumerate(hw_data['children']):
+	      if data['class'] == 'bridge' and 'children' in data:
+	        for k,ndata in enumerate(data['children']):
+	          if 'children' in ndata:
+		    for m,mdata in enumerate(ndata['children']):
+		      if mdata['class'] == 'network':
+		        #print mdata['id'], mdata.get('logicalname', "UNK NAME"),mdata['class'], mdata.get('serial', ""), mdata.get('size',"UNK SPEED")
+		        #print mdata
+		        ifname = mdata['logicalname']
+		        network_details[ifname]={}
+		        network_details[ifname]['name']=ifname
+		        network_details[ifname]['serial']=mdata.get('serial', "")
+		        network_details[ifname]['speed']=mdata.get('size', "UNKNOWN SPEED")
+		        network_details[ifname]['capacity']=mdata.get('capacity', "UNKNOWN CAPACITY")
+		        network_details[ifname]['driver']=mdata['configuration'].get("driver", "UNKNOWN DRIVER")
+		        network_details[ifname]['link']=mdata['configuration'].get("link", "UNKNOWN LINK")
+	          if ndata['class'] == 'network':
+		    #print ndata['id'], ndata.get('logicalname', "UNK NAME"),ndata['class'], ndata.get('serial', ""), ndata.get('size',"UNK SPEED")
+		    #print ndata
+		    ifname = ndata['logicalname']
+		    network_details[ifname]={}
+		    network_details[ifname]['name']=ifname
+		    network_details[ifname]['serial']=ndata.get('serial', "")
+		    network_details[ifname]['speed']=ndata.get('size', "UNKNOWN SPEED")
+		    network_details[ifname]['capacity']=ndata.get('capacity', "UNKNOWN CAPACITY")
+		    network_details[ifname]['driver']=ndata['configuration'].get("driver", "UNKNOWN DRIVER")
+		    network_details[ifname]['link']=ndata['configuration'].get("link", "UNKNOWN LINK")
+	      #elif 'children' in data:
+	        #for k,ndata in enumerate(data['children']):
+	          #if ndata['class'] == 'bridge' and 'children' in ndata:
+		    #for m,mdata in enumerate(ndata['children']):
+		      #print "HLL"
+		      #if mdata['class'] == 'network':
+		        ##print mdata['id'], mdata.get('logicalname', "UNK NAME"),mdata['class'], mdata.get('serial', ""), mdata.get('size',"UNK SPEED")
+		        #print mdata['id'], mdata
+    
+        #pprint.pprint( network_details)
+        return network_details
+
+    def calculate_disks(self, hw_json):
+        uuid=hw_json['server_uuid']
+        #print uuid
+        disk_details={}
+        hw_details=hw_json['hw_specs']['children']
+        total_cores = 0
+        for i,hw_data in enumerate(hw_details):
+          #print i, hw_data['class'], hw_data['id']
+          if hw_data['class'] == 'bus':
+	    for j,data in enumerate(hw_data['children']):
+	      #print i,j,  data['id'], data['class'], type(data)
+	      #if data['class'] == 'disk':
+	        #print data['id'], data['logicalname']
+	      if 'children' in data:
+	        for k,ndata in enumerate(data['children']):
+	          #print i,j,k,  ndata['id'], ndata['class'], type(ndata)
+	          if ndata['class'] == 'disk':
+		    #print ndata['id'],ndata['logicalname']
+		    disk_name=str(ndata['logicalname'])
+		    if 'size' in ndata:
+		      disk_details[disk_name]={}
+		      disk_details[disk_name]['name']=disk_name
+		      #print ndata['id'],ndata['logicalname'], int(ndata['size'])/(1024*1024*1024)
+		      disk_details[disk_name]['size']=str(int(ndata['size'])/(1024*1024*1024))
+		  
+
+        #print "CPU => " + str(total_cores)
+        #pprint.pprint( disk_details)
+        return disk_details
+
+    def calculate_cpu(self, hw_json):
+        uuid=hw_json['server_uuid']
+        #print uuid
+        hw_details=hw_json['hw_specs']['children']
+        total_cores = 0
+        for i,hw_data in enumerate(hw_details):
+          #print i, hw_data['class'], hw_data['id']
+          if hw_data['class'] == 'bus':
+	    for j,data in enumerate(hw_data['children']):
+	      #print i,j,  data['id'], data['class'], type(data)
+	      if data['class'] == 'processor' and data['id'].startswith('cpu'):
+	        #print data['id']
+	        if 'configuration' in data:
+	          threads=int(data['configuration'].get('threads', 1))
+	        else:
+	          threads=1
+	        total_cores = total_cores + threads 
+    
+        #print "CPU => " + str(total_cores)
+        return total_cores
+
+
+    def calculate_memory(self, hw_json):
+        uuid=hw_json['server_uuid']
+        #print uuid
+        hw_details=hw_json['hw_specs']['children']
+        total_memory = 0
+        for i,hw_data in enumerate(hw_details):
+          #print i, hw_data['class'], hw_data['id']
+          if hw_data['class'] == 'bus':
+	    for j,data in enumerate(hw_data['children']):
+	      #print i,j,  data['id'], data['class'], type(data)
+	      if data['class'] == 'memory' and data['id'].startswith('memory'):
+	        #print data['id']
+	        if 'children' in data:
+	          for key,value in enumerate(data['children']):
+		    if 'size' in value:
+		      #print key, value['size']
+		      total_memory = total_memory + value['size']
+
+        #print 'MEMORY => ' + str(total_memory)  + ' ' +str(total_memory/(1024*1024*1024))+ 'GB'
+        return total_memory
 
     #generate random string
     def random_string(self, string_length=10):
