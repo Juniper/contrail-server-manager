@@ -9,6 +9,7 @@
                  are part of the contrail cluster of nodes, interacting
                  together to provide a scalable virtual network system.
 """
+import pprint
 import os
 import glob
 import sys
@@ -46,6 +47,7 @@ from server_mgr_certs import ServerMgrCerts
 from server_mgr_utils import *
 from server_mgr_ssh_client import ServerMgrSSHClient
 from server_mgr_issu import *
+from server_mgr_discovery import *
 from generate_dhcp_template import *
 
 try:
@@ -108,6 +110,8 @@ _DEF_PUPPET_AGENT_RETRY_POLL_INTERVAL = 20
 # this variable and it's use when enabling new puppet framework.
 _ENABLE_NEW_PUPPET_FRAMEWORK = True
 _ERR_INVALID_CONTRAIL_PKG = 'Invalid contrail package. Please specify a valid package'
+DEFAULT_PATH_LSTOPO_XML='/var/www/html/contrail/lstopo/'
+
 
 @bottle.error(403)
 def error_403(err):
@@ -504,6 +508,7 @@ class VncServerManager():
         bottle.route('/columns', 'GET', self.get_table_columns)
         bottle.route('/dhcp_subnet', 'GET', self.get_dhcp_subnet)
         bottle.route('/dhcp_host', 'GET', self.get_dhcp_host)
+        bottle.route('/hardware_info', 'GET', self.get_hw_data)
         bottle.route('/MonitorConf', 'GET', self._server_monitoring_obj.get_mon_conf_details)
         bottle.route('/MonitorInfo', 'GET', self._server_monitoring_obj.get_monitoring_info)
         bottle.route('/MonitorInfoSummary', 'GET', self._server_monitoring_obj.get_monitoring_info_summary)
@@ -566,6 +571,7 @@ class VncServerManager():
         bottle.route('/all', 'PUT', self.create_server_mgr_config)
         bottle.route('/image/upload', 'PUT', self.upload_image)
         bottle.route('/status', 'PUT', self.put_status)
+        bottle.route('/hw_server', 'PUT', self.add_hw_server)
 
         #smgr_add
         bottle.route('/server', 'PUT', self.put_server)
@@ -778,7 +784,7 @@ class VncServerManager():
         return ret_data
 
     def validate_smgr_put(self, validation_data, request, data=None,
-                                                        modify = False):
+                                modify = False):
         ret_data = {}
         ret_data['status'] = 1
         try:
@@ -1148,7 +1154,7 @@ class VncServerManager():
 
 
     def validate_smgr_request(self, type, oper, request, data = None, modify =
-                              False):
+                              False ):
         self._smgr_log.log(self._smgr_log.DEBUG, "validate_smgr_request")
         ret_data = {}
         ret_data['status'] = 1
@@ -1559,6 +1565,63 @@ class VncServerManager():
         return {"dhcp_host": dhcp_hosts}
     # end get_dhcp_host
 
+    # [RE]Generate HTML file for now
+    def get_hw_data(self):
+       hw_data=self._serverDb.get_hw_data()
+       str_host=""
+       html_start = "<html> <head> <meta http-equiv='refresh' content='5'> " \
+                    "<style> table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: center; padding: 8px; } </style>" \
+                    "</head> <body> <table > <tr> <th>UUID</th><th>JSON File </th> <th>Vendor</th> <th># CPU</th> <th>RAM (GB)</th> <th>Network</th> <th>Disks</th> <th>TopoLogy XML</th> </tr>"
+       html_end = "</table> </body> </html>"
+       host_rows = ""
+       for host_details in hw_data:
+           host = eval(host_details['basic_hw'])
+           str_host = str_host + host_details['uuid']+ "<=>"
+           uuid_cell = "<td> <a href=" + host['topo_url'] + ">"+ host_details['uuid'] + "</a></td>"
+           if 'system' in host:
+             vendor = host['system']['vendor']
+           else :
+             vendor = "UNKNOWN"
+           vendor_cell = "<td>" + vendor + "</td>"
+           num_cpu = "<td>" + host['cpu'] + "</td>"
+           ram_gb = "<td>" + host['mem_GB'] + "</td>"
+           topo_xml = host['topo_url'].replace("svg", "xml")
+           topology_cell = "<td> <a href="+ topo_xml + "> Full XML Data </a></td>"
+           json_cell =     "<td> <a href=/contrail/lstopo/" +host_details['sid'] + ".json> "+ host_details['sid'] +"</a></td>"
+           network_cell = "<td>"+ str(host['network'])+ "</td>"
+           network_rows=""
+           for nic in host['network']:
+               eth_details = host['network'][nic]
+               ifname = eth_details['name']
+               mac_addr = eth_details['serial']
+               link_status = eth_details['link']
+               nic_driver = eth_details['driver']
+               if link_status == "yes":
+                   link_color=" bgcolor='#00cc00'"
+               else:
+                   link_color=" bgcolor='#ff5050'"
+               network_rows = network_rows + "<tr" + link_color+ "><td>" +ifname+"</td><td>"+mac_addr+"</td><td>"+ nic_driver+ "</td></tr>"
+
+           network_cell = "<td><table>"+ network_rows +"</table></td>"
+           disk_rows = ""
+           for disk in host['disk']:
+             disk_name = host['disk'][disk]['name']
+             disk_size = host['disk'][disk]['size']
+             disk_rows = disk_rows + "<tr><td>" + disk_name+"</td><td>" + disk_size+"</td></tr>"
+
+           disk_cell = "<td><table>"+ disk_rows +"</table></td>"
+
+           host_row="<tr>" + uuid_cell + json_cell + vendor_cell + num_cpu + ram_gb +network_cell+disk_cell+ topology_cell+"</tr>"
+           host_rows = host_rows + host_row 
+           
+       html_page = html_start + host_rows + html_end
+
+       outfile=open(DEFAULT_PATH_LSTOPO_XML+"hardware_details_full.html", 'w')
+       outfile.write(html_page)
+       outfile.close()
+       
+       return {"hw_data": {}}
+
     # API Call to list images
     def get_image(self):
         try:
@@ -1939,6 +2002,33 @@ class VncServerManager():
         resp_msg = self.form_operartion_data(msg, 0, entity)
         return resp_msg
 
+    def add_hw_server(self):
+        entity = bottle.request.json
+        self._smgr_log.log(self._smgr_log.DEBUG, "ADD_HW_SERVER")
+        #self._smgr_log.log(self._smgr_log.DEBUG, entity)
+        server_uuid = entity.get("server_uuid", "")
+        outfile = open(DEFAULT_PATH_LSTOPO_XML+server_uuid, 'w') 
+        json.dump(entity, outfile)
+        outfile.close()
+        concise_hw_data, sm_json , sid = parse_hw_data(entity)
+        
+        add_hw_data = {'uuid': server_uuid,
+                       'basic_hw': str(concise_hw_data),
+                       'full_hw' : str(entity),
+                       'sm_json' : str(sm_json),
+                       'sid'     : str(sid)}
+
+        
+        result = self._serverDb.modify_hw_data(add_hw_data)
+        summary_file=DEFAULT_PATH_LSTOPO_XML+server_uuid+'.summary'
+        outfile=open(summary_file, 'w')
+        outfile.write(json.dumps(concise_hw_data, sort_keys=True, indent=4))
+        outfile.close()
+        self.get_hw_data()
+        msg = "HW ADDED Successfully"
+        resp_msg = self.form_operartion_data(msg, 0, entity)
+        return resp_msg
+
     def put_dhcp_subnet(self):
         entity = bottle.request.json
         if (not entity):
@@ -2029,7 +2119,7 @@ class VncServerManager():
                 else:
                     new_servers.append(server)
                     self.validate_smgr_request("SERVER", "PUT",
-                                               bottle.request, server)
+                                               bottle.request, server )
                     server['status'] = "server_added"
                     server['discovered'] = "false"
                     self._serverDb.add_server(server)
