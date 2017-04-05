@@ -152,10 +152,10 @@ def untar_package_to_folder(mirror,package_path):
                 subprocess.check_call(cmd, shell=True)
                 cmd = "tar -xvzf %s -C %s/%s > /dev/null" %(package, package_path, package_name)
                 subprocess.check_call(cmd, shell=True)
-                cleanup_package_list.append(package)
                 folder_list.append(str(package_path)+"/"+str(package_name))
             elif package_name == "contrail-docker-images":
                 docker_images_package = package
+            cleanup_package_list.append(package)
 
     search_puppet_package = package_path+"/contrail-puppet*.tar.gz"
     puppet_package_path = glob.glob(search_puppet_package)

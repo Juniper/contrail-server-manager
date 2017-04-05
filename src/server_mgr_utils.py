@@ -26,7 +26,29 @@ class ServerMgrUtil():
         # end convert_unicode(input)
         return convert_unicode
     convert_unicode = staticmethod(convert_unicode())
-  
+
+    # local function to return the output of executing a shell command
+    def command_output(self, cmd):
+        try:
+            result = subprocess.check_output(cmd, shell = True).strip()
+        except subprocess.CalledProcessError as e:
+            result = None
+        return result
+
+    # this function returns the package type given the image
+    def get_tgz_package_type(self,img_path):
+       base_cmd = "tar --wildcards -tzf " +img_path +" "
+       cmd = base_cmd + "contrail-puppet*"
+       if self.command_output(cmd) is not None:
+         return "contrail-install-tgz"
+       cmd = base_cmd + "contrail-networking-docker*"
+       if self.command_output(cmd) is not None:
+         return "contrail-cloud-docker-tgz"
+       cmd = base_cmd + "contrail-networking-dependents*"
+       if self.command_output(cmd) is not None:
+         return "contrail-networking-docker-tgz"
+       return None
+
     def get_package_version(self,package, image_type):
         if (image_type == "contrail-ubuntu-package" or image_type == "contrail-storage-ubuntu-package"):
             version = subprocess.check_output(['dpkg-deb', '-f',str(package),'Version'])
