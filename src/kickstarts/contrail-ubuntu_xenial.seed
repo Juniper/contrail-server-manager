@@ -62,9 +62,6 @@ d-i	mirror/http/proxy	string
 
 # If any cobbler repo definitions were referenced in the kickstart profile, include them here.
 #apt-setup-udeb	apt-setup/services-select multiselect	security
-d-i	apt-setup/services-select multiselect	security
-d-i	apt-setup/security_host	string	$hostname$directory-security
-d-i	apt-setup/volatile_host string	$hostname$directory-volatile
 
 # Network information
 # NOTE : this questions are asked before downloading preseed
