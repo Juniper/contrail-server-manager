@@ -115,6 +115,9 @@ class Add(Command):
         # Subparser for DHCP host edit
         parser_dhcp_host = subparsers.add_parser(
             "dhcp_host", help='Create DHCP Host')
+        parser_dhcp_host.add_argument(
+            "--file_name", "-f",
+            help="json file containing dhcp_host param values", dest="file_name", default=None)
         for param in self.object_dict["dhcp_host"]:
             parser_dhcp_host.add_argument(
                 "--" + str(param),
@@ -125,6 +128,9 @@ class Add(Command):
         # Subparser for DHCP subnet edit
         parser_dhcp_subnet = subparsers.add_parser(
             "dhcp_subnet", help='Create DHCP Subnet')
+        parser_dhcp_subnet.add_argument(
+            "--file_name", "-f",
+            help="json file containing dhcp_subnet param values", dest="file_name", default=None)
         for param in self.object_dict["dhcp_subnet"]:
             parser_dhcp_subnet.add_argument(
                 "--" + str(param),
@@ -436,7 +442,7 @@ class Add(Command):
                     for obj_payload in payload[str(smgr_obj)]:
                         if "tag" in obj_payload and smgr_obj == "server":
                             self.verify_added_tags(smgr_obj, obj_payload)
-                        if "id" not in obj_payload and smgr_obj != "tag":
+                        if "id" not in obj_payload and (smgr_obj != "tag" and smgr_obj != "dhcp_host" and smgr_obj != "dhcp_subnet"):
                             self.app.print_error_message_and_quit("No id specified for object being added")
             elif not (getattr(parsed_args, "id", None) or getattr(parsed_args, "mac_address", None)) \
                     and smgr_obj != "tag" and smgr_obj != "dhcp_subnet":
