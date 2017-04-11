@@ -113,13 +113,13 @@ class Server(object):
         self.export_server_info()
         self.os_version = ()
         self.extra_packages_12_04 = ['puppet=3.7.3-1puppetlabs1', 'python-netaddr',
-                                     'ifenslave-2.6=1.1.0-19ubuntu5', 'sysstat',
+                                     'ifenslave-2.6', 'sysstat',
                                      'ethtool']
         self.extra_packages_14_04 = ['puppet=3.7.3-1puppetlabs1', 'python-netaddr',
-                                     'ifenslave-2.6=2.4ubuntu1', 'sysstat',
+                                     'ifenslave-2.6', 'sysstat',
                                      'ethtool']
         self.extra_packages_16_04 = ['puppet=3.8.5-2', 'python-netaddr',
-                                     'ifenslave-2.6=2.4ubuntu1', 'sysstat',
+                                     'ifenslave-2.6', 'sysstat',
                                      'ethtool']
 
     def __del__(self):
