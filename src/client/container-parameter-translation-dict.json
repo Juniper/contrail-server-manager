@@ -318,5 +318,73 @@
   "contrail_compute_mode": {
     "newname": "contrail_4.contrail_compute_mode",
     "newformat": "string"
+  },
+  "dpdk.huge_pages": {
+    "newname": "contrail_4.huge_pages",
+    "newformat": "integer"
+  },
+  "dpdk.coremask": {
+    "newname": "contrail_4.core_mask",
+    "newformat": "string"
+  },
+  "tor_agent.tor_ip": {
+    "newname": "top_of_rack.ip_address",
+    "newformat": "string"
+  },
+  "tor_agent.tor_agent_id": {
+    "newname": "top_of_rack.id",
+    "newformat": "string"
+  },
+  "tor_agent.tor_tunnel_ip": {
+    "newname": "top_of_rack.tunnel_ip_address",
+    "newformat": "string"
+  },
+  "tor_agent.tor_type": {
+    "newname": "top_of_rack.type",
+    "newformat": "string"
+  },
+  "tor_agent.tor_ovs_port": {
+    "newname": "top_of_rack.ovs_port",
+    "newformat": "string"
+  },
+  "tor_agent.tor_ovs_protocol": {
+    "newname": "top_of_rack.ovs_protocol",
+    "newformat": "string"
+  },
+  "tor_agent.tor_name": {
+    "newname": "top_of_rack.switch_name",
+    "newformat": "string"
+  },
+  "tor_agent.tor_vendor_name": {
+    "newname": "top_of_rack.vendor_name",
+    "newformat": "string"
+  },
+  "tor_agent.tor_product_name": {
+    "newname": "top_of_rack.product_name",
+    "newformat": "string"
+  },
+  "tor_agent.tor_agent_http_server_port": {
+    "newname": "top_of_rack.http_server_port",
+    "newformat": "string"
+  },
+  "tor_agent.tor_agent_ovs_ka": {
+    "newname": "top_of_rack.keepalive_time",
+    "newformat": "string"
+  },
+  "static_route.ip": {
+    "newname": "static_route.network",
+    "newformat": "string"
+  },
+  "static_route.gw": {
+    "newname": "static_route.gateway",
+    "newformat": "string"
+  },
+  "static_route.intf": {
+    "newname": "static_route.interface",
+    "newformat": "string"
+  },
+  "static_route.netmask": {
+    "newname": "static_route.netmask",
+    "newformat": "string"
   }
 }
