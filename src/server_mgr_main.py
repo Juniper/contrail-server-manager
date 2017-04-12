@@ -59,6 +59,7 @@ from sm_ansible_utils import BARE_METAL_COMPUTE
 from sm_ansible_utils import _DEF_BASE_PLAYBOOKS_DIR 
 from sm_ansible_utils import CONTROLLER_CONTAINER
 from sm_ansible_utils import ANALYTICS_CONTAINER
+from sm_ansible_utils import ANALYTICSDB_CONTAINER
 from sm_ansible_utils import LB_CONTAINER
 from server_mgr_docker import SM_Docker
 
@@ -200,7 +201,8 @@ class VncServerManager():
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 'p')]
     #_role_sequence = [(['database', 'openstack', 'config', 'control', 'collector', 'webui'], 's')]
     _compute_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
-    _roles = _control_roles + _compute_roles
+    _container_roles = _valid_roles
+    _roles = _control_roles + _compute_roles + _container_roles
     _control_step_roles = ['global_controller', 'loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
     _compute_step_roles = ['compute', 'tsn', 'toragent','storage-compute', 'storage-master']
     _openstack_steps = ['pre_exec_vnc_galera', 'post_exec_vnc_galera', 'keepalived', 'haproxy']
@@ -5072,27 +5074,42 @@ class VncServerManager():
         my_uuid = cluster_params.get(
             "uuid", str(uuid.uuid4()).encode("utf-8"))
         contrail_params['uuid'] = my_uuid
+        # If container roles are present in cluster, set flag to True
+        container_roles = ((CONTROLLER_CONTAINER in role_servers) and
+                           ((not role_servers[CONTROLLER_CONTAINER]) == False))
+        role_mapping = {
+            CONTROLLER_CONTAINER  : ['config', 'control', 'webui'],
+            ANALYTICS_CONTAINER   : ['analytics'],
+            ANALYTICSDB_CONTAINER : ['database'],
+            'collector'           : ['analytics']
+        }
         for role, servers in role_servers.iteritems():
+            if container_roles:
+                if role in ['config', 'control', 'collector', 'webui', 'database']:
+                    continue
+            else:
+                if role in [CONTROLLER_CONTAINER, ANALYTICS_CONTAINER, ANALYTICSDB_CONTAINER]:
+                    continue
             role_ctl_ip = [(self.get_control_ip(x)) for x in servers]
             role_ip = [x.get("ip_address", "") for x in servers]
             role_id = [x.get("host_name", "") for x in servers]
             role_passwd = [x.get("password", "") for x in servers]
             role_user = ["root" for x in servers]
 
-            # special case - convert role name for collector to analytics
-            if (role == "collector"):
-                role = "analytics"
-            # Expanding special cases to allow mixed ansible/puppet provisioning
-            if (role == "controller"):
-                role = "config"
-            if (role == "analyticsdb"):
-                role = "database"
             if role != "openstack":
-                contrail_params[role] = {}
-                contrail_params[role][role + "_ip_list"] = role_ctl_ip
-                contrail_params[role][role + "_name_list"] = role_id
-                contrail_params[role][role + "_passwd_list"] = role_passwd
-                contrail_params[role][role + "_user_list"] = role_user
+                if role in role_mapping:
+                    for x in role_mapping[role]:
+                        contrail_params[x] = {}
+                        contrail_params[x][x + "_ip_list"] = role_ctl_ip
+                        contrail_params[x][x + "_name_list"] = role_id
+                        contrail_params[x][x + "_passwd_list"] = role_passwd
+                        contrail_params[x][x + "_user_list"] = role_user
+                else:
+                    contrail_params[role] = {}
+                    contrail_params[role][role + "_ip_list"] = role_ctl_ip
+                    contrail_params[role][role + "_name_list"] = role_id
+                    contrail_params[role][role + "_passwd_list"] = role_passwd
+                    contrail_params[role][role + "_user_list"] = role_user
             else:
                 openstack_params[role + "_ip_list"] = role_ctl_ip
                 openstack_params[role + "_name_list"] = role_id
