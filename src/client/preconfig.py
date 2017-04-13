@@ -304,6 +304,10 @@ class Server(object):
             self.exec_cmd('apt-get update')
             self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify,
                           error_on_fail=True)
+        else:
+            self.exec_cmd('apt-get update')
+            self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify,
+                          error_on_fail=True)
 
     def preconfig_repos(self):
         repo_entry = r'deb http://%s:%s/thirdparty_packages/ ./' % ('puppet', self.server_manager_repo_port)
@@ -318,6 +322,10 @@ class Server(object):
             log.debug('Adding Repo Entry (%s) to /etc/apt/sources.list' % repo_entry)
             self.exec_cmd('echo >> /etc/apt/sources.list', error_on_fail=True)
             self.exec_cmd(r"sed -i '1 i\%s' /etc/apt/sources.list" % repo_entry)
+            self.exec_cmd('apt-get update')
+            self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify,
+                          error_on_fail=True)
+        else:
             self.exec_cmd('apt-get update')
             self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify,
                           error_on_fail=True)
