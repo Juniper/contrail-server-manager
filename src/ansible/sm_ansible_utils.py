@@ -22,6 +22,7 @@ ANALYTICSDB_CONTAINER = "contrail-analyticsdb"
 AGENT_CONTAINER       = "contrail-agent"
 LB_CONTAINER          = "contrail-lb"
 BARE_METAL_COMPUTE    = "contrail-compute"
+CEPH_CONTROLLER       = "contrail-ceph-controller"
 _DEF_BASE_PLAYBOOKS_DIR = "/opt/contrail/server_manager/ansible/playbooks"
 
 # Add new roles and corresponding container_name here
@@ -30,7 +31,8 @@ _container_names = { CONTROLLER_CONTAINER  : 'controller',
                      ANALYTICSDB_CONTAINER : 'analyticsdb',
                      LB_CONTAINER          : 'lb',
                      AGENT_CONTAINER       : 'agent',
-                     BARE_METAL_COMPUTE    : 'agent' }
+                     BARE_METAL_COMPUTE    : 'agent',
+                     CEPH_CONTROLLER       : 'ceph-master' }
 _valid_roles = _container_names.keys()
 
 _inventory_group = { CONTROLLER_CONTAINER  : "contrail-controllers",
@@ -38,13 +40,15 @@ _inventory_group = { CONTROLLER_CONTAINER  : "contrail-controllers",
                      ANALYTICSDB_CONTAINER : "contrail-analyticsdb",
                      LB_CONTAINER          : "contrail-lb",
                      AGENT_CONTAINER       : "contrail-compute",
-                     BARE_METAL_COMPUTE    : "contrail-compute" }
+                     BARE_METAL_COMPUTE    : "contrail-compute",
+                     CEPH_CONTROLLER       : "ceph-controller" }
 
 _container_img_keys = { CONTROLLER_CONTAINER  : "controller_image",
                         ANALYTICS_CONTAINER   : "analytics_image",
                         ANALYTICSDB_CONTAINER : "analyticsdb_image",
                         LB_CONTAINER          : "lb_image",
-                        AGENT_CONTAINER       : "agent_image" }
+                        AGENT_CONTAINER       : "agent_image",
+                        CEPH_CONTROLLER       : "storage_ceph_controller_image" }
 
 def send_REST_request(ip, port, endpoint, payload,
                       method='POST', urlencode=False):
@@ -140,21 +144,21 @@ def untar_package_to_folder(mirror,package_path):
     cleanup_package_list = []
     puppet_package = None
     ansible_package = None
-    docker_images_package = None
+    docker_images_package_list = []
     search_package = package_path+"/*.tgz"
     package_list = glob.glob(search_package)
     if package_list:
         for package in package_list:
             package_name = str(package).partition(package_path+"/")[2]
             package_name = str(package_name).partition('_')[0]
-            if package_name not in ['contrail-ansible', 'contrail-puppet','contrail-docker-images']:
+            if package_name not in ['contrail-ansible', 'contrail-puppet','contrail-docker-images','contrail-storage-docker']:
                 cmd = "mkdir -p %s/%s" %(package_path,package_name)
                 subprocess.check_call(cmd, shell=True)
                 cmd = "tar -xvzf %s -C %s/%s > /dev/null" %(package, package_path, package_name)
                 subprocess.check_call(cmd, shell=True)
                 folder_list.append(str(package_path)+"/"+str(package_name))
-            elif package_name == "contrail-docker-images":
-                docker_images_package = package
+            elif package_name == "contrail-docker-images" or package_name == "contrail-storage-docker":
+                docker_images_package_list.append(package)
             cleanup_package_list.append(package)
 
     search_puppet_package = package_path+"/contrail-puppet*.tar.gz"
@@ -172,7 +176,7 @@ def untar_package_to_folder(mirror,package_path):
     if deb_package_list:
         cmd = "mv %s/*.deb %s/contrail-repo/ > /dev/null" %(package_path, str(mirror))
         subprocess.check_call(cmd, shell=True)
-    return folder_list, cleanup_package_list, puppet_package, ansible_package, docker_images_package
+    return folder_list, cleanup_package_list, puppet_package, ansible_package, docker_images_package_list
 
 def unpack_ansible_playbook(ansible_package,mirror,image_id):
     # create ansible playbooks dir from the image tar
@@ -185,8 +189,9 @@ def unpack_ansible_playbook(ansible_package,mirror,image_id):
     subprocess.check_call(cmd, shell=True)
     return playbooks_version
 
-def unpack_containers(docker_images_package,mirror):
-    cmd = 'tar -xvzf %s -C %s/contrail-docker/ > /dev/null' % (docker_images_package,mirror)
+def unpack_containers(docker_images_package_list,mirror):
+    for docker_images_package in docker_images_package_list:
+        cmd = 'tar -xvzf %s -C %s/contrail-docker/ > /dev/null' % (docker_images_package,mirror)
     subprocess.check_call(cmd, shell=True)
 
 # Wrapper function for add_puppet_modules for contrail-docker-cloud image
@@ -231,11 +236,11 @@ def _create_container_repo(image_id, image_type, image_version, dest, args):
             folder_list.append(str(mirror))
             ansible_package = None
             puppet_package = None
-            docker_images_package = None
+            docker_images_package_list = []
             playbooks_version = None
 
             for folder in folder_list:
-                new_folder_list, new_cleanup_list, puppet_package_path, ansible_package, docker_images_package = untar_package_to_folder(mirror,str(folder))
+                new_folder_list, new_cleanup_list, puppet_package_path, ansible_package, docker_images_package_list = untar_package_to_folder(mirror,str(folder))
                 if folder == mirror:
                     cleanup_package_list = new_folder_list + new_cleanup_list
                 folder_list += new_folder_list
@@ -243,8 +248,8 @@ def _create_container_repo(image_id, image_type, image_version, dest, args):
                     puppet_package = unpack_puppet_manifests(puppet_package_path,mirror)
                 if ansible_package:
                     playbooks_version = unpack_ansible_playbook(ansible_package,mirror,image_id)
-                if docker_images_package:
-                    unpack_containers(docker_images_package,mirror)
+                if docker_images_package_list != []:
+                    unpack_containers(docker_images_package_list,mirror)
 
 	    # build repo using reprepro based on repo pinning availability
 	    cmd = ("cp -v -a /opt/contrail/server_manager/reprepro/conf %s/" % mirror)
