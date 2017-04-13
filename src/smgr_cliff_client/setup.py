@@ -13,21 +13,9 @@ def get_version():
     else:
         return "1.0"
 
-
-def get_contrail_sku():
-    sku = None
-    with open('contrail_sku.txt') as f:
-        sku = f.read()
-        sku = sku.strip()
-    if sku:
-        return sku
-    else:
-        return "havana"
-
 CONTRAIL_VERSION = get_version()
-CONTRAIL_SKU = get_contrail_sku()
 
-VERSION = CONTRAIL_VERSION + "-" + CONTRAIL_SKU
+VERSION = CONTRAIL_VERSION
 
 import setuptools
 import ConfigParser
