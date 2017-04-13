@@ -304,6 +304,8 @@ class Server(object):
             self.exec_cmd('apt-get update')
             self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify,
                           error_on_fail=True)
+        else:
+            self.exec_cmd('apt-get update')
 
     def preconfig_repos(self):
         repo_entry = r'deb http://%s:%s/thirdparty_packages/ ./' % ('puppet', self.server_manager_repo_port)
@@ -321,6 +323,8 @@ class Server(object):
             self.exec_cmd('apt-get update')
             self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify,
                           error_on_fail=True)
+        else:
+            self.exec_cmd('apt-get update')
 
     def install_packages(self):
         os_type, version, misc = self.os_version
