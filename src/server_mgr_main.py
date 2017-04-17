@@ -61,6 +61,8 @@ from sm_ansible_utils import CONTROLLER_CONTAINER
 from sm_ansible_utils import ANALYTICS_CONTAINER
 from sm_ansible_utils import ANALYTICSDB_CONTAINER
 from sm_ansible_utils import LB_CONTAINER
+from sm_ansible_utils import CEPH_COMPUTE
+from sm_ansible_utils import CEPH_CONTROLLER
 from server_mgr_docker import SM_Docker
 
 try:
@@ -379,7 +381,8 @@ class VncServerManager():
             "analytics_collector_config" :self.get_calculated_analytics_coll_cfg_dict,
             "query_engine_config"   : self.get_calculated_query_engine_cfg_dict,
             "snmp_collector_config" : self.get_calculated_snmp_coll_cfg_dict,
-            "topology_config"       : self.get_calculated_topo_cfg_dict
+            "topology_config"       : self.get_calculated_topo_cfg_dict,
+            "storage_ceph_config"   : self.get_calculated_storage_ceph_cfg_dict
         }
                 
 
@@ -1673,6 +1676,13 @@ class VncServerManager():
         return {"dhcp_host": dhcp_hosts}
     # end get_dhcp_host
 
+    # get ceph authentication key for storage provisioning
+    def get_new_ceph_key(self):
+        cmd = 'ceph-authtool -p -C --gen-print-key'
+        output = subprocess.check_output(cmd, shell=True)
+        return output[:-1]
+    # end get_new_ceph_key
+
     # API Call to list images
     def get_image(self):
         try:
@@ -2112,15 +2122,12 @@ class VncServerManager():
                     self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
                                                 cur_cluster)
                     str_uuid = str(uuid.uuid4())
-                    storage_fsid = str(uuid.uuid4())
-                    storage_virsh_uuid = str(uuid.uuid4())
                     cur_cluster["parameters"].update({"uuid": str_uuid})
-                    cur_cluster["parameters"].update({"storage_fsid": storage_fsid})
-                    cur_cluster["parameters"].update({"storage_virsh_uuid": storage_virsh_uuid})
                     cur_cluster["provision_role_sequence"] = {}
                     cur_cluster["provision_role_sequence"]["steps"] = []
                     cur_cluster["provision_role_sequence"]["completed"] = []
                     self._smgr_log.log(self._smgr_log.INFO, "Cluster Data %s" % cur_cluster)
+                    self.generate_storage_keys(cur_cluster.get("parameters", {}))
                     self.generate_passwords(cur_cluster.get("parameters", {}))
                     self._serverDb.add_cluster(cur_cluster)
         except ServerMgrException as e:
@@ -4328,6 +4335,26 @@ class VncServerManager():
         return server_ips
     # end get_server_ip_list
 
+    # function to get storage osd disk list
+    def get_storage_config(self, server, key):
+        parameters_dict = {}
+        provision_dict = {}
+        contrail_dict = {}
+        storage_dict = {}
+        storage_disks = {}
+        if 'parameters' in server:
+            parameters_dict = eval(server.get("parameters", {}))
+        if 'provision' in parameters_dict:
+            provision_dict = parameters_dict['provision']
+        if 'contrail' in provision_dict:
+            contrail_dict = provision_dict['contrail']
+        if 'storage' in contrail_dict:
+            storage_dict = contrail_dict['storage']
+        if key in storage_dict:
+            storage_disks = storage_dict[key]
+        return storage_disks
+    # end get_storage_config
+
     def interface_created(self):
         entity = bottle.request.json
         entity["interface_created"] = "Yes"
@@ -5029,6 +5056,196 @@ class VncServerManager():
         return tor_ha_config
     # end build_tor_ha_config
 
+    # build_storage_config
+    def build_storage_config(self, server, cluster, role_servers,
+                                cluster_servers, contrail_params):
+        cluster_params = cluster.get("parameters", {})
+        #cluster['parameters'] = cluster_params
+        cluster_provision_params = cluster_params.get("provision", {})
+        cluster_params['provision'] = cluster_provision_params
+        cluster_contrail_params = cluster_provision_params.get("contrail", {})
+        cluster_provision_params['contrail'] = cluster_contrail_params
+        cluster_storage_params = cluster_contrail_params.get("storage", {})
+        cluster_contrail_params['storage'] = cluster_storage_params
+
+        contrail_params['storage'] = {}
+        total_osd = int(0)
+        num_storage_hosts = int(0)
+        storage_mon_host_ip_set = set()
+        storage_mon_hostname_set = set()
+        storage_chassis_config_set = set()
+        storage_servers = {}
+
+        if 'live_migration_host' in cluster_storage_params:
+            live_migration_host = cluster_storage_params['live_migration_host']
+        else:
+            live_migration_host = ''
+        live_migration_ip = ""
+
+        # create pool secrets
+        if 'pool_secret' not in cluster_storage_params:
+            cluster_storage_params['pool_secret'] = {}
+        if 'volumes' not in cluster_storage_params['pool_secret']:
+            cluster_storage_params['pool_secret']['volumes'] = str(uuid.uuid4())
+        if 'images' not in cluster_storage_params['pool_secret']:
+            cluster_storage_params['pool_secret']['images'] = str(uuid.uuid4())
+        if 'last_osd_num' not in cluster_storage_params:
+            cluster_storage_params['last_osd_num'] = int(0)
+            last_osd_num = int(0)
+        else:
+            last_osd_num = cluster_storage_params['last_osd_num']
+
+        # copy role_servers as we append the variable with the container
+        # based roles
+        storage_servers = list(role_servers['storage-compute'])
+        for storage_server in cluster_servers:
+            if CEPH_COMPUTE in eval(storage_server.get('roles', '[]')):
+                storage_servers.append(storage_server)
+
+        for role_server in storage_servers:
+            server_params  = eval(role_server.get("parameters", {}))
+            server_provision_params = server_params.get("provision", {})
+            server_params['provision'] = server_provision_params
+            server_contrail_params = server_provision_params.get("contrail", {})
+            server_provision_params['contrail'] = server_contrail_params
+            storage_params  = server_contrail_params.get("storage", {})
+            server_contrail_params['storage'] = storage_params
+
+            # Calculate total osd number, unique pools, unique osd number
+            # for osd disks
+            if (('storage_osd_disks' in storage_params) and
+                (len(storage_params['storage_osd_disks']) > 0)):
+                total_osd += len(storage_params['storage_osd_disks'])
+                num_storage_hosts += 1
+
+                for disk in storage_params['storage_osd_disks']:
+                    disksplit = disk.split(':')
+                    diskcount = disk.count(':')
+                    # add virsh secret for unique volumes_ssd_ pools
+                    if (diskcount == 2 and disksplit[2][0] == 'P'):
+                        if ('volumes_hdd_' + disksplit[2]) not in \
+                                    cluster_storage_params['pool_secret']:
+                            cluster_storage_params['pool_secret'] \
+                                ['volumes_hdd_' + disksplit[2]] = \
+                                                            str(uuid.uuid4())
+                    elif (diskcount == 1 and disksplit[1][0] == 'P'):
+                        if ('volumes_hdd_' + disksplit[1]) not in \
+                                    cluster_storage_params['pool_secret']:
+                            cluster_storage_params['pool_secret'] \
+                                ['volumes_hdd_' + disksplit[1]] = \
+                                                            str(uuid.uuid4())
+                    # find unique osd number for each disk and add to dict
+                    if 'osd_num' not in storage_params:
+                        storage_params['osd_num'] = {}
+                    if disk not in storage_params['osd_num']:
+                        storage_params['osd_num'][disk] = last_osd_num
+                        last_osd_num += 1
+                # end for disk
+            # end if
+
+            # Calculate total osd number, unique pools, unique osd number
+            # for osd ssd disks
+            if (('storage_osd_ssd_disks' in storage_params) and
+                (len(storage_params['storage_osd_ssd_disks']) > 0)):
+                # if ssd disks are present, we need 2 more pools for
+                # volumes_hdd and volumes_ssd
+                if 'volumes_hdd' not in cluster_storage_params['pool_secret']:
+                    cluster_storage_params['pool_secret']['volumes_hdd'] = \
+                                                            str(uuid.uuid4())
+                if 'volumes_ssd' not in cluster_storage_params['pool_secret']:
+                    cluster_storage_params['pool_secret']['volumes_ssd'] = \
+                                                            str(uuid.uuid4())
+                total_osd += len(storage_params['storage_osd_ssd_disks'])
+
+                for disk in storage_params['storage_osd_ssd_disks']:
+                    disksplit = disk.split(':')
+                    diskcount = disk.count(':')
+                    # add virsh secret for unique volumes_ssd_ pools
+                    if (diskcount == 2 and disksplit[2][0] == 'P'):
+                        if ('volumes_ssd_' + disksplit[2]) not in \
+                                    cluster_storage_params['pool_secret']:
+                            cluster_storage_params['pool_secret'] \
+                                    ['volumes_ssd_' + disksplit[2]] = \
+                                                            str(uuid.uuid4())
+                    elif (diskcount == 1 and disksplit[1][0] == 'P'):
+                        if ('volumes_ssd_' + disksplit[1]) not in \
+                                    cluster_storage_params['pool_secret']:
+                            cluster_storage_params['pool_secret'] \
+                                    ['volumes_ssd_' + disksplit[1]] = \
+                                                            str(uuid.uuid4())
+                    # find unique osd number for each disk and add to dict
+                    if 'osd_num' not in storage_params:
+                        storage_params['osd_num'] = {}
+                    if disk not in storage_params['osd_num']:
+                        storage_params['osd_num'][disk] = last_osd_num
+                        last_osd_num += 1
+                # end for disk
+            # end if
+
+            storage_mon_host_ip_set.add(self.get_control_ip(role_server))
+            storage_mon_hostname_set.add(role_server['host_name'])
+            if role_server['host_name'] == live_migration_host:
+                live_migration_ip = self.get_control_ip(role_server)
+            if storage_params.get('storage_chassis_id', ""):
+                storage_host_chassis = (
+                    role_server['host_name'] + ':' + \
+                                storage_params['storage_chassis_id'])
+                storage_chassis_config_set.add(storage_host_chassis)
+            # end if
+
+            # save back server db as modification are done
+            role_server['parameters'] = unicode(server_params)
+            self._serverDb.modify_server(role_server)
+        # end for role_server
+
+        # save back changes to clusterdb
+        cluster_storage_params['storage_enabled'] = num_storage_hosts
+        cluster_storage_params['last_osd_num']    = last_osd_num
+        self._serverDb.modify_cluster(cluster)
+
+
+        # copy role_servers as we append the variable with the container
+        # based roles
+        storage_servers  = list(role_servers['storage-master'])
+        for storage_server in cluster_servers:
+            if CEPH_CONTROLLER in eval(storage_server.get('roles', '[]')):
+                storage_servers.append(storage_server)
+        for x in storage_servers:
+            storage_mon_host_ip_set.add(self.get_control_ip(x))
+            storage_mon_hostname_set.add(x['host_name'])
+        # end for
+
+        contrail_params['storage']['storage_num_osd']       = total_osd
+        contrail_params['storage']['storage_num_hosts']     = num_storage_hosts
+        contrail_params['storage']['storage_enabled']       = num_storage_hosts
+        contrail_params['storage']['live_migration_ip']     = live_migration_ip
+        contrail_params['storage']['storage_fsid']          = \
+                            cluster_storage_params['storage_fsid']
+        contrail_params['storage']['storage_virsh_uuid']    = \
+                            cluster_storage_params['storage_virsh_uuid']
+        contrail_params['storage']['storage_ip_list']       = \
+                            list(storage_mon_host_ip_set)
+        contrail_params['storage']['storage_monitor_hosts'] = \
+                            list(storage_mon_host_ip_set)
+        contrail_params['storage']['storage_hostnames']     = \
+                            list(storage_mon_hostname_set)
+        contrail_params['storage']['virsh_uuids']           = \
+                            dict(cluster_storage_params['pool_secret'])
+
+        roles = eval(server.get("roles", "[]"))
+        if ('storage-master' in roles):
+            contrail_params['storage']['storage_chassis_config'] = \
+                            list(storage_chassis_config_set)
+        control_network = self.storage_get_control_network_mask(
+                            server, cluster, role_servers, cluster_servers)
+        contrail_params['storage']['storage_cluster_network'] = control_network
+
+        msg = "STORAGE: Control_network : %s" %(control_network)
+        self._smgr_log.log(self._smgr_log.DEBUG, msg)
+
+
+    # end build_storage_config
+
     def build_calculated_cluster_params(
             self, server, cluster, role_servers, cluster_servers, package):
         # if parameters are already calculated, nothing to do, return.
@@ -5148,67 +5365,9 @@ class VncServerManager():
         contrail_params['system'] = self.build_hostnames(cluster_servers)
 
         # Storage parameters..
-        cluster_storage_params = cluster_contrail_prov_params.get("storage", {})
-        server_storage_params = server_contrail_prov_params.get("storage", {})
-        contrail_params['storage'] = {}
-        total_osd = int(0)
-        num_storage_hosts = int(0)
-        storage_mon_host_ip_set = set()
-        storage_mon_hostname_set = set()
-        storage_chassis_config_set = set()
-        live_migration_host = cluster_storage_params.get(
-            "live_migration_host", "")
-        live_migration_ip = ""
-        for role_server in role_servers['storage-compute']:
-            role_server_params = eval(
-                role_server.get("parameters", "{}"))
-            storage_params = ((
-                    role_server_params.get(
-                        "provision", {})).get(
-                            "contrail", {})).get(
-                                "storage", {})
-            if (('storage_osd_disks' in storage_params) and
-                (len(storage_params['storage_osd_disks']) > 0)):
-                total_osd += len(storage_params['storage_osd_disks'])
-                num_storage_hosts += 1
-            # end if
-            storage_mon_host_ip_set.add(self.get_control_ip(role_server))
-            storage_mon_hostname_set.add(role_server['host_name'])
-            if role_server['host_name'] == live_migration_host:
-                live_migration_ip = self.get_control_ip(role_server)
-            if storage_params.get('storage_chassis_id', ""):
-                storage_host_chassis = (
-                    role_server['host_name'] + ':' + storage_params['storage_chassis_id'])
-                storage_chassis_config_set.add(storage_host_chassis)
-            # end if
-        # end for
-        for x in role_servers['storage-master']:
-            storage_mon_host_ip_set.add(self.get_control_ip(x))
-            storage_mon_hostname_set.add(x['host_name'])
-        # end for
+        self.build_storage_config(server, cluster, role_servers,
+                                  cluster_servers, contrail_params)
 
-        contrail_params['storage']['storage_num_osd'] = total_osd
-        contrail_params['storage']['storage_num_hosts'] = num_storage_hosts
-        storage_fsid = cluster_params.get(
-            "storage_fsid", str(uuid.uuid4()).encode("utf-8"))
-        contrail_params['storage']['storage_fsid'] = storage_fsid
-        storage_virsh_uuid = cluster_params.get(
-            "storage_virsh_uuid", str(uuid.uuid4()).encode("utf-8"))
-        contrail_params['storage']['storage_virsh_uuid'] = storage_virsh_uuid
-        contrail_params['storage']['storage_enabled'] = (len(role_servers['storage-compute']) != 0)
-        contrail_params['storage']['live_migration_ip'] = live_migration_ip
-        contrail_params['storage']['storage_ip_list'] = list(storage_mon_host_ip_set)
-        contrail_params['storage']['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
-        contrail_params['storage']['storage_hostnames'] = list(storage_mon_hostname_set)
-        if ('storage-master' in roles):
-            contrail_params['storage']['storage_chassis_config'] = list(storage_chassis_config_set)
-        control_network = self.storage_get_control_network_mask(
-            server, cluster, role_servers, cluster_servers)
-
-        msg = "STORAGE: Control_network : %s" %(control_network)
-        self._smgr_log.log(self._smgr_log.DEBUG, msg)
-
-        contrail_params['storage']['storage_cluster_network'] = control_network
         # Build openstack parameters for openstack modules
         self_ip = server.get("ip_address", "")
         openstack_ips = [x["ip_address"] for x in cluster_servers if "openstack" in eval(x.get('roles', '[]'))]
@@ -5348,6 +5507,26 @@ class VncServerManager():
                 ops = prov.get("openstack", {})
                 if section in ops.keys():
                     return ops[section]
+        return {}
+
+    def get_cluster_contrail_cfg_section(self, cluster, section):
+        params = cluster.get("parameters", {})
+        if params:
+            prov = params.get("provision", {})
+            if prov:
+                cont = prov.get("contrail", {})
+                if section in cont.keys():
+                    return cont[section]
+        return {}
+
+    def get_server_contrail_cfg_section(self, server, section):
+        params = eval(server.get("parameters", {}))
+        if params:
+            prov = params.get("provision", {})
+            if prov:
+                cont = prov.get("contrail", {})
+                if section in cont.keys():
+                    return cont[section]
         return {}
 
     def get_calculated_control_cfg_dict(self, cluster, cluster_srvrs):
@@ -5498,6 +5677,41 @@ class VncServerManager():
         return keystone_cfg
     #end  get_calculated_keystone_cfg_dict
 
+    def get_calculated_storage_ceph_cfg_dict(self, cluster, cluster_srvrs):
+        storage_cfg = dict()
+        disk_cfg = dict()
+
+        cluster_storage_params = self.get_cluster_contrail_cfg_section(cluster,
+                                                                    'storage')
+        if cluster_storage_params == {} or \
+            cluster_storage_params['storage_enabled'] == 0:
+            return storage_cfg
+
+        storage_cfg['fsid']        = cluster_storage_params['storage_fsid']
+        storage_cfg['pool_secret'] = cluster_storage_params['pool_secret']
+        storage_cfg['mon_key']     = cluster_storage_params['storage_monitor_secret']
+        storage_cfg['osd_key']     = cluster_storage_params['osd_bootstrap_key']
+        storage_cfg['adm_key']     = cluster_storage_params['storage_admin_key']
+
+        for storage_server in cluster_srvrs:
+            if CEPH_COMPUTE in eval(storage_server.get('roles', '[]')):
+                server_storage_params = self.get_server_contrail_cfg_section(
+                                                                storage_server,
+                                                                'storage')
+                if server_storage_params == {}:
+                    continue
+                disk_cfg[storage_server['id']] = {}
+                if 'osd_num' in server_storage_params:
+                    disk_cfg[storage_server['id']]['osd_info'] = \
+                                        server_storage_params['osd_num']
+                if 'storage_chassis_id' in server_storage_params:
+                    disk_cfg[storage_server['id']]['chassis_id'] = \
+                                        server_storage_params['storage_chassis_id']
+
+        storage_cfg['osd_info'] = disk_cfg
+        return storage_cfg
+    #end get_calculated_storage_ceph_cfg_dict
+
     # Returns a string of "k1=v1 k2=v2 ..." that can be appended to the group
     # line in the inventory like below:
     # [contrail-compute]
@@ -5535,6 +5749,34 @@ class VncServerManager():
         if ctrl_data_intf:
             var_list = var_list + " " + "ctrl_data_ip=" + \
                     self.get_control_ip(srvr)
+
+        if CEPH_COMPUTE in server_roles:
+            storage_osd_disks = self.get_storage_config(srvr,
+                                   'storage_osd_disks')
+            storage_osd_num   = self.get_storage_config(srvr,
+                                    'osd_num')
+            if storage_osd_disks != []:
+                var_list = var_list + " " + "storage_osd_disks=\'["
+                for disk in storage_osd_disks:
+                    var_list = var_list + '"' + disk + ":" + \
+                                    str(storage_osd_num[disk]) + '"' + ','
+                var_list = var_list[:-1] + "]\' "
+            storage_osd_disks = self.get_storage_config(srvr,
+                                    'storage_osd_ssd_disks')
+            storage_osd_num   = self.get_storage_config(srvr,
+                                    'osd_num')
+            if storage_osd_disks != []:
+                var_list = var_list + " " + "storage_osd_ssd_disks=\'["
+                for disk in storage_osd_disks:
+                    var_list = var_list + '"' + disk + ":" + \
+                                    str(storage_osd_num[disk]) + '"' + ','
+                var_list = var_list[:-1] + "]\' "
+            storage_chassis_id = self.get_storage_config(srvr,
+                                    'storage_chassis_id')
+            if storage_chassis_id:
+                var_list = var_list + " " + "chassis=" + \
+                                    str(storage_chassis_id) + " "
+
         return var_list
 
 
@@ -6316,7 +6558,8 @@ class VncServerManager():
 
 
     def get_container_image_for_role(self, role, package):
-        if role == BARE_METAL_COMPUTE or role == 'openstack':
+        if role == BARE_METAL_COMPUTE or role == 'openstack' or \
+            role == CEPH_COMPUTE:
             return None
         container_image = self._args.docker_insecure_registries + \
                            '/' + package['id'] + '-' + role + ':' + \
@@ -6399,6 +6642,36 @@ class VncServerManager():
         service_dict = openstack_params.get(service_name, {})
         service_dict[field_name] = service_dict.get(field_name, password)
         openstack_params[service_name] = service_dict
+
+    def generate_storage_keys(self, params):
+        if params == None:
+            return;
+
+        if "provision" in params:
+            self._smgr_log.log(self._smgr_log.INFO,
+                                "generating ceph uuid/keys for storage")
+            provision_params = params.get("provision", {})
+            contrail_params = provision_params.get("contrail", {})
+            provision_params["contrail"] = contrail_params
+            storage_params = contrail_params.get("storage", {})
+            contrail_params["storage"] = storage_params
+
+            storage_fsid       = str(uuid.uuid4())
+            storage_virsh_uuid = str(uuid.uuid4())
+            storage_mon_key = self.get_new_ceph_key()
+            storage_osd_key = self.get_new_ceph_key()
+            storage_adm_key = self.get_new_ceph_key()
+            if 'storage_monitor_secret' not in storage_params:
+                storage_params['storage_monitor_secret'] = storage_mon_key
+            if 'osd_bootstrap_key' not in storage_params:
+                storage_params['osd_bootstrap_key']      = storage_osd_key
+            if 'storage_admin_key' not in storage_params:
+                storage_params['storage_admin_key']      = storage_adm_key
+            storage_params['storage_fsid']               = storage_fsid
+            #TODO Not used anymore ?
+            storage_params['storage_virsh_uuid'] = storage_virsh_uuid
+
+    # end generate_storage_keys
 
     def generate_passwords(self, params):
         if params == None:
