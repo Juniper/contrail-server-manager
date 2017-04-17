@@ -5514,8 +5514,6 @@ class VncServerManager():
 
         srvr_vars = self.get_contrail_4(srvr)
 
-        # FIXME: Remove vrouter_physical_interface after it gets derived within
-        # the Ansible node role
         ctrl_data_intf = self.get_control_interface_name(srvr)
         if ctrl_data_intf:
             vr_if_str = " vrouter_physical_interface=" + ctrl_data_intf
@@ -5524,12 +5522,16 @@ class VncServerManager():
             # because management_interface is a mandatory parameter for a server
             vr_if_str = " vrouter_physical_interface=" + \
                     self.get_mgmt_interface_name(srvr)
-        if BARE_METAL_COMPUTE in server_roles or \
-                AGENT_CONTAINER in server_roles:
-            var_list = vr_if_str
 
         for k,v in srvr_vars.iteritems():
             var_list = var_list + " " + k + "=" + str(v)
+
+        if BARE_METAL_COMPUTE in server_roles or \
+                AGENT_CONTAINER in server_roles:
+            if "vrouter_physical_interface=" not in var_list:
+                # User has not specified a vrouter_physical_interface. Use the
+                # calculated interface
+                var_list = var_list + " " + vr_if_str
 
         # calculate ctrl_data_ip
         if ctrl_data_intf:
