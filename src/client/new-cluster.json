@@ -25,6 +25,8 @@
                         "docker_install_method": "package",
                         "docker_package_name": "docker-engine",
                         "docker_network_bridge":false,
+                        "enable_openstack_compute": true,
+                        "ssl_certs_src_dir": "/etc/contrail_smgr/puppet/ssl",
                         "keystone_config" : {
                             "ip": "", 
                             "admin_password": "",
