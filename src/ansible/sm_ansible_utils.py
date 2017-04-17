@@ -151,13 +151,13 @@ def untar_package_to_folder(mirror,package_path):
         for package in package_list:
             package_name = str(package).partition(package_path+"/")[2]
             package_name = str(package_name).partition('_')[0]
-            if package_name not in ['contrail-ansible', 'contrail-puppet','contrail-docker-images','contrail-storage-docker']:
+            if package_name not in ['contrail-ansible', 'contrail-puppet','contrail-docker-images','contrail-cloud-docker-images']:
                 cmd = "mkdir -p %s/%s" %(package_path,package_name)
                 subprocess.check_call(cmd, shell=True)
                 cmd = "tar -xvzf %s -C %s/%s > /dev/null" %(package, package_path, package_name)
                 subprocess.check_call(cmd, shell=True)
                 folder_list.append(str(package_path)+"/"+str(package_name))
-            elif package_name == "contrail-docker-images" or package_name == "contrail-storage-docker":
+            elif package_name == "contrail-docker-images" or package_name == "contrail-cloud-docker-images":
                 docker_images_package_list.append(package)
             cleanup_package_list.append(package)
 
