@@ -25,7 +25,6 @@ _WEB_HOST = '127.0.0.1'
 _ANSIBLE_SRVR_PORT = 9003
 _ANSIBLE_REGISTRY = '0.0.0.0:5100'
 _ANSIBLE_REGISTRY_INSECURE = True
-_ANSIBLE_PLAYBOOK = '/opt/contrail/server_manager/ansible/playbooks/contrail-ansible/site.yml'
 _DOCKER_INSTALL_METHOD = 'package'
 _DOCKER_PACKAGE_NAME = 'docker-engine'
 
@@ -92,7 +91,7 @@ class SMAnsibleServer():
             'docker_insecure_registries': _ANSIBLE_REGISTRY,
             'docker_registry': _ANSIBLE_REGISTRY,
             'docker_registry_insecure': _ANSIBLE_REGISTRY_INSECURE,
-            'ansible_playbook': _ANSIBLE_PLAYBOOK
+            'ansible_playbook': ""
         }
 
         if args.config_file:

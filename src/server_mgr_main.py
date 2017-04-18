@@ -3953,6 +3953,9 @@ class VncServerManager():
         package_params = package.get('parameters', {})
         if "contrail-container-package" in package_params and package_params["contrail-container-package"]:
             merged_inv["[all:vars]"]["ansible_playbook"]= str(_DEF_BASE_PLAYBOOKS_DIR)+"/"+package.get('id','')+"/playbooks/site.yml"
+        if not os.path.isfile(merged_inv["[all:vars]"]["ansible_playbook"]):
+            msg = "No playbook found under path: %s" % (merged_inv["[all:vars]"]["ansible_playbook"])
+            self.log_and_raise_exception(msg)
         inv["inventory"] = merged_inv
         parameters = { 'hosts_in_inv': self.hosts_in_inventory(cluster_inv), 
                        'cluster_id': cluster['id'], 'parameters': inv }
