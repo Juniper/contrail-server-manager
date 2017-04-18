@@ -5605,7 +5605,9 @@ class VncServerManager():
                                 "container"
                     grp = "[" + _inventory_group[role] + "]"
                     if grp in cur_inventory:
-                        if not any(x["ip_address"] in y for y in \
+                        # compare x['ip_address'] to the first word of the
+                        # cur_inventory[grp].
+                        if not any(x["ip_address"] == y.split()[0] for y in \
                                 cur_inventory[grp]):
                             cur_inventory[grp].append(grp_line)
 
