@@ -5582,6 +5582,11 @@ class VncServerManager():
 
         # what is defined by user in the cluster json
         contrail_4 = self.get_contrail_4(cluster)
+        # Merge default params into contrail_4
+        contrail_4_defaults = default_global_ansible_config
+        for key in contrail_4_defaults.keys():
+            if key not in contrail_4:
+                contrail_4[key] = contrail_4_defaults[key]
 
         # cluster['parameters']['provision']['containers']['inventory'] contains
         # the dictionary corresponding to the inventory that is going to be
