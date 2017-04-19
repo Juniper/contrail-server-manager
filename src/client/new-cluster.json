@@ -55,7 +55,9 @@
                             "xmpp_auth_enable": false,
                             "xmpp_dns_auth_enable": false,
                             "uve_partition_count": "",
-                            "multi_tenancy": false
+                            "multi_tenancy": false,
+                            "sandesh_ssl_enable": false,
+                            "introspect_ssl_enable": false
                         },
                         "controller_config": {
                             "encap_priority": "MPLSoUDP,MPLSoGRE,VXLAN"
