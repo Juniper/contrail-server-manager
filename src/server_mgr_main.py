@@ -5527,7 +5527,15 @@ class VncServerManager():
                     self.get_mgmt_interface_name(srvr)
 
         for k,v in srvr_vars.iteritems():
-            var_list = var_list + " " + k + "=" + str(v)
+            # server specific params can include lists but ansible does not like
+            # unquoted lists so make sure the list comes up like this in
+            # var_list:
+            #         k1=v1 k2=v2 l1='["str1","str2"]' k3=v3
+            if isinstance(v, list):
+                var_list = var_list + " " + k + "=[" + \
+                        ','.join("\"" + str(i) + "\"" for i in v) + "]"
+            else:
+                var_list = var_list + " " + k + "=" + str(v)
 
         if BARE_METAL_COMPUTE in server_roles or \
                 AGENT_CONTAINER in server_roles:
