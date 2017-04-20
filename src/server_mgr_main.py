@@ -4050,6 +4050,9 @@ class VncServerManager():
                         # decide based on the first.
                         package = provision_server_list[0]['package']
                         cluster = provision_server_list[0]['cluster']
+                        # Create SSL Certs for ALL servers, not just Openstack
+                        for server in provision_server_list:
+                            self._smgr_certs.create_server_cert(server)
                         if package["parameters"].get("containers",None):
                             if self.is_role_in_cluster('openstack',
                                     provision_server_list) and \
@@ -6377,7 +6380,6 @@ class VncServerManager():
                 cluster_servers,
                 package,
                 serverDb)
-            self._smgr_certs.create_server_cert(server)
             # Update Server table with provisioned id
             update = {'id': server['id'],
                   'status' : 'provision_issued',
