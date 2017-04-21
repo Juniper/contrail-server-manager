@@ -161,6 +161,7 @@ cp %{_contrail_smgr_src}%{_vmware}esxi_contrailvm.py %{buildroot}%{_contrailopt}
 
 
 cp %{_contrail_smgr_src}third_party/bottle.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
+cp %{_contrail_smgr_src}server_mgr_storage.py %{buildroot}%{_contrailopt}%{_contrail_smgr}
 
 
 cp %{_contrail_smgr_src}contrail-server-manager %{buildroot}%{_initdetc}
