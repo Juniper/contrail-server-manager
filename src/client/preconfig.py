@@ -289,8 +289,8 @@ class Server(object):
         if os_type.lower() == 'ubuntu' and version != '16.04':
             return
 
-        repo_entry = r'deb http://%s:%s/thirdparty_packages_ubuntu_1604/ ./' % ('puppet', self.server_manager_repo_port)
-        repo_entry_verify = r'%s.*\/thirdparty_packages_ubuntu_1604' % 'puppet'
+        repo_entry = r'deb http://%s:%s/thirdparty_packages_ubuntu_1604/ ./' % (self.server_manager_ip, self.server_manager_repo_port)
+        repo_entry_verify = r'%s.*\/thirdparty_packages_ubuntu_1604' % self.server_manager_ip
         status, output = self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify)
         if status:
             log.info('/etc/apt/sources.list has no thirdparty_packages 1604 '
@@ -308,8 +308,8 @@ class Server(object):
             self.exec_cmd('apt-get update')
 
     def preconfig_repos(self):
-        repo_entry = r'deb http://%s:%s/thirdparty_packages/ ./' % ('puppet', self.server_manager_repo_port)
-        repo_entry_verify = r'%s.*\/thirdparty_packages' % 'puppet'
+        repo_entry = r'deb http://%s:%s/thirdparty_packages/ ./' % (self.server_manager_ip, self.server_manager_repo_port)
+        repo_entry_verify = r'%s.*\/thirdparty_packages' % self.server_manager_ip
         status, output = self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify)
         if status:
             log.info('/etc/apt/sources.list has no thirdparty_packages '

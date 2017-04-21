@@ -49,8 +49,8 @@ service ssh restart
 #echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
-deb http://puppet/thirdparty_packages_ubuntu_1604 ./
-deb http://puppet/thirdparty_packages/ ./
+deb http://$server/thirdparty_packages_ubuntu_1604 ./
+deb http://$server/thirdparty_packages/ ./
 EOF
 
 apt-get update
@@ -60,7 +60,7 @@ apt-get -y install puppet
 
 cat >>/etc/apt/sources.list.save <<EOF
 # add repos needed for puppet and its dependencies
-deb http://puppet/thirdparty_packages/ ./
+deb http://$server/thirdparty_packages/ ./
 
 deb http://archive.ubuntu.com/ubuntu xenial universe multiverse
 deb-src http://archive.ubuntu.com/ubuntu xenial universe multiverse
