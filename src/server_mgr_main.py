@@ -3802,6 +3802,8 @@ class VncServerManager():
                 dhcp = intf.get('dhcp', None)
                 mtu = intf.get('mtu', '')
                 vlan = intf.get('vlan','')
+                # Parent interface in case of sub-interfaces or vlan interfaces
+                parent = intf.get('parent_interface', '')
 
                 if mtu:
                     mtu = '--mtu %s' %mtu
@@ -3837,8 +3839,11 @@ class VncServerManager():
                     if 'mac_address' in intf:
                         name = intf['mac_address'].lower()
                 
-                if name:
-                   name = '--device %s' %name
+                # In case of sub-interfaces, use name of parent interface for device parameter.
+                if parent:
+                    name = '--device %s' %parent
+                elif name:
+                    name = '--device %s' %name
 
                 device_str+= "python /root/interface_setup.py \
                           %s %s %s %s %s %s %s" %(name, mtu, vlan, bond_opts, ip_addr, d_gw, dhcp)

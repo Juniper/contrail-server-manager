@@ -56,7 +56,7 @@
                 }
             },
             "contrail": {
-                "control_data_interface": "eth1"
+                "control_data_interface": "vlan2003"
             },
             "top_of_rack": {
                "switches" : [
@@ -94,6 +94,10 @@
                         "default_gateway": "172.16.70.254"
                     },
                     {
+                        "name": "eth2",
+                        "mac_address": "aa:bb:cc:dd:ee:ee"
+                    },
+                    {
                         "name": "p20p1",
                         "mac_address": "aa:bb:cc:dd:ee:ab"
                     },
@@ -104,22 +108,24 @@
                     {
                         "name": "bond0",
                         "type": "bond",
-                        "ip_address": "10.224.11.10/24",
-                        "default_gateway": "10.224.12.1",
                         "bond_options": {"miimon": "100", "mode": "802.3ad","xmit_hash_policy": "layer3+4"},
                         "member_interfaces": ["p20p1", "p20p2"]
                     },
                     {
-                        "default_gateway": "3.3.2.254",
-                        "ip_address": "3.3.2.0/24",
-                        "name": "eth2",
-                        "mac_address": "aa:bb:cc:dd:ee:ef"
+                        "name": "vlan2003",
+                        "type": "vlan",
+                        "vlan": "2003",
+                        "parent_interface": "bond0",
+                        "ip_address": "10.224.11.10/24",
+                        "default_gateway": "10.224.12.1"
                     },
                     {
-                        "default_gateway": "3.3.3.254",
-                        "ip_address": "3.3.3.0/24",
-                        "name": "eth4",
-                        "mac_address": "aa:bb:cc:dd:ee:12"
+                        "name": "vlan2004",
+                        "type": "vlan",
+                        "vlan": "2004",
+                        "parent_interface": "eth2",
+                        "ip_address": "192.168.20.21/24",
+                        "default_gateway": "192.168.20.1"
                     }
                 ],
                 "management_interface": "eth1",

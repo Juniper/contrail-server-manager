@@ -114,13 +114,13 @@ class Server(object):
         self.os_version = ()
         self.extra_packages_12_04 = ['puppet=3.7.3-1puppetlabs1', 'python-netaddr',
                                      'ifenslave-2.6', 'sysstat',
-                                     'ethtool']
+                                     'ethtool', 'vlan']
         self.extra_packages_14_04 = ['puppet=3.7.3-1puppetlabs1', 'python-netaddr',
                                      'ifenslave-2.6', 'sysstat',
-                                     'ethtool']
+                                     'ethtool', 'vlan']
         self.extra_packages_16_04 = ['puppet=3.8.5-2', 'python-netaddr',
                                      'ifenslave-2.6', 'sysstat',
-                                     'ethtool']
+                                     'ethtool', 'vlan']
 
     def __del__(self):
         log.info('Disconnecting...')
@@ -137,7 +137,7 @@ class Server(object):
         self.set_mgmt_interface()
         self.sm = False
         for iface_dict in self.network['interfaces']:
-            if iface_dict['ip_address']:
+            if iface_dict.get('ip_address', None):
                ip = str(IPNetwork(iface_dict['ip_address']).ip)
                cidr = str(IPNetwork(iface_dict['ip_address']).prefixlen)
                if iface_dict['name'] == self.mgmt_iface:
@@ -350,11 +350,17 @@ class Server(object):
     def exec_setup_interface(self, iface_info, error_on_fail=True):
         iface_script_path = '/opt/contrail/bin/interface_setup.py'
         cmd = r'%s ' % iface_script_path
-        cmd += r'--device %s --ip %s ' % (iface_info['name'],
-                                         iface_info['ip_address'])
+        if 'parent_interface' in iface_info.keys():
+            device = iface_info['parent_interface']
+        else:
+            device = iface_info['name']
+        cmd += r'--device %s ' % (device)
+        ip_address = iface_info.get('ip_address', None)
+        if ip_address:
+            cmd += r'--ip %s ' % (ip_address)
         if 'member_interfaces' in iface_info.keys() and len(iface_info['member_interfaces']) > 0 :
             cmd += r'--members %s ' % " ".join(iface_info['member_interfaces'])
-        if iface_info['ip_address'] == self.ip and 'gateway' in iface_info.keys():
+        if iface_info.get('ip_address', '') == self.ip and 'gateway' in iface_info.keys():
             cmd += r'--gw %s ' % iface_info['gateway']
         if 'vlan' in iface_info.keys():
             cmd += r'--vlan %s ' % iface_info['vlan']
@@ -399,12 +405,15 @@ class Server(object):
                             '/opt/contrail/bin/interface_setup.py')
             self.exec_cmd('chmod 755 /opt/contrail/bin/interface_setup.py')
         for iface_info in self.network['interfaces']:
-            status, output = self.verify_interface_ip(iface_info['name'],
-                                                      iface_info['ip_address'])
-            if not status:
-                log.warn('Interface (%s) already configured with ' \
-                         'IP Address (%s)' % (iface_info['name'],
-                                              iface_info['ip_address']))
+            if 'ip_address' in iface_info.keys():
+                status, output = self.verify_interface_ip(iface_info['name'],
+                                                          iface_info['ip_address'])
+                if not status:
+                    log.warn('Interface (%s) already configured with ' \
+                             'IP Address (%s)' % (iface_info['name'],
+                                                  iface_info['ip_address']))
+                else:
+                    self.exec_setup_interface(iface_info)
             else:
                 self.exec_setup_interface(iface_info)
 

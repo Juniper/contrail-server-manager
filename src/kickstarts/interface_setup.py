@@ -283,8 +283,6 @@ class BaseInterface(object):
             ip = IPNetwork(self.ip)
             self.ipaddr = str(ip.ip)
             self.netmask = str(ip.netmask)
-        elif not self.dhcp:
-            raise Exception("IP address/mask is not specified")
         if 'bond' in self.device.lower():
             self.create_bonding_interface()
         else:
@@ -385,10 +383,15 @@ class UbuntuInterface(BaseInterface):
             if self.mtu:
                 cfg.append('pre-up /sbin/ip link set %s mtu %s' % (self.device, self.mtu))
         else:
+            if self.ip:
+                option = "static"
+            else:
+                option = "manual"
             cfg = ['auto %s' %self.device,
-                   'iface %s inet static' %self.device,
-                   'address %s' %self.ipaddr,
-                   'netmask  %s' %self.netmask]
+                   'iface %s inet %s' %(self.device, option)]
+            if self.ip:
+                cfg.append('address %s' %self.ipaddr)
+                cfg.append('netmask  %s' %self.netmask)
             if self.gw:
                 cfg.append('gateway %s' %self.gw)
             if self.mtu:
