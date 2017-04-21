@@ -1,0 +1,166 @@
+
+{
+    "server": [
+        {
+            "cluster_id": "new-cluster",
+            "domain": "demo.juniper.net",
+            "id": "newserver12",
+            "parameters" : {
+                "partition": "/dev/sda",
+                "provision": {
+                    "contrail_4": {
+                        "vrouter_physical_interface": "",
+                        "ctrl_data_ip": "192.168.1.10",
+                        "controller_components": [
+                            "config", "control", "webui"
+                        ],
+                        "core_mask": "0x3f",
+                        "huge_pages": "50"
+                    },
+                    "contrail": {
+                        "compute": {
+                            "dpdk": {
+                                "core_mask": "",
+                                "huge_pages": ""
+                            },
+                            "sriov": {
+                                "literal": true,
+                                "p5p1": {
+                                    "VF": 7,
+                                    "physnets": [
+                                        "physnet1"
+                                    ]
+                                }
+                            }
+                        },
+                        "storage": {
+                            "storage_repo_id": "",
+                            "storage_osd_disks": [],
+                            "storage_chassis_id":""
+                        },
+                        "qos": {
+                            "literal" : true,
+                            "3" : {
+                                "logical_queue": ["1", "6-10", "12-15"],
+                                "scheduling": "strict",
+                                "bandwidth": "70"
+                            },
+                            "5" : {
+                                "logical_queue": ["2"],
+                                "scheduling": "rr",
+                                "bandwidth": "75"
+                            },
+                            "8" : {
+                                "logical_queue": ["3-5"],
+                                "scheduling": "rr",
+                                "bandwidth": "75"
+                            },
+                            "1" : {
+                                "default": true,
+                                "logical_queue": ["7"],
+                                "scheduling": "strict",
+                                "bandwidth": "60"
+                            }
+                        }
+                    }
+                }
+            },
+            "contrail": {
+                "control_data_interface": "eth1"
+            },
+            "top_of_rack": {
+               "switches" : [
+                  {
+                     "id": "1",
+                     "ip_address": "10.87.141.84",
+                     "tunnel_ip_address": "10.87.141.84",
+                     "switch_name": "TOR1",
+                     "type": "ovs",
+                     "ovs_port": "6632",
+                     "ovs_protocol": "tcp",
+                     "http_server_port": "9912",
+                     "vendor_name": "Juniper"
+                  },
+                  {
+                     "id": "2",
+                     "ip_address": "10.87.141.83",
+                     "tunnel_ip_address": "10.87.141.83",
+                     "switch_name": "TOR2",
+                     "type": "ovs",
+                     "ovs_port": "6632",
+                     "ovs_protocol": "tcp",
+                     "http_server_port": "9913",
+                     "vendor_name": "Juniper"
+                  }
+                ]
+            },
+            "network" : {
+                "interfaces": [
+                    {
+                        "name": "eth1",
+                        "dhcp": true,
+                        "mac_address": "aa:bb:cc:dd:ee:ff",
+                        "ip_address": "172.16.70.40/24",
+                        "default_gateway": "172.16.70.254"
+                    },
+                    {
+                        "name": "p20p1",
+                        "mac_address": "aa:bb:cc:dd:ee:ab"
+                    },
+                    {
+                        "name": "p20p2",
+                        "mac_address": "aa:bb:cc:dd:ee:cd"
+                    },
+                    {
+                        "name": "bond0",
+                        "type": "bond",
+                        "ip_address": "10.224.11.10/24",
+                        "default_gateway": "10.224.12.1",
+                        "bond_options": {"miimon": "100", "mode": "802.3ad","xmit_hash_policy": "layer3+4"},
+                        "member_interfaces": ["p20p1", "p20p2"]
+                    },
+                    {
+                        "default_gateway": "3.3.2.254",
+                        "ip_address": "3.3.2.0/24",
+                        "name": "eth2",
+                        "mac_address": "aa:bb:cc:dd:ee:ef"
+                    },
+                    {
+                        "default_gateway": "3.3.3.254",
+                        "ip_address": "3.3.3.0/24",
+                        "name": "eth4",
+                        "mac_address": "aa:bb:cc:dd:ee:12"
+                    }
+                ],
+                "management_interface": "eth1",
+                "provisioning": "kickstart",
+                "routes": [
+                    {
+                        "gateway": "3.3.2.254",
+                        "interface": "enp129s0f0",
+                        "netmask": "255.255.255.0",
+                        "network": "3.3.4.0"
+                    },
+                    {
+                        "gateway": "3.3.3.254",
+                        "interface": "enp129s0f1",
+                        "netmask": "255.255.255.0",
+                        "network": "3.3.5.0"
+                    }
+                ]
+            },
+            "password": "juniper",
+            "roles": [
+                "openstack",
+                "contrail-controller",
+                "contrail-analytics",
+                "contrail-analyticsdb",
+                "contrail-compute",
+                "contrail-agent
+            ],
+            "ipmi_address": "10.84.6.62",
+            "ipmi_username": "ADMIN",
+            "ipmi_password": "ADMIN"
+        }
+    ]
+}
