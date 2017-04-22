@@ -3952,7 +3952,7 @@ class VncServerManager():
         if "contrail_image_id" in package.keys() and \
             package["contrail_image_id"]:
             merged_inv['[all:vars]']["contrail_apt_repo"] = \
-                "[arch=amd64] http://puppet/contrail/repo/" + \
+                "[arch=amd64] http://" + str(self._args.listen_ip_addr) + "/contrail/repo/" + \
                 package["contrail_image_id"] + " contrail main"
             
         package_params = package.get('parameters', {})
