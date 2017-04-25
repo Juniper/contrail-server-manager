@@ -5515,7 +5515,6 @@ class VncServerManager():
     # 1.1.1.1 k1=v1 k2=v2 ...
     def build_calculated_srvr_inventory_params(self, srvr):
         ansible_roles_set = set(_valid_roles)
-        vr_if_str = ""
         var_list = ""
 
         server_roles = eval(srvr.get('roles', '[]'))
@@ -5526,13 +5525,6 @@ class VncServerManager():
         srvr_vars = self.get_contrail_4(srvr)
 
         ctrl_data_intf = self.get_control_interface_name(srvr)
-        if ctrl_data_intf:
-            vr_if_str = " vrouter_physical_interface=" + ctrl_data_intf
-        else:
-            # get_mgmt_interface_name will always return a valid interface name
-            # because management_interface is a mandatory parameter for a server
-            vr_if_str = " vrouter_physical_interface=" + \
-                    self.get_mgmt_interface_name(srvr)
 
         for k,v in srvr_vars.iteritems():
             # server specific params can include lists but ansible does not like
@@ -5544,13 +5536,6 @@ class VncServerManager():
                         ','.join("\"" + str(i) + "\"" for i in v) + "]"
             else:
                 var_list = var_list + " " + k + "=" + str(v)
-
-        if BARE_METAL_COMPUTE in server_roles or \
-                AGENT_CONTAINER in server_roles:
-            if "vrouter_physical_interface=" not in var_list:
-                # User has not specified a vrouter_physical_interface. Use the
-                # calculated interface
-                var_list = var_list + " " + vr_if_str
 
         # calculate ctrl_data_ip
         if ctrl_data_intf:
