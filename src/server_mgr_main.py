@@ -5541,6 +5541,9 @@ class VncServerManager():
         if ctrl_data_intf:
             var_list = var_list + " " + "ctrl_data_ip=" + \
                     self.get_control_ip(srvr)
+            control_data_gateway = self.get_control_gateway(srvr)
+            if control_data_gateway:
+                var_list = var_list + " ctrl_data_gw=" + control_data_gateway
         return var_list
 
 
