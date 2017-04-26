@@ -5357,6 +5357,8 @@ class VncServerManager():
             prov = params.get("provision", {})
             if prov:
                 ops = prov.get("openstack", {})
+                if not section:
+                    return ops
                 if section in ops.keys():
                     return ops[section]
         return {}
@@ -5464,9 +5466,9 @@ class VncServerManager():
                 global_cfg["analytics_ip"] = tmp_cfg["analytics_list"][0]
 
         # Calculate external Rabbitmq server list
-        cluster_ks_cfg = \
-                self.get_cluster_openstack_cfg_section(cluster, "keystone")
-        if cluster_ks_cfg:
+        cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
+        openstack_manage_amqp_check = cluster_ops_cfg.get("openstack_manage_amqp", None)
+        if openstack_manage_amqp_check:
             global_cfg["external_rabbitmq_servers"] = []
             for x in cluster_srvrs:
                 if "openstack" in eval(x.get('roles', '[]')):
