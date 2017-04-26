@@ -327,6 +327,10 @@
     "newname": "contrail_4.core_mask",
     "newformat": "string"
   },
+  "dpdk.uio_driver": {
+    "newname": "contrail_4.uio_driver",
+    "newformat": "string"
+  },
   "tor_agent.tor_ip": {
     "newname": "top_of_rack.ip_address",
     "newformat": "string"
