@@ -221,6 +221,9 @@ class Host(object):
               "print linux_distribution()'"
         log.debug('Execute: %s' % cmd)
         output = self.exec_cmd(cmd)
+        if output == "" :
+          cmd = r'python3 -c "import platform; print (platform.linux_distribution())"'
+          output = self.exec_cmd(cmd)
         return output.strip()
 
     def parse_iface_info(self, iface_data=None):
