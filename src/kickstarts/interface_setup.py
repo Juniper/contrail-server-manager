@@ -169,10 +169,12 @@ class BaseInterface(object):
                'ONBOOT'        : 'yes',
                'BOOTPROTO'     : 'none',
                'NM_CONTROLLED' : 'no',
-               'NETMASK'       : self.netmask,
-               'IPADDR'        : self.ipaddr,
                'VLAN'          : 'yes'
               }
+        if self.ip:
+            cfg.update({
+               'NETMASK'       : self.netmask,
+               'IPADDR'        : self.ipaddr})
         if self.gw:
             cfg['GATEWAY'] = self.gw
         if self.mtu:
@@ -222,7 +224,7 @@ class BaseInterface(object):
         if not self.vlan:
             if self.dhcp:
                 cfg.update({'BOOTPROTO': 'dhcp'})
-            else:
+            elif self.ip:
                 cfg.update({'NETMASK'       : self.netmask,
                             'IPADDR'        : self.ipaddr
                           })
@@ -248,7 +250,7 @@ class BaseInterface(object):
         if not self.vlan:
             if self.dhcp:
                 cfg.update({'BOOTPROTO': 'dhcp'})
-            else:
+            elif self.ip:
                 cfg.update({'NETMASK'       : self.netmask,
                             'IPADDR'        : self.ipaddr
                             })
@@ -283,7 +285,7 @@ class BaseInterface(object):
             ip = IPNetwork(self.ip)
             self.ipaddr = str(ip.ip)
             self.netmask = str(ip.netmask)
-        if 'bond' in self.device.lower():
+        if self.members:
             self.create_bonding_interface()
         else:
             self.create_interface()
@@ -372,12 +374,10 @@ class UbuntuInterface(BaseInterface):
         '''Create interface config for normal interface for Ubuntu'''
         log.info('Creating Interface: %s' % self.device)
         if self.vlan:
-            cfg = ['auto %s' %self.device,
-                   'iface %s inet manual' %self.device,
-                   'down ip addr flush dev %s' %self.device]
-            if self.mtu:
-                cfg.append('mtu %s' %self.mtu)
-        elif self.dhcp:
+            self.create_vlan_interface()
+            return
+
+        if self.dhcp:
             cfg = ['auto %s' %self.device,
                    'iface %s inet dhcp' %self.device]
             if self.mtu:
@@ -397,8 +397,6 @@ class UbuntuInterface(BaseInterface):
             if self.mtu:
                 cfg.append('mtu %s' %self.mtu)
         self.write_network_script(cfg)
-        if self.vlan:
-            self.create_vlan_interface()
 
     def create_bond_members(self):
         '''Create interface config for each bond members for Ubuntu'''
@@ -418,11 +416,16 @@ class UbuntuInterface(BaseInterface):
                    'iface %s inet dhcp' %interface,
                    'vlan-raw-device %s' %self.device]
         else:
+            if self.ip:
+                option = "static"
+            else:
+                option = "manual"
             cfg = ['auto %s' %interface,
-                   'iface %s inet static' %interface,
-                   'address %s' %self.ipaddr,
-                   'netmask  %s' %self.netmask,
-                   'vlan-raw-device %s' %self.device]
+                   'iface %s inet %s' %(interface, option)]
+            if self.ip:
+                cfg.append('address %s' %self.ipaddr)
+                cfg.append('netmask  %s' %self.netmask)
+            cfg.append('vlan-raw-device  %s' %self.device)
         if self.gw:
             cfg.append('gateway %s' %self.gw)
         if self.mtu:
@@ -445,11 +448,16 @@ class UbuntuInterface(BaseInterface):
             cfg = ['auto %s' %self.device,
                    'iface %s inet dhcp' %self.device]
         else:
+            if self.ip:
+                option = "static"
+            else:
+                option = "manual"
             cfg = ['auto %s' %self.device,
-                   'iface %s inet static' %self.device,
-                   'address %s' %self.ipaddr,
-                   'netmask  %s' %self.netmask,
-                   'hwaddress %s' % bond_mac]
+                   'iface %s inet %s' %(self.device, option)]
+            if self.ip:
+                cfg.append('address %s' %self.ipaddr)
+                cfg.append('netmask  %s' %self.netmask)
+            cfg.append('hwaddress  %s' %bond_mac)
             if self.gw:
                 cfg.append('gateway %s' %self.gw)
         if self.mtu:

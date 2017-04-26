@@ -3795,9 +3795,6 @@ class VncServerManager():
                 name = intf['name']
                 intf_name = name
                 ip_addr = intf.get('ip_address', None)
-                if ip_addr is None or len(ip_addr.strip()) == 0:
-                    continue
-                ip = IPNetwork(ip_addr)
                 d_gw = intf.get('default_gateway', None)
                 dhcp = intf.get('dhcp', None)
                 mtu = intf.get('mtu', '')
