@@ -210,6 +210,7 @@ class VncServerManager():
     _control_step_roles = ['global_controller', 'loadbalancer', 'database', 'openstack', 'config', 'control', 'collector', 'webui']
     _compute_step_roles = ['compute', 'storage-compute', 'storage-master']
     _step_roles = _control_step_roles + _compute_step_roles
+    _puppet_supported_roles = ['openstack','global_controller']
     _tags_dict = {}
     _rev_tags_dict = {}
     _monitoring_base_plugin_obj = None
@@ -4062,8 +4063,15 @@ class VncServerManager():
                             if self.is_role_in_cluster('openstack',
                                     provision_server_list) and \
                                      package['contrail_image_id']:
-                                servers = self.get_servers_for_role('openstack',
-                                        provision_server_list)
+                                servers = []
+                                server_id_list = set()
+                                for puppet_role in self._puppet_supported_roles:
+                                    puppet_servers = self.get_servers_for_role(puppet_role,
+                                            provision_server_list)
+                                    for server in puppet_servers:
+                                        if server['server']['id'] not in server_id_list:
+                                            server_id_list.update(server['server']['id'])
+                                            servers.append(server)
                                 if not len(servers):
                                     continue
                                 contrail_images = \
