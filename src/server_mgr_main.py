@@ -61,7 +61,11 @@ from sm_ansible_utils import CONTROLLER_CONTAINER
 from sm_ansible_utils import ANALYTICS_CONTAINER
 from sm_ansible_utils import ANALYTICSDB_CONTAINER
 from sm_ansible_utils import LB_CONTAINER
+from sm_ansible_utils import CEPH_COMPUTE
+from sm_ansible_utils import CEPH_CONTROLLER
 from server_mgr_docker import SM_Docker
+from server_mgr_storage import generate_storage_keys, build_storage_config, \
+                               get_calculated_storage_ceph_cfg_dict
 
 try:
     from server_mgr_cobbler import ServerMgrCobbler as ServerMgrCobbler
@@ -379,7 +383,8 @@ class VncServerManager():
             "analytics_collector_config" :self.get_calculated_analytics_coll_cfg_dict,
             "query_engine_config"   : self.get_calculated_query_engine_cfg_dict,
             "snmp_collector_config" : self.get_calculated_snmp_coll_cfg_dict,
-            "topology_config"       : self.get_calculated_topo_cfg_dict
+            "topology_config"       : self.get_calculated_topo_cfg_dict,
+            "storage_ceph_config"   : get_calculated_storage_ceph_cfg_dict
         }
                 
 
@@ -2112,15 +2117,14 @@ class VncServerManager():
                     self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
                                                 cur_cluster)
                     str_uuid = str(uuid.uuid4())
-                    storage_fsid = str(uuid.uuid4())
-                    storage_virsh_uuid = str(uuid.uuid4())
                     cur_cluster["parameters"].update({"uuid": str_uuid})
-                    cur_cluster["parameters"].update({"storage_fsid": storage_fsid})
-                    cur_cluster["parameters"].update({"storage_virsh_uuid": storage_virsh_uuid})
                     cur_cluster["provision_role_sequence"] = {}
                     cur_cluster["provision_role_sequence"]["steps"] = []
                     cur_cluster["provision_role_sequence"]["completed"] = []
                     self._smgr_log.log(self._smgr_log.INFO, "Cluster Data %s" % cur_cluster)
+                    self._smgr_log.log(self._smgr_log.INFO,
+                                "generating ceph uuid/keys for storage")
+                    generate_storage_keys(cur_cluster.get("parameters", {}))
                     self.generate_passwords(cur_cluster.get("parameters", {}))
                     self._serverDb.add_cluster(cur_cluster)
         except ServerMgrException as e:
@@ -5156,67 +5160,9 @@ class VncServerManager():
         contrail_params['system'] = self.build_hostnames(cluster_servers)
 
         # Storage parameters..
-        cluster_storage_params = cluster_contrail_prov_params.get("storage", {})
-        server_storage_params = server_contrail_prov_params.get("storage", {})
-        contrail_params['storage'] = {}
-        total_osd = int(0)
-        num_storage_hosts = int(0)
-        storage_mon_host_ip_set = set()
-        storage_mon_hostname_set = set()
-        storage_chassis_config_set = set()
-        live_migration_host = cluster_storage_params.get(
-            "live_migration_host", "")
-        live_migration_ip = ""
-        for role_server in role_servers['storage-compute']:
-            role_server_params = eval(
-                role_server.get("parameters", "{}"))
-            storage_params = ((
-                    role_server_params.get(
-                        "provision", {})).get(
-                            "contrail", {})).get(
-                                "storage", {})
-            if (('storage_osd_disks' in storage_params) and
-                (len(storage_params['storage_osd_disks']) > 0)):
-                total_osd += len(storage_params['storage_osd_disks'])
-                num_storage_hosts += 1
-            # end if
-            storage_mon_host_ip_set.add(self.get_control_ip(role_server))
-            storage_mon_hostname_set.add(role_server['host_name'])
-            if role_server['host_name'] == live_migration_host:
-                live_migration_ip = self.get_control_ip(role_server)
-            if storage_params.get('storage_chassis_id', ""):
-                storage_host_chassis = (
-                    role_server['host_name'] + ':' + storage_params['storage_chassis_id'])
-                storage_chassis_config_set.add(storage_host_chassis)
-            # end if
-        # end for
-        for x in role_servers['storage-master']:
-            storage_mon_host_ip_set.add(self.get_control_ip(x))
-            storage_mon_hostname_set.add(x['host_name'])
-        # end for
+        build_storage_config(self, server, cluster, role_servers, cluster_servers,
+                            contrail_params)
 
-        contrail_params['storage']['storage_num_osd'] = total_osd
-        contrail_params['storage']['storage_num_hosts'] = num_storage_hosts
-        storage_fsid = cluster_params.get(
-            "storage_fsid", str(uuid.uuid4()).encode("utf-8"))
-        contrail_params['storage']['storage_fsid'] = storage_fsid
-        storage_virsh_uuid = cluster_params.get(
-            "storage_virsh_uuid", str(uuid.uuid4()).encode("utf-8"))
-        contrail_params['storage']['storage_virsh_uuid'] = storage_virsh_uuid
-        contrail_params['storage']['storage_enabled'] = (len(role_servers['storage-compute']) != 0)
-        contrail_params['storage']['live_migration_ip'] = live_migration_ip
-        contrail_params['storage']['storage_ip_list'] = list(storage_mon_host_ip_set)
-        contrail_params['storage']['storage_monitor_hosts'] = list(storage_mon_host_ip_set)
-        contrail_params['storage']['storage_hostnames'] = list(storage_mon_hostname_set)
-        if ('storage-master' in roles):
-            contrail_params['storage']['storage_chassis_config'] = list(storage_chassis_config_set)
-        control_network = self.storage_get_control_network_mask(
-            server, cluster, role_servers, cluster_servers)
-
-        msg = "STORAGE: Control_network : %s" %(control_network)
-        self._smgr_log.log(self._smgr_log.DEBUG, msg)
-
-        contrail_params['storage']['storage_cluster_network'] = control_network
         # Build openstack parameters for openstack modules
         self_ip = server.get("ip_address", "")
         openstack_ips = [x["ip_address"] for x in cluster_servers if "openstack" in eval(x.get('roles', '[]'))]
@@ -5533,6 +5479,10 @@ class VncServerManager():
             if isinstance(v, list):
                 var_list = var_list + " " + k + "=[" + \
                         ','.join("\"" + str(i) + "\"" for i in v) + "]"
+            # if the param is a dict() then the value needs to be in quotes
+            # for ansible to understand
+            elif isinstance(v, dict):
+                var_list = var_list + " " + k + "=\"" + str(v) + "\""
             else:
                 var_list = var_list + " " + k + "=" + str(v)
 
@@ -6331,7 +6281,8 @@ class VncServerManager():
 
 
     def get_container_image_for_role(self, role, package):
-        if role == BARE_METAL_COMPUTE or role == 'openstack':
+        if role == BARE_METAL_COMPUTE or role == 'openstack' or \
+            role == CEPH_COMPUTE:
             return None
         container_image = self._args.docker_insecure_registries + \
                            '/' + package['id'] + '-' + role + ':' + \
