@@ -390,5 +390,53 @@
   "static_route.netmask": {
     "newname": "static_route.netmask",
     "newformat": "string"
+  },
+  "ha.internal_vip": {
+    "newname": "openstack.ha.internal_vip",
+    "oldname": "internal_vip",
+    "newformat": "string",
+    "oldformat": "string"
+  },
+  "ha.external_vip": {
+    "newname": "openstack.ha.external_vip",
+    "oldname": "external_vip",
+    "newformat": "string",
+    "oldformat": "string"
+  },
+  "ha.internal_virtual_router_id": {
+    "newname": "openstack.ha.internal_virtual_router_id",
+    "oldname": "internal_virtual_router_id",
+    "newformat": "integer",
+    "oldformat": "string"
+  },
+  "ha.external_virtual_router_id": {
+    "newname": "openstack.ha.external_virtual_router_id",
+    "oldname": "external_virtual_router_id",
+    "newformat": "integer",
+    "oldformat": "string"
+  },
+  "ha.contrail_internal_vip": {
+    "newname": "contrail.ha.contrail_internal_vip",
+    "oldname": "contrail_internal_vip",
+    "newformat": "string",
+    "oldformat": "string"
+  },
+  "ha.contrail_external_vip": {
+    "newname": "contrail.ha.contrail_external_vip",
+    "oldname": "contrail_external_vip",
+    "newformat": "string",
+    "oldformat": "string"
+  },
+  "ha.contrail_internal_virtual_router_id": {
+    "newname": "contrail.ha.contrail_internal_virtual_router_id",
+    "oldname": "contrail_internal_virtual_router_id",
+    "newformat": "integer",
+    "oldformat": "string"
+  },
+  "ha.contrail_external_virtual_router_id": {
+    "newname": "contrail.ha.contrail_external_virtual_router_id",
+    "oldname": "contrail_external_virtual_router_id",
+    "newformat": "integer",
+    "oldformat": "string"
   }
 }
