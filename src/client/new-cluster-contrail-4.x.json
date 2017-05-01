@@ -8,6 +8,14 @@
                 "gateway": "10.204.221.46",
                 "password": "abcd",
                 "provision": {
+                    "contrail": {
+                        "ha": {
+                            "contrail_internal_vip": "192.168.1.24",
+                            "contrail_external_vip": "192.168.1.24"
+                            "contrail_internal_virtual_router_id": 103,
+                            "contrail_external_virtual_router_id": 104,
+                        }
+                    },
                     "contrail_4": {
                         "vrouter_physical_interface":"",
                         "ansible_user":"root",

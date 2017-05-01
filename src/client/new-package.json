@@ -14,6 +14,16 @@
                     }
                 }
             }
+        },
+        {
+            "category": "package",
+            "id": "containers_4_00_3063",
+            "path": "/sm-shared-folder/bin/contrail-cloud-docker_4.0.0.0-3063-mitaka.tgz",
+            "type": "contrail-ubuntu-package",
+            "version": "4.0.0-3063",
+            "parameters": {
+                "contrail-container-package": true
+            }
         }
     ]
 }
