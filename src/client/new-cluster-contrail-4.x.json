@@ -8,6 +8,14 @@
                 "gateway": "10.204.221.46",
                 "password": "abcd",
                 "provision": {
+                    "contrail": {
+                        "ha": {
+                            "contrail_internal_vip": "192.168.1.24",
+                            "contrail_external_vip": "192.168.1.24",
+                            "contrail_internal_virtual_router_id": 103,
+                            "contrail_external_virtual_router_id": 104
+                        }
+                    },
                     "contrail_4": {
                         "docker_registry": "",
                         "docker_registry_insecure": true,
@@ -17,6 +25,8 @@
                         "analyticsdb_image": "",
                         "agent_image": "",
                         "ssl_certs_src_dir": "/etc/contrail_smgr/puppet/ssl",
+                        "ctrl_data_network": "192.168.1.0/24",
+                        "enable_lbaas": false,
                         "global_config": {
                             "log_level": "SYS_INFO",
                             "cloud_orchestrator": "openstack",
