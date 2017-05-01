@@ -163,6 +163,18 @@
       "newname": "contrail_4.control_config.log_level",
       "newformat": "string"
   },
+  "router_asn": {
+      "newname": "contrail_4.control_config.asn",
+      "newformat": "string"
+  },
+  "ext_routers": {
+      "newname": "contrail_4.controller_config.external_routers_list",
+      "newformat": "list"
+  },
+  "encap_priority": {
+      "newname": "contrail_4.controller_config.encap_priority",
+      "newformat": "string"
+  },
   "dns_config.introspect_port": {
       "newname": "contrail_4.dns_config.introspect_port",
       "newformat": "integer"
