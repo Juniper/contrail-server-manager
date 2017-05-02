@@ -20,7 +20,7 @@ from collections import defaultdict
 # Testbed Converter Version
 __version__ = '1.0'
 DEF_TRANS_DICT='/opt/contrail/server_manager/client/parameter-translation-dict.json'
-
+recalculate_list=["external_routers_list"]
 log = logging.getLogger('testbed_parser')
 log.setLevel(logging.DEBUG)
 
@@ -684,6 +684,17 @@ class BaseJsonGenerator(object):
             fid.write('%s\n' % json.dumps(self.dict_data, sort_keys=True,
                                           indent=4, separators=(',', ': ')))
 
+    def recalculate_params(self, cluster_dict, dest_var, dest_var_name):
+        if dest_var_name == "external_routers_list":
+            ext_routers_dict = {}
+            source_tuple_list = dest_var[str(dest_var_name)]
+            if isinstance(source_tuple_list,list):
+                for source_tuple in source_tuple_list:
+                    if isinstance(source_tuple,tuple):
+                        ext_routers_dict[source_tuple[0]] = source_tuple[1]
+                dest_var[str(dest_var_name)] = ext_routers_dict
+        return dest_var
+
 class ServerJsonGenerator(BaseJsonGenerator):
     def __init__(self, testsetup, **kwargs):
         kwargs.update([('name', kwargs.get('name', 'server'))])
@@ -903,6 +914,8 @@ class ClusterJsonGenerator(BaseJsonGenerator):
                 self.set_if_defined(source_variable_name, dest_var, source_variable=source_variable,
                                     destination_variable_name=str(dest_var_name), to_lower=to_lower,
                                     is_boolean=is_boolean, is_list=is_list, function=function_to_use)
+                if dest_var_name in recalculate_list:
+                    self.recalculate_params(cluster_dict, dest_var, dest_var_name)
         return cluster_dict
 
     def generate_json_file(self,translation_dict):
