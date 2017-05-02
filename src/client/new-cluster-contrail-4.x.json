@@ -9,11 +9,6 @@
                 "password": "abcd",
                 "provision": {
                     "contrail_4": {
-                        "vrouter_physical_interface":"",
-                        "ansible_user":"root",
-                        "ansible_connection":"ssh",
-                        "ansible_become":true,
-                        "ansible_ssh_private_key_file":"~/.ssh/id_rsa",
                         "docker_registry": "",
                         "docker_registry_insecure": true,
                         "controller_image": "",
@@ -21,56 +16,30 @@
                         "lb_image": "",
                         "analyticsdb_image": "",
                         "agent_image": "",
-                        "contrail_compute_mode": "bare_metal",
-                        "docker_install_method": "package",
-                        "docker_package_name": "docker-engine",
-                        "docker_network_bridge":false,
-                        "enable_openstack_compute": true,
                         "ssl_certs_src_dir": "/etc/contrail_smgr/puppet/ssl",
-                        "ctrl_data_network": "192.168.1.0/24",
-                        "keystone_config" : {
-                            "version": "v2.0",
-                            "ip": "", 
-                            "admin_password": "",
-                            "admin_port": "35357",
-                            "public_port": "5000",
-                            "auth_protocol": "http",
-                            "admin_user": "root",
-                            "admin_tenant": "admin"
-                        },
                         "global_config": {
                             "log_level": "SYS_INFO",
                             "cloud_orchestrator": "openstack",
-                            "hosts_entries": {"host1": "1.1.1.1", "host2": "1.1.1.2"},
                             "external_lb": false,
-                            "analyticsdb_seeds": "1.1.1.1, 2.2.2.2",
-                            "config_seeds": "1.1.1.1, 2,2,2,2",
                             "external_rabbitmq_servers" : "1.1.1.1, 2.2.2.2",
                             "external_zookeeper_servers": "1.1.1.1, 2.2.2.2",
                             "external_cassandra_servers": "1.1.1.1, 2.2.2.2",
                             "external_configdb_servers" : "1.1.1.1, 2.2.2.2",
                             "xmpp_auth_enable": false,
                             "xmpp_dns_auth_enable": false,
-                            "uve_partition_count": "",
-                            "multi_tenancy": false,
                             "sandesh_ssl_enable": false,
                             "introspect_ssl_enable": false
                         },
                         "controller_config": {
                             "encap_priority": "MPLSoUDP,MPLSoGRE,VXLAN",
                             "external_routers_list": {}
+                            "bgp_asn": "64512"
                         },
                         "control_config": {
-                            "asn": "64512",
-                            "bgp_port": "179",
-                            "introspect_port": "8083",
-                            "xmpp_server_port": "5269",
                             "log_file": "/var/log/contrail/contrail-control.log",
                             "log_level": "SYS_NOTICE"
                         },
                         "dns_config": {
-                            "introspect_port": "8092",
-                            "dns_server_port": "53",
                             "log_level": "SYS_NOTICE"
                         },
                         "cassandra_config": {
@@ -82,8 +51,6 @@
                         },
                         "api_config": {
                             "log_level": "SYS_NOTICE",
-                            "listen_port": "8082",
-                            "listen_address": "0.0.0.0"
                         },
                         "schema_config": {
                             "log": "/var/log/contrail/contrail-schema.log",
@@ -97,34 +64,22 @@
                             "log": "/var/log/contrail/contrail-svc-monitor.log",
                             "log_level": "SYS_NOTICE"
                         },
-                        "webui_config": {
-                            "http_listen_port": "8080",
-                            "https_listen_port": "8143"
-                        },
                         "alarm_gen_config": {
                             "log": "/var/log/contrail/contrail-alarm-gen.log",
                             "log_level": "SYS_NOTICE",
-                            "introspect_port": "5995"
                         },
                         "analytics_api_config": {
-                            "introspect_port": "8090",
-                            "listen_port": "8081",
-                            "listen_address": "0.0.0.0",
                             "log_level": "SYS_NOTICE",
                             "log": "/var/log/contrail/contrail-analytics-api.log",
                             "aaa_mode": "no-auth"
                         },
                         "analytics_collector_config": {
                             "log_level": "SYS_CONFIG",
-                            "introspect_port": "8089",
-                            "listen_port": "8086",
                             "log": "/var/log/contrail/contrail-collector.log",
-                            "listen_address": "0.0.0.0"
                         },
                         "query_engine_config": {
                             "log": "/var/log/contrail/contrail-query-engine.log",
                             "log_level": "SYS_NOTICE",
-                            "introspect_port": "8091"
                         },
                         "snmp_collector_config": {
                             "log": "/var/log/contrail/contrail-snmp-collector.log",
@@ -136,7 +91,6 @@
                         "topology_config": {
                             "log": "/var/log/contrail/contrail-topology.log",
                             "log_level": "SYS_NOTICIE",
-                            "introspect_port": "5921"
                         }
                     },
                     "openstack":{

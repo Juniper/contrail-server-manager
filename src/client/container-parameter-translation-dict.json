@@ -144,8 +144,8 @@
     "newformat": "string"
   },
   "control_config.asn": {
-      "newname": "contrail_4.control_config.asn",
-      "newformat": "integer"
+      "newname": "contrail_4.controller_config.bgp_asn",
+      "newformat": "string"
   },
   "control_config.bgp_port": {
       "newname": "contrail_4.control_config.bgp_port",
