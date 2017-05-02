@@ -5413,10 +5413,11 @@ class VncServerManager():
         openstack_manage_amqp_check = cluster_ops_cfg.get("openstack_manage_amqp", None)
         if openstack_manage_amqp_check:
             global_cfg["external_rabbitmq_servers"] = []
+            rabbitmq_srvrs = []
             for x in cluster_srvrs:
                 if "openstack" in eval(x.get('roles', '[]')):
-                    global_cfg["external_rabbitmq_servers"].append(\
-                            self.get_control_ip(x))
+                    rabbitmq_srvrs.append(self.get_control_ip(x))
+            global_cfg["external_rabbitmq_servers"] = ", ".join(rabbitmq_srvrs)
         return global_cfg
 
     def get_calculated_keystone_cfg_dict(self, cluster, cluster_srvrs):
