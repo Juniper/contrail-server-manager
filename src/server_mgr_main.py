@@ -2124,7 +2124,7 @@ class VncServerManager():
                     self._smgr_log.log(self._smgr_log.INFO, "Cluster Data %s" % cur_cluster)
                     self._smgr_log.log(self._smgr_log.INFO,
                                 "generating ceph uuid/keys for storage")
-                    generate_storage_keys(cur_cluster.get("parameters", {}))
+                    generate_storage_keys(cur_cluster)
                     self.generate_passwords(cur_cluster.get("parameters", {}))
                     self._serverDb.add_cluster(cur_cluster)
         except ServerMgrException as e:
@@ -5468,7 +5468,8 @@ class VncServerManager():
         if len(ansible_roles_set.intersection(server_roles_set)) == 0:
             return var_list
 
-        srvr_vars = self.get_contrail_4(srvr)
+        db_utils = DbUtils()
+        srvr_vars = db_utils.get_contrail_4(srvr)
 
         ctrl_data_intf = self.get_control_interface_name(srvr)
 
@@ -5527,7 +5528,8 @@ class VncServerManager():
             return
 
         # what is defined by user in the cluster json
-        contrail_4 = self.get_contrail_4(cluster)
+        db_utils = DbUtils()
+        contrail_4 = db_utils.get_contrail_4(cluster)
         # Merge default params into contrail_4
         contrail_4_defaults = default_global_ansible_config
         for key in contrail_4_defaults.keys():
@@ -6252,15 +6254,6 @@ class VncServerManager():
         if (prov):
             containers = prov.get("containers", {})
         return containers
-
-    def get_contrail_4(self, parent):
-        params     = parent.get("parameters", {})
-        if isinstance(params, unicode):
-            pparams = eval(params)
-            prov    = pparams.get("provision", {})
-        else:
-            prov       = params.get("provision", {})
-        return prov.get("contrail_4", {})
 
     def get_container_inventory(self, parent):
         inventory = {}

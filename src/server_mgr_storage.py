@@ -5,6 +5,7 @@ import subprocess
 import uuid
 from sm_ansible_utils import CEPH_COMPUTE
 from sm_ansible_utils import CEPH_CONTROLLER
+from server_mgr_utils import *
 
 def get_new_ceph_key():
     cmd = 'ceph-authtool -p -C --gen-print-key'
@@ -12,7 +13,8 @@ def get_new_ceph_key():
     return output[:-1]
 # end get_new_ceph_key
 
-def generate_storage_keys(params):
+def generate_storage_keys(cluster):
+    params = cluster.get("parameters", {})
     if params == None:
         return;
 
@@ -69,10 +71,16 @@ def build_storage_config(self, server, cluster, role_servers,
     # create pool secrets
     if 'pool_secret' not in cluster_storage_params:
         cluster_storage_params['pool_secret'] = {}
+    if 'pool_keys' not in cluster_storage_params:
+        cluster_storage_params['pool_keys'] = {}
     if 'volumes' not in cluster_storage_params['pool_secret']:
         cluster_storage_params['pool_secret']['volumes'] = str(uuid.uuid4())
+    if 'volumes' not in cluster_storage_params['pool_keys']:
+        cluster_storage_params['pool_keys']['volumes'] = get_new_ceph_key()
     if 'images' not in cluster_storage_params['pool_secret']:
         cluster_storage_params['pool_secret']['images'] = str(uuid.uuid4())
+    if 'images' not in cluster_storage_params['pool_keys']:
+        cluster_storage_params['pool_keys']['images'] = get_new_ceph_key()
     if 'last_osd_num' not in cluster_storage_params:
         cluster_storage_params['last_osd_num'] = int(0)
         last_osd_num = int(0)
@@ -95,6 +103,7 @@ def build_storage_config(self, server, cluster, role_servers,
         storage_params  = server_contrail_params.get("storage", {})
         server_contrail_params['storage'] = storage_params
 
+        pool_present = 0
         # Calculate total osd number, unique pools, unique osd number
         # for osd disks
         if (('storage_osd_disks' in storage_params) and
@@ -105,69 +114,118 @@ def build_storage_config(self, server, cluster, role_servers,
             for disk in storage_params['storage_osd_disks']:
                 disksplit = disk.split(':')
                 diskcount = disk.count(':')
-                # add virsh secret for unique volumes_ssd_ pools
+                # add virsh secret for unique volumes_hdd_ pools
+                # add corresponding ceph key for unique volumes_hdd_ pools
                 if (diskcount == 2 and disksplit[2][0] == 'P'):
                     if ('volumes_hdd_' + disksplit[2]) not in \
                                 cluster_storage_params['pool_secret']:
                         cluster_storage_params['pool_secret'] \
                             ['volumes_hdd_' + disksplit[2]] = \
                                                         str(uuid.uuid4())
+                    if ('volumes_hdd_' + disksplit[2]) not in \
+                                cluster_storage_params['pool_keys']:
+                        cluster_storage_params['pool_keys'] \
+                            ['volumes_hdd_' + disksplit[2]] = \
+                                                        get_new_ceph_key()
+                    pool_present = 1
                 elif (diskcount == 1 and disksplit[1][0] == 'P'):
                     if ('volumes_hdd_' + disksplit[1]) not in \
                                 cluster_storage_params['pool_secret']:
                         cluster_storage_params['pool_secret'] \
                             ['volumes_hdd_' + disksplit[1]] = \
                                                         str(uuid.uuid4())
+                    if ('volumes_hdd_' + disksplit[1]) not in \
+                                cluster_storage_params['pool_keys']:
+                        cluster_storage_params['pool_keys'] \
+                            ['volumes_hdd_' + disksplit[1]] = \
+                                                        get_new_ceph_key()
+                    pool_present = 1
                 # find unique osd number for each disk and add to dict
+                diskname = disksplit[0]
+                if 'osd_int_num' not in storage_params:
+                    storage_params['osd_int_num'] = {}
+                if diskname not in storage_params['osd_int_num']:
+                    storage_params['osd_int_num'][diskname] = last_osd_num
+                    last_osd_num += 1
+                elif last_osd_num < storage_params['osd_int_num'][diskname]:
+                    last_osd_num = storage_params['osd_int_num'][diskname] + 1
                 if 'osd_num' not in storage_params:
                     storage_params['osd_num'] = {}
-                if disk not in storage_params['osd_num']:
-                    storage_params['osd_num'][disk] = last_osd_num
-                    last_osd_num += 1
-                elif last_osd_num < storage_params['osd_num'][disk]:
-                    last_osd_num = storage_params['osd_num'][disk] + 1
+                storage_params['osd_num'][disk] = \
+                                    storage_params['osd_int_num'][diskname]
             # end for disk
         # end if
 
+        pool_ssd_present = 0
         # Calculate total osd number, unique pools, unique osd number
         # for osd ssd disks
         if (('storage_osd_ssd_disks' in storage_params) and
             (len(storage_params['storage_osd_ssd_disks']) > 0)):
-            # if ssd disks are present, we need 2 more pools for
-            # volumes_hdd and volumes_ssd
-            if 'volumes_hdd' not in cluster_storage_params['pool_secret']:
+            # if ssd disks are present and hdd Pools are not present
+            # add virsh secret and ceph key for volumes_hdd
+            if pool_present == 0 and \
+                    'volumes_hdd' not in cluster_storage_params['pool_secret']:
                 cluster_storage_params['pool_secret']['volumes_hdd'] = \
                                                         str(uuid.uuid4())
-            if 'volumes_ssd' not in cluster_storage_params['pool_secret']:
-                cluster_storage_params['pool_secret']['volumes_ssd'] = \
-                                                        str(uuid.uuid4())
+            if pool_present == 0 and \
+                    'volumes_hdd' not in cluster_storage_params['pool_keys']:
+                cluster_storage_params['pool_keys']['volumes_hdd'] = \
+                                                        get_new_ceph_key()
             total_osd += len(storage_params['storage_osd_ssd_disks'])
 
             for disk in storage_params['storage_osd_ssd_disks']:
                 disksplit = disk.split(':')
                 diskcount = disk.count(':')
                 # add virsh secret for unique volumes_ssd_ pools
+                # add corresponding ceph key for unique volumes_ssd_ pools
                 if (diskcount == 2 and disksplit[2][0] == 'P'):
                     if ('volumes_ssd_' + disksplit[2]) not in \
                                 cluster_storage_params['pool_secret']:
                         cluster_storage_params['pool_secret'] \
                                 ['volumes_ssd_' + disksplit[2]] = \
                                                         str(uuid.uuid4())
+                    if ('volumes_ssd_' + disksplit[2]) not in \
+                                cluster_storage_params['pool_keys']:
+                        cluster_storage_params['pool_keys'] \
+                                ['volumes_ssd_' + disksplit[2]] = \
+                                                        get_new_ceph_key()
+                    pool_ssd_present = 1
                 elif (diskcount == 1 and disksplit[1][0] == 'P'):
                     if ('volumes_ssd_' + disksplit[1]) not in \
                                 cluster_storage_params['pool_secret']:
                         cluster_storage_params['pool_secret'] \
                                 ['volumes_ssd_' + disksplit[1]] = \
                                                         str(uuid.uuid4())
+                    if ('volumes_ssd_' + disksplit[1]) not in \
+                                cluster_storage_params['pool_keys']:
+                        cluster_storage_params['pool_keys'] \
+                                ['volumes_ssd_' + disksplit[1]] = \
+                                                        get_new_ceph_key()
+                    pool_ssd_present = 1
                 # find unique osd number for each disk and add to dict
+                diskname = disksplit[0]
+                if 'osd_ssd_int_num' not in storage_params:
+                    storage_params['osd_ssd_int_num'] = {}
+                if diskname not in storage_params['osd_ssd_int_num']:
+                    storage_params['osd_ssd_int_num'][diskname] = last_osd_num
+                    last_osd_num += 1
+                elif last_osd_num < storage_params['osd_ssd_int_num'][diskname]:
+                    last_osd_num = storage_params['osd_ssd_int_num'][diskname] + 1
                 if 'osd_ssd_num' not in storage_params:
                     storage_params['osd_ssd_num'] = {}
-                if disk not in storage_params['osd_ssd_num']:
-                    storage_params['osd_ssd_num'][disk] = last_osd_num
-                    last_osd_num += 1
-                elif last_osd_num < storage_params['osd_ssd_num'][disk]:
-                    last_osd_num = storage_params['osd_ssd_num'][disk] + 1
+                storage_params['osd_ssd_num'][disk] = \
+                                    storage_params['osd_ssd_int_num'][diskname]
             # end for disk
+            # if ssd disk is present and pool is not present
+            # add virsh secret and ceph_key for volumes_ssd pool
+            if pool_ssd_present == 0 and \
+                    'volumes_ssd' not in cluster_storage_params['pool_secret']:
+                cluster_storage_params['pool_secret']['volumes_ssd'] = \
+                                                        str(uuid.uuid4())
+            if pool_ssd_present == 0 and \
+                    'volumes_ssd' not in cluster_storage_params['pool_keys']:
+                cluster_storage_params['pool_keys']['volumes_ssd'] = \
+                                                        get_new_ceph_key()
         # end if
 
         storage_mon_host_ip_set.add(self.get_control_ip(role_server))
@@ -271,15 +329,15 @@ def get_calculated_storage_ceph_cfg_dict(cluster, cluster_srvrs):
 
     storage_cfg['fsid']        = cluster_storage_params['storage_fsid']
     storage_cfg['pool_secret'] = cluster_storage_params['pool_secret']
+    storage_cfg['pool_keys']   = cluster_storage_params['pool_keys']
     storage_cfg['mon_key']     = cluster_storage_params['storage_monitor_secret']
     storage_cfg['osd_key']     = cluster_storage_params['osd_bootstrap_key']
     storage_cfg['adm_key']     = cluster_storage_params['storage_admin_key']
 
     for storage_server in cluster_srvrs:
         if CEPH_COMPUTE in eval(storage_server.get('roles', '[]')):
-            server_storage_params = get_server_contrail_4_cfg_section(
-                                                            storage_server,
-                                                            'storage')
+            db_utils = DbUtils()
+            server_storage_params = db_utils.get_contrail_4(storage_server)['storage']
             if server_storage_params == {}:
                 continue
             disk_cfg[storage_server['id']] = {}

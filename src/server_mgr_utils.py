@@ -60,6 +60,16 @@ class ServerMgrUtil():
             version = ver + "-"+ release.split('.')[0]
         return version
 
+class DbUtils():
+    def get_contrail_4(self,parent):
+        params     = parent.get("parameters", {})
+        if isinstance(params, unicode):
+            pparams = eval(params)
+            prov    = pparams.get("provision", {})
+        else:
+            prov       = params.get("provision", {})
+        return prov.get("contrail_4", {})
+
 
 class DictUtils():
     def merge_dict():
