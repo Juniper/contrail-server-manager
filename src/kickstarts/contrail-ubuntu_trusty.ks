@@ -46,7 +46,6 @@ service ssh restart
 #Install puppet 2.7 against 3.x which is got from trusty repo.
 #Need to revisit this logic to use preferences.
 
-
 #echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
@@ -153,6 +152,13 @@ keys /etc/ntp/keys
 __EOT__
 service ntp restart
 #--------------------------------------------------------------------------
+# Doing this part in the to allow any packages needed from ISO
+mv /etc/apt/sources.list /etc/apt/sources.list.backup
+#echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
+cat >>/etc/apt/sources.list <<EOF
+# add repos needed for puppet and its dependencies
+deb http://puppet/thirdparty_packages/ ./
+EOF
 
 #--------------------------------------------------------------------------
 # Enable puppet conf setting to allow custom facts
@@ -175,40 +181,7 @@ sed -i "s/initialize(name, path, source, ignore = nil, environment = nil, source
 #--------------------------------------------------------------------------
 # Enable to start puppet agent on boot
 #sed -i 's/START=.*$/START=yes/' /etc/default/puppet
-if [ "$contrail_repo_name" != "" ];
-then
-    cd /etc/apt
-    datetime_string=`date +%Y_%m_%d__%H_%M_%S`
-    cp sources.list sources.list.$datetime_string
-    echo "deb http://$server/contrail/repo/$contrail_repo_name ./" > new_repo
 
-    #modify /etc/apt/soruces.list/ to add new repo on the top
-    grep "deb http://$server/contrail/repo/$contrail_repo_name ./" sources.list
-
-    if [ $? != 0 ]; then
-         cat new_repo sources.list > new_sources.list
-         mv new_sources.list sources.list
-    fi
-    apt-get update
-    # Kept for now to create local /opt/contrail on target, should be removed
-    # later - Abhay
-    apt-get -y install contrail-install-packages
-    #--------------------------------------------------------------------------
-    # below was to create local repo on target, commented out as we create a
-    # repo on cobbler. Kept the commented below for reference.
-    # Create directory to copy the package file
-    # mkdir -p /tmp
-    # cd /tmp
-    # wget http://$server/contrail/images/$contrail_repo_name.deb
-    #--------------------------------------------------------------------------
-    # Install the package file
-    # dpkg -i $contrail_repo_name.deb
-    #--------------------------------------------------------------------------
-    # Execute shell script to create repo
-    cd /opt/contrail/contrail_packages
-    ./setup.sh
-    echo "exec-contrail-setup-sh" >> exec-contrail-setup-sh.out
-fi
 #blacklist mei module for ocp
 echo "blacklist mei" >> /etc/modprobe.d/blacklist.conf
 echo "blacklist mei \ninstall mei /bin/true" > /etc/modprobe.d/mei.conf;

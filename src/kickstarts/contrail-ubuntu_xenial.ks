@@ -117,6 +117,14 @@ keys /etc/ntp/keys
 __EOT__
 service ntp restart
 #--------------------------------------------------------------------------
+# Doing this part in the to allow any packages needed from ISO
+mv /etc/apt/sources.list /etc/apt/sources.list.backup
+#echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
+cat >>/etc/apt/sources.list <<EOF
+# add repos needed for puppet and its dependencies
+deb http://puppet/thirdparty_packages_ubuntu_1604 ./
+deb http://puppet/thirdparty_packages/ ./
+EOF
 
 #--------------------------------------------------------------------------
 # Enable puppet conf setting to allow custom facts

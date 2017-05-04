@@ -145,6 +145,27 @@ class Server(object):
                if ip == self.server_manager_ip:
                    self.sm = True
 
+    def verify_self_host(self):
+        ping_cmd = 'ping -q -c 1 %s > /dev/null 2>@1' %(self.id)
+        host_cmd = 'grep %s /etc/hosts | grep -v "^[ ]*#"' %(self.id)
+        status, old_entry = self.exec_cmd(host_cmd)
+        old_entry = old_entry.strip()
+        if status:
+            log.info('Seems puppet host is not configured')
+            log.info('Adding puppet alias to /etc/hosts file')
+            puppet_cmd = 'echo %s %s.%s %s >> /etc/hosts' % (self.ip , self.id, self.domain, self.id)
+            print "HOST CMD: " + puppet_cmd
+            self.exec_cmd(puppet_cmd, error_on_fail=True)
+        #else:
+            #log.info('Seems puppet host is already configured. ' \
+                     #'Replacing with Server Manager (%s) entry' % self.server_manager_ip)
+            #self.exec_cmd(r"sed -i 's/%s/%s puppet/g' /etc/hosts" % (
+                              #old_entry, self.server_manager_ip),
+                          #error_on_fail=True)
+
+        log.debug('Verify PING to host after configuration')
+        self.exec_cmd(ping_cmd, error_on_fail=True)
+
 
     def connect(self):
         self.set_mgmt_ip_address()
@@ -269,6 +290,7 @@ class Server(object):
 
     def preconfig_hosts_file(self):
         self.verify_puppet_host()
+        self.verify_self_host()
         self.verify_setup_hostname()
 
     def preconfig_verify_domain(self):
@@ -295,9 +317,6 @@ class Server(object):
         if status:
             log.info('/etc/apt/sources.list has no thirdparty_packages 1604 '
                      'repo entry')
-            log.debug('Backup existing sources.list')
-            self.exec_cmd(r'cp /etc/apt/sources.list '\
-                          '/etc/apt/sources.list_$(date +%Y_%m_%d__%H_%M_%S).contrailbackup')
             log.debug('Adding Repo Entry (%s) to /etc/apt/sources.list' % repo_entry)
             self.exec_cmd('echo >> /etc/apt/sources.list', error_on_fail=True)
             self.exec_cmd(r"sed -i '1 i\%s' /etc/apt/sources.list" % repo_entry)
@@ -315,7 +334,7 @@ class Server(object):
             log.info('/etc/apt/sources.list has no thirdparty_packages '
                      'repo entry')
             log.debug('Backup existing sources.list')
-            self.exec_cmd(r'cp /etc/apt/sources.list '\
+            self.exec_cmd(r'mv /etc/apt/sources.list '\
                           '/etc/apt/sources.list_$(date +%Y_%m_%d__%H_%M_%S).contrailbackup')
             log.debug('Adding Repo Entry (%s) to /etc/apt/sources.list' % repo_entry)
             self.exec_cmd('echo >> /etc/apt/sources.list', error_on_fail=True)
