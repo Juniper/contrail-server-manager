@@ -112,5 +112,6 @@ default_global_ansible_config = {
     "docker_package_name": "docker-engine",
     "contrail_compute_mode": "bare_metal",
     "docker_registry_insecure": True,
-    "docker_network_bridge": False
+    "docker_network_bridge": False,
+    "enable_lbaas": True
 }
