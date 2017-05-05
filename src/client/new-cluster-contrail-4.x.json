@@ -90,7 +90,12 @@
                         },
                         "topology_config": {
                             "log": "/var/log/contrail/contrail-topology.log",
-                            "log_level": "SYS_NOTICIE",
+                            "log_level": "SYS_NOTICIE"
+                        },
+                        "storage_ceph_config": {
+                            "replica_size": 2,
+                            "ceph_object_storage": "True",
+                            "object_store_pool": "volumes"
                         }
                     },
                     "openstack":{
