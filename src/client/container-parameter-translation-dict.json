@@ -402,5 +402,41 @@
   "static_route.netmask": {
     "newname": "static_route.netmask",
     "newformat": "string"
+  },
+  "enable_lbaas": {
+    "newname": "contrail_4.enable_lbaas",
+    "newformat": "boolean",
+  },
+  "ha.internal_vip": {
+    "newname": "openstack.ha.internal_vip",
+    "newformat": "string",
+  },
+  "ha.external_vip": {
+    "newname": "openstack.ha.external_vip",
+    "newformat": "string",
+  },
+  "ha.internal_virtual_router_id": {
+    "newname": "openstack.ha.internal_virtual_router_id",
+    "newformat": "integer",
+  },
+  "ha.external_virtual_router_id": {
+    "newname": "openstack.ha.external_virtual_router_id",
+    "newformat": "integer",
+  },
+  "ha.contrail_internal_vip": {
+    "newname": "contrail.ha.contrail_internal_vip",
+    "newformat": "string",
+  },
+  "ha.contrail_external_vip": {
+    "newname": "contrail.ha.contrail_external_vip",
+    "newformat": "string",
+  },
+  "ha.contrail_internal_virtual_router_id": {
+    "newname": "contrail.ha.contrail_internal_virtual_router_id",
+    "newformat": "integer",
+  },
+  "ha.contrail_external_virtual_router_id": {
+    "newname": "contrail.ha.contrail_external_virtual_router_id",
+    "newformat": "integer",
   }
 }
