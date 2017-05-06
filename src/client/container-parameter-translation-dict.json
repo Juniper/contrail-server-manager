@@ -143,10 +143,6 @@
     "newname": "contrail_4.keystone_config.admin_tenant",
     "newformat": "string"
   },
-  "control_config.asn": {
-      "newname": "contrail_4.controller_config.bgp_asn",
-      "newformat": "string"
-  },
   "control_config.bgp_port": {
       "newname": "contrail_4.control_config.bgp_port",
       "newformat": "integer"
@@ -164,7 +160,7 @@
       "newformat": "string"
   },
   "router_asn": {
-      "newname": "contrail_4.control_config.asn",
+      "newname": "contrail_4.controller_config.bgp_asn",
       "newformat": "string"
   },
   "ext_routers": {
