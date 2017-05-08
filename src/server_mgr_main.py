@@ -4226,6 +4226,19 @@ class VncServerManager():
         return status_msg
     # end restart_server
 
+    # Function to get Server specific Feature params like QoS, ToR, SRIOV
+    def get_feature_config(self, server, feature, remove=True):
+        parameter_dict = eval(server.get("parameters", None))
+        feature_dict = None
+        if parameter_dict and isinstance(parameter_dict, dict):
+            if feature in parameter_dict:
+                feature_dict = parameter_dict.pop(feature)
+            else:
+                feature_dict = parameter_dict.get("provision",{"contrail_4": None}).get("contrail_4",{}).pop(feature)
+        if feature_dict and isinstance(feature_dict, dict):
+            return feature_dict
+        return None
+
     # Function to get all servers in a Cluster configured for given role.
     def role_get_servers(self, cluster_servers, role_type):
         servers = []
@@ -5455,6 +5468,63 @@ class VncServerManager():
         return keystone_cfg
     #end  get_calculated_keystone_cfg_dict
 
+    def build_calculated_srvr_feature_params(self, cluster_servers):
+
+        collated_config = {}
+        qos_config = {}
+        qos_niantic_config = {}
+        sriov_config = {}
+        tor_config = {}
+
+        for srvr in cluster_servers:
+
+            server_ip = srvr['ip_address']
+            srvr_qos_config = self.get_feature_config(srvr,"qos")
+            srvr_qos_niantic_config = self.get_feature_config(srvr,"qos_niantic")
+            srvr_sriov_config = self.get_feature_config(srvr,"sriov")
+            srvr_tor_config = self.get_feature_config(srvr,"top_of_rack")
+
+            if srvr_qos_config:
+                qos_config[str(server_ip)] = []
+                for queue_id in srvr_qos_config.keys():
+                    queue_config = {}
+                    queue_config["hardware_q_id"] = str(queue_id)
+                    queue_config["logical_queue"] = srvr_qos_config[queue_id]["logical_queue"]
+                    if "default" in srvr_qos_config[queue_id] and srvr_qos_config[queue_id]["default"]:
+                        queue_config["default"] = True
+                    qos_config[str(server_ip)].append(queue_config)
+
+            if srvr_qos_niantic_config:
+                qos_niantic_config[str(server_ip)] = []
+                for priority_id in srvr_qos_niantic_config.keys():
+                    priority_group_config = {}
+                    priority_group_config["priority_id"] = str(priority_id)
+                    priority_group_config["scheduling"] = srvr_qos_niantic_config[priority_id]["scheduling"]
+                    priority_group_config["bandwidth"] = srvr_qos_niantic_config[priority_id]["bandwidth"]
+                    qos_niantic_config[str(server_ip)].append(priority_group_config)
+
+            if srvr_sriov_config:
+                sriov_config[str(server_ip)] = []
+                for sriov_interface in srvr_sriov_config.keys():
+                    sriov_interface_config = {}
+                    sriov_interface_config["interface"] = sriov_interface
+                    sriov_interface_config["VF"] = srvr_sriov_config[sriov_interface]["VF"]
+                    sriov_interface_config["physnets"] = srvr_sriov_config[sriov_interface]["physnets"]
+                    sriov_config[str(server_ip)].append(sriov_interface_config)
+
+            if srvr_tor_config:
+                tor_config[str(server_ip)] = []
+                for switch_config in srvr_tor_config["switches"]:
+                    for key in switch_config.keys():
+                        switch_config["tor_"+str(key)] = switch_config.pop(key)
+                    tor_config[str(server_ip)].append(switch_config)
+
+        collated_config["qos"] = qos_config
+        collated_config["qos_niantic"] = qos_niantic_config
+        collated_config["sriov"] = sriov_config
+        collated_config["tor_agent"] = tor_config
+        return collated_config
+
     # Returns a string of "k1=v1 k2=v2 ..." that can be appended to the group
     # line in the inventory like below:
     # [contrail-compute]
@@ -5474,6 +5544,8 @@ class VncServerManager():
         ctrl_data_intf = self.get_control_interface_name(srvr)
 
         for k,v in srvr_vars.iteritems():
+            if k in ["qos","qos_niantic","sriov"]:
+                continue
             # server specific params can include lists but ansible does not like
             # unquoted lists so make sure the list comes up like this in
             # var_list:
@@ -5547,6 +5619,11 @@ class VncServerManager():
 
         cur_inventory["[all:children]"] = []
         cur_inventory["[all:vars]"] = copy.deepcopy(contrail_4)
+
+        feature_configs = self.build_calculated_srvr_feature_params(cluster_servers)
+        for feature in feature_configs.keys():
+            if feature_configs[str(feature)] and isinstance(feature_configs[str(feature)], dict):
+                cur_inventory["[all:vars]"][str(feature)] = str(feature_configs[str(feature)])
 
         for x in cluster_servers:
             vr_if_str = None

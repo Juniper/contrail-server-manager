@@ -14,30 +14,16 @@
                         "controller_components": [
                             "config", "control", "webui"
                         ],
-                        "core_mask": "0x3f",
-                        "huge_pages": "50"
-                    },
-                    "contrail": {
-                        "compute": {
-                            "dpdk": {
-                                "core_mask": "",
-                                "huge_pages": ""
-                            },
-                            "sriov": {
-                                "literal": true,
-                                "p5p1": {
-                                    "VF": 7,
-                                    "physnets": [
-                                        "physnet1"
-                                    ]
-                                }
+                        "sriov": {
+                            "p5p1": {
+                                "VF": 7,
+                                "physnets": [
+                                    "physnet1"
+                                ]
                             }
                         },
-                        "storage": {
-                            "storage_repo_id": "",
-                            "storage_osd_disks": [],
-                            "storage_chassis_id":""
-                        },
+                        "core_mask": "0x3f",
+                        "huge_pages": "50",
                         "qos": {
                             "literal" : true,
                             "3" : {
@@ -71,22 +57,23 @@
             "top_of_rack": {
                "switches" : [
                   {
-                     "id": "1",
-                     "ip_address": "10.87.141.84",
-                     "tunnel_ip_address": "10.87.141.84",
-                     "switch_name": "TOR1",
-                     "type": "ovs",
+                     "agent_id": "1",
+                     "ip": "10.87.141.84",
+                     "tunnel_ip": "10.87.141.84",
+                     "name": "TOR1",
+                     "tsn_name": "TSN1",
+                     "agent_name": "AGENT1",
                      "ovs_port": "6632",
+                     "agent_ovs_ka": "1000",
                      "ovs_protocol": "tcp",
                      "http_server_port": "9912",
                      "vendor_name": "Juniper"
                   },
                   {
-                     "id": "2",
-                     "ip_address": "10.87.141.83",
-                     "tunnel_ip_address": "10.87.141.83",
-                     "switch_name": "TOR2",
-                     "type": "ovs",
+                     "agent_id": "2",
+                     "ip": "10.87.141.83",
+                     "tunnel_ip": "10.87.141.83",
+                     "name": "TOR2",
                      "ovs_port": "6632",
                      "ovs_protocol": "tcp",
                      "http_server_port": "9913",
