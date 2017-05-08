@@ -703,12 +703,17 @@ class ServerJsonGenerator(BaseJsonGenerator):
 
     def _initialize(self, hostobj, translation_dict):
         # set kernel upgrade 'yes' by default
+        enable_lbaas_flag = self.testsetup.testbed.env.get('enable_lbaas', True)
         kernel_upgrade_flag = self.testsetup.testbed.env.get('kernel_upgrade', True)
         kernel_version = self.testsetup.testbed.env.get('kernel_version', None)
         if kernel_upgrade_flag:
             kernel_upgrade =  True
         else:
             kernel_upgrade = False
+        if enable_lbaas_flag:
+            enable_lbass =  True
+        else:
+            enable_lbaas = False
         if not kernel_version:
             kernel_version = ''
         server_dict = {"id": hostobj.hostname,
@@ -735,6 +740,7 @@ class ServerJsonGenerator(BaseJsonGenerator):
         server_dict['parameters']['provision']['contrail']['kernel_upgrade'] = kernel_upgrade
         server_dict['parameters']['provision']['contrail']['kernel_version'] = str(kernel_version)
         server_dict['parameters']['provision']['contrail_4'] = {}
+        server_dict['parameters']['provision']['contrail_4']['enable_lbaas'] = enable_lbass
         with open(translation_dict) as json_file:
             translation_dict = json.load(json_file)
 
