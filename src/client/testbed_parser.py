@@ -164,6 +164,7 @@ class Host(object):
         self.host_id = '%s@%s' % (username, ip)
         self.timeout = kwargs.get('timeout', 5)
         self.dpdk_config = {}
+        self.sriov = None
         self.qos = None
 
     def __del__(self):
@@ -354,6 +355,10 @@ class Host(object):
         log.debug('Set dpdk_config (%s) for host ID (%s)' % (configs, self.host_id))
         self.dpdk_config = configs
 
+    def set_sriov_configs(self, configs):
+        log.debug('Set sriov_config (%s) for host ID (%s)' % (configs, self.host_id))
+        self.sriov = configs
+
     def set_vrouter_module_params(self, params):
         log.debug('Set vrouter_module_params (%s) for host ID (%s)' % (params, self.host_id))
         self.vrouter_module_params = params
@@ -498,6 +503,7 @@ class TestSetup(Testbed):
         #self.update_host_static_route()
         #self.update_host_vrouter_params()
         self.update_hosts_dpdk_info()
+        self.update_sriov_configs()
         self.update_qos_configs()
 
     def import_testbed_variables(self):
@@ -614,6 +620,11 @@ class TestSetup(Testbed):
     def update_hosts_dpdk_info(self):
         for host_id, dpdk_info in self.dpdk.items():
             self.hosts[host_id].set_dpdk_configs(dpdk_info)
+
+    @is_defined('sriov')
+    def update_sriov_configs(self):
+        for host_id, config in self.sriov.items():
+            self.hosts[host_id].set_sriov_configs(config)
 
     @is_defined('vrouter_module_params')
     def update_host_vrouter_params(self):
@@ -744,7 +755,7 @@ class ServerJsonGenerator(BaseJsonGenerator):
         with open(translation_dict) as json_file:
             translation_dict = json.load(json_file)
 
-        server_dict_keys = ['static_route', 'tor_agent', 'dpdk', 'qos', 'control_data']
+        server_dict_keys = ['static_route', 'tor_agent', 'dpdk', 'sriov', 'qos', 'qos_niantic', 'control_data']
         all_keys = list(set().union(self.testsetup.testbed.env.keys(), self.testsetup.testbed.__dict__.keys()))
         key_list = list(set(all_keys).intersection(set(server_dict_keys)))
         source_dict = {}
@@ -775,8 +786,9 @@ class ServerJsonGenerator(BaseJsonGenerator):
             for toragent_src_dict in source_dict['tor_agent']:
                 switchdict = {}
                 toragent_src_dict["tor_agent"] = toragent_src_dict
-                tor_agent_key_list = ['tor_agent.' + str(k) for k in ['tor_agent_id', 'tor_ip', 'tor_tunnel_ip', 'tor_type', 'tor_ovs_port','tor_ovs_protocol',
-                    'tor_name', 'tor_vendor_name', 'tor_product_name', 'tor_agent_http_server_port', 'tor_agent_ovs_ka']]
+                tor_agent_key_list = ['tor_agent.' + str(k) for k in ['tor_agent_id', 'tor_ip', 'tor_agent_name', 'tor_tunnel_ip',
+                    'tor_ovs_port','tor_ovs_protocol', 'tor_name', 'tor_vendor_name', 'tor_tsn_name', 'tor_product_name',
+                    'tor_agent_http_server_port', 'tor_agent_ovs_ka']]
                 #Get the host for which tor is applicable
                 if toragent_src_dict['tor_tsn_ip'] == hostobj.ip:
                     #Convert the key entries so that SM json likes it
@@ -786,19 +798,38 @@ class ServerJsonGenerator(BaseJsonGenerator):
                 switch_dict = defaultdict(list)
                 for switches in switch_list:
                     switch_dict["switches"].append(switches)
-                tor_dict["top_of_rack"] = dict(switch_dict)
-                server_dict.update(tor_dict)
+                server_dict["parameters"]["top_of_rack"] = dict(switch_dict)
+
+        if getattr(hostobj, 'sriov', None) is not None and isinstance(hostobj.sriov,list) and \
+            len(hostobj.sriov):
+            sriov_config = {}
+            for interface_config in hostobj.sriov:
+                if isinstance(interface_config,dict) and "interface" in interface_config:
+                    sriov_config[str(interface_config["interface"])] = {}
+                    sriov_config[str(interface_config["interface"])]["VF"] = interface_config["VF"]
+                    sriov_config[str(interface_config["interface"])]["physnets"] = interface_config["physnets"]
+            server_dict['parameters']['provision']['contrail_4']['sriov'] = sriov_config
 
         if getattr(hostobj, 'qos', None) is not None and isinstance(hostobj.qos,list) and \
             len(hostobj.qos):
             qos_config = {}
             for nic_config in hostobj.qos:
                 if isinstance(nic_config,dict) and "hardware_q_id" in nic_config:
-                    nic_qos_config = nic_config
-                    qos_config[nic_config["hardware_q_id"]] = nic_qos_config
-                    qos_config[nic_config["hardware_q_id"]].pop("hardware_q_id")
-            qos_config["literal"] = True
+                    qos_config[str(nic_config["hardware_q_id"])] = {}
+                    qos_config[str(nic_config["hardware_q_id"])]["logical_queue"] = nic_config["logical_queue"]
+                if "default" in nic_config and nic_config["default"]:
+                    qos_config[str(nic_config["hardware_q_id"])]["default"] = True
             server_dict['parameters']['provision']['contrail_4']['qos'] = qos_config
+
+        if getattr(hostobj, 'qos_niantic', None) is not None and isinstance(hostobj.qos_niantic,list) and \
+            len(hostobj.qos_niantic):
+            qos_niantic_config = {}
+            for nic_config in hostobj.qos_niantic:
+                if isinstance(nic_config,dict) and "priority_id" in nic_config:
+                    qos_niantic_config[str(nic_config["priority_id"])] = {}
+                    qos_niantic_config[str(nic_config["priority_id"])]["bandwidth"] = nic_config["bandwidth"]
+                    qos_niantic_config[str(nic_config["priority_id"])]["scheduling"] = nic_config["scheduling"]
+            server_dict['parameters']['provision']['contrail_4']['qos_niantic'] = qos_niantic_config
 
         # CONTROL DATA INFORMATION
         if getattr(hostobj, 'control_data', None):
