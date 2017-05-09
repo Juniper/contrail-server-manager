@@ -28,7 +28,9 @@
                             "xmpp_auth_enable": false,
                             "xmpp_dns_auth_enable": false,
                             "sandesh_ssl_enable": false,
-                            "introspect_ssl_enable": false
+                            "introspect_ssl_enable": false,
+                            "analyticsdb_cassandra_user": "cassandra",
+                            "analyticsdb_cassandra_password": "cassandra"
                         },
                         "controller_config": {
                             "encap_priority": "MPLSoUDP,MPLSoGRE,VXLAN",
@@ -44,10 +46,7 @@
                         },
                         "cassandra_config": {
                             "commitlog_dir": "/var/lib/cassandra/commitlog",
-                            "saved_caches_dir": "/var/lib/cassandra/saved_caches",
                             "data_dirs": ["/var/lib/cassandra/data"],
-                            "java_max_heap_size": "512M",
-                            "java_max_heap_newsize": "100M"
                         },
                         "api_config": {
                             "log_level": "SYS_NOTICE",
