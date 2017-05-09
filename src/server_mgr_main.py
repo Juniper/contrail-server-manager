@@ -4058,6 +4058,7 @@ class VncServerManager():
                         cluster = provision_server_list[0]['cluster']
                         # Create SSL Certs for ALL servers, not just Openstack
                         for server in provision_server_list:
+                            server['server']['domain'] = self.get_server_domain(server['server'], server['cluster'] )
                             self._smgr_certs.create_server_cert(server['server'])
                         if package["parameters"].get("containers",None):
                             if self.is_role_in_cluster('openstack',

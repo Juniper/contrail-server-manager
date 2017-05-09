@@ -77,7 +77,7 @@ class Cert(object):
     
     
     @staticmethod
-    def generate_cert(location, key, root_pem='', csr='',
+    def generate_cert(location, key, openssl_cfg_file, root_pem='', csr='',
                       force=False, self_signed=False, subj='/',
                       days=3640, method='rsa', numbits=4096):
         exit_status = 1
@@ -85,11 +85,11 @@ class Cert(object):
             if os.path.isfile(location):
                 return exit_status
         if self_signed:
-            cmd = 'openssl req -x509 -new -nodes -key %s -days %s -out %s -subj %s' % \
-            (key, days, location, subj)
+            cmd = 'openssl req -x509 -new -nodes -key %s -days %s -out %s -subj %s -config %s' % \
+            (key, days, location, subj, openssl_cfg_file)
         else:
-            cmd = 'openssl x509 -req -in %s -CA %s -CAkey %s -CAcreateserial -out %s -days %s' % \
-            (csr, root_pem, key, location, days)
+            cmd = 'openssl x509 -req -in %s -CA %s -CAkey %s -CAcreateserial -out %s -days %s -extensions v3_req -extfile %s' % \
+            (csr, root_pem, key, location, days, openssl_cfg_file)
         exit_stats, stdout, stderr = Cmd.local_exec(cmd, error_on_fail=True)
         return exit_status
 
@@ -103,10 +103,10 @@ if __name__ == '__main__':
                             log_level=log_level[3], stdout=True)
     # test code
     Cert.generate_private_key('test.key')
-    Cert.generate_cert('test.pem', 'test.key', self_signed=True)
+    Cert.generate_cert('test.pem', 'test.key', '/usr/lib/ssl/openssl.cnf', self_signed=True)
     Cert.generate_private_key('server.key')
     Cert.generate_csr('server.csr', 'server.key', subj='test')
-    Cert.generate_cert('server.pem', 'test.key', 'test.pem', 'server.csr')
+    Cert.generate_cert('server.pem', 'test.key', '/usr/lib/ssl/openssl.cnf', 'test.pem', 'server.csr')
 
 
 
