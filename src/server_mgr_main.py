@@ -4091,6 +4091,16 @@ class VncServerManager():
                                                server['cluster_servers'],
                                                contrail_package,
                                                server['serverDb'])
+                                    # update ansible server with
+                                    # provision_issued status
+                                    ansible_servers = [item for item in provision_server_list if item not in servers]
+                                    # Update Server table with provisioned id
+                                    for server in ansible_servers:
+                                      update = {'id': server['server']['id'],
+                                            'status' : 'provision_issued',
+                                            'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                                            'provisioned_id': package.get('id', '')}
+                                      self._serverDb.modify_server(update)
                         else:
 
                             for server in provision_server_list:
