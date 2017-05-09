@@ -39,10 +39,6 @@
     "newname": "openstack.keystone.region_name",
     "newformat": "string"
   },
-  "openstack_multi_tenancy": {
-    "newname": "openstack.multi_tenancy",
-    "newformat": "boolean"
-  },
   "openstack.manage_amqp": {
     "newname": "openstack.openstack_manage_amqp",
     "newformat": "boolean"
@@ -114,6 +110,10 @@
   "multi_tenancy": {
     "newname": "contrail_4.global_config.multi_tenancy",
     "newformat": "boolean"
+  },
+  "aaa_mode": {
+    "newname": "contrail_4.api_config.aaa_mode",
+    "newformat": "string"
   },
   "container.keystone_ip": {
     "newname": "contrail_4.keystone_config.ip",
