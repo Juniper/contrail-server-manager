@@ -7,6 +7,8 @@
    Description : server manager certs
 """
 from server_mgr_cert_utils import *
+from generate_openssl_cfg import *
+from generate_openssl_cfg import _DEF_OPENSSL_CFG_FILE
 
 __version__ = '1.0'
 
@@ -35,7 +37,8 @@ class ServerMgrCerts():
         self._smgr_ca_private_key = sm_ca_private_key
         exit_code, fqdn, _ = Cmd.local_exec('hostname -f')
         subject = '/CN=' + fqdn 
-        Cert.generate_cert(sm_ca_cert, sm_ca_private_key, self_signed=True, subj=subject, force=force)
+        Cert.generate_cert(sm_ca_cert, sm_ca_private_key, _DEF_OPENSSL_CFG_FILE,
+                           self_signed=True, subj=subject, force=force)
         self._smgr_ca_cert = sm_ca_cert
         return sm_ca_private_key, sm_ca_cert
 
@@ -43,13 +46,16 @@ class ServerMgrCerts():
         server_private_key = self._smgr_cert_location + server['host_name'] + '-privkey.pem'
         server_csr = self._smgr_cert_location + server['host_name'] + '.csr'
         server_pem = self._smgr_cert_location + server['host_name'] + '.pem'
+        server_openssl_cfg_obj = OpensslConfigGenerator(server)
+        server_openssl_cfg_obj.generate_openssl_config()
+        server_openssl_cfg_file = server_openssl_cfg_obj.get_openssl_cfg_location()
         if not force and os.path.isfile(server_private_key) and os.path.isfile(server_pem):
             return server_private_key, server_csr, server_pem
         subject = '/CN=' + server['host_name']
         Cert.generate_private_key(server_private_key, force=force)
         Cert.generate_csr(server_csr, server_private_key, subj=subject, force=force)
-        Cert.generate_cert(server_pem, self._smgr_ca_private_key, root_pem=self._smgr_ca_cert,
-                           csr=server_csr, force=force)
+        Cert.generate_cert(server_pem, self._smgr_ca_private_key, server_openssl_cfg_file,
+                           root_pem=self._smgr_ca_cert, csr=server_csr, force=force)
         return server_private_key, server_csr, server_pem
 
     def delete_server_cert(self, server):
