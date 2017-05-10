@@ -60,6 +60,7 @@
                         },
                         "api_config": {
                             "log_level": "SYS_NOTICE",
+                            "aaa_mode": "cloud-admin",
                         },
                         "schema_config": {
                             "log": "/var/log/contrail/contrail-schema.log",
