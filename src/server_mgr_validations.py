@@ -22,13 +22,16 @@ class ServerMgrValidations:
             return (1, "More than 128 switches are not supported")
 
         ## check for all mandatory params
-        required_params = {'id': 'positive_number',
-                           'ip_address':'ip_address',
-                           'tunnel_ip_address': 'ip_address', 
-                           'switch_name':'hostname',
+        required_params = {'agent_id': 'positive_number',
+                           'ip':'ip_address',
+                           'tunnel_ip': 'ip_address',
+                           'agent_name':'string',
+                           'name':'string',
+                           'tsn_name':'string',
                            'type': {'fixed': ['ovs']},
                            'ovs_protocol': {'fixed': ['tcp', 'pssl']},
                            'ovs_port':'port',
+                           'agent_ovs_ka':'positive_number',
                            'http_server_port':'port',
                            'vendor_name':'string'}
         ## chcek if ID, port_numer, IP-address, hostnames are valid
@@ -39,16 +42,16 @@ class ServerMgrValidations:
         hostname_set = set()
         for  switch in switch_list:
             #data += '  %s%s:\n' %(switch['switch_name'],switch['id'])
-            if 'id' in switch:
-                if not switch['id'] or switch['id'] == "":
-                    return (1, "param 'id' is empty for a switch config")
+            if 'agent_id' in switch:
+                if not switch['agent_id'] or switch['agent_id'] == "":
+                    return (1, "param 'agent_id' is empty for a switch config")
             else:
-                return (1, "param 'id' not found for a switch")
+                return (1, "param 'agent_id' not found for a switch")
 
             for param in required_params:
                 if param in switch:
                     if not switch[param] or switch[param] == "":
-                        msg = "param '%s' is empty for %s"  %(param, switch['id'])
+                        msg = "param '%s' is empty for %s"  %(param, switch['agent_id'])
                         return (1, msg)
                     else:
                         ## we should validate the param now
@@ -67,7 +70,7 @@ class ServerMgrValidations:
                             subtype=required_params[param]
                             if 'fixed' in subtype:
                                 if switch[param] not in subtype['fixed']:
-                                    msg = "param %s for switch %s has invalid value" %(param, switch['id'])
+                                    msg = "param %s for switch %s has invalid value" %(param, switch['agent_id'])
                                     status = 1
                         else:
                             self._smgr_log.log(self._smgr_log.DEBUG, "invalid type for => %s" %(required_params[param]))
@@ -75,31 +78,31 @@ class ServerMgrValidations:
                             return (1, msg)
 
                         if status != 0:
-                            msg = "switch config %s has invalid value '%s' for %s" %(switch['id'], switch[param], param)
+                            msg = "switch config %s has invalid value '%s' for %s" %(switch['agent_id'], switch[param], param)
                             return ("1", msg)
                 else:
-                    msg = "param '%s' not found for switch with 'id' as %s" \
-                          %(param, switch['id'])
+                    msg = "param '%s' not found for switch with 'agent_id' as %s" \
+                          %(param, switch['agent_id'])
                     return (1, msg)
 
             ## add the value to set()
-            if switch['id'] in id_set:
-                msg = "switch id %s is duplicate" %(switch['id'])
+            if switch['agent_id'] in id_set:
+                msg = "switch id %s is duplicate" %(switch['agent_id'])
                 return (1, msg)
             else:
-                id_set.add(switch['id'])
+                id_set.add(switch['agent_id'])
 
-            if switch['ip_address'] in ip_address_set:
-                msg = "switch %s has duplicate ip_address" %(switch['id'])
+            if switch['ip'] in ip_address_set:
+                msg = "switch %s has duplicate ip_address" %(switch['agent_id'])
                 return (1, msg)
             else:
-                ip_address_set.add(switch['ip_address'])
+                ip_address_set.add(switch['ip'])
 
-            if switch['switch_name'] in hostname_set:
-                msg = "switch id %s has duplicate hostname" %(switch['id'])
+            if switch['name'] in hostname_set:
+                msg = "switch id %s has duplicate hostname" %(switch['agent_id'])
                 return (1, msg)
             else:
-                hostname_set.add(switch['switch_name'])
+                hostname_set.add(switch['name'])
 
         return (0, "")
    

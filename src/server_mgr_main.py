@@ -5052,7 +5052,7 @@ class VncServerManager():
                 node_id = toragent_server['id']
                 tor_ha_config[node_id]= {}
                 for switch in tor_config.get("switches", []):
-                    key = switch['switch_name'] + switch['id']
+                    key = switch['name'] + switch['agent_id']
                     tor_ha_config[node_id][key] = switch
                     tor_ha_config[node_id][key]['tsn_ip'] = tsn_ip
                     if ((switch.get(

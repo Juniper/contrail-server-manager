@@ -249,12 +249,13 @@ class ServerMgrPuppet:
     # end initiate_esx_contrail_vm
 
     def generate_tor_certs(self, switch_info, server_id, domain):
-        tor_name = switch_info['switch_name']
+        tor_name = switch_info['name']
+        tor_agent_id = switch_info['agent_id']
         tor_vendor_name = switch_info['vendor_name']
         tor_server_fqdn = server_id + '.' + domain
         contrail_module_path = '/etc/contrail_smgr/puppet/ssl/'
-        tor_cert_file = contrail_module_path + 'tor.' + tor_name + '.cert.pem'
-        tor_key_file = contrail_module_path + 'tor.' + tor_name + '.privkey.pem'
+        tor_cert_file = contrail_module_path + 'tor.' + str(tor_agent_id) + '.cert.pem'
+        tor_key_file = contrail_module_path + 'tor.' + str(tor_agent_id) + '.privkey.pem'
 
         self._smgr_log.log(self._smgr_log.DEBUG, 'module path => %s' % contrail_module_path)
         if os.path.exists(tor_cert_file) and os.path.exists(tor_key_file):
