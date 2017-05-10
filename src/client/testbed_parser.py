@@ -727,6 +727,11 @@ class ServerJsonGenerator(BaseJsonGenerator):
             enable_lbaas = False
         if not kernel_version:
             kernel_version = ''
+        if 'tsn' in hostobj.roles:
+            tsn_mode_flag = True
+            hostobj.roles.remove('tsn')
+        else:
+            tsn_mode_flag = False
         server_dict = {"id": hostobj.hostname,
                        "roles": hostobj.roles,
                        "cluster_id": self.cluster_id,
@@ -752,6 +757,8 @@ class ServerJsonGenerator(BaseJsonGenerator):
         server_dict['parameters']['provision']['contrail']['kernel_version'] = str(kernel_version)
         server_dict['parameters']['provision']['contrail_4'] = {}
         server_dict['parameters']['provision']['contrail_4']['enable_lbaas'] = enable_lbass
+        if tsn_mode_flag:
+            server_dict['parameters']['provision']['contrail_4']['tsn_mode'] = True
         with open(translation_dict) as json_file:
             translation_dict = json.load(json_file)
 
