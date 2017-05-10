@@ -4235,7 +4235,9 @@ class VncServerManager():
             if feature in parameter_dict:
                 feature_dict = parameter_dict.pop(feature)
             else:
-                feature_dict = parameter_dict.get("provision",{"contrail_4": None}).get("contrail_4",{}).pop(feature)
+                contrail_4_dict = parameter_dict.get("provision",{"contrail_4": None}).get("contrail_4",{})
+                if feature in contrail_4_dict:
+                    feature_dict = contrail_4_dict.pop(feature)
         if feature_dict and isinstance(feature_dict, dict):
             return feature_dict
         return None
