@@ -5470,12 +5470,16 @@ class VncServerManager():
                 keystone_cfg["auth_protocol"] = ks_proto
 
             hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
+            cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
+            external_openstack_ip = cluster_ops_cfg.get("external_openstack_ip", None)
             if hacfg:
                 keystone_cfg["ip"] = hacfg["internal_vip"]
             else:
                 for x in cluster_srvrs:
                     if "openstack" in eval(x.get('roles', '[]')):
                         keystone_cfg["ip"] = self.get_control_ip(x)
+                    elif external_openstack_ip:
+                        keystone_cfg["ip"] = external_openstack_ip
         return keystone_cfg
     #end  get_calculated_keystone_cfg_dict
 
