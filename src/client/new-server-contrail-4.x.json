@@ -9,6 +9,8 @@
                 "partition": "/dev/sda",
                 "provision": {
                     "contrail_4": {
+                        "kernel_upgrade": false,
+                        "kernel_version": "",
                         "vrouter_physical_interface": "",
                         "ctrl_data_ip": "192.168.1.10",
                         "controller_components": [

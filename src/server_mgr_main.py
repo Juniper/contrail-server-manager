@@ -4096,6 +4096,8 @@ class VncServerManager():
                                         contrail_package["calc_params"] = \
                                            package.get("calc_params",{})
                                     for server in servers:
+                                        smutil = ServerMgrUtil()
+                                        server['server'] = smutil.calculate_kernel_upgrade(server['server'],contrail_package['calc_params'])
                                         self._do_provision_server(
                                                server['provision_params'],
                                                server['server'],
@@ -5616,7 +5618,7 @@ class VncServerManager():
     #    expected to provide the right VIP in the contrail_4 : {
     #    "keystone_config" : { "ip": <VIP>...}} dictionary else the IP of the
     #    last openstack node in the cluster DB is picked.
-    def build_calculated_inventory_params(self, cluster, cluster_servers):
+    def build_calculated_inventory_params(self, cluster, cluster_servers, package):
         grp_line = None
         open_stk_srvr = None
         need_ansible = False
@@ -5659,6 +5661,9 @@ class VncServerManager():
                 cur_inventory["[all:vars]"][str(feature)] = str(feature_configs[str(feature)])
 
         for x in cluster_servers:
+
+            smutil = ServerMgrUtil()
+            x = smutil.calculate_kernel_upgrade(x,package["calc_params"])
             vr_if_str = None
             server_roles = eval(x.get('roles', '[]'))
             server_roles_set = set(server_roles)
@@ -5727,7 +5732,7 @@ class VncServerManager():
         self.build_calculated_package_params(
             server, cluster, package)
         # Build calculated inventory parameters
-        self.build_calculated_inventory_params(cluster, cluster_servers)
+        self.build_calculated_inventory_params(cluster, cluster_servers, package)
     # end build_calculated_provision_params
 
     def prepare_provision(self, provisioning_data):

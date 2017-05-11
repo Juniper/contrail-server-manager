@@ -2,6 +2,7 @@
 
 import re
 import subprocess
+from server_mgr_defaults import *
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 """
    Name : server_mgr_utils.py
@@ -59,6 +60,29 @@ class ServerMgrUtil():
             release = subprocess.check_output(cmd, shell = True).strip()
             version = ver + "-"+ release.split('.')[0]
         return version
+
+    def calculate_kernel_upgrade(self,server_config,contrail_package_params):
+        dbutils = DbUtils()
+        server_contrail_4 = dbutils.get_contrail_4(server_config)
+        if not isinstance(server_config["parameters"],dict):
+            server_config["parameters"] = eval(server_config["parameters"])
+        if "provision" not in server_config["parameters"]:
+            server_config["parameters"]["provision"] = {}
+        if "contrail" not in server_config["parameters"].get("provision",{}):
+            server_config["parameters"]["provision"]["contrail"] = {}
+
+        if "kernel_upgrade" in server_contrail_4 and server_contrail_4["kernel_upgrade"]:
+            server_config["parameters"]["provision"]["contrail"]["kernel_upgrade"] = server_contrail_4["kernel_upgrade"]
+            if "kernel_version" in server_contrail_4 and server_contrail_4["kernel_version"]:
+                server_config["parameters"]["provision"]["contrail"]["kernel_version"] = server_contrail_4["kernel_version"]
+            else:
+                if "14.0" in contrail_package_params["contrail"]["package_sku"]:
+                    server_config["parameters"]["provision"]["contrail_4"]["kernel_version"] = default_kernel_xenial
+                    server_config["parameters"]["provision"]["contrail"]["kernel_version"] = default_kernel_xenial
+                else:
+                    server_config["parameters"]["provision"]["contrail_4"]["kernel_version"] = default_kernel_trusty
+                    server_config["parameters"]["provision"]["contrail"]["kernel_version"] = default_kernel_trusty
+        return server_config
 
 class DbUtils():
     def get_contrail_4(self,parent):
