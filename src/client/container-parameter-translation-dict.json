@@ -1,10 +1,10 @@
 {
   "kernel_upgrade": {
-    "newname": "contrail.kernel_upgrade",
+    "newname": "contrail_4.kernel_upgrade",
     "newformat": "boolean"
   },
   "kernel_version": {
-    "newname": "contrail.kernel_version",
+    "newname": "contrail_4.kernel_version",
     "newformat": "string"
   },
   "manage_neutron": {
