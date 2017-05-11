@@ -26,6 +26,7 @@
                         "agent_image": "",
                         "ssl_certs_src_dir": "/etc/contrail_smgr/puppet/ssl",
                         "ctrl_data_network": "192.168.1.0/24",
+                        "kernel_upgrade": false,
                         "enable_lbaas": false,
                         "global_config": {
                             "log_level": "SYS_INFO",

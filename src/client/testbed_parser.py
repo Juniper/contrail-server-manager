@@ -748,9 +748,9 @@ class ServerJsonGenerator(BaseJsonGenerator):
 
         server_dict['parameters']['provision'] = {}
         server_dict['parameters']['provision']['contrail'] = {}
-        server_dict['parameters']['provision']['contrail']['kernel_upgrade'] = kernel_upgrade
         server_dict['parameters']['provision']['contrail']['kernel_version'] = str(kernel_version)
         server_dict['parameters']['provision']['contrail_4'] = {}
+        server_dict['parameters']['provision']['contrail_4']['kernel_upgrade'] = kernel_upgrade
         server_dict['parameters']['provision']['contrail_4']['enable_lbaas'] = enable_lbass
         with open(translation_dict) as json_file:
             translation_dict = json.load(json_file)
