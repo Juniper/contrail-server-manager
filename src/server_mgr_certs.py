@@ -36,6 +36,7 @@ class ServerMgrCerts():
         Cert.generate_private_key(sm_ca_private_key, force=force)
         self._smgr_ca_private_key = sm_ca_private_key
         exit_code, fqdn, _ = Cmd.local_exec('hostname -f')
+        fqdn = fqdn.rstrip()
         subject = '/CN=' + fqdn 
         Cert.generate_cert(sm_ca_cert, sm_ca_private_key, _DEF_OPENSSL_CFG_FILE,
                            self_signed=True, subj=subject, force=force)
