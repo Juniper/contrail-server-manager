@@ -25,27 +25,42 @@
                         "core_mask": "0x3f",
                         "huge_pages": "50",
                         "qos": {
-                            "literal" : true,
-                            "3" : {
-                                "logical_queue": ["1", "6-10", "12-15"],
-                                "scheduling": "strict",
-                                "bandwidth": "70"
-                            },
-                            "5" : {
-                                "logical_queue": ["2"],
-                                "scheduling": "rr",
-                                "bandwidth": "75"
-                            },
-                            "8" : {
-                                "logical_queue": ["3-5"],
-                                "scheduling": "rr",
-                                "bandwidth": "75"
-                            },
-                            "1" : {
+                            "10": {
                                 "default": true,
-                                "logical_queue": ["7"],
-                                "scheduling": "strict",
-                                "bandwidth": "60"
+                                "logical_queue": [
+                                    "7"
+                                ]
+                            },
+                            "30": {
+                                "logical_queue": [
+                                    "1",
+                                    "6-10",
+                                    "12-15"
+                                ]
+                            },
+                            "5": {
+                                "logical_queue": [
+                                    "2"
+                                ]
+                            },
+                            "8": {
+                                "logical_queue": [
+                                    "3-5"
+                                ]
+                            }
+                        },
+                        "qos_niantic": {
+                            "1": {
+                                "bandwidth": "0",
+                                "scheduling": "strict"
+                            },
+                            "2": {
+                                "bandwidth": "20",
+                                "scheduling": "rr"
+                            },
+                            "3": {
+                                "bandwidth": "10",
+                                "scheduling": "rr"
                             }
                         }
                     }
