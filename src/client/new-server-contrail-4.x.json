@@ -47,6 +47,17 @@
                                 "scheduling": "strict",
                                 "bandwidth": "60"
                             }
+                        },
+                        "storage": {
+                            "storage_osd_disks": [
+                                "dev/sdb:/dev/sdd:Pool_1",
+                                "dev/sdc:/dev/sdd:Pool_2"
+                            ],
+                            "storage_osd_ssd_disks": [
+                                "/dev/sde:Pool_1",
+                                "dev/sdf:Pool_2"
+                            ],
+                            "storage_chassis_id": "chassis_1"
                         }
                     }
                 }
@@ -143,7 +154,9 @@
                 "contrail-analytics",
                 "contrail-analyticsdb",
                 "contrail-compute",
-                "contrail-agent
+                "contrail-agent",
+                "contrail-ceph-controller",
+                "contrail-ceph-compute"
             ],
             "ipmi_address": "10.84.6.62",
             "ipmi_username": "ADMIN",
