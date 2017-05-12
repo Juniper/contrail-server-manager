@@ -45,7 +45,7 @@
                         },
                         "controller_config": {
                             "encap_priority": "MPLSoUDP,MPLSoGRE,VXLAN",
-                            "external_routers_list": {}
+                            "external_routers_list": {},
                             "bgp_asn": "64512"
                         },
                         "control_config": {
@@ -57,11 +57,11 @@
                         },
                         "cassandra_config": {
                             "commitlog_dir": "/var/lib/cassandra/commitlog",
-                            "data_dirs": ["/var/lib/cassandra/data"],
+                            "data_dirs": ["/var/lib/cassandra/data"]
                         },
                         "api_config": {
                             "log_level": "SYS_NOTICE",
-                            "aaa_mode": "cloud-admin",
+                            "aaa_mode": "cloud-admin"
                         },
                         "schema_config": {
                             "log": "/var/log/contrail/contrail-schema.log",
@@ -77,7 +77,7 @@
                         },
                         "alarm_gen_config": {
                             "log": "/var/log/contrail/contrail-alarm-gen.log",
-                            "log_level": "SYS_NOTICE",
+                            "log_level": "SYS_NOTICE"
                         },
                         "analytics_api_config": {
                             "log_level": "SYS_NOTICE",
@@ -86,11 +86,11 @@
                         },
                         "analytics_collector_config": {
                             "log_level": "SYS_CONFIG",
-                            "log": "/var/log/contrail/contrail-collector.log",
+                            "log": "/var/log/contrail/contrail-collector.log"
                         },
                         "query_engine_config": {
                             "log": "/var/log/contrail/contrail-query-engine.log",
-                            "log_level": "SYS_NOTICE",
+                            "log_level": "SYS_NOTICE"
                         },
                         "snmp_collector_config": {
                             "log": "/var/log/contrail/contrail-snmp-collector.log",
@@ -101,7 +101,12 @@
                         },
                         "topology_config": {
                             "log": "/var/log/contrail/contrail-topology.log",
-                            "log_level": "SYS_NOTICIE",
+                            "log_level": "SYS_NOTICIE"
+                        },
+                        "storage_ceph_config": {
+                            "replica_size": 2,
+                            "ceph_object_storage": "True",
+                            "object_store_pool": "volumes"
                         }
                     },
                     "openstack":{
