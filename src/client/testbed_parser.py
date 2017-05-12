@@ -760,9 +760,11 @@ class ServerJsonGenerator(BaseJsonGenerator):
         key_list = list(set(all_keys).intersection(set(server_dict_keys)))
         source_dict = {}
         for key in key_list:
-            if key in self.testsetup.testbed.env.keys():
+            if key in self.testsetup.testbed.env.keys() and \
+              str(hostobj.host_id) in self.testsetup.testbed.env[key]:
                 source_dict[key]=self.testsetup.testbed.env[key][str(hostobj.host_id)]
-            elif key in self.testsetup.testbed.__dict__.keys():
+            elif key in self.testsetup.testbed.__dict__.keys() and \
+              str(hostobj.host_id) in self.testsetup.testbed.__dict__[key]:
                 source_dict[key]=self.testsetup.testbed.__dict__[key][str(hostobj.host_id)]
         self.update_translated_keys(server_dict['parameters']['provision'], key_list, translation_dict, source_dict)
 
