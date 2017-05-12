@@ -59,8 +59,11 @@ class UploadImage(Command):
         parser.add_argument("--kickseed", "-kseed",
                             help="kickseed filename for base image, applies"
                                  " only to ubuntu based base images and ignored for other image types")
+        parser.add_argument("--openstack_sku",
+                            help=("Openstack sku type/"
+                                  "kilo/liberty/mitaka/newton"))
         self.command_dictionary["upload-image"] = ['id', 'version', 'type', 'file_name', 'kickstart',
-                                                   'kickseed', 'category']
+                                                   'kickseed', 'category', 'openstack_sku']
         self.mandatory_params["upload-image"] = ['id', 'version', 'type',
                                                  'file_name', 'category']
         for key in self.command_dictionary:
@@ -98,6 +101,9 @@ class UploadImage(Command):
             image_version = getattr(parsed_args, "version", None)
             image_type = getattr(parsed_args, "type", None)
             image_category = getattr(parsed_args, "category", None)
+            openstack_sku = ''
+            if getattr(parsed_args, "openstack_sku", None):
+                openstack_sku = getattr(parsed_args, "openstack_sku", None)
             kickstart = kickseed = ''
             if getattr(parsed_args, "kickstart", None):
                 kickstart = getattr(parsed_args, "kickstart", None)
@@ -112,6 +118,8 @@ class UploadImage(Command):
             payload['type'] = image_type
             payload['category'] = image_category
             payload["file"] = (pycurl.FORM_FILE, file_name)
+            if openstack_sku:
+                payload["openstack_sku"] = openstack_sku
             if kickstart:
                 payload["kickstart"] = (pycurl.FORM_FILE, kickstart)
             if kickseed:
