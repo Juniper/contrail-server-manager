@@ -798,7 +798,7 @@ class ServerJsonGenerator(BaseJsonGenerator):
                 switch_dict = defaultdict(list)
                 for switches in switch_list:
                     switch_dict["switches"].append(switches)
-                server_dict["parameters"]["top_of_rack"] = dict(switch_dict)
+                server_dict["top_of_rack"] = dict(switch_dict)
 
         if getattr(hostobj, 'sriov', None) is not None and isinstance(hostobj.sriov,list) and \
             len(hostobj.sriov):
