@@ -60,6 +60,7 @@ def build_storage_config(self, server, cluster, role_servers,
     storage_mon_host_ip_set = set()
     storage_mon_hostname_set = set()
     storage_chassis_config_set = set()
+    pool_names = set()
     storage_servers = {}
 
     if 'live_migration_host' in cluster_storage_params:
@@ -228,8 +229,6 @@ def build_storage_config(self, server, cluster, role_servers,
                                                         get_new_ceph_key()
         # end if
 
-        storage_mon_host_ip_set.add(self.get_control_ip(role_server))
-        storage_mon_hostname_set.add(role_server['host_name'])
         if role_server['host_name'] == live_migration_host:
             live_migration_ip = self.get_control_ip(role_server)
         if storage_params.get('storage_chassis_id', ""):
@@ -272,7 +271,7 @@ def build_storage_config(self, server, cluster, role_servers,
 
     contrail_params['storage']['storage_num_osd']       = total_osd
     contrail_params['storage']['storage_num_hosts']     = num_storage_hosts
-    contrail_params['storage']['storage_enabled']       = num_storage_hosts
+    contrail_params['storage']['storage_enabled']       = bool(num_storage_hosts > 0)
     contrail_params['storage']['live_migration_ip']     = live_migration_ip
     contrail_params['storage']['storage_fsid']          = \
                         cluster_storage_params['storage_fsid']
@@ -287,6 +286,20 @@ def build_storage_config(self, server, cluster, role_servers,
     contrail_params['storage']['virsh_uuids']           = \
                         dict(cluster_storage_params['pool_secret'])
 
+
+    pool_data = {}
+    for pool_name in cluster_storage_params['pool_keys']:
+        if pool_name != "images" :
+          pool_names.add(pool_name)
+        pool_data[pool_name] = {}
+        pool_data[pool_name]['pname'] = pool_name
+        pool_data[pool_name]['key'] = cluster_storage_params['pool_keys'][pool_name]
+        pool_data[pool_name]['uuid'] = cluster_storage_params['pool_secret'][pool_name]
+        print pool_name
+        print pool_data[pool_name]
+
+    contrail_params['storage']['pool_data'] = { 'literal': True, 'data': pool_data}
+    contrail_params['storage']['pool_names'] = list(pool_names)
     roles = eval(server.get("roles", "[]"))
     if ('storage-master' in roles):
         contrail_params['storage']['storage_chassis_config'] = \
