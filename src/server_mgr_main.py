@@ -5035,6 +5035,7 @@ class VncServerManager():
         #alias_list.add(fqdn)
         alias_list.add(hostname)
         alias_list.add(hostname + "ctrl")
+        alias_list.add(hostname + "-storage")
         hostnames[fqdn]['host_aliases'] = list(alias_list)
         hostnames[fqdn]['ip'] = ip_address
 
