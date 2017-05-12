@@ -137,12 +137,45 @@ def ansible_verify_provision_complete(smlite_non_mgmt_ip):
         raise e
 
 '''
+Function to check if the contrail-networking-openstack-extra tgz should be removed
+and not be part of the repo
+'''
+def is_remove_openstack_extra(package_path, package_name, package_type, openstack_sku):
+    # remove the openstack extra package as we don't need it as part of 
+    # the repo for contrail-cloud-docker image
+    if package_name == "contrail-networking-docker" and \
+         package_type == "contrail-cloud-docker-tgz":
+        return True
+    
+    # remove the openstack extra package as we don't need it as part of 
+    # the repo for contrail-networking-docker image if the openstack sku is liberty
+    if package_type == "contrail-networking-docker-tgz" \
+       and package_name == "contrail-networking-openstack-extra" \
+       and openstack_sku == "liberty":
+        return True
+    return False
+
+'''
+Remove files not related to openstack sku
+'''
+def manipulate_openstack_extra_tgz(package_path, package_name, openstack_sku):
+    file_to_be_removed = []
+    folder_path = str(package_path)+"/"+str(package_name)
+    dirs = os.listdir(folder_path)
+    for file in dirs:
+        if openstack_sku not in file and "common" not in file:
+              file_to_be_removed.append("/"+file+"*")
+    for file in file_to_be_removed:
+        cmd = "rm " + folder_path + file
+        subprocess.check_call(cmd, shell=True)
+
+'''
 Functions to create a repo and unpack from contrail-docker-cloud package
 Create debian repo for openstack and contrail packages in container tgz
 
 '''
 
-def untar_package_to_folder(mirror,package_path):
+def untar_package_to_folder(mirror,package_path, package_type, openstack_sku):
     folder_list = []
     cleanup_package_list = []
     puppet_package = None
@@ -159,7 +192,15 @@ def untar_package_to_folder(mirror,package_path):
                 subprocess.check_call(cmd, shell=True)
                 cmd = "tar -xvzf %s -C %s/%s > /dev/null" %(package, package_path, package_name)
                 subprocess.check_call(cmd, shell=True)
-                folder_list.append(str(package_path)+"/"+str(package_name))
+                folder_path = str(package_path)+"/"+str(package_name)
+                if is_remove_openstack_extra(package_path, package_name, package_type,openstack_sku):
+                   cmd = "rm "+ folder_path + "/" + "contrail-networking-openstack-extra*"
+                   subprocess.check_call(cmd, shell=True)
+                if package_type == "contrail-networking-docker-tgz" \
+                   and package_name == "contrail-networking-openstack-extra" \
+                   and openstack_sku != "liberty":
+                    manipulate_openstack_extra_tgz(package_path, package_name, openstack_sku)
+                folder_list.append(folder_path)
             elif package_name == "contrail-docker-images" or package_name == "contrail-cloud-docker-images":
                 docker_images_package_list.append(package)
             cleanup_package_list.append(package)
@@ -205,7 +246,7 @@ def unpack_puppet_manifests(puppet_package,mirror):
     return puppet_package_path
 
 # Create debian repo for openstack and contrail packages in container tgz
-def _create_container_repo(image_id, image_type, image_version, dest, args):
+def _create_container_repo(image_id, image_type, image_version, dest, pkg_type,openstack_sku,args):
 	puppet_manifest_version = ""
 	image_params = {}
 	tgz_image = False
@@ -243,7 +284,7 @@ def _create_container_repo(image_id, image_type, image_version, dest, args):
             playbooks_version = None
 
             for folder in folder_list:
-                new_folder_list, new_cleanup_list, puppet_package_path, ansible_package, docker_images_package_list = untar_package_to_folder(mirror,str(folder))
+                new_folder_list, new_cleanup_list, puppet_package_path, ansible_package, docker_images_package_list = untar_package_to_folder(mirror,str(folder), pkg_type, openstack_sku)
                 if folder == mirror:
                     cleanup_package_list = new_folder_list + new_cleanup_list
                 folder_list += new_folder_list

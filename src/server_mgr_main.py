@@ -130,6 +130,7 @@ _DEF_PUPPET_AGENT_RETRY_POLL_INTERVAL = 20
 # this variable and it's use when enabling new puppet framework.
 _ENABLE_NEW_PUPPET_FRAMEWORK = True
 _ERR_INVALID_CONTRAIL_PKG = 'Invalid contrail package. Please specify a valid package'
+_ERR_OPENSTACK_SKU_NEEDED = 'openstack_sku image parameter has to be specified in the json file'
 
 @bottle.error(403)
 def error_403(err):
@@ -1992,10 +1993,10 @@ class VncServerManager():
                             # get the tgz package type
                             pkg_type = smutil.get_tgz_package_type(image_path)
                         if (pkg_type == "contrail-cloud-docker-tgz" or pkg_type == "contrail-networking-docker-tgz"):
-                            # get the tgz package type
-                            pkg_type = smutil.get_tgz_package_type(image_path)
+                            if pkg_type == "contrail-networking-docker-tgz" and not image_params.has_key("openstack_sku"):
+                                self.log_and_raise_exception(_ERR_OPENSTACK_SKU_NEEDED)
                             puppet_package_path, playbooks_version, container_params = _create_container_repo(
-                                image_id, image_type, image_version, image_path, self._args)
+                                image_id, image_type, image_version, image_path, pkg_type,image_params.get("openstack_sku", None),self._args)
                             # check if the image added is a cloud docker image
                             if pkg_type == "contrail-cloud-docker-tgz":
                                 puppet_manifest_version, sequence_provisioning_available, puppet_version \
@@ -2448,6 +2449,7 @@ class VncServerManager():
         image_version = bottle.request.forms.version
         image_type = bottle.request.forms.type
         image_category = bottle.request.forms.category
+        openstack_sku =  bottle.request.forms.get('openstack_sku', None)
         image_data = {
          'id': image_id,
          'version': image_version,
@@ -2501,8 +2503,11 @@ class VncServerManager():
                     # get the tgz package type
                     pkg_type = smutil.get_tgz_package_type(dest)
                 if (pkg_type == "contrail-cloud-docker-tgz" or pkg_type == "contrail-networking-docker-tgz"):
+                    if pkg_type == "contrail-networking-docker-tgz" and not image_params.has_key("openstack_sku"):
+                        msg = _ERR_OPENSTACK_SKU_NEEDED
+                        self.log_and_raise_exception(msg)
                     puppet_package_path, playbooks_version, container_params = _create_container_repo(
-                        image_id, image_type, image_version, dest, self._args)
+                        image_id, image_type, image_version, dest, pkg_type,openstack_sku, self._args)
                     # check if the image added is a cloud docker image
                     if pkg_type == "contrail-cloud-docker-tgz":
                         puppet_manifest_version, sequence_provisioning_available, puppet_version \
@@ -4319,7 +4324,8 @@ class VncServerManager():
                     return ''
                 else:
                     return str(IPNetwork(value['gateway']).ip)
-        if 'gateway' in server and len(server['gateway']):
+        if 'gateway' in server and server['gateway'] is not None \
+             and len(server['gateway']):
             return str(IPNetwork(server['gateway']).ip)
         else:
             return ''
