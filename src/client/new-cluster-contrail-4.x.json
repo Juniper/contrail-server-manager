@@ -27,6 +27,7 @@
                         "ssl_certs_src_dir": "/etc/contrail_smgr/puppet/ssl",
                         "ctrl_data_network": "192.168.1.0/24",
                         "enable_lbaas": false,
+                        "tsn_mode": false,
                         "global_config": {
                             "log_level": "SYS_INFO",
                             "cloud_orchestrator": "openstack",
