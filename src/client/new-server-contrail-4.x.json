@@ -71,6 +71,7 @@
                      "agent_id": "1",
                      "ip": "10.87.141.84",
                      "tunnel_ip": "10.87.141.84",
+                     "tsn_ip": "1.1.1.1",
                      "name": "TOR1",
                      "tsn_name": "TSN1",
                      "agent_name": "AGENT1",
@@ -78,17 +79,8 @@
                      "agent_ovs_ka": "1000",
                      "ovs_protocol": "tcp",
                      "http_server_port": "9912",
-                     "vendor_name": "Juniper"
-                  },
-                  {
-                     "agent_id": "2",
-                     "ip": "10.87.141.83",
-                     "tunnel_ip": "10.87.141.83",
-                     "name": "TOR2",
-                     "ovs_port": "6632",
-                     "ovs_protocol": "tcp",
-                     "http_server_port": "9913",
-                     "vendor_name": "Juniper"
+                     "vendor_name": "Juniper",
+                     "product_name": "QFX5100"
                   }
                 ]
             },
