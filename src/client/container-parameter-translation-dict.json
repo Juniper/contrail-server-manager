@@ -351,6 +351,10 @@
     "newname": "top_of_rack.tunnel_ip",
     "newformat": "string"
   },
+  "tor_agent.tor_tsn_ip": {
+    "newname": "top_of_rack.tsn_ip",
+    "newformat": "string"
+  },
   "tor_agent.tor_ovs_port": {
     "newname": "top_of_rack.ovs_port",
     "newformat": "string"
