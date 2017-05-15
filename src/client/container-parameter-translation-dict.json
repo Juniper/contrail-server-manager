@@ -332,7 +332,7 @@
     "newformat": "integer"
   },
   "dpdk.coremask": {
-    "newname": "contrail_4.core_mask",
+    "newname": "contrail_4.coremask",
     "newformat": "string"
   },
   "dpdk.uio_driver": {
