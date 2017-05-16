@@ -2448,6 +2448,8 @@ class VncServerManager():
         image_version = bottle.request.forms.version
         image_type = bottle.request.forms.type
         image_category = bottle.request.forms.category
+        add_db = True
+        msg = "Image Uploaded"
         image_data = {
          'id': image_id,
          'version': image_version,
@@ -2523,7 +2525,11 @@ class VncServerManager():
                     image_data.update({'path': dest})
                     image_data.update({'parameters' : image_params})
                     entity = bottle.request.json
-                    additional_ret_msg = self.validate_container_image(image_params, entity, image_data, image_params.pop("cleanup_list"))
+                    add_db, additional_ret_msg = self.validate_container_image(image_params, entity, image_data, image_params.pop("cleanup_list"))
+                    msg = \
+                    "Image upload of containers happening in the background. "\
+                    "Check /var/log/contrail-server-manager/debug.log "\
+                    "for progress"
                 else:
                     if not self.validate_package_id(image_id):
                         msg =  ("Id given %s, Id can contain only lowercase alpha-numeric characters including '_'." % (image_id))
@@ -2567,7 +2573,8 @@ class VncServerManager():
                                            kickstart_dest, kickseed_dest)
             image_data.update({'path': dest})
             image_data.update({'parameters' : image_params})
-            self._serverDb.add_image(image_data)
+            if add_db:
+                self._serverDb.add_image(image_data)
             # Removing the package/image from /etc/contrail_smgr/images/ after it has been added
             os.remove(dest)
         except subprocess.CalledProcessError as e:
@@ -2586,7 +2593,6 @@ class VncServerManager():
             abort(404, resp_msg)
         #TODO use the below method to return a JSON for all operations commands
         #with status, Move the codes and msg to a seprate file
-        msg = "Image Uploaded"
         resp_msg = self.form_operartion_data(msg, 0, None)
         return resp_msg
     # End of upload_image
