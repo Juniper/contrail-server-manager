@@ -22,8 +22,8 @@
                                 ]
                             }
                         },
-                        "core_mask": "0x3f",
-                        "huge_pages": "50",
+                        "coremask": "",
+                        "huge_pages": "",
                         "qos": {
                             "10": {
                                 "default": true,
@@ -163,7 +163,8 @@
                 "contrail-compute",
                 "contrail-agent",
                 "contrail-ceph-controller",
-                "contrail-ceph-compute"
+                "contrail-ceph-compute",
+                "contrail-agent"
             ],
             "ipmi_address": "10.84.6.62",
             "ipmi_username": "ADMIN",
