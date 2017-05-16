@@ -4245,8 +4245,11 @@ class VncServerManager():
 
     # Function to get Server specific Feature params like QoS, ToR, SRIOV
     def get_feature_config(self, server, feature, remove=True):
-        parameter_dict = eval(server.get("parameters", None))
         feature_dict = None
+        if feature in server.keys():
+            feature_dict = eval(server.get(feature, {}))
+            return feature_dict
+        parameter_dict = eval(server.get("parameters", None))
         if parameter_dict and isinstance(parameter_dict, dict):
             if feature in parameter_dict:
                 feature_dict = parameter_dict.pop(feature)
