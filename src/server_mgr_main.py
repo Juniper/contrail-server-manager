@@ -5532,7 +5532,7 @@ class VncServerManager():
                 for sriov_interface in srvr_sriov_config.keys():
                     sriov_interface_config = {}
                     sriov_interface_config["interface"] = sriov_interface
-                    sriov_interface_config["VF"] = srvr_sriov_config[sriov_interface]["VF"]
+                    sriov_interface_config["VF"] = str(srvr_sriov_config[sriov_interface]["VF"])
                     sriov_interface_config["physnets"] = srvr_sriov_config[sriov_interface]["physnets"]
                     sriov_config[str(server_ip)].append(sriov_interface_config)
 
