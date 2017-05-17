@@ -253,7 +253,7 @@ def build_storage_config(self, server, cluster, role_servers,
             ('storage_virsh_uuid' not in cluster_storage_params):
         cluster_storage_params['storage_virsh_uuid'] = \
                                     cluster_params['storage_virsh_uuid']
-    cluster_storage_params['storage_enabled'] = num_storage_hosts
+    cluster_storage_params['storage_hosts'] = num_storage_hosts
     cluster_storage_params['last_osd_num']    = last_osd_num
     self._serverDb.modify_cluster(cluster)
 
@@ -336,7 +336,7 @@ def get_calculated_storage_ceph_cfg_dict(cluster, cluster_srvrs):
     cluster_storage_params = get_cluster_contrail_cfg_section(cluster,
                                                                 'storage')
     if cluster_storage_params == {} or \
-        cluster_storage_params['storage_enabled'] == 0:
+        cluster_storage_params['storage_hosts'] == 0:
         return storage_cfg
 
     storage_cfg['fsid']        = cluster_storage_params['storage_fsid']
