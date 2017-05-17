@@ -43,6 +43,10 @@
                             "analyticsdb_cassandra_user": "cassandra",
                             "analyticsdb_cassandra_password": "cassandra"
                         },
+                        "openstack_config": {
+                            "management_ip": "",
+                            "ctrl-data_ip": ""
+                        },
                         "controller_config": {
                             "encap_priority": "MPLSoUDP,MPLSoGRE,VXLAN",
                             "external_routers_list": {},
