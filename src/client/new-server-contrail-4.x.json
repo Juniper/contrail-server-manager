@@ -73,7 +73,8 @@
                                 "dev/sdf:Pool_2"
                             ],
                             "storage_chassis_id": "chassis_1"
-                        }
+                        },
+                        "live_migration": true
                     }
                 }
             },
