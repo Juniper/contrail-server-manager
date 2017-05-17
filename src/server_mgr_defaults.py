@@ -104,6 +104,9 @@ dhcp_subnet_fields = {
     "max_lease_time": 43200
 }
 
+default_kernel_trusty = "3.13.0-106"
+default_kernel_xenial = "4.4.0-38"
+
 email_events = ["reimage_started", "reimage_completed", "provision_completed"]
 server_blocked_fields = ["ssh_private_key"]
 default_global_ansible_config = {
