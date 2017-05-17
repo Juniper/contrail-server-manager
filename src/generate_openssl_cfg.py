@@ -127,11 +127,17 @@ class OpensslConfigGenerator:
 
         return san_ips_stanza
 
+    def calculate_dns_stanza(self, hostname, domain):
+        dns_stanza = ""
+        dns_stanza+="DNS.1 = " + str(hostname) + "\n"
+        dns_stanza+="DNS.2 = " + str(hostname) + "." + str(domain) + "\n"
+        return dns_stanza
+
     def generate_openssl_config(self):
         try:
             openssl_cfg_content = openssl_template.safe_substitute({
                 '__COMMON_NAME__' : str(self._server_config["host_name"]),
-                '__DNS_DOMAIN_STANZA__': "DNS.1 = " + str(self._server_config["domain"]),
+                '__DNS_DOMAIN_STANZA__': self.calculate_dns_stanza(str(self._server_config["host_name"]), str(self._server_config["domain"])),
                 '__SAN_IPS_STANZA__' : self.calculate_san_ip_stanza()
             })
 
