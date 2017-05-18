@@ -55,8 +55,7 @@ d-i	mirror/http/proxy	string
 apt-setup-udeb	apt-setup/services-select multiselect	security
 # Commenting so server-manager dont installs this package - Nagendra
 d-i	apt-setup/services-select multiselect	security
-d-i	apt-setup/security_host	string	$hostname$directory-security
-d-i	apt-setup/volatile_host string	$hostname$directory-volatile
+d-i apt-setup/security_host string  $server
 
 # Network information
 # NOTE : this questions are asked before downloading preseed
