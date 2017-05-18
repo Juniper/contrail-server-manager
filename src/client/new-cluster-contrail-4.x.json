@@ -46,7 +46,8 @@
                         "controller_config": {
                             "encap_priority": "MPLSoUDP,MPLSoGRE,VXLAN",
                             "external_routers_list": {},
-                            "bgp_asn": "64512"
+                            "bgp_asn": "64512",
+                            "flow_export_rate": 10
                         },
                         "control_config": {
                             "log_file": "/var/log/contrail/contrail-control.log",
