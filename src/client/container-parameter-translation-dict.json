@@ -115,6 +115,14 @@
     "newname": "contrail_4.api_config.aaa_mode",
     "newformat": "string"
   },
+  "cloud_admin_role": {
+    "newname": "contrail_4.api_config.cloud_admin_role",
+    "newformat": "string"
+  },
+  "global_read_only_role": {
+    "newname": "contrail_4.api_config.global_read_only_role",
+    "newformat": "string"
+  },
   "container.keystone_ip": {
     "newname": "contrail_4.keystone_config.ip",
     "newformat": "string"
