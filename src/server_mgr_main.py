@@ -385,6 +385,7 @@ class VncServerManager():
             "query_engine_config"   : self.get_calculated_query_engine_cfg_dict,
             "snmp_collector_config" : self.get_calculated_snmp_coll_cfg_dict,
             "topology_config"       : self.get_calculated_topo_cfg_dict,
+            "openstack_config"      : self.get_calculated_openstack_cfg_dict,
             "storage_ceph_config"   : get_calculated_storage_ceph_cfg_dict
         }
                 
@@ -4324,6 +4325,11 @@ class VncServerManager():
         return server['ip_address']
     # end def get_control_ip
 
+    # Function to get management ip for a specified server.
+    def get_mgmt_ip(self, server):
+        return server['ip_address']
+    # end def get_mgmt_ip
+
     # Function to get control gateway for a specified server.
     def get_control_gateway(self, server):
         control_intf = eval(self.get_control_interface(server))
@@ -5417,6 +5423,28 @@ class VncServerManager():
         topo_cfg = dict()
         return topo_cfg
     #end  get_calculated_topo_cfg_dict
+
+    def get_calculated_openstack_cfg_dict(self, cluster, cluster_srvrs):
+        openstack_cfg = dict()
+        cluster_ks_cfg = \
+                self.get_cluster_openstack_cfg_section(cluster, "keystone")
+        if cluster_ks_cfg:
+            hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
+            cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
+            external_openstack_ip = cluster_ops_cfg.get("external_openstack_ip", None)
+            if hacfg:
+                openstack_cfg["ctrl_data_ip"] = hacfg["internal_vip"]
+                openstack_cfg["management_ip"] = hacfg["external_vip"]
+            elif external_openstack_ip:
+                openstack_cfg["ctrl_data_ip"] = external_openstack_ip
+                openstack_cfg["management_ip"] = external_openstack_ip
+            else:
+                for x in cluster_srvrs:
+                    if "openstack" in eval(x.get('roles', '[]')):
+                        openstack_cfg["ctrl_data_ip"] = self.get_control_ip(x)
+                        openstack_cfg["management_ip"] = self.get_mgmt_ip(x)
+        return openstack_cfg
+    #end  get_calculated_openstack_cfg_dict
 
     def get_calculated_global_cfg_dict(self, cluster, cluster_srvrs):
         global_cfg = dict()
