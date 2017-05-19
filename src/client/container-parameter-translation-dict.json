@@ -163,6 +163,10 @@
       "newname": "contrail_4.controller_config.bgp_asn",
       "newformat": "string"
   },
+  "flow_export_rate": {
+      "newname": "contrail_4.controller_config.flow_export_rate",
+      "newformat": "integer"
+  },
   "ext_routers": {
       "newname": "contrail_4.controller_config.external_routers_list",
       "newformat": "list"
