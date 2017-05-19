@@ -125,6 +125,7 @@ _CONTRAIL_REDHAT_REPO = 'contrail-redhat-repo'
 _DEF_SMGR_PROVISION_LOGS_DIR = '/var/log/contrail-server-manager/provision/'
 _DEF_PUPPET_AGENT_RETRY_COUNT = 10
 _DEF_PUPPET_AGENT_RETRY_POLL_INTERVAL = 20
+_DEF_COBBLER_KICKSTARTS_PATH = '/var/lib/cobbler/kickstarts/'
 # Temporary variable added to disable use of new puppet framework. This should be removed/enabled
 # only after the new puppet framework has been fully tested. Value is set to TRUE for now, remove
 # this variable and it's use when enabling new puppet framework.
@@ -2046,18 +2047,22 @@ class VncServerManager():
                             if not os.path.exists(image_kickstart):
                                 raise ServerMgrException("kickstart not found at %s" % \
                                                              (image_kickstart), ERR_OPR_ERROR)
-                            kickstart_dest = self._args.html_root_dir + \
-                                "contrail/images/" + image_id + ".ks"
+                            kickstart_dest = _DEF_COBBLER_KICKSTARTS_PATH+ \
+                                             image_id + ".ks"
                             subprocess.check_call(["cp", "-f", image_kickstart,
                                                   kickstart_dest])
+                            subprocess.check_call(["ln", "-sf", kickstart_dest,
+                                                  self._args.html_root_dir+"contrail/images/"+image_id + ".ks"])
                         if image_kickseed:
                             if not os.path.exists(image_kickseed):
                                 raise ServerMgrException("kickseed not found at %s" % \
                                                          (image_kickseed), ERR_OPR_ERROR)
-                            kickseed_dest = self._args.html_root_dir + \
-                                "contrail/images/" + image_id + ".seed"
+                            kickseed_dest = _DEF_COBBLER_KICKSTARTS_PATH+ \
+                                             image_id + ".seed"
                             subprocess.check_call(["cp", "-f", image_kickseed,
                                                   kickseed_dest])
+                            subprocess.check_call(["ln", "-sf", kickseed_dest,
+                                                  self._args.html_root_dir+"contrail/images/" + image_id + ".seed"])
                         image_params['kickstart'], image_params['kickseed'] = \
                                     self._add_image_to_cobbler(image_id, image_type,
                                     image_version, image_path,
@@ -4336,7 +4341,8 @@ class VncServerManager():
                     return ''
                 else:
                     return str(IPNetwork(value['gateway']).ip)
-        if 'gateway' in server and len(server['gateway']):
+        if 'gateway' in server and server['gateway'] is not None \
+             and len(server['gateway']):
             return str(IPNetwork(server['gateway']).ip)
         else:
             return ''
