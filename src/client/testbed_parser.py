@@ -164,6 +164,7 @@ class Host(object):
         self.host_id = '%s@%s' % (username, ip)
         self.timeout = kwargs.get('timeout', 5)
         self.dpdk_config = {}
+        self.vrouter_module_params = {}
         self.sriov = None
         self.qos = None
 
@@ -501,7 +502,7 @@ class TestSetup(Testbed):
         #self.update_host_bond_info()
         #self.update_host_control_data()
         #self.update_host_static_route()
-        #self.update_host_vrouter_params()
+        self.update_host_vrouter_params()
         self.update_hosts_dpdk_info()
         self.update_sriov_configs()
         self.update_qos_configs()
@@ -765,7 +766,8 @@ class ServerJsonGenerator(BaseJsonGenerator):
         with open(translation_dict) as json_file:
             translation_dict = json.load(json_file)
 
-        server_dict_keys = ['static_route', 'tor_agent', 'dpdk', 'sriov', 'qos', 'qos_niantic', 'control_data']
+        server_dict_keys = ['static_route', 'tor_agent', 'dpdk', 'vrouter_module_params',
+            'sriov', 'qos', 'qos_niantic', 'control_data']
         all_keys = list(set().union(self.testsetup.testbed.env.keys(), self.testsetup.testbed.__dict__.keys()))
         key_list = list(set(all_keys).intersection(set(server_dict_keys)))
         source_dict = {}
