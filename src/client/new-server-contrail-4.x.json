@@ -76,7 +76,18 @@
                             ],
                             "storage_chassis_id": "chassis_1"
                         },
-                        "live_migration": true
+                        "live_migration": true,
+                        "flow_entries": "4000000",
+                        "mpls_labels": "131072",
+                        "nexthops": "131072",
+                        "vrfs": "65536",
+                        "macs": "262144",
+                        "oflow_entries": "5000",
+                        "mac_oentries": "6000",
+                        "max_interface_entries": "4352",
+                        "flow_hold_limit": "8192",
+                        "vrouter_dbg": "0",
+                        "vr_memory_alloc_checks": "0"
                     }
                 }
             },
