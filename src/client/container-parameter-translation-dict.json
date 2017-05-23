@@ -343,6 +343,50 @@
     "newname": "contrail_4.uio_driver",
     "newformat": "string"
   },
+  "vrouter_module_params.flow_entries": {
+    "newname": "contrail_4.flow_entries",
+    "newformat": "integer"
+  },
+  "vrouter_module_params.mpls_labels": {
+    "newname": "contrail_4.mpls_labels",
+    "newformat": "integer"
+  },
+  "vrouter_module_params.nexthops": {
+    "newname": "contrail_4.nexthops",
+    "newformat": "integer"
+  },
+  "vrouter_module_params.vrfs": {
+    "newname": "contrail_4.vrfs",
+    "newformat": "integer"
+  },
+  "vrouter_module_params.macs": {
+    "newname": "contrail_4.macs",
+    "newformat": "integer"
+  },
+  "vrouter_module_params.oflow_entries": {
+    "newname": "contrail_4.oflow_entries",
+    "newformat": "integer"
+  },
+  "vrouter_module_params.mac_oentries": {
+    "newname": "contrail_4.mac_oentries",
+    "newformat": "integer"
+  },
+  "vrouter_module_params.max_interface_entries": {
+    "newname": "contrail_4.max_interface_entries",
+    "newformat": "integer"
+  },
+  "vrouter_module_params.flow_hold_limit": {
+    "newname": "contrail_4.flow_hold_limit",
+    "newformat": "integer"
+  },
+  "vrouter_module_params.vrouter_dbg": {
+    "newname": "contrail_4.vrouter_dbg",
+    "newformat": "integer"
+  },
+  "vrouter_module_params.vr_memory_alloc_checks": {
+    "newname": "contrail_4.vr_memory_alloc_checks",
+    "newformat": "integer"
+  },
   "tor_agent.tor_ip": {
     "newname": "top_of_rack.ip",
     "newformat": "string"
