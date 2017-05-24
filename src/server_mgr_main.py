@@ -5071,20 +5071,19 @@ class VncServerManager():
         domain = server.get('domain', '')
         if not domain:
             domain = (cluster.get('parameters', {})).get('domain', '')
-        for toragent_server in role_servers['toragent']:
-            tor_config = eval(toragent_server['top_of_rack'])
+        for toragent_compute_server in role_servers['contrail-compute']:
+            tor_config = eval(toragent_compute_server['top_of_rack'])
+            toragent_compute_server_id = str(toragent_compute_server['host_name'])
             if len(tor_config) > 0:
-                tsn_ip = self.get_control_ip(toragent_server)
-                node_id = toragent_server['id']
+                tsn_ip = self.get_control_ip(toragent_compute_server)
+                node_id = toragent_compute_server['id']
                 tor_ha_config[node_id]= {}
                 for switch in tor_config.get("switches", []):
                     key = switch['name'] + switch['agent_id']
                     tor_ha_config[node_id][key] = switch
                     tor_ha_config[node_id][key]['tsn_ip'] = tsn_ip
-                    if ((switch.get(
-                        'ovs_protocol', "")).lower() == "pssl"):
-                        self._smgr_puppet.generate_tor_certs(
-                            switch, server['host_name'], domain)
+                    self._smgr_puppet.generate_tor_certs(
+                        switch, toragent_compute_server_id, domain)
                 # end for switch
             # end if len...
         # end for toragent_server
