@@ -109,11 +109,15 @@ class DictUtils():
 
     def remove_none_from_dict():
         def remove_none_from_dict(a):
+            # All k,v where v is one of the list below is removed from the dict.
+            # This is to prevent using the empty strings that are received from
+            # webui
+            removed_vals = [ '', u'', '""', None ]
             if isinstance(a, dict):
                 a_keys = a.viewkeys()
-                return {k: remove_none_from_dict(a[k]) for k in a_keys if a[k] is not None}
-            if a == '""':
-                a = ''
+                return {k: remove_none_from_dict(a[k]) \
+                        for k in a_keys if not \
+                        any([a[k] is i for i in removed_vals])}
             return a
         return remove_none_from_dict
     remove_none_from_dict = staticmethod(remove_none_from_dict())
