@@ -111,6 +111,7 @@ email_events = ["reimage_started", "reimage_completed", "provision_completed"]
 server_blocked_fields = ["ssh_private_key"]
 default_global_ansible_config = {
     "ssl_certs_src_dir": "/etc/contrail_smgr/puppet/ssl",
+    "tor_ssl_certs_src_dir": "/etc/contrail_smgr/puppet/ssl",
     "docker_install_method": "package",
     "docker_package_name": "docker-engine",
     "contrail_compute_mode": "bare_metal",
