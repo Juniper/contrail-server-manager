@@ -32,7 +32,7 @@ class ServerMgrValidations:
                            'ovs_protocol': {'fixed': ['tcp', 'pssl']},
                            'ovs_port':'port',
                            'agent_ovs_ka':'positive_number',
-                           'http_server_port':'port',
+                           'agent_http_server_port':'port',
                            'vendor_name':'string'}
         ## chcek if ID, port_numer, IP-address, hostnames are valid
         ## chcek if all IDs are unique
