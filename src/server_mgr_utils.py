@@ -38,14 +38,14 @@ class ServerMgrUtil():
 
     # this function returns the package type given the image
     def get_tgz_package_type(self,img_path):
-       base_cmd = "tar --wildcards -tzf " +img_path +" "
-       cmd = base_cmd + "contrail-puppet*"
+       base_cmd = "tar -tzf " +img_path +" " + "--wildcards "
+       cmd = base_cmd + "'contrail-puppet*'"
        if self.command_output(cmd) is not None:
          return "contrail-install-tgz"
-       cmd = base_cmd + "contrail-networking-docker*"
+       cmd = base_cmd + "'contrail-networking-docker*'"
        if self.command_output(cmd) is not None:
          return "contrail-cloud-docker-tgz"
-       cmd = base_cmd + "contrail-networking-dependents*"
+       cmd = base_cmd + "'contrail-networking-dependents*'"
        if self.command_output(cmd) is not None:
          return "contrail-networking-docker-tgz"
        return None
