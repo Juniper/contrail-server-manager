@@ -395,6 +395,10 @@
     "newname": "contrail_4.vr_memory_alloc_checks",
     "newformat": "integer"
   },
+  "ca_cert_file": {
+    "newname": "contrail_4.tor_ca_cert_file",
+    "newformat": "string"
+  },
   "tor_agent.tor_ip": {
     "newname": "top_of_rack.ip",
     "newformat": "string"

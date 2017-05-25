@@ -5071,6 +5071,22 @@ class VncServerManager():
         domain = server.get('domain', '')
         if not domain:
             domain = (cluster.get('parameters', {})).get('domain', '')
+        # what is defined by user in the cluster json
+        db_utils = DbUtils()
+        contrail_4 = db_utils.get_contrail_4(cluster)
+        # Merge default params into contrail_4
+        contrail_4_defaults = default_global_ansible_config
+        for key in contrail_4_defaults.keys():
+            if key not in contrail_4:
+                contrail_4[key] = contrail_4_defaults[key]
+
+        tor_ca_cert_location = contrail_4.get('tor_ca_cert_file', '')
+        tor_ssl_certs_src_dir = contrail_4.get('tor_ssl_certs_src_dir', '')
+        if tor_ca_cert_location and os.path.isfile(str(tor_ca_cert_location)) and tor_ssl_certs_src_dir:
+            # Copy the tor_ca_cert to tor_ssl_certs_src_dir
+            cmd = ("cp %s %s/ca-cert.pem" %(tor_ca_cert_location, tor_ssl_certs_src_dir))
+            subprocess.check_call(cmd, shell=True)
+
         for toragent_compute_server in role_servers['contrail-compute']:
             tor_config = eval(toragent_compute_server['top_of_rack'])
             toragent_compute_server_id = str(toragent_compute_server['host_name'])
