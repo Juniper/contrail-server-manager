@@ -32,6 +32,21 @@ APT
 EOF
 
 #--------------------------------------------------------------------------
+#Add Banner for Contrail Cloud
+cat > /etc/ssh/banner.base64.txt << BANNER
+CiBfX19fXyAgICAgICAgICAgICBfICAgICAgICAgICAgIF8gXyAgIF9fX19fIF8gICAgICAgICAg
+ICAgICAgIF8gCi8gIF9fIFwgICAgICAgICAgIHwgfCAgICAgICAgICAgKF8pIHwgLyAgX18gXCB8
+ICAgICAgICAgICAgICAgfCB8CnwgLyAgXC8gX19fICBfIF9fIHwgfF8gXyBfXyBfXyBfIF98IHwg
+fCAvICBcLyB8IF9fXyAgXyAgIF8gIF9ffCB8CnwgfCAgICAvIF8gXHwgJ18gXHwgX198ICdfXy8g
+X2AgfCB8IHwgfCB8ICAgfCB8LyBfIFx8IHwgfCB8LyBfYCB8CnwgXF9fL1wgKF8pIHwgfCB8IHwg
+fF98IHwgfCAoX3wgfCB8IHwgfCBcX18vXCB8IChfKSB8IHxffCB8IChffCB8CiBcX19fXy9cX19f
+L3xffCB8X3xcX198X3wgIFxfXyxffF98X3wgIFxfX19fL198XF9fXy8gXF9fLF98XF9fLF98CiAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgCg==
+BANNER
+base64 -d /etc/ssh/banner.base64.txt > /etc/ssh/banner.txt
+sed -i '/Banner/c\Banner \/etc\/ssh\/banner.txt' /etc/ssh/sshd_config
 # Enable ssh for root
 sed -i '/PermitRootLogin/c\PermitRootLogin yes' /etc/ssh/sshd_config
 service ssh restart
