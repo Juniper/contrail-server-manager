@@ -32,6 +32,20 @@ APT
 EOF
 
 #--------------------------------------------------------------------------
+#Add Banner for Contrail Cloud
+echo > /etc/ssh/banner.txt << BANNER
+
+ _____             _             _ _   _____ _                 _ 
+/  __ \           | |           (_) | /  __ \ |               | |
+| /  \/ ___  _ __ | |_ _ __ __ _ _| | | /  \/ | ___  _   _  __| |
+| |    / _ \| '_ \| __| '__/ _` | | | | |   | |/ _ \| | | |/ _` |
+| \__/\ (_) | | | | |_| | | (_| | | | | \__/\ | (_) | |_| | (_| |
+ \____/\___/|_| |_|\__|_|  \__,_|_|_|  \____/_|\___/ \__,_|\__,_|
+
+
+
+BANNER
+sed -i '/Banner/c\Banner \/etc\/ssh\/banner.txt' /etc/ssh/sshd_config
 # Enable ssh for root
 sed -i '/PermitRootLogin/c\PermitRootLogin yes' /etc/ssh/sshd_config
 service ssh restart
