@@ -24,8 +24,29 @@
                                 ]
                             }
                         },
+                        "qos_priority_tagging": true,
+                        "compute_as_gateway_mode": "server",
                         "coremask": "",
                         "huge_pages": "",
+                        "vgw": {
+                            "vgw1": {
+                                "gateway_routes": [
+                                    "8.8.8.0/24",
+                                    "1.1.1.0/24"
+                                ],
+                                "ipam_subnets": [
+                                    "10.204.220.128/29",
+                                    "10.204.220.136/29"
+                                ],
+                                "vn": "default-domain:admin:public:public"
+                            },
+                            "vgw2": {
+                                "ipam_subnets": [
+                                    "10.204.220.144/29"
+                                ],
+                                "vn": "default-domain:admin:public1:public1"
+                            }
+                        },
                         "qos": {
                             "10": {
                                 "default": true,
