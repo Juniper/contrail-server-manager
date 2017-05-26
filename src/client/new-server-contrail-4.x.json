@@ -128,7 +128,7 @@
                      "ovs_port": "6632",
                      "agent_ovs_ka": "1000",
                      "ovs_protocol": "tcp",
-                     "http_server_port": "9912",
+                     "agent_http_server_port": "9912",
                      "vendor_name": "Juniper",
                      "product_name": "QFX5100"
                   }

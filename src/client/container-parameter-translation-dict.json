@@ -403,6 +403,10 @@
     "newname": "contrail_4.vr_memory_alloc_checks",
     "newformat": "integer"
   },
+  "ca_cert_file": {
+    "newname": "contrail_4.tor_ca_cert_file",
+    "newformat": "string"
+  },
   "tor_agent.tor_ip": {
     "newname": "top_of_rack.ip",
     "newformat": "string"
@@ -447,8 +451,8 @@
     "newname": "top_of_rack.tsn_name",
     "newformat": "string"
   },
-  "tor_agent.tor_http_server_port": {
-    "newname": "top_of_rack.http_server_port",
+  "tor_agent.tor_agent_http_server_port": {
+    "newname": "top_of_rack.agent_http_server_port",
     "newformat": "string"
   },
   "tor_agent.tor_agent_ovs_ka": {

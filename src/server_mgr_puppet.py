@@ -253,7 +253,7 @@ class ServerMgrPuppet:
         tor_agent_id = switch_info['agent_id']
         tor_vendor_name = switch_info['vendor_name']
         tor_server_fqdn = server_id + '.' + domain
-        contrail_module_path = '/etc/contrail_smgr/puppet/ssl/'
+        contrail_module_path = '/etc/contrail_smgr/puppet/ssl/tor/'
         tor_cert_file = contrail_module_path + 'tor.' + str(tor_agent_id) + '.cert.pem'
         tor_key_file = contrail_module_path + 'tor.' + str(tor_agent_id) + '.privkey.pem'
 
