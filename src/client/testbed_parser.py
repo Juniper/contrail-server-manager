@@ -23,6 +23,7 @@ DEF_TRANS_DICT='/opt/contrail/server_manager/client/parameter-translation-dict.j
 recalculate_list=["external_routers_list"]
 log = logging.getLogger('testbed_parser')
 log.setLevel(logging.DEBUG)
+host_specific_param_list = ['compute_as_gateway_mode','qos_priority_tagging']
 
 class Utils(object):
     @staticmethod
@@ -165,6 +166,7 @@ class Host(object):
         self.timeout = kwargs.get('timeout', 5)
         self.dpdk_config = {}
         self.vrouter_module_params = {}
+        self.vgw = {}
         self.sriov = None
         self.qos = None
 
@@ -340,6 +342,10 @@ class Host(object):
         log.debug('Set ostype (%s) for host ID (%s)' % (ostypes, self.host_id))
         self.ostypes = ostypes
 
+    def set_host_specific_params(self, specific_param, param_value):
+        log.debug('Set host specific parameter (%s) for host ID (%s)' % (specific_param, self.host_id))
+        self.__dict__[str(specific_param)] = param_value
+
     def set_roles(self, roles):
         log.debug('Set roles (%s) for host ID (%s)' % (roles, self.host_id))
         self.roles = roles
@@ -498,11 +504,13 @@ class TestSetup(Testbed):
         self.update_host_ostypes()
         self.update_host_roles()
         self.update_tor_agent_info()
+        self.update_host_specific_params()
         #self.update_host_hypervisor()
         #self.update_host_bond_info()
         #self.update_host_control_data()
         #self.update_host_static_route()
         self.update_host_vrouter_params()
+        self.update_virtual_gateway()
         self.update_hosts_dpdk_info()
         self.update_sriov_configs()
         self.update_qos_configs()
@@ -576,6 +584,12 @@ class TestSetup(Testbed):
     def update_host_ostypes(self):
         for host_id, os_type in self.ostypes.items():
             self.hosts[host_id].set_ostype(os_type)
+
+    def update_host_specific_params(self):
+        for specific_param in host_specific_param_list:
+            if specific_param in self.__dict__.keys():
+                for host_id, param_value in self.__dict__.get(specific_param).iteritems():
+                    self.hosts[host_id].set_host_specific_params(specific_param,param_value)
 
     @is_defined('hypervisor')
     def update_host_hypervisor(self):
@@ -766,8 +780,9 @@ class ServerJsonGenerator(BaseJsonGenerator):
         with open(translation_dict) as json_file:
             translation_dict = json.load(json_file)
 
-        server_dict_keys = ['static_route', 'tor_agent', 'dpdk', 'vrouter_module_params',
+        server_dict_keys = ['static_route', 'tor_agent', 'dpdk', 'vrouter_module_params', 'vgw',
             'sriov', 'qos', 'qos_niantic', 'control_data']
+        server_dict_keys = server_dict_keys + host_specific_param_list
         all_keys = list(set().union(self.testsetup.testbed.env.keys(), self.testsetup.testbed.__dict__.keys()))
         key_list = list(set(all_keys).intersection(set(server_dict_keys)))
         source_dict = {}
@@ -779,6 +794,10 @@ class ServerJsonGenerator(BaseJsonGenerator):
               str(hostobj.host_id) in self.testsetup.testbed.__dict__[key]:
                 source_dict[key]=self.testsetup.testbed.__dict__[key][str(hostobj.host_id)]
         self.update_translated_keys(server_dict['parameters']['provision'], key_list, translation_dict, source_dict)
+
+        for specific_param in host_specific_param_list:
+            if specific_param in source_dict:
+                server_dict['parameters']['provision']['contrail_4'][specific_param] = source_dict[specific_param]
 
         static_route_list = []
         if source_dict.get('static_route', None) is not None:
@@ -844,6 +863,16 @@ class ServerJsonGenerator(BaseJsonGenerator):
                     qos_niantic_config[str(nic_config["priority_id"])]["bandwidth"] = nic_config["bandwidth"]
                     qos_niantic_config[str(nic_config["priority_id"])]["scheduling"] = nic_config["scheduling"]
             server_dict['parameters']['provision']['contrail_4']['qos_niantic'] = qos_niantic_config
+
+        if getattr(hostobj, 'vgw', None) is not None and isinstance(hostobj.vgw,dict):
+            vgw_config = {}
+            host_vgw_dict = hostobj.vgw
+            for virtual_gateway in host_vgw_dict.keys():
+                if isinstance(host_vgw_dict[virtual_gateway],dict):
+                    vgw_config[virtual_gateway] = {}
+                    for key in host_vgw_dict[virtual_gateway]:
+                        vgw_config[virtual_gateway][key.replace('-','_')] = host_vgw_dict[virtual_gateway][key]
+            server_dict['parameters']['provision']['contrail_4']['vgw'] = vgw_config
 
         # CONTROL DATA INFORMATION
         if getattr(hostobj, 'control_data', None):

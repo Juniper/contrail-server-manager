@@ -5542,6 +5542,7 @@ class VncServerManager():
         qos_config = {}
         qos_niantic_config = {}
         sriov_config = {}
+        vgw_config = {}
         tor_config = {}
 
         for srvr in cluster_servers:
@@ -5550,6 +5551,7 @@ class VncServerManager():
             srvr_qos_config = self.get_feature_config(srvr,"qos")
             srvr_qos_niantic_config = self.get_feature_config(srvr,"qos_niantic")
             srvr_sriov_config = self.get_feature_config(srvr,"sriov")
+            srvr_vgw_config = self.get_feature_config(srvr,"vgw")
             srvr_tor_config = self.get_feature_config(srvr,"top_of_rack")
 
             if srvr_qos_config:
@@ -5580,6 +5582,9 @@ class VncServerManager():
                     sriov_interface_config["physnets"] = srvr_sriov_config[sriov_interface]["physnets"]
                     sriov_config[str(server_ip)].append(sriov_interface_config)
 
+            if srvr_vgw_config:
+                vgw_config[str(server_ip)] = srvr_vgw_config
+
             if srvr_tor_config:
                 tor_config[str(server_ip)] = []
                 for switch_config in srvr_tor_config["switches"]:
@@ -5590,6 +5595,7 @@ class VncServerManager():
         collated_config["qos"] = qos_config
         collated_config["qos_niantic"] = qos_niantic_config
         collated_config["sriov"] = sriov_config
+        collated_config["vgw"] = vgw_config
         collated_config["tor_agent"] = tor_config
         return collated_config
 
