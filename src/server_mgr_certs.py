@@ -20,6 +20,7 @@ class ServerMgrCerts():
                  log_level = logging.DEBUG,
                  db=None):
         Cmd.local_exec('mkdir -p %s' % (cert_location), error_on_fail=True)
+        Cmd.local_exec('mkdir -p %s/tor/' % (cert_location), error_on_fail=True)
         self._smgr_cert_location = cert_location
         self._smgr_ca_private_key = None
         self._smgr_ca_cert = None
