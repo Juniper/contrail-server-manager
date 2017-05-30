@@ -118,7 +118,8 @@
                             "log_level": "SYS_NOTICIE"
                         },
                         "storage_ceph_config": {
-                            "replica_size": 2,
+                            "journal_size": "2048",
+                            "replica_size": "2",
                             "ceph_object_storage": "True",
                             "object_store_pool": "volumes"
                         }
