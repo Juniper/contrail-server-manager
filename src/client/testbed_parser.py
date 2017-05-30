@@ -886,9 +886,18 @@ class ServerJsonGenerator(BaseJsonGenerator):
                                 source_variable=hostobj.control_data,
                                 function=dict.get,
                                 destination_variable_name='default_gateway')
-            self.set_if_defined('vlan', control_data_dict,
-                                source_variable=hostobj.control_data,
-                                function=dict.get)
+            if 'vlan' in hostobj.control_data:
+                vlan_intf_dict = {}
+                vlan_intf_dict["type"] = "vlan"
+                vlan_intf_dict["ip_address"] = hostobj.control_data['ip']
+                vlan_intf_dict["parent_interface"] = hostobj.control_data['device']
+                vlan_intf_dict["vlan"] = hostobj.control_data['vlan']
+                vlan_intf_dict["name"] = "vlan" + str(hostobj.control_data['vlan'])
+                self.set_if_defined('gw', vlan_intf_dict,
+                                    source_variable=hostobj.control_data,
+                                    function=dict.get,
+                                    destination_variable_name='default_gateway')
+                server_dict['network']['interfaces'].append(vlan_intf_dict)
             server_dict['network']['interfaces'].append(control_data_dict)
         return server_dict
 
