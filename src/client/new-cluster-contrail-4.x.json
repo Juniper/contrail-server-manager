@@ -43,7 +43,12 @@
                             "sandesh_ssl_enable": false,
                             "introspect_ssl_enable": false,
                             "analyticsdb_cassandra_user": "cassandra",
-                            "analyticsdb_cassandra_password": "cassandra"
+                            "analyticsdb_cassandra_password": "cassandra",
+                            "apiserver_auth_protocol": "http",
+                            "apiserver_insecure": "False",
+                            "apiserver_certfile": "/etc/contrailctl/ssl/server.pem",
+                            "apiserver_keyfile": "/etc/contrailctl/ssl/server-privatekey.pem",
+                            "apiserver_cafile": "/etc/contrailctl/ssl/ca-cert.pem"
                         },
                         "openstack_config": {
                             "management_ip": "",
