@@ -510,5 +510,25 @@
   "ha.contrail_external_virtual_router_id": {
     "newname": "contrail.ha.contrail_external_virtual_router_id",
     "newformat": "integer"
+  },
+  "cfgm.auth_protocol": {
+    "newname": "contrail_4.global_config.apiserver_auth_protocol",
+    "newformat": "string"
+  },
+  "cfgm.insecure": {
+    "newname": "contrail_4.global_config.apiserver_insecure",
+    "newformat": "boolean"
+  },
+  "cfgm.certfile": {
+    "newname": "contrail_4.global_config.apiserver_certfile",
+    "newformat": "string"
+  },
+  "cfgm.keyfile": {
+    "newname": "contrail_4.global_config.apiserver_keyfile",
+    "newformat": "string"
+  },
+  "cfgm.cafile": {
+    "newname": "contrail_4.global_config.apiserver_cafile",
+    "newformat": "string"
   }
 }
