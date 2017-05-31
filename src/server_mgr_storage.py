@@ -62,6 +62,15 @@ def build_storage_config(self, server, cluster, role_servers,
     storage_chassis_config_set = set()
     pool_names = set()
     storage_servers = {}
+    storage_role_present = 0
+
+    for storage_server in cluster_servers:
+        if CEPH_COMPUTE in eval(storage_server.get('roles', '[]')) or \
+            CEPH_CONTROLLER in eval(storage_server.get('roles', '[]')):
+            storage_role_present = 1
+
+    if storage_role_present == 0:
+        return
 
     if 'live_migration_host' in cluster_storage_params:
         live_migration_host = cluster_storage_params['live_migration_host']
