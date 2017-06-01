@@ -57,8 +57,11 @@ def stop_svcs(servers):
     services = ['supervisor-analytics', 'supervisor-support-service', 
                 'supervisor-database', 'contrail-database', 'supervisor-webui', 
                 'supervisor-config', 'supervisor-control', 'haproxy', 
-                'redis-server', 'memcached', 'neutron-server', 'zookeeper']
+                'redis-server', 'memcached', 'neutron-server', 'zookeeper',
+                'keepalived']
     for each in servers:
+        if 'openstack' in each['roles']:
+            continue
         cmd = 'kill $(pidof epmd)'
         Utils.exec_remote(each, cmd)
         for svc in services:
@@ -86,10 +89,7 @@ def wait_provision_complete(servers):
             break
     return prov_complete
 
-def run_sync(server):
-    # fix rpc ip and port
-    #server = {'password': 'c0ntrail123', 'ip_address': '192.168.100.102', 'id': 'ctrl2-a1s9', 'roles': ['contrail-controller', 'contrail-analytics', 'contrail-analyticsdb']}
-    config_file = "/etc/contrail/upgrade.conf"
+def start_cassandra(server):
     cmd = "sed -i 's/rpc_port:.*/rpc_port: 29160/g' /etc/cassandra/cassandra.yaml"
     Utils.exec_remote(server, cmd)
     cmd = "sed -i 's/storage_port:.*/storage_port: 27000/g' /etc/cassandra/cassandra.yaml"
@@ -100,6 +100,11 @@ def run_sync(server):
     Utils.exec_remote(server, cmd)
     cmd = 'service cassandra restart'
     Utils.exec_remote(server, cmd)
+
+def run_sync(server):
+    # fix rpc ip and port
+    #server = {'password': 'c0ntrail123', 'ip_address': '192.168.100.102', 'id': 'ctrl2-a1s9', 'roles': ['contrail-controller', 'contrail-analytics', 'contrail-analyticsdb']}
+    config_file = "/etc/contrail/upgrade.conf"
     cmd = "grep ^rpc_address /etc/cassandra/cassandra.yaml |awk '{print $2}'"
     old_cass_ip = Utils.exec_remote(server, cmd).strip()
     cmd  = "grep ^rpc_port /etc/cassandra/cassandra.yaml |awk '{print $2}'"
@@ -148,11 +153,12 @@ def main():
         logging.info("4.0 Provisioning timed out")
         sys.exit("4.0 Provisioning timed out")
     # start underlay cassandra and sync up the DB
+    sync_server = {}
     for each in server_json_dump:
         if "contrail-controller" in each['roles']:
+            start_cassandra(each)
             sync_server = each
-            break
-    else:
+    if not sync_server.keys():
         logging.info("no contrail-controller role found")
         sys.exit("no contrail-controller role found")
     run_sync(sync_server)
