@@ -379,8 +379,8 @@ class Server(object):
             cmd += r'--ip %s ' % (ip_address)
         if 'member_interfaces' in iface_info.keys() and len(iface_info['member_interfaces']) > 0 :
             cmd += r'--members %s ' % " ".join(iface_info['member_interfaces'])
-        if iface_info.get('ip_address', '') == self.ip and 'gateway' in iface_info.keys():
-            cmd += r'--gw %s ' % iface_info['gateway']
+        if iface_info.get('ip_address', '') == self.ip and 'default_gateway' in iface_info.keys():
+            cmd += r'--gw %s ' % iface_info['default_gateway']
         if 'vlan' in iface_info.keys():
             cmd += r'--vlan %s ' % iface_info['vlan']
         if 'bond_options' in iface_info.keys():
