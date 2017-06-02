@@ -111,6 +111,50 @@ class ServerMgrStatusThread(threading.Thread):
             message = server_id + ' ' + server_state + ' ' + time_str
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % message)
             servers = self._status_serverDb.modify_server( server_data)
+            # if this is issu triggered provision, re-queue issu steps here
+            self._smgr_log.log(self._smgr_log.DEBUG, "######### cluster is %s ##########" %servers[0]['cluster_id'])
+            server = servers[0]
+            cluster_id = server['cluster_id']
+            cluster_det = self._status_serverDb.get_cluster({'id': cluster_id}, detail = True)[0]
+            cluster_params = eval(cluster_det['parameters'])
+            issu_params = cluster_params.get("issu", {})
+            if issu_params.get('issu_partner', None) and \
+              self.check_issu_cluster_status(cluster_id) and \
+              (issu_params.get('issu_clusters_synced', "false") == "false"):
+                self._smgr_main.issu_obj = None
+                old_cluster = issu_params['issu_partner']
+                new_cluster = cluster_id
+                new_image = issu_params['issu_image']
+                compute_tag = issu_params.get('issu_compute_tag', '')
+                provision_item = ('issu', old_cluster, new_cluster,
+                                                     new_image, compute_tag)
+                self._smgr_main._reimage_queue.put_nowait(provision_item)
+                self._smgr_log.log(self._smgr_log.DEBUG, "ISSU sync job queued")
+            # if this is compute being rolled back, remove vrouter mod and restart vrouter svc
+            server_det = self._status_serverDb.get_server({'id': server_id}, detail = True)[0]
+            server_params = eval(server_det['parameters'])
+            if server_params.get("compute-rollback", None) == cluster_id:
+                cmd = "service supervisor-vrouter stop && " \
+                      "rmmod vrouter && " \
+                      "service supervisor-vrouter start"
+                ssh_handl = paramiko.SSHClient()
+                ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh_handl.connect(server['ip_address'],
+                          username = server.get('username', 'root'),
+                          password = server['password'])
+                # for bug 1648268 collect output for the failed command
+                i, o, err = ssh_handl.exec_command(cmd)
+                self._smgr_log.log(self._smgr_log.DEBUG, 
+                                   "ISSU-ROLLBACK: rmmod op is %s" %(
+                                                           o.read()))
+                self._smgr_log.log(self._smgr_log.DEBUG, 
+                                   "ISSU-ROLLBACK: rmmod err is %s" %(
+                                                          err.read()))
+                # remove the rollback flag
+                server_data = {"id": server["id"],
+                               "parameters": {
+                                    "compute-rollback": None
+                                   }
         except Exception as e:
             #self.log_trace()
             self._smgr_log.log(self._smgr_log.ERROR,
@@ -176,7 +220,7 @@ class ServerMgrStatusThread(threading.Thread):
                     old_cluster = issu_params['issu_partner']
                     new_cluster = cluster_id
                     new_image = issu_params['issu_image']
-                    compute_tag = issu_params['issu_compute_tag']
+                    compute_tag = issu_params.get('issu_compute_tag', '')
                     provision_item = ('issu', old_cluster, new_cluster,
                                                              new_image, compute_tag)
                     self._smgr_main._reimage_queue.put_nowait(provision_item)
