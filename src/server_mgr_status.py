@@ -155,6 +155,8 @@ class ServerMgrStatusThread(threading.Thread):
                                "parameters": {
                                     "compute-rollback": None
                                    }
+                              }
+                self._status_serverDb.modify_server(server_data)
         except Exception as e:
             #self.log_trace()
             self._smgr_log.log(self._smgr_log.ERROR,
