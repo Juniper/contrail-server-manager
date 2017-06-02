@@ -815,6 +815,7 @@ class ServerJsonGenerator(BaseJsonGenerator):
         if source_dict.get('tor_agent', None) is not None:
             tor_dict = {}
             switch_list = []
+            control_data_ip = None
             #Go through the list of tor agents
             for toragent_src_dict in source_dict['tor_agent']:
                 switchdict = {}
@@ -823,7 +824,9 @@ class ServerJsonGenerator(BaseJsonGenerator):
                     'tor_ovs_port','tor_ovs_protocol', 'tor_name', 'tor_vendor_name', 'tor_tsn_name', 'tor_product_name',
                     'tor_agent_http_server_port', 'tor_agent_ovs_ka']]
                 #Get the host for which tor is applicable
-                if toragent_src_dict['tor_tsn_ip'] == hostobj.ip:
+                if getattr(hostobj, 'control_data', None):
+                    control_data_ip = hostobj.control_data['ip'].split('/')[0].strip()
+                if toragent_src_dict['tor_tsn_ip'] == hostobj.ip or toragent_src_dict['tor_tsn_ip'] == control_data_ip:
                     #Convert the key entries so that SM json likes it
                     self.update_translated_keys(switchdict, tor_agent_key_list, translation_dict, toragent_src_dict)
                     switch_list.append(switchdict['top_of_rack'])
