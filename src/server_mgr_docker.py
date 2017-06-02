@@ -48,7 +48,13 @@ class SM_Docker():
 
 
     def tag_containers(self, image, repo, tag):
-        return self._docker_client.tag(image, repo, tag)
+        try:
+            self._docker_client.tag(image, repo, tag)
+            return True
+        except Exception as e:
+            msg = "tag container failed for image %s: %s" % (repo,tag, e)
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            return msg
 
     def remove_containers(self, image):
         try:
