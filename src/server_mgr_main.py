@@ -3804,6 +3804,20 @@ class VncServerManager():
     # end get_member_interfaces
 
     def build_server_cfg(self, server):
+        # Build SRIOV interface configuration
+        parameters = eval(server.get("parameters", "{}"))
+        prov_params = parameters.get("provision", {})
+        contrail4_params = prov_params.get("contrail_4", {})
+        sriov = contrail4_params.get("sriov", {})
+        sriov_str = ""
+        if sriov:
+            for intf, value in sriov.iteritems():
+                sriov_cmd = "echo %s >/sys/class/net/%s/device/sriov_numvfs" %(value.get("VF", 0), intf)
+                sriov_str += sriov_cmd
+                sriov_str += "\n"
+                sriov_str += "grep \"%s\" /etc/rc.local || echo \"%s\" >> /etc/rc.local" %(sriov_cmd, sriov_cmd)
+                sriov_str += "\n"
+
         #Fetch network realted data and push to reimage
         execute_script = False
         network = server.get('network', "{}")
@@ -3812,6 +3826,8 @@ class VncServerManager():
             mgmt_intf = network_dict['management_interface']
             interface_list = network_dict["interfaces"]
             device_str = "#!/bin/bash\n"
+            if sriov_str:
+                device_str += sriov_str
             for intf in interface_list:
                 name = intf['name']
                 intf_name = name
@@ -3846,8 +3862,11 @@ class VncServerManager():
                 #form string
                 if type and type.lower() == 'bond':
                     bond_opts = intf.get('bond_options', {})
+                    member_interfaces = []
+                    if "member_interfaces" in intf:
+                        member_interfaces = intf['member_interfaces'].split(",")
                     member_intfs = self.get_member_interfaces(network_dict,
-                                                              intf.get('member_interfaces', []))
+                                                              member_interfaces)
                     bond_opts = "--members %s --bond-opts \'%s\'" % \
                                (" ".join(member_intfs), json.dumps(bond_opts))
                     execute_script = True
