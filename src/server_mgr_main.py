@@ -1871,8 +1871,13 @@ class VncServerManager():
             role = container.get("role", None)
             repo = self._args.docker_insecure_registries + \
                                      '/' + image_id + '-' + role
-            self._docker_cli.tag_containers(new_image['Id'], repo,
-                                            image_version)
+            rv = self._docker_cli.tag_containers(new_image['Id'], repo, \
+                                                 image_version)
+            if rv != True:
+                self._serverDb.delete_image({'id': str(eval(image['id']))})
+                resp_msg = self.form_operartion_data(rv, 0, entity)
+                return resp_msg
+
             self._smgr_log.log(self._smgr_log.INFO,
                             "Pushing container image %s ..." % container_name)
             if self._docker_cli.push_containers(container_name) == False:
