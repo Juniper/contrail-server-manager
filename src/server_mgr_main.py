@@ -3810,7 +3810,7 @@ class VncServerManager():
                 sriov_cmd = "echo %s >/sys/class/net/%s/device/sriov_numvfs" %(value.get("VF", 0), intf)
                 sriov_str += sriov_cmd
                 sriov_str += "\n"
-                sriov_str += "grep \"%s\" /etc/rc.local || echo \"%s\" >> /etc/rc.local" %(sriov_cmd, sriov_cmd)
+                sriov_str += "grep \"%s\" /etc/rc.local || sed -i.bak \"/^exit 0/i%s\" /etc/rc.local" %(sriov_cmd, sriov_cmd)
                 sriov_str += "\n"
 
         #Fetch network realted data and push to reimage
