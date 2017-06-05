@@ -36,7 +36,6 @@
                             "external_lb": false,
                             "external_rabbitmq_servers" : "1.1.1.1, 2.2.2.2",
                             "external_zookeeper_servers": "1.1.1.1, 2.2.2.2",
-                            "external_cassandra_servers": "1.1.1.1, 2.2.2.2",
                             "external_configdb_servers" : "1.1.1.1, 2.2.2.2",
                             "xmpp_auth_enable": false,
                             "xmpp_dns_auth_enable": false,
@@ -61,10 +60,11 @@
                             "flow_export_rate": "10"
                         },
                         "control_config": {
-                            "log_file": "/var/log/contrail/contrail-control.log",
+                            "log": "/var/log/contrail/contrail-control.log",
                             "log_level": "SYS_NOTICE"
                         },
                         "dns_config": {
+                            "log": "/var/log/contrail/contrail-dns.log",
                             "log_level": "SYS_NOTICE"
                         },
                         "cassandra_config": {
@@ -115,12 +115,12 @@
                             "log": "/var/log/contrail/contrail-snmp-collector.log",
                             "log_level": "SYS_NOTICE",
                             "introspect_port": "5920",
-                            "scan_frequencey": "600",
+                            "scan_frequency": "600",
                             "fast_scan_frequency": "60"
                         },
                         "topology_config": {
                             "log": "/var/log/contrail/contrail-topology.log",
-                            "log_level": "SYS_NOTICIE"
+                            "log_level": "SYS_NOTICE"
                         },
                         "storage_ceph_config": {
                             "journal_size": "2048",

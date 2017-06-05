@@ -5459,7 +5459,7 @@ class VncServerManager():
             hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
             cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
             external_openstack_ip = cluster_ops_cfg.get("external_openstack_ip", None)
-            if hacfg:
+            if hacfg and "internal_vip" in hacfg:
                 openstack_cfg["ctrl_data_ip"] = hacfg["internal_vip"]
                 openstack_cfg["management_ip"] = hacfg["external_vip"]
             elif external_openstack_ip:
@@ -5545,7 +5545,7 @@ class VncServerManager():
             hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
             cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
             external_openstack_ip = cluster_ops_cfg.get("external_openstack_ip", None)
-            if hacfg:
+            if hacfg and "internal_vip" in hacfg:
                 keystone_cfg["ip"] = hacfg["internal_vip"]
             elif external_openstack_ip:
                 keystone_cfg["ip"] = external_openstack_ip
