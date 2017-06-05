@@ -270,21 +270,28 @@ echo "$arrow Provisioning the cluster"
 # Provision the cluster
 
 set +e
+COUNTER=1
 server-manager display image --image_id ${CONTRAIL_IMAGE_ID} | grep -w ${CONTRAIL_IMAGE_ID}
 exit_status=$?
 echo "$arrow Waiting for containers to get loaded"
-while [ $exit_status != 0 ]
+while [ $exit_status != 0 ] && [ $COUNTER -lt 40 ]
 do
   sleep 15
   server-manager display image --image_id ${CONTRAIL_IMAGE_ID} | grep -w ${CONTRAIL_IMAGE_ID}
   exit_status=$?
+  COUNTER=$[$COUNTER +1]
 done
 set -e
-
+if [ $exit_status != 0 ]; then
+  echo "$arrow Containers did not get loaded correctly. Please check the debug log for more details"
+  exit
+fi
 cd $PROVISION_DIR && server-manager provision -F --cluster_id $CLUSTER_ID ${CONTRAIL_IMAGE_ID}
 
 end_time=$(date +"%s")
 diff=$(($end_time-$start_time))
 echo "$arrow Provisioning is issued, and took $(($diff / 60)) minutes and $(($diff % 60)) seconds."
 echo "$arrow Populated JSON files and logs are saved at $PROVISION_DIR"
+echo "$arrow Provisioning logs are available at /var/log/contrail_server_manager/debug.log"
+echo "$arrow Openstack Provisioning logs are available at /var/log/syslog on the Openstack nodes"
 echo "$arrow Check provisioning status using /opt/contrail/contrail_server_manager/provision_status.sh"
