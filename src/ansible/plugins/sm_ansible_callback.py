@@ -95,10 +95,58 @@ class CallbackModule(CallbackBase):
                          delegated_vars['ansible_host'],
                          self._dump_results(result._result)))
             else:
-                self.logger.append("%s: [%s]: FAILED! => %s" %
+                self.logger.append("%s: [%s]: FAILED! => (item - %s) %s" %
                         (err_str, result._host.get_name(),
+                            self._get_item(result._result, ""),
                          self._dump_results(result._result)))
 
+    def v2_runner_item_on_ok(self, result):
+        delegated_vars = result._result.get('_ansible_delegated_vars', None)
+        if result._task.action in ('include', 'include_role'):
+            return
+        elif result._result.get('changed', False):
+            msg = 'changed'
+        else:
+            msg = 'ok'
+
+        if delegated_vars:
+            msg += ": [%s -> %s]" % (result._host.get_name(),
+                    delegated_vars['ansible_host'])
+        else:
+            msg += ": [%s]" % result._host.get_name()
+
+        msg += " => (item=%s)" % (self._get_item(result._result),)
+
+        if (self._display.verbosity > 0 or \
+                '_ansible_verbose_always' in result._result) and \
+                not '_ansible_verbose_override' in result._result:
+            msg += " => %s" % self._dump_results(result._result)
+        self.logger.append(msg)
+
+    def v2_playbook_on_handler_task_start(self, task):
+        self.logger.append("RUNNING HANDLER [%s]" % task.get_name().strip())
+
+    def v2_runner_item_on_failed(self, result):
+        delegated_vars = result._result.get('_ansible_delegated_vars', None)
+        if 'exception' in result._result:
+            msg = "An exception occurred during task execution. \
+                    The full traceback is:\n" + result._result['exception']
+            self.logger.append(msg)
+
+        msg = "fatal: "
+        if delegated_vars:
+            msg += "[%s -> %s]" % (result._host.get_name(), \
+                    delegated_vars['ansible_host'])
+        else:
+            msg += "[%s]" % (result._host.get_name())
+
+        if "stderr" in result._result:
+            self.logger.append(msg + str(result._result['stderr']))
+        else:
+            self.logger.append(msg + " (item=%s) => %s" %
+                    (self._get_item(result._result),
+                        self._dump_results(result._result)))
+        self._handle_warnings(result._result)
 
     def v2_runner_on_ok(self, result):
         self._clean_results(result._result, result._task.action)
@@ -187,9 +235,20 @@ class CallbackModule(CallbackBase):
             del result._result['exception']
 
         if delegated_vars:
-            self.logger.append("failed: [%s -> %s] => (item=%s) => %s" % (result._host.get_name(), delegated_vars['ansible_host'], result._result['item'], self._dump_results(result._result)))
+            self.logger.append("failed: [%s -> %s] => (item=%s) => %s" %
+                    (result._host.get_name(), delegated_vars['ansible_host'],
+                        result._result['item'],
+                        self._dump_results(result._result)))
         else:
-            self.logger.append("failed: [%s] => (item=%s) => %s" % (result._host.get_name(), result._result['item'], self._dump_results(result._result)))
+            if 'stderr' in result._result:
+                self.logger.append("failed: [%s] => (item = %s) \
+                        => (stderr = %s)" % (result._host.get_name(), 
+                            result._result['item'],
+                            result._result['stderr']))
+            else:
+                self.logger.append("failed: [%s] => (item = %s) => %s" %
+                    (result._host.get_name(), result._result['item'],
+                        self._dump_results(result._result)))
 
     def v2_playbook_item_on_skipped(self, result):
         msg = "skipping: [%s] => (item=%s) " % (result._host.get_name(), result._result['item'])
