@@ -33,9 +33,7 @@ CLUSTER_ID="cluster_auto_$RANDOM"
 NO_SM_MON=""
 NO_SM_WEBUI=""
 SM_WEBUI_PORT=""
-CLUSTER_JSON_PATH=""
-SERVER_JSON_PATH=""
-IMAGE_JSON_PATH=""
+JSON_PATH=""
 TRANSLATION_DICT_PATH="/opt/contrail/server_manager/client/container-parameter-translation-dict.json"
 
 function usage()
@@ -48,9 +46,7 @@ function usage()
     echo -e "\t-d|--default-domain <domain name>"
     echo -e  "\t-ni|--no-install-sm-lite"
     echo -e "\t-cp|--cleanup-puppet-agent"
-    echo -e "\t-cj|--cluster-json"
-    echo -e "\t-sj|--server-json"
-    echo -e "\t-ij|--image-json"
+    echo -e "\t-j|--json"
     echo -e "\t-t|--testbed <testbed.py>"
     echo -e "\t-nm|--no-sm-mon"
     echo -e "\t-nw|--no-sm-webui"
@@ -105,16 +101,8 @@ while [[ $# > 0 ]]
         HOSTIP="$2"
         shift # past argument
         ;;
-        -cj|--cluster-json)
-        CLUSTER_JSON_PATH="$2"
-        shift # past argument
-        ;;
-        -sj|--server-json)
-        SERVER_JSON_PATH="$2"
-        shift # past argument
-        ;;
-        -ij|--image-json)
-        IMAGE_JSON_PATH="$2"
+        -j|--json)
+        JSON_PATH="$2"
         shift # past argument
         ;;
         -h|--help)
@@ -201,15 +189,29 @@ then
     IMAGE_JSON_PATH="$PROVISION_DIR/image.json"
 else
     # Verify Mandatory Arguments exists
-    if [ "$CLUSTER_JSON_PATH" == "" ] || [ "$SERVER_JSON_PATH" == "" ] || [ "$IMAGE_JSON_PATH" == "" ]; then
-       echo "ONE OF CLUSTER IMAGE OR SERVER JSON PATHS MISSING"
+    if [ "$JSON_PATH" == "" ]; then
+       echo "JSON FILE CONTAINING CLUSTER, SERVER AND IMAGE OBJECTS IS MISSING"
        exit
     fi
 
-    # Update with real path
-    CLUSTER_JSON_PATH=$(get_real_path $CLUSTER_JSON_PATH)
-    SERVER_JSON_PATH=$(get_real_path $SERVER_JSON_PATH)
-    IMAGE_JSON_PATH=$(get_real_path $IMAGE_JSON_PATH)
+    # set cluster, server and image json file paths.
+    CLUSTER_JSON_PATH="$PROVISION_DIR/cluster.json"
+    SERVER_JSON_PATH="$PROVISION_DIR/server.json"
+    IMAGE_JSON_PATH="$PROVISION_DIR/image.json"
+    $(python -c "import json;\
+                 fid = open('$JSON_PATH', 'r');\
+                 data = json.load(fid);\
+                 fid.close();\
+                 fid = open('$CLUSTER_JSON_PATH', 'w');\
+                 json.dump({'cluster': data['cluster']}, fid, indent=4);\
+                 fid.close();\
+                 fid = open('$SERVER_JSON_PATH', 'w');\
+                 json.dump({'server': data['server']}, fid, indent=4);\
+                 fid.close();\
+                 fid = open('$IMAGE_JSON_PATH', 'w');\
+                 json.dump({'image': data['image']}, fid, indent=4);\
+                 fid.close();\
+                 ")
 
     read CLUSTER_ID <<< $(python -c "import json;\
                             fid = open('${CLUSTER_JSON_PATH}', 'r');\
