@@ -45,11 +45,11 @@ class SmgrIssuClass(VncServerManager):
         self.old_config_list = self.role_get_servers(self.old_servers, 
                                                               'config')
         self.new_config_list = self.role_get_servers(self.new_servers, 
-                                                              'config')
+                                                 'contrail-controller')
         self.old_control_list = self.role_get_servers(self.old_servers, 
                                                              'control')
         self.new_control_list = self.role_get_servers(self.new_servers, 
-                                                             'control')
+                                                 'contrail-controller')
         self.old_config_ip = self.old_config_list[0]['ip_address']
         self.old_config_username = self.old_config_list[0].get('username',
                                                                    'root')
@@ -84,11 +84,6 @@ class SmgrIssuClass(VncServerManager):
             tup = (server['ip_address'], server.get('username', 'root'),
                                                      server['password'])
             self.old_config_ip_list.append(tup)
-        self.new_config_ip_list = []
-        for server in self.new_config_list:
-            tup = (server['ip_address'], server.get('username', 'root'),
-                                                     server['password'])
-            self.new_config_ip_list.append(tup)
         self.old_control_ip_list = []
         for server in self.old_control_list:
             tup = (server['ip_address'], server.get('username', 'root'),
@@ -110,10 +105,6 @@ class SmgrIssuClass(VncServerManager):
             self.old_collector_ip_list.append(tup)
         self.old_database_list = self.role_get_servers(self.old_servers,
                                                              'database')
-        self.new_collector_list = self.role_get_servers(self.new_servers,
-                                                            'collector')
-        self.new_database_list = self.role_get_servers(self.new_servers,
-                                                             'database')
 
         self.cluster_synced = self.set_cluster_issu_params()
         if self.cluster_synced == "true":
@@ -134,24 +125,12 @@ class SmgrIssuClass(VncServerManager):
         self.old_cass_server = self.get_set_config_parameters(self.ssh_old_config,
                                             "/etc/contrail/contrail-api.conf",
                                                       "cassandra_server_list")
-        self.new_cass_server = self.get_set_config_parameters(self.ssh_new_config,
-                                            "/etc/contrail/contrail-api.conf",
-                                                      "cassandra_server_list")
         self.old_zk_server = self.get_set_config_parameters(self.ssh_old_config,
                                           "/etc/contrail/contrail-api.conf",
                                                              "zk_server_ip")
-        self.new_zk_server = self.get_set_config_parameters(self.ssh_new_config,
-                                         "/etc/contrail/contrail-api.conf",
-                                                            "zk_server_ip")
         self.old_rabbit_server = self.get_set_config_parameters(self.ssh_old_config,
                                               "/etc/contrail/contrail-api.conf",
                                                                 "rabbit_server")
-        self.new_rabbit_server = self.get_set_config_parameters(self.ssh_new_config,
-                                              "/etc/contrail/contrail-api.conf",
-                                                                "rabbit_server")
-        self.new_api_info = '\'{"%s": [("%s"), ("%s")]}\'' %(
-                        self.new_config_ip, self.new_config_username, 
-                                                  self.new_config_password)
 
 
     def do_issu(self):
@@ -274,11 +253,18 @@ class SmgrIssuClass(VncServerManager):
             servers = compute_list
         computes = []
         for server in servers:
-            if "compute" in server["roles"]:
+            if ("compute" in eval(server["roles"])) or \
+               ("contrail-compute" in eval(server["roles"])):
                 computes.append(server)
                 # change the cluster_id for the compute
+                roles = eval(server["roles"])
+                new_roles = [ "contrail-compute" if each == "compute" \
+                                          else each for each in roles ]
                 server_data = {"id": server["id"],
-                               "cluster_id": new_cluster}
+                               "cluster_id": new_cluster,
+                               "roles": new_roles}
+                server['cluster_id'] = new_cluster
+                server['roles'] = unicode(new_roles)
                 self._serverDb.modify_server(server_data)
         if len(computes) == 0:
             msg = "ISSU: No compute nodes found in cluster %s" % \
@@ -296,8 +282,17 @@ class SmgrIssuClass(VncServerManager):
                 compute_data['status'] = 0
                 compute_data['cluster_id'] = ret_data['cluster_id']
                 compute_data['package_image_id'] = ret_data['package_image_id']
-                compute_data['server_packages'].append(
-                                                ret_data['server_packages'][0])
+                if (eval(self.smgr_obj.get_package_parameters(image) \
+                                            ).get("containers",None)):
+                    compute_data["server_packages"].append( \
+                                     self.smgr_obj.get_container_packages( \
+                                                        [compute], image)[0])
+                    compute_data["contrail_image_id"] = image
+                    compute_data["category"] = "container"
+                else:
+                    compute_data['server_packages'].append( \
+                          self.smgr_obj.get_server_packages( \
+                                           [compute], image)[0])
                 compute_data['servers'].append(
                                         ret_data['servers'][0])
             else:
@@ -336,7 +331,7 @@ class SmgrIssuClass(VncServerManager):
                 msg = "ISSU: compute node already part of new cluster %s, " \
                       "will re-provision" %(each['cluster_id'])
                 self._smgr_log.log(self._smgr_log.DEBUG, msg)
-            if (each['cluster_id'] != self.old_cluster):
+            elif (each['cluster_id'] != self.old_cluster):
                 msg = "ISSU: compute %s is not part of old cluster %s, " \
                       "cant migrate" %(each['id'], self.old_cluster)
                 self.log_and_raise_exception(msg)
@@ -376,13 +371,86 @@ class SmgrIssuClass(VncServerManager):
         '''Function creates BGP peering between two clusters, runs issu
            pre_sync script to runs issu_sync_task'''
 
-        # form BGP peering between controllers across two clusters
         if self.cluster_synced == "true":
             self._smgr_log.log(self._smgr_log.DEBUG,
                   "ISSU: Clusters are already synced for Cluster %s" \
                                                     %self.new_cluster)
             return
 
+        # On underlay controller host, apt-get install contrail-docker-tools
+        cmd = "apt-get install -y contrail-docker-tools"
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        # populate inventory.conf @ /opt/contrail/bin/issu/inventory/inventory.conf
+        # This file needs old_api_ip, new_api_ip, passwords, username, 
+        # old_control, old_config, old_analytics, old_webui lists
+        config_file = "/opt/contrail/bin/issu/inventory/inventory.conf"
+
+        cmd = "crudini --set %s GLOBAL oldapiip %s" %(config_file,
+                                              self.old_api_server)
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s GLOBAL oldapiuser %s" %(config_file,
+                                           self.old_config_username)
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s GLOBAL oldapipwd %s" %(config_file,
+                                          self.old_config_password)
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s GLOBAL apiip %s" %(config_file,
+                                            self.new_config_ip)
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s GLOBAL api_node_user_name %s" %(
+                          config_file, self.new_config_username)
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s GLOBAL api_node_password %s" %(
+                         config_file, self.new_config_password)
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s GLOBAL user %s" %(config_file,
+                                     self.new_config_username)
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s GLOBAL password %s" %(config_file,
+                                         self.new_config_password)
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s V1_CONTROLLER control_list %s" %(
+                          config_file, str([str(each[0]) for each in \
+                                           self.old_control_ip_list]))
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s V1_CONTROLLER config_list %s" %(
+                          config_file, str([str(each[0]) for each in \
+                                            self.old_config_ip_list]))
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s V1_CONTROLLER analytics_list %s" %(
+                            config_file, str([str(each[0]) for each in \
+                                       self.old_collector_ip_list]))
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        cmd = "crudini --set %s V1_CONTROLLER webui_list %s" %(
+                            config_file, str([str(each[0]) for each in \
+                                           self.old_webui_ip_list]))
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        # run this: cd /opt/contrail/bin/issu && ./contrail-issu generate-conf ~/inventory.conf
+        # check the /etc/contrailctl/contrail-issu.conf file
+        issu_script_path = "/opt/contrail/bin/issu/"
+        cmd = "%scontrail-issu generate-conf %s%s" %(issu_script_path,
+                                        issu_script_path, config_file)
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        # run this: cd /opt/contrail/bin/issu && ./contrail-issu migrate-config
+        # check the issu pre_sync and run_sync logs in the controller container
+        cmd = "%scontrail-issu migrate-config" %(issu_script_path)
+        self._execute_cmd(self.ssh_new_config, cmd)
+
+        # This is not creating the BGP peering - setup the BGP peering on old and new
         for cn in self.new_control_list:
             control_ip = self.smgr_obj.get_control_ip(cn)
             cmd = "python /opt/contrail/utils/provision_control.py " +\
@@ -391,151 +459,19 @@ class SmgrIssuClass(VncServerManager):
                   "--oper add --admin_user admin " +\
                   "--admin_password %s --admin_tenant_name admin " %self.old_api_admin_pwd +\
                   "--router_asn %s" %self.old_router_asn
-            self.ssh_old_config.exec_command(cmd)
+            self._execute_cmd(self.ssh_old_config, cmd)
         for cn in self.old_control_list:
             control_ip = self.smgr_obj.get_control_ip(cn)
-            cmd = "python /opt/contrail/utils/provision_control.py " +\
+            cmd = "docker exec -it controller "
+            cmd = cmd + "python /opt/contrail/utils/provision_control.py " +\
                   "--host_name %s --host_ip %s " %(cn['host_name'], control_ip) +\
                   "--api_server_ip %s --api_server_port 8082 " %self.new_api_server +\
                   "--oper add --admin_user admin " +\
                   "--admin_password %s --admin_tenant_name admin " %self.new_api_admin_pwd +\
                   "--router_asn %s" %self.new_router_asn
-            self.ssh_new_config.exec_command(cmd)
+            self._execute_cmd(self.ssh_new_config, cmd)
         self._smgr_log.log(self._smgr_log.DEBUG,
                   "ISSU: BGP peering between two cluster is configured")
-        # disable all but contrail-api, discovery and ifmap on new cluster CFGM
-        cmd = 'openstack-config --set /etc/contrail/supervisord_config.conf include files "/etc/contrail/supervisord_config_files/contrail-api.ini  /etc/contrail/supervisord_config_files/contrail-discovery.ini /etc/contrail/supervisord_config_files/ifmap.ini"'
-        for each in self.new_config_ip_list:
-            ssh_handl = paramiko.SSHClient()
-            ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh_handl.connect(each[0], username = each[1], password = each[2])
-            ssh_handl.exec_command(cmd)
-            ssh_handl.exec_command("service supervisor-config stop")
-            ssh_handl.close()
-
-        # stop haproxy on the openstack node
-        # ssh_new_config.exec_command("service haproxy stop")
-        self._smgr_log.log(self._smgr_log.DEBUG,
-                  "ISSU: Prepared for pre_sync")
-        '''
-        {
-        'old_rabbit_user': 'guest',
-        'old_rabbit_password': 'guest',
-        'old_rabbit_ha_mode': False,
-        'old_rabbit_q_name' : 'vnc-config.issu-queue',
-        'old_rabbit_vhost' : None,
-        'old_rabbit_port' : '5672',
-        'new_rabbit_user': 'guest',
-        'new_rabbit_password': 'guest',
-        'new_rabbit_ha_mode': False,
-        'new_rabbit_q_name': 'vnc-config.issu-queue',
-        'new_rabbit_vhost' : '',
-        'new_rabbit_port': '5672',
-        'odb_prefix' : '',
-        'ndb_prefix': '',
-        'reset_config': None,
-        'old_cassandra_address_list': '192.168.100.102:9160',
-        'old_zookeeper_address_list': '192.168.100.102:2181',
-        'old_rabbit_address_list': '192.168.100.102',
-        'new_cassandra_address_list': '192.168.100.121:9160',
-        'new_zookeeper_address_list': '192.168.100.121:2181',
-        'new_rabbit_address_list': '192.168.100.121',
-        #'new_api_info' : '{"192.168.100.121": [("root"), ("4336B39CF8ED")]}'
-        'new_api_info' : '{"192.168.100.121": [("root"), ("c0ntrail123")]}'
-        }
-        '''
-
-        # run contrail-issu-pre-sync on new config
-        self.ssh_new_config.exec_command("touch %s" %self.issu_conf_file)
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "old_rabbit_user", value = "guest", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "old_rabbit_password", value = "guest", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "old_rabbit_ha_mode", value = "False", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "old_rabbit_q_name", value = "vnc-config.issu-queue", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "old_rabbit_vhost", value = "''", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "old_rabbit_port", value = "''", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "new_rabbit_user", value = "guest", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "new_rabbit_password", value = "guest", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "new_rabbit_ha_mode", value = "False", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "new_rabbit_q_name", value = "vnc-config.issu-queue", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "new_rabbit_vhost", value = "''", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "new_rabbit_port", value = "''", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "odb_prefix", value = "''", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "ndb_prefix", value = "''", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, 
-                                 "old_cassandra_address_list", value = self.old_cass_server, action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, 
-                                   "old_zookeeper_address_list", value = self.old_zk_server, action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file,
-                                  "old_rabbit_address_list", value = self.old_rabbit_server, action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file,
-                                 "new_cassandra_address_list", value = self.new_cass_server, action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, 
-                                   "new_zookeeper_address_list", value = self.new_zk_server, action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, 
-                                  "new_rabbit_address_list", value = self.new_rabbit_server, action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_conf_file, "new_api_info",
-                                                        value = self.new_api_info, action = "set")
-
-        inp, op, err = self.ssh_new_config.exec_command("contrail-issu-pre-sync -c %s" %self.issu_conf_file)
-        err_str = err.read()
-        op_str = op.read()
-        if err_str:
-            self.log_and_raise_exception(err_str)
-        self._smgr_log.log(self._smgr_log.DEBUG,
-                  "ISSU: executed contrail-issu-pre-sync\n %s" %op_str)
-
-        # run issu task now, this creates rabbit client
-        self.ssh_new_config.exec_command("touch %s" %self.issu_svc_file)
-        command = "'contrail-issu-run-sync -c %s'" %self.issu_conf_file
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "command", value = command,
-                                    section = "program:contrail-issu", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "numprocs", value = 1,
-                                    section = "program:contrail-issu", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "process_name", 
-                                    value = "'%(process_num)s'",
-                                    section = "program:contrail-issu", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "redirect_stderr", value = "true",
-                                    section = "program:contrail-issu", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "stdout_logfile", 
-                 value = "'/var/log/issu-contrail-run-sync-%(process_num)s-stdout.log'",
-                                      section = "program:contrail-issu", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "stderr_logfile", 
-                                                       value = "/dev/null",
-                                    section = "program:contrail-issu", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "priority", value = 440,
-                                    section = "program:contrail-issu", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "autostart", value = "true",
-                                    section = "program:contrail-issu", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "killasgroup", value = "false",
-                                    section = "program:contrail-issu", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "stopsignal", value = "KILL",
-                                    section = "program:contrail-issu", action = "set")
-        self.get_set_config_parameters(self.ssh_new_config, self.issu_svc_file, "exitcodes", value = 0,
-                                    section = "program:contrail-issu", action = "set")
-        '''
-        cmd = "openstack-config --set /etc/supervisor/conf.d/contrail-issu.conf program:contrail-issu"
-        ssh_new_config.exec_command("%s command 'contrail-issu-run-sync %s'" %(cmd, cmd_args))
-        ssh_new_config.exec_command("%s numprocs 1" %(cmd))
-        ssh_new_config.exec_command("%s process_name '%%(process_num)s'" %cmd)
-        ssh_new_config.exec_command("%s redirect_stderr true" %(cmd))
-        ssh_new_config.exec_command("%s stdout_logfile  '/var/log/issu-contrail-run-sync-%%(process_num)s-stdout.log'" %cmd)
-        ssh_new_config.exec_command("%s stderr_logfile '/dev/null'" %cmd)
-        ssh_new_config.exec_command("%s priority 440" %(cmd))
-        ssh_new_config.exec_command("%s autostart true" %(cmd))
-        ssh_new_config.exec_command("%s killasgroup false" %(cmd))
-        ssh_new_config.exec_command("%s stopsignal KILL" %(cmd))
-        ssh_new_config.exec_command("%s exitcodes 0" %(cmd))
-        '''
-
-        inp, op, err = self.ssh_new_config.exec_command("service supervisor restart")
-        err_str = err.read()
-        if err_str:
-            self.log_and_raise_exception(err_str)
-        self._smgr_log.log(self._smgr_log.DEBUG,
-                  "ISSU: Started ISSU task on controller %s" \
-                                               %self.new_config_ip) 
-        # start haproxy on the openstack node
-        #ssh_new_config.exec_command("service haproxy start")
 
         # close the FDs
         self.ssh_old_config.close()
@@ -559,8 +495,6 @@ class SmgrIssuClass(VncServerManager):
         # Do pre_sync and run issu task
         self._do_issu_sync()
 
-        # TBD need verification that issu rabbit client is connected to both clusters
-
         # start compute upgrade
         self.migrate_computes()
 
@@ -568,9 +502,14 @@ class SmgrIssuClass(VncServerManager):
 
     # end _do_issu
     def _execute_cmd(self, handl, cmd):
-        i, o, err = handl.exec_command(cmd)
-        o.read()
-        err.read()
+        i, stdout, stderr = handl.exec_command(cmd)
+        err = stderr.read()
+        op = stdout.read()
+        if err:
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                               "ISSU: Error executing %s" %cmd)
+            self.log_and_raise_exception(err)
+
 
     def _do_finalize_issu(self):
         ''' This is called from backend to finalize issu'''
@@ -732,6 +671,9 @@ class SmgrIssuClass(VncServerManager):
             cmd += " --host_ip %s" %self.smgr_obj.get_control_ip(server)
             cmd += " --oper add %s" %mt_opts
             self._execute_cmd(ssh_issu_task_master, cmd)
+        self._smgr_log.log(self._smgr_log.DEBUG,
+                          "ISSU-Finalize: Completed ISSU finalize" \
+                          " for cluster %s" %self.new_cluster)
 
         # disable issu task
         cmd = "openstack-config --del %s program:contrail-issu" %(
