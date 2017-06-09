@@ -4044,7 +4044,8 @@ class VncServerManager():
                 wait_for_openstack_provision_flag = True
                 while wait_for_openstack_provision_flag:
                     gevent.sleep(10)
-                    status_for_server = self._serverDb.get_server({'host_name': openstack_server_id}, detail=True)[0]
+                    status_for_server = self._serverDb.get_server(
+                            {'id': openstack_server_id}, detail=True)[0]
                     server_status = str(status_for_server["status"])
                     if server_status == "provision_completed":
                         wait_for_openstack_provision_flag = False
