@@ -21,6 +21,10 @@ from sm_ansible_utils import STATUS_VALID
 from sm_ansible_utils import STATUS_SUCCESS
 from sm_ansible_utils import STATUS_FAILED
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+
+
 """
     wrapper class inspired from
     http://docs.ansible.com/ansible/developing_api.html
@@ -107,6 +111,13 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
                                             loader=self.ldr,
                                             options=self.options,
                                             passwords=self.pws)
+        try:
+            self._sm_logger = ServerMgrlogger()
+        except:
+            f = open("/var/log/contrail-server-manager/debug.log", "a")
+            f.write("Ansible Callback Init - ServerMgrlogger init failed\n")
+            f.close()
+
 
     def update_status(self):
         for h in self.hosts_in_inv:
@@ -124,7 +135,14 @@ class ContrailAnsiblePlayBook(multiprocessing.Process):
             self.current_status = STATUS_IN_PROGRESS
             
             self.update_status()
-            rv = self.pb_executor.run()
+            try:
+                rv = self.pb_executor.run()
+            except Exception as e:
+                self._sm_logger.log(self._sm_logger.ERROR, e)
+                self.current_status = STATUS_FAILED
+                self.update_status()
+                return None
+
             stats = self.pb_executor._tqm._stats
 
             if rv == 0:
