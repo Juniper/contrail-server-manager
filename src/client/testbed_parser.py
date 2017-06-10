@@ -730,7 +730,7 @@ class ServerJsonGenerator(BaseJsonGenerator):
     def _initialize(self, hostobj, translation_dict):
         # set kernel upgrade 'yes' by default
         enable_lbaas_flag = self.testsetup.testbed.env.get('enable_lbaas', True)
-        kernel_upgrade_flag = self.testsetup.testbed.env.get('kernel_upgrade', True)
+        kernel_upgrade_flag = self.testsetup.testbed.env.get('kernel_upgrade', False)
         kernel_version = self.testsetup.testbed.env.get('kernel_version', None)
         if kernel_upgrade_flag:
             kernel_upgrade =  True
