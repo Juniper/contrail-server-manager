@@ -5244,6 +5244,16 @@ class VncServerManager():
         }
         contrail_params['system'] = self.build_hostnames(cluster_servers)
 
+        # Set Openstack Flag for SRIOV enable if any compute has SRIOV section
+        for cluster_server_cfg in cluster_servers:
+            cluster_server_params = eval(cluster_server_cfg.get("parameters", {}))
+            cluster_server_contrail4_params = (
+                cluster_server_params.get("provision", {})).get("contrail_4", {})
+            if "sriov" in cluster_server_contrail4_params.keys() and isinstance(cluster_server_contrail4_params["sriov"], dict):
+                contrail_params["openstack"] = {}
+                contrail_params["openstack"]["sriov"] = {}
+                contrail_params["openstack"]["sriov"]["enable"] = True
+
         # Storage parameters..
         build_storage_config(self, server, cluster, role_servers, cluster_servers,
                             contrail_params)
