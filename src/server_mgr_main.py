@@ -2464,7 +2464,6 @@ class VncServerManager():
          'type': image_type,
          'category' : image_category
         }
-        msg = ""
         if (image_type not in self._image_list):
             msg = "Invalid Image type for %s" % (image_id)
             resp_msg = self.form_operartion_data(msg, ERR_IMG_TYPE_INVALID, None)
@@ -3080,12 +3079,11 @@ class VncServerManager():
                     "/install/netboot/ubuntu-installer/amd64/initrd.gz")
                 if not ks_file:
                     ubuntu_ks_file = 'kickstarts/contrail-ubuntu_trusty.ks'
-                    kickstart = self._args.html_root_dir + ubuntu_ks_file
+                    kickstart = _DEF_COBBLER_KICKSTARTS_PATH + "contrail-ubuntu_trusty.ks"
                 else:
                     ubuntu_ks_file = 'contrail/images/' + ks_file.split('/').pop()
                 if not kseed_file:
-                    ks_file = self._args.html_root_dir + \
-                        "kickstarts/contrail-ubuntu_trusty.seed"
+                    ks_file = _DEF_COBBLER_KICKSTARTS_PATH + "contrail-ubuntu_trusty.seed"
                     kickseed = ks_file
                 else:
                     ks_file = kseed_file
