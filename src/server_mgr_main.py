@@ -5570,6 +5570,10 @@ class VncServerManager():
             if ks_proto:
                 keystone_cfg["auth_protocol"] = ks_proto
 
+            ks_version = cluster_ks_cfg.get("version", "")
+            if ks_version:
+                keystone_cfg["version"] = ks_version
+
             hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
             cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
             external_openstack_ip = cluster_ops_cfg.get("external_openstack_ip", None)
