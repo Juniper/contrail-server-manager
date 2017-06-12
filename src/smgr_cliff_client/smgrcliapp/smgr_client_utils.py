@@ -280,17 +280,16 @@ class SmgrClientUtils():
                 if len(dict_list) == 0:
                     return []
                 sample_dict = dict(dict_list[0])
-                sameple_dict_key_list = sample_dict.keys()
-                if "id" in sameple_dict_key_list:
-                    sameple_dict_key_list.remove("id")
-                    sameple_dict_key_list = ['id'] + sameple_dict_key_list
-                return_table = PrettyTable(sameple_dict_key_list)
+                sample_dict_key_list = sample_dict.keys()
+                if "id" in sample_dict_key_list:
+                    sample_dict_key_list.remove("id")
+                    sample_dict_key_list = ['id'] + sample_dict_key_list
+                return_table = PrettyTable(sample_dict_key_list)
                 for d in dict_list:
                     d = dict(d)
-                    dict_val_list = d.values()
-                    if "id" in d and d["id"] in dict_val_list:
-                        dict_val_list.remove(d["id"])
-                        dict_val_list = [d["id"]] + dict_val_list
+                    dict_val_list = []
+                    for key in sample_dict_key_list:
+                        dict_val_list.append(d[key])
                     return_table.add_row(dict_val_list)
             elif obj == "tag":
                 return_table = PrettyTable(["Tag No.", "Tag"])
