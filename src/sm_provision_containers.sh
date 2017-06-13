@@ -11,6 +11,10 @@ mkdir -p $PROVISION_DIR
 log_file=$PROVISION_DIR/provision_$datetime_string.log
 exec &> >(tee -a "$log_file")
 
+IMAGEO_PATH=/var/log/contrail/sm_provisioning/image_output.json
+CLUSTERO_PATH=/var/log/contrail/sm_provisioning/cluster_output.json
+SERVERO_PATH=/var/log/contrail/sm_provisioning/server_output.json
+
 # Prep
 eval SCRIPT_PATH=$(dirname $0)
 SCRIPT_PATH=$(cd $SCRIPT_PATH; pwd)
@@ -264,9 +268,46 @@ else
 fi
 
 # Create package, cluster, server objects
-cd $PROVISION_DIR && server-manager add image -f ${IMAGE_JSON_PATH}
-cd $PROVISION_DIR && server-manager add cluster -f ${CLUSTER_JSON_PATH}
-cd $PROVISION_DIR && server-manager add server -f ${SERVER_JSON_PATH}
+cd $PROVISION_DIR && server-manager add image -f ${IMAGE_JSON_PATH} > ${IMAGEO_PATH}
+cd $PROVISION_DIR && server-manager add cluster -f ${CLUSTER_JSON_PATH} > ${CLUSTERO_PATH}
+cd $PROVISION_DIR && server-manager add server -f ${SERVER_JSON_PATH} > ${SERVERO_PATH}
+
+
+read I_ERROR_CODE I_ERROR_MSG <<< $(python -c "import json;\
+                                               fid = open('${IMAGEO_PATH}', 'r');\
+                                               contentsimage = fid.read();\
+                                               ijson = json.loads(contentsimage);\
+					                           fid.close();\
+                                               print str(ijson['return_code']),str(ijson['return_msg'])")
+
+if [ "$I_ERROR_CODE" != "0" ]; then
+    echo "${I_ERROR_MSG}"
+    exit
+fi
+
+read C_ERROR_CODE C_ERROR_MSG <<< $(python -c "import json;\
+                                               fid = open('${CLUSTERO_PATH}', 'r');\
+                                               contentscluster = fid.read();\
+                                               ccjson = json.loads(contentscluster);\
+                                               fid.close();\
+                                               print str(ccjson['return_code']),str(ccjson['return_msg'])")
+
+if [ "$C_ERROR_CODE" != "0" ]; then
+    echo "${C_ERROR_MSG}"
+    exit
+fi
+
+read S_ERROR_CODE S_ERROR_MSG <<< $(python -c "import json;\
+                                               fid = open('${SERVERO_PATH}', 'r');\
+                                               contentsserver = fid.read();\
+                                               sjson = json.loads(contentsserver);\
+                                               fid.close();\
+                                               print str(sjson['return_code']),str(sjson['return_msg'])")
+
+if [ "$S_ERROR_CODE" != "0" ]; then
+    echo "${S_ERROR_MSG}"
+    exit
+fi
 
 echo "$arrow Provisioning the cluster"
 # Provision the cluster
