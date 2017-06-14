@@ -19,11 +19,14 @@ from collections import defaultdict
 
 # Testbed Converter Version
 __version__ = '1.0'
+# Default translation dictionaries
 DEF_TRANS_DICT='/opt/contrail/server_manager/client/parameter-translation-dict.json'
-recalculate_list=["external_routers_list"]
+DEF_TESTBED_FORMAT_DICT='/opt/contrail/server_manager/client/testbed-format-translator.json'
+# List of parameters that need to be recalculated in specific ways before being put into Server/Cluster JSONs
+recalculate_list=["ext_routers","tor_agent","control_data"]
+
 log = logging.getLogger('testbed_parser')
 log.setLevel(logging.DEBUG)
-host_specific_param_list = ['compute_as_gateway_mode','qos_priority_tagging']
 
 class Utils(object):
     @staticmethod
@@ -68,7 +71,9 @@ class Utils(object):
                             required=True,
                             help='Absolute path to testbed file')
         parser.add_argument('--translation-dict',
-                            help='Absolute path to translation dictionary file')
+                            help='Absolute path to parameter translation dictionary file')
+        parser.add_argument('--testbed-format-translation-dict',
+                            help='Absolute path to testbed format translation dictionary file')
         parser.add_argument('--contrail-packages',
                             nargs='+',
                             help='Absolute path to Contrail Package file, '\
@@ -129,19 +134,24 @@ class Utils(object):
 
     @staticmethod
     def converter(args):
-        testsetup = TestSetup(testbed=args.testbed, cluster_id=args.cluster_id)
-        testsetup.connect()
-        testsetup.update()
         translation_dict = args.translation_dict
+        testbed_format_translation_dict = args.testbed_format_translation_dict
         if not translation_dict:
             translation_dict = DEF_TRANS_DICT
+        if not testbed_format_translation_dict:
+            testbed_format_translation_dict = DEF_TESTBED_FORMAT_DICT
+        with open(testbed_format_translation_dict) as json_file:
+            testbed_format_translation_dict = json.load(json_file)
+        testsetup = TestSetup(testbed=args.testbed, cluster_id=args.cluster_id)
+        testsetup.connect()
+        testsetup.update(testbed_format_translation_dict)
         server_json = ServerJsonGenerator(testsetup=testsetup,
                                           storage_packages=args.contrail_storage_packages)
-        server_json.generate_json_file(translation_dict)
+        server_json.generate_json_file(translation_dict,testbed_format_translation_dict)
         storage_keys = Utils.get_section_from_ini_file(args.storage_keys_ini_file, 'STORAGE-KEYS')
         cluster_json = ClusterJsonGenerator(testsetup=testsetup,
                                             storage_keys=storage_keys)
-        cluster_json.generate_json_file(translation_dict)
+        cluster_json.generate_json_file(translation_dict, testbed_format_translation_dict)
         cloud_package=False
         if args.contrail_packages or args.contrail_cloud_package:
             if args.contrail_packages:
@@ -164,11 +174,6 @@ class Host(object):
         self.password = password
         self.host_id = '%s@%s' % (username, ip)
         self.timeout = kwargs.get('timeout', 5)
-        self.dpdk_config = {}
-        self.vrouter_module_params = {}
-        self.vgw = {}
-        self.sriov = None
-        self.qos = None
 
     def __del__(self):
         log.info('Disconnecting...')
@@ -338,61 +343,13 @@ class Host(object):
     def set_if_dhcp_enabled(self):
         pass
 
-    def set_ostype(self, ostypes):
-        log.debug('Set ostype (%s) for host ID (%s)' % (ostypes, self.host_id))
-        self.ostypes = ostypes
+    def set_group_param(self, group_param,group_param_value):
+        log.debug('Set group_param (%s) for host ID (%s)' % (group_param, self.host_id))
+        self.__dict__[str(group_param)] = group_param_value
 
-    def set_host_specific_params(self, specific_param, param_value):
-        log.debug('Set host specific parameter (%s) for host ID (%s)' % (specific_param, self.host_id))
-        self.__dict__[str(specific_param)] = param_value
-
-    def set_roles(self, roles):
-        log.debug('Set roles (%s) for host ID (%s)' % (roles, self.host_id))
-        self.roles = roles
-
-    def set_hypervisor(self, hypervisor):
-        log.debug('Set hypervisor (%s) for host ID (%s)' % (hypervisor, self.host_id))
-        self.hypervisor = hypervisor
-
-    def set_storage_node_configs(self, configs):
-        log.debug('Set storage_node_configs (%s) for host ID (%s)' % (configs, self.host_id))
-        self.storage_node_configs = configs
-
-    def set_dpdk_configs(self, configs):
-        log.debug('Set dpdk_config (%s) for host ID (%s)' % (configs, self.host_id))
-        self.dpdk_config = configs
-
-    def set_sriov_configs(self, configs):
-        log.debug('Set sriov_config (%s) for host ID (%s)' % (configs, self.host_id))
-        self.sriov = configs
-
-    def set_vrouter_module_params(self, params):
-        log.debug('Set vrouter_module_params (%s) for host ID (%s)' % (params, self.host_id))
-        self.vrouter_module_params = params
-
-    def set_virtual_gateway(self, configs):
-        log.debug('Set vgw (%s) for host ID (%s)' % (configs, self.host_id))
-        self.vgw = configs
-
-    def set_qos_configs(self,configs):
-        log.debug('Set qos config (%s) for host ID (%s)' % (configs, self.host_id))
-        self.qos = configs
-
-    def set_bond_info(self, bond_info):
-        log.debug('Set bond (%s) for host ID (%s)' % (bond_info, self.host_id))
-        self.bond = bond_info
-
-    def set_control_data(self, control_data):
-        log.debug('Set control_data (%s) for host ID (%s)' % (control_data, self.host_id))
-        self.control_data = control_data
-
-    def set_static_route(self, static_route):
-        log.debug('Set static_route (%s) for host ID (%s)' % (static_route, self.host_id))
-        self.static_route = static_route
-
-    def set_tor_agent(self, configs):
-        log.debug('Set tor_agent (%s) for host ID (%s)' % (configs, self.host_id))
-        self.tor_agent = configs
+    def set_server_specific_params(self, server_specific_param, param_value):
+        log.debug('Set host specific parameter (%s) for host ID (%s)' % (server_specific_param, self.host_id))
+        self.__dict__[str(server_specific_param)] = param_value
 
     def set_hostname(self):
         log.debug('Retrieve hostname for host ID (%s)' % self.host_id)
@@ -461,6 +418,8 @@ class TestSetup(Testbed):
         self.import_testbed_variables()
         self.import_testbed_env_variables()
         self.set_host_ids()
+        self.all_server_params = set()
+        self.all_cluster_params = set()
         self.set_hosts()
 
     def get_host_ip_from_hostid(self, host_id):
@@ -490,30 +449,34 @@ class TestSetup(Testbed):
             log.debug('Connecting host (%s) ...' % host_obj.ip)
             host_obj.connect()
 
-    def update(self):
+    def update(self,testbed_format_translation_dict):
         self.update_hosts()
-        self.update_testbed()
+        self.update_testbed(testbed_format_translation_dict)
 
     def update_hosts(self):
         for host_obj in self.hosts.values():
             host_obj.update()
 
-    def update_testbed(self):
+    def update_testbed(self, testbed_format_translation_dict):
         self.set_testbed_ostype()
         self.set_host_params()
-        self.update_host_ostypes()
-        self.update_host_roles()
-        self.update_tor_agent_info()
-        self.update_host_specific_params()
-        #self.update_host_hypervisor()
-        #self.update_host_bond_info()
-        #self.update_host_control_data()
-        #self.update_host_static_route()
-        self.update_host_vrouter_params()
-        self.update_virtual_gateway()
-        self.update_hosts_dpdk_info()
-        self.update_sriov_configs()
-        self.update_qos_configs()
+        all_host_params = set(self.__dict__.keys())
+        for host in self.hosts.keys():
+            all_host_params.update(self.hosts[host].__dict__.keys())
+        server_specific_params = all_host_params.intersection(set(testbed_format_translation_dict["server_params"]))
+        server_dict_params = all_host_params.intersection(set(testbed_format_translation_dict["server_dict_params"]))
+        server_group_params = all_host_params.intersection(set(testbed_format_translation_dict["server_group_params"]))
+        server_dict_list_params = all_host_params.intersection(set(testbed_format_translation_dict["server_dict_list_params"]))
+        server_nested_dict_params = all_host_params.intersection(set(testbed_format_translation_dict["server_nested_dict_params"]))
+        all_server_params = server_specific_params.union(server_dict_params).union(server_dict_list_params).union(server_nested_dict_params)
+        self.update_server_specific_params(all_server_params)
+        self.update_server_group_params(server_group_params)
+        self.all_server_params = all_server_params.union(server_group_params)
+        self.server_specific_params = server_specific_params
+        self.server_dict_params = server_dict_params
+        self.server_dict_list_params = server_dict_list_params
+        self.server_nested_dict_params = server_nested_dict_params
+
 
     def import_testbed_variables(self):
         for key, value in self.testbed.__dict__.items():
@@ -539,25 +502,6 @@ class TestSetup(Testbed):
             return wrapped
         return _is_defined
 
-    def get_roles(self):
-        host_dict = defaultdict(list)
-        for role, hosts in self.roledefs.items():
-            if role == 'build' or role == 'all':
-                log.debug('Discarding role (%s)' % role)
-                continue
-            for host in hosts:
-                host_dict[host].append(role)
-        return host_dict
-
-    def update_host_roles(self):
-        host_dict = self.get_roles()
-        for host_id, roles in host_dict.items():
-            log.debug('Replacing cfgm role with config role name')
-            if roles.count('cfgm') > 0:
-                roles.remove('cfgm')
-                roles.append('config')
-            self.hosts[host_id].set_roles(roles)
-
     def get_testbed_ostype(self):
         hostobj = self.hosts.values()[0]
         return hostobj.actual_ostype
@@ -572,79 +516,41 @@ class TestSetup(Testbed):
         dict_objs = [key for key in self.__dict__.keys() if isinstance(self.__dict__[key], dict)]
         for dict_obj in dict_objs:
             # skip adding hosts attribue to hosts
-            # we know roledefs never contain host definitions
-            if dict_obj == 'hosts' or dict_obj == 'roledefs':
+            if dict_obj == 'hosts':
                 continue
             for key in self.__dict__[dict_obj].keys():
               if key in self.hosts.keys():
                   if getattr(self.hosts[key], dict_obj, None) is None:
                       setattr(self.hosts[key], dict_obj, self.__dict__[dict_obj][key])
 
-    @is_defined('ostypes')
-    def update_host_ostypes(self):
-        for host_id, os_type in self.ostypes.items():
-            self.hosts[host_id].set_ostype(os_type)
-
-    def update_host_specific_params(self):
-        for specific_param in host_specific_param_list:
+    def update_server_specific_params(self, all_server_params):
+        for specific_param in all_server_params:
             if specific_param in self.__dict__.keys():
                 for host_id, param_value in self.__dict__.get(specific_param).iteritems():
-                    self.hosts[host_id].set_host_specific_params(specific_param,param_value)
+                    if host_id != 'all':
+                        self.hosts[host_id].set_server_specific_params(specific_param,param_value)
 
-    @is_defined('hypervisor')
-    def update_host_hypervisor(self):
-        for host_id, hypervisor in self.hypervisor.items():
-            self.hosts[host_id].set_hypervisor(hypervisor)
+    def update_server_group_params(self, server_group_params):
+        for server_group_param in server_group_params:
+            host_dict = self.get_group_dict(server_group_param)
+            for host_id, param_value in host_dict.items():
+                if server_group_param == "roledefs":
+                    server_group_param = "roles"
+                    if param_value.count('cfgm') > 0:
+                        log.debug('Replacing cfgm role with config role name')
+                        param_value.remove('cfgm')
+                        param_value.append('config')
+                self.hosts[host_id].set_group_param(server_group_param,param_value)
 
-    @is_defined('bond')
-    def update_host_bond_info(self):
-        for host_id, bond_info in self.bond.items():
-            self.hosts[host_id].set_bond_info(bond_info)
-
-    @is_defined('control_data')
-    def update_host_control_data(self):
-        for host_id, control_data in self.control_data.items():
-            self.hosts[host_id].set_control_data(control_data)
-
-    @is_defined('static_route')
-    def update_host_static_route(self):
-        for host_id, static_route in self.static_route.items():
-            self.hosts[host_id].set_static_route(static_route)
-
-    @is_defined('storage_node_config')
-    def update_storage_node_configs(self):
-        for host_id, config in self.storage_node_config.items():
-            self.hosts[host_id].set_storage_node_configs(config)
-
-    @is_defined('vgw')
-    def update_virtual_gateway(self):
-        for host_id, config in self.vgw.items():
-            self.hosts[host_id].set_virtual_gateway(config)
-
-    @is_defined('qos')
-    def update_qos_configs(self):
-        for host_id, config in self.qos.items():
-            self.hosts[host_id].set_qos_configs(config)
-
-    @is_defined('tor_agent')
-    def update_tor_agent_info(self):
-        for host_id, config in self.tor_agent.items():
-            self.hosts[host_id].set_tor_agent(config)
-
-    @is_defined('dpdk')
-    def update_hosts_dpdk_info(self):
-        for host_id, dpdk_info in self.dpdk.items():
-            self.hosts[host_id].set_dpdk_configs(dpdk_info)
-
-    @is_defined('sriov')
-    def update_sriov_configs(self):
-        for host_id, config in self.sriov.items():
-            self.hosts[host_id].set_sriov_configs(config)
-
-    @is_defined('vrouter_module_params')
-    def update_host_vrouter_params(self):
-        for host_id, vrouter_params in self.vrouter_module_params.items():
-            self.hosts[host_id].set_vrouter_module_params(vrouter_params)
+    def get_group_dict(self, server_group_param):
+        host_dict = defaultdict(list)
+        for group_param, hosts in self.__dict__[server_group_param].items():
+            if group_param == 'build' or group_param == 'all':
+                log.debug('Discarding role (%s)' % group_param)
+                continue
+            for host in hosts:
+                host_dict[host].append(group_param)
+        return host_dict
 
 
 class BaseJsonGenerator(object):
@@ -658,18 +564,45 @@ class BaseJsonGenerator(object):
         self.cluster_id = self.testsetup.cluster_id or "cluster"
         self.dict_data = {}
 
+    def get_destination_struct_to_set(self, source_variable_name, destination_variable_top, translation_dict):
+        if source_variable_name in translation_dict:
+            name_format_dict = translation_dict[source_variable_name]
+            dest_format = name_format_dict.get("dest_format","dict")
+            tmp_dict = destination_variable_top
+            if dest_format == "list":
+                destination_variable_name = name_format_dict.get("dest_path",destination_variable_top)
+                param_path = name_format_dict["name"]
+            elif dest_format == "nested_dict" or dest_format == "dict":
+                destination_variable_name = name_format_dict.get("dest_path",destination_variable_top)
+                param_path = name_format_dict["name"]
+            else:
+                return None, None, None
+            split_dest_v_name = destination_variable_name.split('.')
+            for level in split_dest_v_name[:-1]:
+                if level not in tmp_dict.keys():
+                    tmp_dict[str(level)] = {}
+                tmp_dict = tmp_dict[str(level)]
+            if dest_format == "list":
+                if str(split_dest_v_name[-1]) not in tmp_dict:
+                    tmp_dict[str(split_dest_v_name[-1])] = []
+                return tmp_dict[str(split_dest_v_name[-1])], param_path, name_format_dict["format"]
+            elif dest_format == "nested_dict" or dest_format == "dict":
+                return tmp_dict, str(split_dest_v_name[-1]), name_format_dict["format"]
+
+
     def get_destination_variable_to_set(self, source_variable_name, destination_variable_top, translation_dict):
         if source_variable_name in translation_dict:
             name_format_dict = translation_dict[source_variable_name]
-            destination_variable_name = name_format_dict["newname"]
-            split_dest_v_name = destination_variable_name.split('.')
             tmp_dict = destination_variable_top
+            dest_format = name_format_dict.get("dest_format","dict")
+            destination_variable_name = name_format_dict["name"]
+            split_dest_v_name = destination_variable_name.split('.')
             for level in split_dest_v_name[:-1]:
                 if level not in tmp_dict.keys():
                     tmp_dict[str(level)] = {}
                 tmp_dict = tmp_dict[str(level)]
             tmp_dict[str(split_dest_v_name[-1])] = ""
-            return tmp_dict, split_dest_v_name[-1], name_format_dict["newformat"]
+            return tmp_dict, split_dest_v_name[-1], name_format_dict["format"]
 
     def set_if_defined(self, source_variable_name,
                        destination_variable, **kwargs):
@@ -703,6 +636,121 @@ class BaseJsonGenerator(object):
 
             destination_variable[destination_variable_name] = value
 
+    def get_source_format(self, param, source_dict):
+        if isinstance(source_dict[param],dict):
+            if isinstance(source_dict[param].itervalues().next(),dict):
+                return "nested_dict", source_dict[param]
+            return "dict", source_dict[param]
+        elif isinstance(source_dict[param],list) and len(source_dict[param]) and isinstance(source_dict[param][0],dict):
+            return "list", source_dict[param]
+        else:
+            return "str", source_dict[param]
+
+    def get_dest_format(self, key, translation_dict):
+        if key in translation_dict.keys():
+            name_format_dict = translation_dict[key]
+            dest_format = name_format_dict.get("dest_format","dict")
+            dest_path = name_format_dict.get("dest_path", None)
+            return dest_format, dest_path
+        else:
+            return None, None
+
+    def translate_key(self, dest_dict, key, translation_dict, source_dict):
+        if key not in translation_dict.keys():
+            # Cannot be translated
+            return
+        if "." in key:
+            sub_dict_name = str(key).split('.')[0]
+            sub_dict_key = str(key).split('.')[1]
+            source_variable = source_dict.get(sub_dict_name, None)
+        elif key in source_dict:
+            sub_dict_name = None
+            sub_dict_key = None
+            source_variable = source_dict
+        else:
+            # Cannot be translated
+            return
+
+        if key in source_dict \
+                or (sub_dict_key and source_variable and sub_dict_key in source_variable):
+            dest_var, dest_var_name, data_format = self.get_destination_variable_to_set(
+                key, dest_dict, translation_dict)
+            if not dest_var:
+                return
+        else:
+            return
+        function_to_use=dict.get
+        if sub_dict_key:
+            source_variable_name = sub_dict_key
+        else:
+            source_variable_name = key
+        if data_format == "boolean":
+            is_boolean = True
+        else:
+            is_boolean = False
+        if data_format == "list":
+            is_list = True
+        elif data_format == "dict":
+            is_list = True
+        else:
+            is_list = False
+        to_lower = False
+        self.set_if_defined(source_variable_name, dest_var, source_variable=source_variable,
+                        destination_variable_name=str(dest_var_name), to_lower=to_lower,
+                        is_boolean=is_boolean, is_list=is_list, function=function_to_use)
+
+    def process_key_translation(self, dest_format, dest_path, key, item_to_process, dest_dict, translation_dict, source_dict):
+        if dest_format == "dict":
+            dict_format_key_list = [str(key)+"."+str(k) for k in item_to_process.keys()]
+            for k in dict_format_key_list:
+                self.translate_key(dest_dict, k, translation_dict, source_dict)
+        elif dest_format == "nested_dict":
+            dest_dict, primary_key_name, data_format = self.get_destination_struct_to_set(
+                str(key)+"."+str(item_to_process.keys()[0]), dest_dict, translation_dict)
+            if dest_dict == None:
+                return
+            new_dest_dict = {}
+            dict_format_key_list = [str(key)+"."+str(k) for k in item_to_process.keys()]
+            dict_format_key_list.remove(str(key)+"."+str(primary_key_name))
+            for k in dict_format_key_list:
+                self.translate_key(new_dest_dict, k, translation_dict, {key: item_to_process})
+            dest_dict[str(item_to_process[primary_key_name])] = new_dest_dict
+        elif dest_format == "list":
+            dest_list, dest_var, data_format = self.get_destination_struct_to_set(
+                str(key)+"."+str(item_to_process.keys()[0]), dest_dict, translation_dict)
+            if dest_list == None:
+                return
+            new_dest_dict = {}
+            dest_path_key_list = [str(key)+"."+str(k) for k in item_to_process.keys()]
+            for k in dest_path_key_list:
+                self.translate_key(new_dest_dict, k, translation_dict, source_dict)
+            dest_list.append(new_dest_dict)
+
+    def process_key_list(self, dest_dict, key_list, translation_dict, source_dict):
+        key_list_to_process = key_list.intersection(set(source_dict.keys()))
+        for key in key_list_to_process:
+            source_format, item_to_process = self.get_source_format(key, source_dict)
+            if source_format == "str":
+                self.translate_key(dest_dict, key, translation_dict, source_dict)
+            elif source_format == "dict":
+                dest_format,dest_path = self.get_dest_format(str(key)+"."+str(item_to_process.keys()[0]), translation_dict)
+                if dest_format == None:
+                    return
+                self.process_key_translation(dest_format, dest_path, key, item_to_process, dest_dict, translation_dict, source_dict)
+            elif source_format == "nested_dict":
+                dest_format,dest_path = self.get_dest_format(str(key)+"."+str(item_to_process.values()[0].keys()[0]), translation_dict)
+                if dest_format == None:
+                    return
+                dest_dict, primary_key_name, data_format = self.get_destination_struct_to_set(
+                    str(key)+"."+str(item_to_process.values()[0].keys()[0]), dest_dict, translation_dict)
+                for primary_key in item_to_process.keys():
+                    dest_dict[str(primary_key)] = {}
+                    self.process_key_translation(dest_format, dest_path, key, item_to_process[primary_key], dest_dict[str(primary_key)], translation_dict, {key: item_to_process[primary_key]})
+            elif source_format == "list":
+                for cfg_dict in item_to_process:
+                    dest_format,dest_path = self.get_dest_format(str(key)+"."+str(cfg_dict.keys()[0]), translation_dict)
+                    self.process_key_translation(dest_format, dest_path, key, cfg_dict, dest_dict, translation_dict, {key: cfg_dict})
+
     def generate(self):
         log.debug('Generate Json with Dict data: %s' % self.dict_data)
         log.info('Generating Json File (%s)...' % self.jsonfile)
@@ -710,16 +758,77 @@ class BaseJsonGenerator(object):
             fid.write('%s\n' % json.dumps(self.dict_data, sort_keys=True,
                                           indent=4, separators=(',', ': ')))
 
-    def recalculate_params(self, cluster_dict, dest_var, dest_var_name):
-        if dest_var_name == "external_routers_list":
-            ext_routers_dict = {}
-            source_tuple_list = dest_var[str(dest_var_name)]
-            if isinstance(source_tuple_list,list):
-                for source_tuple in source_tuple_list:
-                    if isinstance(source_tuple,tuple):
-                        ext_routers_dict[source_tuple[0]] = source_tuple[1]
-                dest_var[str(dest_var_name)] = ext_routers_dict
-        return dest_var
+    def recalculate_control_data_interface(self, cfg_dict, source_dict):
+        interface_list = cfg_dict['network']['interfaces']
+        control_data_source_dict = source_dict['control_data']
+        bond_dict = None
+        control_data_dict = None
+        vlan_flag = False
+        if isinstance(interface_list, list) and isinstance(interface_list[0], dict):
+            for intf_dict in interface_list:
+                if intf_dict["name"].startswith('bond') and "member_interfaces" in intf_dict:
+                    bond_dict = intf_dict
+                    bond_dict["type"]="bond"
+                if "ip_address" in intf_dict and intf_dict["name"]==control_data_source_dict["device"]:
+                    control_data_dict = intf_dict
+                    cfg_dict['contrail'] = {"control_data_interface": control_data_dict["name"]}
+                    if "vlan" in intf_dict:
+                        vlan_flag = True
+        if bond_dict and control_data_dict["name"].startswith('bond'):
+            if "vlan" in control_data_dict.keys():
+                log.error('ERROR: VLAN cannot be set for a bond interface which is control-data interface')
+                raise Exception('VLAN cannot be set for a bond interface which is control-data interface')
+            for k in bond_dict.keys():
+                control_data_dict[k] = bond_dict[k]
+            interface_list.remove(bond_dict)
+        if vlan_flag and control_data_dict:
+            vlan_intf_dict = {}
+            vlan_intf_dict["type"] = "vlan"
+            vlan_intf_dict["ip_address"] = control_data_dict.pop('ip_address')
+            vlan_intf_dict["parent_interface"] = control_data_dict['name']
+            vlan_intf_dict["name"] = "vlan" + str(control_data_dict['vlan'])
+            vlan_intf_dict["vlan"] = control_data_dict.pop('vlan')
+            self.set_if_defined('default_gateway', vlan_intf_dict,
+                                source_variable=control_data_dict,
+                                function=dict.get,
+                                destination_variable_name='default_gateway')
+            control_data_dict.pop("default_gateway")
+            cfg_dict['contrail'] = {"control_data_interface": vlan_intf_dict["name"]}
+            cfg_dict['network']['interfaces'].append(vlan_intf_dict)
+
+    def recalculate_external_router_list(self, cfg_dict):
+        ext_routers_dict = {}
+        if "contrail_4" not in cfg_dict['parameters']['provision']:
+            return
+        source_tuple_list = cfg_dict['parameters']['provision']['contrail_4']['controller_config']['external_routers_list']
+        if isinstance(source_tuple_list,list):
+            for source_tuple in source_tuple_list:
+                if len(source_tuple) == 2:
+                    ext_routers_dict[source_tuple[0]] = source_tuple[1]
+            cfg_dict['parameters']['provision']['contrail_4']['controller_config']['external_routers_list'] = ext_routers_dict
+
+    def verify_tor_tsn_ip(self, cfg_dict, source_dict, host_ip):
+        tor_switches = cfg_dict['top_of_rack']['switches']
+        control_data_ip = None
+        control_data_source_dict = source_dict.get('control_data',None)
+        if control_data_source_dict:
+            control_data_ip = control_data_source_dict['ip'].split('/')[0].strip()
+        for switch in tor_switches:
+            if "tsn_ip" in switch and (switch["tsn_ip"]==control_data_ip or switch["tsn_ip"]==host_ip):
+                continue
+            else:
+                tor_switches.remove(switch)
+                log.error('ERROR: Tor Switch with name %s has a TSN_IP %s which does not match ' \
+                  'any IP address of the compute server %s %s ' % (switch["name"], switch["tsn_ip"], host_ip, control_data_ip))
+                raise Exception('Failed to add ToR Switch %s' % (switch["name"]))
+
+    def recalculate_params(self, cfg_dict, params_to_recalculate, source_dict, host_ip):
+        if "ext_routers" in params_to_recalculate:
+            self.recalculate_external_router_list(cfg_dict)
+        if "control_data" in params_to_recalculate and "network" in cfg_dict:
+            self.recalculate_control_data_interface(cfg_dict, source_dict)
+        if "tor_agent" in params_to_recalculate and "top_of_rack" in cfg_dict:
+            self.verify_tor_tsn_ip(cfg_dict, source_dict, host_ip)
 
 class ServerJsonGenerator(BaseJsonGenerator):
     def __init__(self, testsetup, **kwargs):
@@ -727,21 +836,7 @@ class ServerJsonGenerator(BaseJsonGenerator):
         super(ServerJsonGenerator, self).__init__(testsetup=testsetup, **kwargs)
         self.dict_data = {"server": []}
 
-    def _initialize(self, hostobj, translation_dict):
-        # set kernel upgrade 'yes' by default
-        enable_lbaas_flag = self.testsetup.testbed.env.get('enable_lbaas', True)
-        kernel_upgrade_flag = self.testsetup.testbed.env.get('kernel_upgrade', False)
-        kernel_version = self.testsetup.testbed.env.get('kernel_version', None)
-        if kernel_upgrade_flag:
-            kernel_upgrade =  True
-        else:
-            kernel_upgrade = False
-        if enable_lbaas_flag:
-            enable_lbass =  True
-        else:
-            enable_lbaas = False
-        if not kernel_version:
-            kernel_version = ''
+    def _initialize(self, hostobj, translation_dict, testbed_format_dict):
         if 'tsn' in hostobj.roles:
             tsn_mode_flag = True
             hostobj.roles.remove('tsn')
@@ -769,202 +864,36 @@ class ServerJsonGenerator(BaseJsonGenerator):
         server_dict['parameters']['provision'] = {}
         server_dict['parameters']['provision']['contrail'] = {}
         server_dict['parameters']['provision']['contrail_4'] = {}
-        server_dict['parameters']['provision']['contrail_4']['enable_lbaas'] = enable_lbass
-        server_dict['parameters']['provision']['contrail_4']['kernel_upgrade'] = kernel_upgrade
-        server_dict['parameters']['provision']['contrail']['kernel_upgrade'] = kernel_upgrade
-        if len(kernel_version):
-            server_dict['parameters']['provision']['contrail']['kernel_version'] = str(kernel_version)
-            server_dict['parameters']['provision']['contrail_4']['kernel_version'] = str(kernel_version)
         if tsn_mode_flag:
             server_dict['parameters']['provision']['contrail_4']['tsn_mode'] = True
         with open(translation_dict) as json_file:
             translation_dict = json.load(json_file)
 
-        server_dict_keys = ['static_route', 'tor_agent', 'dpdk', 'vrouter_module_params', 'vgw',
-            'sriov', 'qos', 'qos_niantic', 'control_data']
-        server_dict_keys = server_dict_keys + host_specific_param_list
-        all_keys = list(set().union(self.testsetup.testbed.env.keys(), self.testsetup.testbed.__dict__.keys()))
-        key_list = list(set(all_keys).intersection(set(server_dict_keys)))
+        all_host_params = self.testsetup.all_server_params
         source_dict = {}
-        for key in key_list:
+        for key in all_host_params:
             if key in self.testsetup.testbed.env.keys() and \
               str(hostobj.host_id) in self.testsetup.testbed.env[key]:
                 source_dict[key]=self.testsetup.testbed.env[key][str(hostobj.host_id)]
             elif key in self.testsetup.testbed.__dict__.keys() and \
               str(hostobj.host_id) in self.testsetup.testbed.__dict__[key]:
                 source_dict[key]=self.testsetup.testbed.__dict__[key][str(hostobj.host_id)]
-        self.update_translated_keys(server_dict['parameters']['provision'], key_list, translation_dict, source_dict)
-
-        for specific_param in host_specific_param_list:
-            if specific_param in source_dict:
-                server_dict['parameters']['provision']['contrail_4'][specific_param] = source_dict[specific_param]
-
-        static_route_list = []
-        if source_dict.get('static_route', None) is not None:
-            for static_route_src_dict in list(source_dict['static_route']):
-                static_route_dict = {}
-                static_route_src_dict["static_route"] = static_route_src_dict
-                static_route_key_list = ['static_route.' + str(k) for k in ['ip', 'gw', 'intf', 'netmask']]
-                self.update_translated_keys(static_route_dict, static_route_key_list, translation_dict, static_route_src_dict)
-                static_route_list.append(static_route_dict['static_route'])
-            if len(static_route_list) > 0:
-                network_dict = server_dict["network"]
-                network_dict["routes"] = static_route_list
-
-        #Get the top of rack entries from testbed.py and append it to the server_dict dictionary
-        if source_dict.get('tor_agent', None) is not None:
-            tor_dict = {}
-            switch_list = []
-            control_data_ip = None
-            #Go through the list of tor agents
-            for toragent_src_dict in source_dict['tor_agent']:
-                switchdict = {}
-                toragent_src_dict["tor_agent"] = toragent_src_dict
-                tor_agent_key_list = ['tor_agent.' + str(k) for k in ['tor_agent_id', 'tor_ip', 'tor_agent_name', 'tor_tunnel_ip',
-                    'tor_ovs_port','tor_ovs_protocol', 'tor_name', 'tor_vendor_name', 'tor_tsn_name', 'tor_product_name',
-                    'tor_agent_http_server_port', 'tor_agent_ovs_ka']]
-                #Get the host for which tor is applicable
-                if getattr(hostobj, 'control_data', None):
-                    control_data_ip = hostobj.control_data['ip'].split('/')[0].strip()
-                if toragent_src_dict['tor_tsn_ip'] == hostobj.ip or toragent_src_dict['tor_tsn_ip'] == control_data_ip:
-                    #Convert the key entries so that SM json likes it
-                    self.update_translated_keys(switchdict, tor_agent_key_list, translation_dict, toragent_src_dict)
-                    switch_list.append(switchdict['top_of_rack'])
-            if len(switch_list) > 0:
-                switch_dict = defaultdict(list)
-                for switches in switch_list:
-                    switch_dict["switches"].append(switches)
-                server_dict["top_of_rack"] = dict(switch_dict)
-
-        if getattr(hostobj, 'sriov', None) is not None and isinstance(hostobj.sriov,list) and \
-            len(hostobj.sriov):
-            sriov_config = {}
-            for interface_config in hostobj.sriov:
-                if isinstance(interface_config,dict) and "interface" in interface_config:
-                    sriov_config[str(interface_config["interface"])] = {}
-                    sriov_config[str(interface_config["interface"])]["VF"] = interface_config["VF"]
-                    sriov_config[str(interface_config["interface"])]["physnets"] = interface_config["physnets"]
-            server_dict['parameters']['provision']['contrail_4']['sriov'] = sriov_config
-
-        if getattr(hostobj, 'qos', None) is not None and isinstance(hostobj.qos,list) and \
-            len(hostobj.qos):
-            qos_config = {}
-            for nic_config in hostobj.qos:
-                if isinstance(nic_config,dict) and "hardware_q_id" in nic_config:
-                    qos_config[str(nic_config["hardware_q_id"])] = {}
-                    qos_config[str(nic_config["hardware_q_id"])]["logical_queue"] = nic_config["logical_queue"]
-                if "default" in nic_config and nic_config["default"]:
-                    qos_config[str(nic_config["hardware_q_id"])]["default"] = True
-            server_dict['parameters']['provision']['contrail_4']['qos'] = qos_config
-
-        if getattr(hostobj, 'qos_niantic', None) is not None and isinstance(hostobj.qos_niantic,list) and \
-            len(hostobj.qos_niantic):
-            qos_niantic_config = {}
-            for nic_config in hostobj.qos_niantic:
-                if isinstance(nic_config,dict) and "priority_id" in nic_config:
-                    qos_niantic_config[str(nic_config["priority_id"])] = {}
-                    qos_niantic_config[str(nic_config["priority_id"])]["bandwidth"] = nic_config["bandwidth"]
-                    qos_niantic_config[str(nic_config["priority_id"])]["scheduling"] = nic_config["scheduling"]
-            server_dict['parameters']['provision']['contrail_4']['qos_niantic'] = qos_niantic_config
-
-        if getattr(hostobj, 'vgw', None) is not None and isinstance(hostobj.vgw,dict):
-            vgw_config = {}
-            host_vgw_dict = hostobj.vgw
-            for virtual_gateway in host_vgw_dict.keys():
-                if isinstance(host_vgw_dict[virtual_gateway],dict):
-                    vgw_config[virtual_gateway] = {}
-                    for key in host_vgw_dict[virtual_gateway]:
-                        vgw_config[virtual_gateway][key.replace('-','_')] = host_vgw_dict[virtual_gateway][key]
-            server_dict['parameters']['provision']['contrail_4']['vgw'] = vgw_config
-
-        # CONTROL DATA INFORMATION
-        if getattr(hostobj, 'control_data', None):
-            if hostobj.control_data['device'].startswith('bond'):
-                control_data_dict = self.update_bond_details(server_dict, hostobj)
-            else:
-                control_data_dict = {"name": hostobj.control_data['device']}
-            if 'vlan' in hostobj.control_data:
-                vlan_intf_dict = {}
-                vlan_intf_dict["type"] = "vlan"
-                vlan_intf_dict["ip_address"] = hostobj.control_data['ip']
-                vlan_intf_dict["parent_interface"] = hostobj.control_data['device']
-                vlan_intf_dict["vlan"] = hostobj.control_data['vlan']
-                vlan_intf_dict["name"] = "vlan" + str(hostobj.control_data['vlan'])
-                self.set_if_defined('gw', vlan_intf_dict,
-                                    source_variable=hostobj.control_data,
-                                    function=dict.get,
-                                    destination_variable_name='default_gateway')
-                server_dict['contrail'] = {"control_data_interface": vlan_intf_dict["name"]}
-            else:
-                server_dict['contrail'] = {"control_data_interface": hostobj.control_data['device']}
-                control_data_dict["ip_address"] = hostobj.control_data['ip']
-                self.set_if_defined('gw', control_data_dict,
-                                    source_variable=hostobj.control_data,
-                                    function=dict.get,
-                                    destination_variable_name='default_gateway')
-            server_dict['network']['interfaces'].append(control_data_dict)
-            # The vlan interface is added after control data/bond intf because the control data/bond intf
-            # should be brought up before the vlan intf
-            if 'vlan' in hostobj.control_data:
-                server_dict['network']['interfaces'].append(vlan_intf_dict)
+        self.process_key_list(server_dict, self.testsetup.server_specific_params, translation_dict, source_dict)
+        self.process_key_list(server_dict, self.testsetup.server_dict_params, translation_dict, source_dict)
+        self.process_key_list(server_dict, self.testsetup.server_dict_list_params, translation_dict, source_dict)
+        self.process_key_list(server_dict, self.testsetup.server_nested_dict_params, translation_dict, source_dict)
+        if len(set(recalculate_list).intersection(all_host_params)):
+            self.recalculate_params(server_dict, set(recalculate_list).intersection(all_host_params), source_dict, hostobj.ip)
         return server_dict
 
-    def update_translated_keys(self, dest_dict, key_list, translation_dict, source_dict):
-        for allowed_key in translation_dict:
-            if "." in allowed_key:
-                sub_dict_name = str(allowed_key).split('.')[0]
-                sub_dict_key = str(allowed_key).split('.')[1]
-                source_variable = source_dict.get(sub_dict_name, None)
-            elif allowed_key in source_dict:
-                sub_dict_name = None
-                sub_dict_key = None
-                source_variable = None
-            else:
-                continue
-            if allowed_key in source_dict \
-                    or (sub_dict_key and source_variable and sub_dict_key in source_variable):
-                dest_var, dest_var_name, data_format = self.get_destination_variable_to_set(
-                    allowed_key, dest_dict, translation_dict)
-                to_lower = False
-                if sub_dict_key:
-                    source_variable_name = sub_dict_key
-                    function_to_use=dict.get
-                else:
-                    function_to_use=getattr
-                    source_variable_name = allowed_key
-                if data_format == "boolean":
-                    is_boolean = True
-                else:
-                    is_boolean = False
-                if data_format == "list":
-                    is_list = True
-                else:
-                    is_list = False
-                self.set_if_defined(source_variable_name, dest_var, source_variable=source_variable,
-                                destination_variable_name=str(dest_var_name), to_lower=to_lower,
-                                is_boolean=is_boolean, is_list=is_list, function=function_to_use)
-
-    def update_bond_details(self, server_dict, hostobj):
-        bond_dict = {"name": hostobj.bond['name'],
-                     "type": 'bond',
-                     "bond_options": {}
-                     }
-        if 'member' in hostobj.bond.keys():
-            bond_dict['member_interfaces'] = hostobj.bond['member']
-        if 'mode' in hostobj.bond.keys():
-            bond_dict['bond_options']['mode'] = hostobj.bond['mode']
-        if 'xmit_hash_policy' in hostobj.bond.keys():
-            bond_dict['bond_options']['xmit_hash_policy'] = hostobj.bond['xmit_hash_policy']
-        return bond_dict
-
-    def update(self, translation_dict):
+    def update(self, translation_dict, testbed_format_dict):
         for host_id in self.testsetup.hosts:
             hostobj = self.testsetup.hosts[host_id]
-            server_dict = self._initialize(hostobj, translation_dict)
+            server_dict = self._initialize(hostobj, translation_dict, testbed_format_dict)
             self.dict_data['server'].append(server_dict)
 
-    def generate_json_file(self, translation_dict):
-        self.update(translation_dict)
+    def generate_json_file(self, translation_dict, testbed_format_dict):
+        self.update(translation_dict, testbed_format_dict)
         self.generate()
 
 class ClusterJsonGenerator(BaseJsonGenerator):
@@ -974,50 +903,31 @@ class ClusterJsonGenerator(BaseJsonGenerator):
         self.storage_keys = kwargs.get('storage_keys', None)
         self.dict_data = {"cluster": []}
 
-    def _initialize(self, translation_dict):
+    def _initialize(self, translation_dict, testbed_format_translation_dict):
         with open(translation_dict) as json_file:
             translation_dict = json.load(json_file)
         cluster_dict = {"id": self.cluster_id, "parameters": {}}
         cluster_dict['parameters']['provision'] = {}
-        for allowed_key in translation_dict:
-            if "." in allowed_key:
-                sub_dict_name = str(allowed_key).split('.')[0]
-                sub_dict_key = str(allowed_key).split('.')[1]
-                source_variable = getattr(self.testsetup, sub_dict_name, None)
-            else:
-                sub_dict_name = None
-                sub_dict_key = None
-                source_variable = self.testsetup
-            if allowed_key in self.testsetup.testbed.__dict__.keys() \
-                    or allowed_key in self.testsetup.testbed.env.keys() \
-                    or (sub_dict_key and source_variable and sub_dict_key in dict(source_variable)):
-                dest_var, dest_var_name, data_format = self.get_destination_variable_to_set(
-                    allowed_key, cluster_dict['parameters']['provision'], translation_dict)
-                to_lower = False
-                if sub_dict_key:
-                    source_variable_name = sub_dict_key
-                    function_to_use=dict.get
-                else:
-                    function_to_use=getattr
-                    source_variable_name = allowed_key
-                if data_format == "boolean":
-                    is_boolean = True
-                else:
-                    is_boolean = False
-                if data_format == "list":
-                    is_list = True
-                else:
-                    is_list = False
-                self.set_if_defined(source_variable_name, dest_var, source_variable=source_variable,
-                                    destination_variable_name=str(dest_var_name), to_lower=to_lower,
-                                    is_boolean=is_boolean, is_list=is_list, function=function_to_use)
-                if dest_var_name in recalculate_list:
-                    self.recalculate_params(cluster_dict, dest_var, dest_var_name)
+        #TODO: Instead of translation_dict here, use list of all added params from what host_obj has for cluster wide params
+
+        testbed_param_list = set(self.testsetup.testbed.__dict__.keys() + self.testsetup.testbed.env.keys())
+        cluster_specific_params = testbed_param_list.intersection(set(testbed_format_translation_dict["cluster_params"]))
+        cluster_dict_params = testbed_param_list.intersection(set(testbed_format_translation_dict["cluster_dict_params"]))
+        all_cluster_dict_params = cluster_specific_params.union(cluster_dict_params)
+        source_dict = {}
+        for param in all_cluster_dict_params:
+            if param in self.testsetup.testbed.__dict__.keys():
+                source_dict[param] = self.testsetup.testbed.__dict__[param]
+            elif param in self.testsetup.testbed.env.keys():
+                source_dict[param] = self.testsetup.testbed.env[param]
+
+        self.process_key_list(cluster_dict, all_cluster_dict_params, translation_dict, source_dict)
+        if len(set(recalculate_list).intersection(all_cluster_dict_params)):
+            self.recalculate_params(cluster_dict, set(recalculate_list).intersection(all_cluster_dict_params), source_dict, None)
         return cluster_dict
 
-    def generate_json_file(self,translation_dict):
-
-        cluster_dict = self._initialize(translation_dict)
+    def generate_json_file(self,translation_dict,testbed_format_dict):
+        cluster_dict = self._initialize(translation_dict, testbed_format_dict)
         self.dict_data['cluster'].append(cluster_dict)
         self.generate()
 
@@ -1053,8 +963,6 @@ class ImageUtils(object):
             image_id = image_id.replace(item, r_item)
         image_id = package_type + '_' + image_id
         return "image_%s" % image_id
-
-
 
 class ImageJsonGenerator(BaseJsonGenerator):
     def __init__(self, testsetup, package_files, **kwargs):
