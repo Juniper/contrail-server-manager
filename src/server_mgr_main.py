@@ -5527,10 +5527,10 @@ class VncServerManager():
             global_cfg["config_ip"] = lb_ip
             global_cfg["analytics_ip"] = lb_ip
         else:
-            if global_cfg.get("controller_list", None):
+            if tmp_cfg.get("controller_list", None):
                 global_cfg["controller_ip"] = tmp_cfg["controller_list"][0]
                 global_cfg["config_ip"] = tmp_cfg["controller_list"][0]
-            if global_cfg.get("analytics_list", None):
+            if tmp_cfg.get("analytics_list", None):
                 global_cfg["analytics_ip"] = tmp_cfg["analytics_list"][0]
 
         # Calculate external Rabbitmq server list
