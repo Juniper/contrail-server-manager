@@ -1,534 +1,685 @@
 {
   "kernel_upgrade": {
-    "newname": "contrail_4.kernel_upgrade",
-    "newformat": "boolean"
+    "name": "parameters.provision.contrail_4.kernel_upgrade",
+    "format": "boolean"
   },
   "kernel_version": {
-    "newname": "contrail_4.kernel_version",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.kernel_version",
+    "format": "string"
   },
   "manage_neutron": {
-    "newname": "contrail.config.manage_neutron",
-    "newformat": "boolean"
+    "name": "parameters.provision.contrail.config.manage_neutron",
+    "format": "boolean"
   },
   "config_ip_list": {
-    "newname": "contrail.config.config_ip_list",
-    "newformat": "list"
+    "name": "parameters.provision.contrail.config.config_ip_list",
+    "format": "list"
   },
   "keystone.ip": {
-    "newname": "openstack.keystone.ip",
-    "newformat": "string"
+    "name": "parameters.provision.openstack.keystone.ip",
+    "format": "string"
   },
   "keystone.admin_password": {
-    "newname": "openstack.keystone.admin_password",
-    "newformat": "string"
+    "name": "parameters.provision.openstack.keystone.admin_password",
+    "format": "string"
   },
   "keystone.admin_user": {
-    "newname": "openstack.keystone.admin_user",
-    "newformat": "string"
+    "name": "parameters.provision.openstack.keystone.admin_user",
+    "format": "string"
   },
   "keystone.admin_tenant": {
-    "newname": "openstack.keystone.admin_tenant",
-    "newformat": "string"
+    "name": "parameters.provision.openstack.keystone.admin_tenant",
+    "format": "string"
   },
   "keystone.service_tennant": {
-    "newname": "openstack.keystone.service_tenant",
-    "newformat": "string"
+    "name": "parameters.provision.openstack.keystone.service_tenant",
+    "format": "string"
   },
   "keystone_region_name": {
-    "newname": "openstack.keystone.region_name",
-    "newformat": "string"
+    "name": "parameters.provision.openstack.keystone.region_name",
+    "format": "string"
   },
   "openstack_multi_tenancy": {
-    "newname": "openstack.multi_tenancy",
-    "newformat": "boolean"
+    "name": "parameters.provision.openstack.multi_tenancy",
+    "format": "boolean"
   },
   "openstack.manage_amqp": {
-    "newname": "openstack.openstack_manage_amqp",
-    "newformat": "boolean"
+    "name": "parameters.provision.openstack.openstack_manage_amqp",
+    "format": "boolean"
   },
   "enable_ceilometer": {
-    "newname": "openstack.enable_ceilometer",
-    "newformat": "boolean"
+    "name": "parameters.provision.openstack.enable_ceilometer",
+    "format": "boolean"
   },
   "cloud_orchestrator": {
-    "newname": "contrail_4.global_config.cloud_orchestrator",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.global_config.cloud_orchestrator",
+    "format": "string"
   },
   "external_lb": {
-    "newname": "contrail_4.global_config.external_lb",
-    "newformat": "boolean"
+    "name": "parameters.provision.contrail_4.global_config.external_lb",
+    "format": "boolean"
   },
   "controller_list": {
-    "newname": "contrail_4.global_config.controller_list",
-    "newformat": "list"
+    "name": "parameters.provision.contrail_4.global_config.controller_list",
+    "format": "list"
   },
   "analytics_list": {
-    "newname": "contrail_4.global_config.analytics_list",
-    "newformat": "list"
+    "name": "parameters.provision.contrail_4.global_config.analytics_list",
+    "format": "list"
   },
   "external_rabbitmq_servers": {
-    "newname": "contrail_4.global_config.external_rabbitmq_servers",
-    "newformat": "list"
+    "name": "parameters.provision.contrail_4.global_config.external_rabbitmq_servers",
+    "format": "list"
   },
   "external_zookeeper_servers": {
-    "newname": "contrail_4.global_config.external_zookeeper_servers",
-    "newformat": "list"
+    "name": "parameters.provision.contrail_4.global_config.external_zookeeper_servers",
+    "format": "list"
   },
   "external_configdb_servers": {
-    "newname": "contrail_4.global_config.external_configdb_servers",
-    "newformat": "list"
+    "name": "parameters.provision.contrail_4.global_config.external_configdb_servers",
+    "format": "list"
   },
   "config_server_list": {
-    "newname": "contrail_4.global_config.config_server_list",
-    "newformat": "list"
+    "name": "parameters.provision.contrail_4.global_config.config_server_list",
+    "format": "list"
   },
   "config_seed_list": {
-    "newname": "contrail_4.global_config.config_seed_list",
-    "newformat": "list"
+    "name": "parameters.provision.contrail_4.global_config.config_seed_list",
+    "format": "list"
   },
   "analyticsdb_seed_list": {
-    "newname": "contrail_4.global_config.analyticsdb_seed_list",
-    "newformat": "list"
+    "name": "parameters.provision.contrail_4.global_config.analyticsdb_seed_list",
+    "format": "list"
   },
   "analyticsdb_list": {
-    "newname": "contrail_4.global_config.analyticsdb_list",
-    "newformat": "list"
+    "name": "parameters.provision.contrail_4.global_config.analyticsdb_list",
+    "format": "list"
   },
   "compute_list": {
-    "newname": "contrail_4.global_config.compute_list",
-    "newformat": "list"
+    "name": "parameters.provision.contrail_4.global_config.compute_list",
+    "format": "list"
   },
   "xmpp_dns_auth_enable": {
-    "newname": "contrail_4.global_config.xmpp_dns_auth_enable",
-    "newformat": "boolean"
+    "name": "parameters.provision.contrail_4.global_config.xmpp_dns_auth_enable",
+    "format": "boolean"
   },
   "xmpp_auth_enable": {
-    "newname": "contrail_4.global_config.xmpp_auth_enable",
-    "newformat": "boolean"
+    "name": "parameters.provision.contrail_4.global_config.xmpp_auth_enable",
+    "format": "boolean"
   },
   "uve_partition_count": {
-    "newname": "contrail_4.global_config.uve_partition_count",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.global_config.uve_partition_count",
+    "format": "integer"
   },
   "aaa_mode": {
-    "newname": "contrail_4.api_config.aaa_mode",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.api_config.aaa_mode",
+    "format": "string"
   },
   "cloud_admin_role": {
-    "newname": "contrail_4.api_config.cloud_admin_role",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.api_config.cloud_admin_role",
+    "format": "string"
   },
   "global_read_only_role": {
-    "newname": "contrail_4.api_config.global_read_only_role",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.api_config.global_read_only_role",
+    "format": "string"
   },
   "container.keystone_ip": {
-    "newname": "contrail_4.keystone_config.ip",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.keystone_config.ip",
+    "format": "string"
   },
   "container.keystone_admin_password": {
-    "newname": "contrail_4.keystone_config.admin_password",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.keystone_config.admin_password",
+    "format": "string"
   },
   "container.keystone_admin_port": {
-    "newname": "contrail_4.keystone_config.admin_port",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.keystone_config.admin_port",
+    "format": "integer"
   },
   "container.keystone_public_port": {
-    "newname": "contrail_4.keystone_config.public_port",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.keystone_config.public_port",
+    "format": "integer"
   },
   "container.keystone_auth_protocol": {
-    "newname": "contrail_4.keystone_config.auth_protocol",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.keystone_config.auth_protocol",
+    "format": "string"
   },
   "container.keystone_admin_user": {
-    "newname": "contrail_4.keystone_config.admin_user",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.keystone_config.admin_user",
+    "format": "string"
   },
   "container.keystone_admin_tenant": {
-    "newname": "contrail_4.keystone_config.admin_tenant",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.keystone_config.admin_tenant",
+    "format": "string"
   },
   "control_config.bgp_port": {
-      "newname": "contrail_4.control_config.bgp_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.control_config.bgp_port",
+      "format": "integer"
   },
   "control_config.introspect_port": {
-      "newname": "contrail_4.control_config.introspect_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.control_config.introspect_port",
+      "format": "integer"
   },
   "control_config.xmpp_server_port": {
-      "newname": "contrail_4.control_config.xmpp_server_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.control_config.xmpp_server_port",
+      "format": "integer"
   },
   "control_config.log_level": {
-      "newname": "contrail_4.control_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.control_config.log_level",
+      "format": "string"
   },
   "router_asn": {
-      "newname": "contrail_4.controller_config.bgp_asn",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.controller_config.bgp_asn",
+      "format": "string"
   },
   "flow_export_rate": {
-      "newname": "contrail_4.controller_config.flow_export_rate",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.controller_config.flow_export_rate",
+      "format": "string"
   },
   "ext_routers": {
-      "newname": "contrail_4.controller_config.external_routers_list",
-      "newformat": "list"
+      "name": "parameters.provision.contrail_4.controller_config.external_routers_list",
+      "format": "list"
   },
   "encap_priority": {
-      "newname": "contrail_4.controller_config.encap_priority",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.controller_config.encap_priority",
+      "format": "string"
   },
   "dns_config.introspect_port": {
-      "newname": "contrail_4.dns_config.introspect_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.dns_config.introspect_port",
+      "format": "integer"
   },
   "dns_config.dns_server_port": {
-      "newname": "contrail_4.dns_config.dns_server_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.dns_config.dns_server_port",
+      "format": "integer"
   },
   "dns_config.log_level": {
-      "newname": "contrail_4.dns_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.dns_config.log_level",
+      "format": "string"
   },
   "cassandra_config.commitlog_dir": {
-      "newname": "contrail_4.cassandra_config.commitlog_dir",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.cassandra_config.commitlog_dir",
+      "format": "string"
   },
   "cassandra_config.data_dirs": {
-      "newname": "contrail_4.cassandra_config.data_dirs",
-      "newformat": "list"
+      "name": "parameters.provision.contrail_4.cassandra_config.data_dirs",
+      "format": "list"
   },
   "cassandra_config.java_max_heap_size": {
-      "newname": "contrail_4.cassandra_config.java_max_heap_size",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.cassandra_config.java_max_heap_size",
+      "format": "string"
   },
   "cassandra_config.java_max_heap_newsize": {
-      "newname": "contrail_4.cassandra_config.java_max_heap_newsize",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.cassandra_config.java_max_heap_newsize",
+      "format": "string"
   },
   "api_config.log_level": {
-      "newname": "contrail_4.api_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.api_config.log_level",
+      "format": "string"
   },
   "api_config.listen_port": {
-      "newname": "contrail_4.api_config.listen_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.api_config.listen_port",
+      "format": "integer"
   },
   "api_config.listen_address": {
-      "newname": "contrail_4.api_config.listen_address",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.api_config.listen_address",
+      "format": "string"
   },
   "schema_config.log_level": {
-      "newname": "contrail_4.schema_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.schema_config.log_level",
+      "format": "string"
   },
   "device_manager_config.log_level": {
-      "newname": "contrail_4.device_manager_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.device_manager_config.log_level",
+      "format": "string"
   },
   "svc_monitor_config.log_level": {
-      "newname": "contrail_4.svc_monitor_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.svc_monitor_config.log_level",
+      "format": "string"
   },
   "webui_config.http_listen_port": {
-      "newname": "contrail_4.webui_config.http_listen_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.webui_config.http_listen_port",
+      "format": "integer"
   },
   "webui_config.https_listen_port": {
-      "newname": "contrail_4.webui_config.https_listen_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.webui_config.https_listen_port",
+      "format": "integer"
   },
   "alarm_gen_config.log_level": {
-      "newname": "contrail_4.alarm_gen_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.alarm_gen_config.log_level",
+      "format": "string"
   },
   "alarm_gen_config.introspect_port": {
-      "newname": "contrail_4.alarm_gen_config.introspect_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.alarm_gen_config.introspect_port",
+      "format": "integer"
   },
   "analytics_api_config.log_level": {
-      "newname": "contrail_4.analytics_api_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.analytics_api_config.log_level",
+      "format": "string"
   },
   "analytics_api_config.introspect_port": {
-      "newname": "contrail_4.analytics_api_config.introspect_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.analytics_api_config.introspect_port",
+      "format": "integer"
   },
   "analytics_api_config.listen_port": {
-      "newname": "contrail_4.analytics_api_config.listen_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.analytics_api_config.listen_port",
+      "format": "integer"
   },
   "analytics_api_config.listen_address": {
-      "newname": "contrail_4.analytics_api_config.listen_address",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.analytics_api_config.listen_address",
+      "format": "string"
   },
   "analytics_api_config.log": {
-      "newname": "contrail_4.analytics_api_config.log",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.analytics_api_config.log",
+      "format": "string"
   },
   "analytics_api_config.aaa_mode": {
-      "newname": "contrail_4.analytics_api_config.aaa_mode",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.analytics_api_config.aaa_mode",
+      "format": "string"
   },
   "analytics_collector_config.log_level": {
-      "newname": "contrail_4.analytics_collector_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.analytics_collector_config.log_level",
+      "format": "string"
   },
   "analytics_collector_config.introspect_port": {
-      "newname": "contrail_4.analytics_collector_config.introspect_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.analytics_collector_config.introspect_port",
+      "format": "integer"
   },
   "analytics_collector_config.listen_port": {
-      "newname": "contrail_4.analytics_collector_config.listen_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.analytics_collector_config.listen_port",
+      "format": "integer"
   },
   "analytics_collector_config.listen_address": {
-      "newname": "contrail_4.analytics_collector_config.listen_address",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.analytics_collector_config.listen_address",
+      "format": "string"
   },
   "query_engine_config.log_level": {
-      "newname": "contrail_4.query_engine_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.query_engine_config.log_level",
+      "format": "string"
   },
   "query_engine_config.introspect_port": {
-      "newname": "contrail_4.query_engine_config.introspect_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.query_engine_config.introspect_port",
+      "format": "integer"
   },
   "query_engine_config.log": {
-      "newname": "contrail_4.query_engine_config.log",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.query_engine_config.log",
+      "format": "string"
   },
   "snmp_collector_config.log_level": {
-      "newname": "contrail_4.snmp_collector_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.snmp_collector_config.log_level",
+      "format": "string"
   },
   "snmp_collector_config.introspect_port": {
-      "newname": "contrail_4.snmp_collector_config.introspect_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.snmp_collector_config.introspect_port",
+      "format": "integer"
   },
   "snmp_collector_config.log": {
-      "newname": "contrail_4.snmp_collector_config.log",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.snmp_collector_config.log",
+      "format": "string"
   },
   "snmp_collector_config.scan_frequency": {
-      "newname": "contrail_4.snmp_collector_config.scan_frequency",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.snmp_collector_config.scan_frequency",
+      "format": "integer"
   },
   "snmp_collector_config.fast_scan_frequency": {
-      "newname": "contrail_4.snmp_collector_config.fast_scan_frequency",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.snmp_collector_config.fast_scan_frequency",
+      "format": "integer"
   },
   "topology_config.log_level": {
-      "newname": "contrail_4.topology_config.log_level",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.topology_config.log_level",
+      "format": "string"
   },
   "topology_config.log": {
-      "newname": "contrail_4.topology_config.log",
-      "newformat": "string"
+      "name": "parameters.provision.contrail_4.topology_config.log",
+      "format": "string"
   },
   "topology_config.introspect_port": {
-      "newname": "contrail_4.topology_config.introspect_port",
-      "newformat": "integer"
+      "name": "parameters.provision.contrail_4.topology_config.introspect_port",
+      "format": "integer"
   },
   "contrail_compute_mode": {
-    "newname": "contrail_4.contrail_compute_mode",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.contrail_compute_mode",
+    "format": "string"
   },
   "dpdk.huge_pages": {
-    "newname": "contrail_4.huge_pages",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.huge_pages",
+    "format": "integer"
   },
   "dpdk.coremask": {
-    "newname": "contrail_4.coremask",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.coremask",
+    "format": "string"
   },
   "dpdk.uio_driver": {
-    "newname": "contrail_4.uio_driver",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.uio_driver",
+    "format": "string"
+  },
+  "bond.name": {
+    "name": "name",
+    "dest_format": "list",
+    "dest_path": "network.interfaces",
+    "format": "string"
+  },
+  "bond.member": {
+    "name": "member_interfaces",
+    "dest_format": "list",
+    "dest_path": "network.interfaces",
+    "format": "list"
+  },
+  "bond.mode": {
+    "name": "bond_options.mode",
+    "dest_format": "list",
+    "dest_path": "network.interfaces",
+    "format": "string"
+  },
+  "bond.xmit_hash_policy": {
+    "name": "bond_options.xmit_hash_policy",
+    "dest_format": "list",
+    "dest_path": "network.interfaces",
+    "format": "string"
+  },
+  "control_data.ip": {
+    "name": "ip_address",
+    "dest_format": "list",
+    "dest_path": "network.interfaces",
+    "format": "string"
+  },
+  "control_data.gw": {
+    "name": "default_gateway",
+    "dest_format": "list",
+    "dest_path": "network.interfaces",
+    "format": "string"
+  },
+  "control_data.device": {
+    "name": "name",
+    "dest_format": "list",
+    "dest_path": "network.interfaces",
+    "format": "string"
+  },
+  "control_data.vlan": {
+    "name": "vlan",
+    "dest_format": "list",
+    "dest_path": "network.interfaces",
+    "format": "string"
+  },
+  "qos_niantic.priority_id": {
+    "name": "priority_id",
+    "dest_format": "nested_dict",
+    "dest_path": "parameters.provision.contrail_4.qos_niantic.priority_id",
+    "format": "string"
+  },
+  "qos_niantic.scheduling": {
+    "name": "scheduling",
+    "dest_format": "nested_dict",
+    "dest_path": "parameters.provision.contrail_4.qos_niantic.priority_id",
+    "format": "string"
+  },
+  "qos_niantic.bandwidth": {
+    "name": "bandwidth",
+    "dest_format": "nested_dict",
+    "dest_path": "parameters.provision.contrail_4.qos_niantic.priority_id",
+    "format": "string"
+  },
+  "qos.hardware_q_id": {
+    "name": "hardware_q_id",
+    "dest_format": "nested_dict",
+    "dest_path": "parameters.provision.contrail_4.qos.hardware_q_id",
+    "format": "string"
+  },
+  "qos.logical_queue": {
+    "name": "logical_queue",
+    "dest_format": "nested_dict",
+    "dest_path": "parameters.provision.contrail_4.qos.hardware_q_id",
+    "format": "list"
+  },
+  "qos.default": {
+    "name": "default",
+    "dest_format": "nested_dict",
+    "dest_path": "parameters.provision.contrail_4.qos.hardware_q_id",
+    "format": "boolean"
+  },
+  "sriov.interface": {
+    "name": "interface",
+    "dest_format": "nested_dict",
+    "dest_path": "parameters.provision.contrail_4.sriov.interface",
+    "format": "string"
+  },
+  "sriov.VF": {
+    "name": "VF",
+    "dest_format": "nested_dict",
+    "dest_path": "parameters.provision.contrail_4.sriov.interface",
+    "format": "integer"
+  },
+  "sriov.physnets": {
+    "name": "physnets",
+    "dest_format": "nested_dict",
+    "dest_path": "parameters.provision.contrail_4.sriov.interface",
+    "format": "list"
   },
   "compute_as_gateway_mode": {
-    "newname": "contrail_4.compute_as_gateway_mode",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.compute_as_gateway_mode",
+    "format": "string"
   },
   "qos_priority_tagging": {
-    "newname": "contrail_4.qos_priority_tagging",
-    "newformat": "boolean"
+    "name": "parameters.provision.contrail_4.qos_priority_tagging",
+    "format": "boolean"
   },
   "vrouter_module_params.flow_entries": {
-    "newname": "contrail_4.flow_entries",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.flow_entries",
+    "format": "integer"
   },
   "vrouter_module_params.mpls_labels": {
-    "newname": "contrail_4.mpls_labels",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.mpls_labels",
+    "format": "integer"
   },
   "vrouter_module_params.nexthops": {
-    "newname": "contrail_4.nexthops",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.nexthops",
+    "format": "integer"
   },
   "vrouter_module_params.vrfs": {
-    "newname": "contrail_4.vrfs",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.vrfs",
+    "format": "integer"
   },
   "vrouter_module_params.macs": {
-    "newname": "contrail_4.macs",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.macs",
+    "format": "integer"
   },
   "vrouter_module_params.oflow_entries": {
-    "newname": "contrail_4.oflow_entries",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.oflow_entries",
+    "format": "integer"
   },
   "vrouter_module_params.mac_oentries": {
-    "newname": "contrail_4.mac_oentries",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.mac_oentries",
+    "format": "integer"
   },
   "vrouter_module_params.max_interface_entries": {
-    "newname": "contrail_4.max_interface_entries",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.max_interface_entries",
+    "format": "integer"
   },
   "vrouter_module_params.flow_hold_limit": {
-    "newname": "contrail_4.flow_hold_limit",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.flow_hold_limit",
+    "format": "integer"
   },
   "vrouter_module_params.vrouter_dbg": {
-    "newname": "contrail_4.vrouter_dbg",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.vrouter_dbg",
+    "format": "integer"
   },
   "vrouter_module_params.vr_memory_alloc_checks": {
-    "newname": "contrail_4.vr_memory_alloc_checks",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail_4.vr_memory_alloc_checks",
+    "format": "integer"
   },
   "ca_cert_file": {
-    "newname": "contrail_4.tor_ca_cert_file",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.tor_ca_cert_file",
+    "format": "string"
   },
   "tor_agent.tor_ip": {
-    "newname": "top_of_rack.ip",
-    "newformat": "string"
-  },
-  "tor_agent.tor_agent_id": {
-    "newname": "top_of_rack.agent_id",
-    "newformat": "string"
-  },
-  "tor_agent.tor_tunnel_ip": {
-    "newname": "top_of_rack.tunnel_ip",
-    "newformat": "string"
-  },
-  "tor_agent.tor_tsn_ip": {
-    "newname": "top_of_rack.tsn_ip",
-    "newformat": "string"
-  },
-  "tor_agent.tor_ovs_port": {
-    "newname": "top_of_rack.ovs_port",
-    "newformat": "string"
-  },
-  "tor_agent.tor_ovs_protocol": {
-    "newname": "top_of_rack.ovs_protocol",
-    "newformat": "string"
-  },
-  "tor_agent.tor_agent_name": {
-    "newname": "top_of_rack.agent_name",
-    "newformat": "string"
+    "name": "ip",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
   },
   "tor_agent.tor_name": {
-    "newname": "top_of_rack.name",
-    "newformat": "string"
+    "name": "name",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
+  },
+  "tor_agent.tor_agent_name": {
+    "name": "agent_name",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
   },
   "tor_agent.tor_vendor_name": {
-    "newname": "top_of_rack.vendor_name",
-    "newformat": "string"
+    "name": "vendor_name",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
   },
   "tor_agent.tor_product_name": {
-    "newname": "top_of_rack.product_name",
-    "newformat": "string"
+    "name": "product_name",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
   },
   "tor_agent.tor_tsn_name": {
-    "newname": "top_of_rack.tsn_name",
-    "newformat": "string"
+    "name": "tsn_name",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
   },
-  "tor_agent.tor_agent_http_server_port": {
-    "newname": "top_of_rack.agent_http_server_port",
-    "newformat": "string"
+  "tor_agent.tor_ovs_protocol": {
+    "name": "ovs_protocol",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
+  },
+  "tor_agent.tor_ovs_port": {
+    "name": "ovs_port",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
+  },
+  "tor_agent.tor_tsn_ip": {
+    "name": "tsn_ip",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
+  },
+  "tor_agent.tor_tunnel_ip": {
+    "name": "tunnel_ip",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
+  },
+  "tor_agent.tor_agent_id": {
+    "name": "agent_id",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
   },
   "tor_agent.tor_agent_ovs_ka": {
-    "newname": "top_of_rack.agent_ovs_ka",
-    "newformat": "string"
+    "name": "agent_ovs_ka",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
+  },
+  "tor_agent.tor_agent_http_server_port": {
+    "name": "agent_http_server_port",
+    "dest_format": "list",
+    "dest_path": "top_of_rack.switches",
+    "format": "string"
   },
   "static_route.ip": {
-    "newname": "static_route.network",
-    "newformat": "string"
+    "name": "network",
+    "dest_format": "list",
+    "dest_path": "network.routes",
+    "format": "string"
   },
   "static_route.gw": {
-    "newname": "static_route.gateway",
-    "newformat": "string"
+    "name": "gateway",
+    "dest_format": "list",
+    "dest_path": "network.routes",
+    "format": "string"
   },
   "static_route.intf": {
-    "newname": "static_route.interface",
-    "newformat": "string"
+    "name": "interface",
+    "dest_format": "list",
+    "dest_path": "network.routes",
+    "format": "string"
   },
   "static_route.netmask": {
-    "newname": "static_route.netmask",
-    "newformat": "string"
+    "name": "netmask",
+    "dest_format": "list",
+    "dest_path": "network.routes",
+    "format": "string"
   },
   "enable_lbaas": {
-    "newname": "contrail_4.enable_lbaas",
-    "newformat": "boolean"
+    "name": "parameters.provision.contrail_4.enable_lbaas",
+    "format": "boolean"
   },
   "ha.internal_vip": {
-    "newname": "openstack.ha.internal_vip",
-    "newformat": "string"
+    "name": "parameters.provision.openstack.ha.internal_vip",
+    "format": "string"
   },
   "ha.external_vip": {
-    "newname": "openstack.ha.external_vip",
-    "newformat": "string"
+    "name": "parameters.provision.openstack.ha.external_vip",
+    "format": "string"
   },
   "ha.internal_virtual_router_id": {
-    "newname": "openstack.ha.internal_virtual_router_id",
-    "newformat": "integer"
+    "name": "parameters.provision.openstack.ha.internal_virtual_router_id",
+    "format": "integer"
   },
   "ha.external_virtual_router_id": {
-    "newname": "openstack.ha.external_virtual_router_id",
-    "newformat": "integer"
+    "name": "parameters.provision.openstack.ha.external_virtual_router_id",
+    "format": "integer"
   },
   "ha.contrail_internal_vip": {
-    "newname": "contrail.ha.contrail_internal_vip",
-    "newformat": "string"
+    "name": "parameters.provision.contrail.ha.contrail_internal_vip",
+    "format": "string"
   },
   "ha.contrail_external_vip": {
-    "newname": "contrail.ha.contrail_external_vip",
-    "newformat": "string"
+    "name": "parameters.provision.contrail.ha.contrail_external_vip",
+    "format": "string"
   },
   "ha.contrail_internal_virtual_router_id": {
-    "newname": "contrail.ha.contrail_internal_virtual_router_id",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail.ha.contrail_internal_virtual_router_id",
+    "format": "integer"
   },
   "ha.contrail_external_virtual_router_id": {
-    "newname": "contrail.ha.contrail_external_virtual_router_id",
-    "newformat": "integer"
+    "name": "parameters.provision.contrail.ha.contrail_external_virtual_router_id",
+    "format": "integer"
   },
   "cfgm.auth_protocol": {
-    "newname": "contrail_4.global_config.apiserver_auth_protocol",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.global_config.apiserver_auth_protocol",
+    "format": "string"
   },
   "cfgm.insecure": {
-    "newname": "contrail_4.global_config.apiserver_insecure",
-    "newformat": "boolean"
+    "name": "parameters.provision.contrail_4.global_config.apiserver_insecure",
+    "format": "boolean"
   },
   "cfgm.certfile": {
-    "newname": "contrail_4.global_config.apiserver_certfile",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.global_config.apiserver_certfile",
+    "format": "string"
   },
   "cfgm.keyfile": {
-    "newname": "contrail_4.global_config.apiserver_keyfile",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.global_config.apiserver_keyfile",
+    "format": "string"
   },
   "cfgm.cafile": {
-    "newname": "contrail_4.global_config.apiserver_cafile",
-    "newformat": "string"
+    "name": "parameters.provision.contrail_4.global_config.apiserver_cafile",
+    "format": "string"
+  },
+  "vgw.vn": {
+    "name": "vn",
+    "dest_path": "parameters.provision.contrail_4.vgw.gateway_name",
+    "format": "string"
+  },
+  "vgw.ipam-subnets": {
+    "name": "ipam_subnets",
+    "dest_path": "parameters.provision.contrail_4.vgw.gateway_name",
+    "format": "string"
+  },
+  "vgw.gateway-routes": {
+    "name": "gateway_routes",
+    "dest_path": "parameters.provision.contrail_4.vgw.gateway_name",
+    "format": "string"
   }
 }
