@@ -37,6 +37,7 @@
                             "external_rabbitmq_servers" : "1.1.1.1, 2.2.2.2",
                             "external_zookeeper_servers": "1.1.1.1, 2.2.2.2",
                             "external_configdb_servers" : "1.1.1.1, 2.2.2.2",
+                            "external_openstack_servers" : "1.1.1.1, 2.2.2.2",
                             "xmpp_auth_enable": false,
                             "xmpp_dns_auth_enable": false,
                             "sandesh_ssl_enable": false,
@@ -134,6 +135,7 @@
                         "multi_tenancy": true,
                         "openstack_manage_amqp": false,
                         "enable_ceilometer": false,
+                        "external_openstack_ip": "",
                         "keystone" : {
                             "ip": "",
                             "version": "v2.0",
