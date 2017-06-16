@@ -5735,6 +5735,18 @@ class VncServerManager():
             if feature_configs[str(feature)] and isinstance(feature_configs[str(feature)], dict):
                 cur_inventory["[all:vars]"][str(feature)] = str(feature_configs[str(feature)])
 
+        if "global_config" in contrail_4 and "external_openstack_servers" in contrail_4["global_config"] and \
+          len(contrail_4["global_config"]["external_openstack_servers"]):
+            external_openstack_servers = contrail_4["global_config"].pop("external_openstack_servers").split(',')
+            cur_inventory["[all:vars]"]["global_config"].pop("external_openstack_servers")
+            cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
+            external_openstack_ip = cluster_ops_cfg.get("external_openstack_ip", None)
+            openstack_grp = "[openstack]"
+            cur_inventory[openstack_grp] = []
+            openstack_grp_line = None
+            for openstack_srvr in external_openstack_servers:
+                cur_inventory[openstack_grp].append(str(openstack_srvr))
+
         for x in cluster_servers:
 
             smutil = ServerMgrUtil()
