@@ -985,48 +985,6 @@ class VncServerManager():
         ret_data["force"] = force
         return ret_data
 
-    def validate_non_openstack_cluster(self, cluster_id):
-        cluster = self._serverDb.get_cluster(
-                {"id" : cluster_id},
-                detail=True)[0]
-        cluster_params = eval(cluster['parameters'])
-        if 'provision' in cluster_params and 'openstack' in cluster_params['provision']:
-            cluster_openstack_prov_params = cluster_params['provision']
-            cluster_openstack_params = cluster_openstack_prov_params['openstack']
-        else:
-            msg = "Cluster with only Openstack role is supported only with new cluster params format with Openstack section\n"
-            self.log_and_raise_exception(msg)
-        configured_external_openstack_ip = cluster_openstack_params.get("external_openstack_ip", None)
-        configured_nova_params = cluster_openstack_params.get("nova", None)
-        if configured_nova_params:
-            configured_nova_rabbit_servers = configured_nova_params.get("rabbit_hosts", None)
-        else:
-            configured_nova_rabbit_servers = None
-        if configured_external_openstack_ip and configured_nova_rabbit_servers:
-            pass
-        else:
-            msg = "In a Cluster with no Openstack role, you need to configure both openstack::keystone::ip and openstack::nova::rabbit_hosts to point to an external Openstack\n"
-            self.log_and_raise_exception(msg)
-
-    def validate_openstack_only_cluster(self, cluster_id):
-        cluster = self._serverDb.get_cluster(
-                {"id" : cluster_id},
-                detail=True)[0]
-        cluster_params = eval(cluster['parameters'])
-        if 'provision' in cluster_params and 'openstack' in cluster_params['provision']:
-            cluster_openstack_prov_params = cluster_params['provision']
-            cluster_openstack_params = cluster_openstack_prov_params['openstack']
-        else:
-            msg = "Cluster with only Openstack role is supported only with new cluster params format with Openstack section\n"
-            self.log_and_raise_exception(msg)
-
-        openstack_manage_amqp_check = cluster_openstack_params.get("openstack_manage_amqp", None)
-        if openstack_manage_amqp_check:
-            pass
-        else:
-            msg = "In a Cluster with only Openstack role defined, you need to configure openstack::openstack_manage_amqp = true\n"
-            self.log_and_raise_exception(msg)
-
     def _validate_roles(self, cluster_id, pkg_id, ret_data):
         # get list of all servers in this cluster
         servers = self._serverDb.get_server(
@@ -5258,14 +5216,10 @@ class VncServerManager():
             external_openstack_ip_list = []
             external_openstack_ip_list.append(openstack_ip)
             openstack_params["openstack_ip_list"] = external_openstack_ip_list
-        elif self_ip in openstack_ips:
-            openstack_ip = self_ip
-        elif len(openstack_ips):
+        elif len(openstack_ips) and self_ip not in openstack_ips:
             openstack_ip = openstack_ips[0]
         else:
-            msg = "Openstack role not defined for cluster AND External Openstack not configured in cluster parameters.\n" \
-                  " The cluster needs to point to at least one Openstack node.\n"
-            self.log_and_raise_exception(msg)
+            openstack_ip = self_ip
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
