@@ -208,7 +208,7 @@
                 "contrail-analytics",
                 "contrail-analyticsdb",
                 "contrail-compute",
-                "contrail-agent",
+                "contrail-lb",
                 "contrail-ceph-controller",
                 "contrail-ceph-compute",
                 "contrail-agent"
