@@ -35,11 +35,15 @@ class Issu(Command):
         grp.add_argument("--all", dest = 'compute_all', action = "store_true",
                             help=("compute nodes with specified tag are " +\
                                   "migrated from old cluster to new cluster."))
+        grp.add_argument("--server_id", default = None,
+                            help=("compute node specified with server_id " +\
+                                  "migrated from old cluster to new cluster."))
         parser.add_argument("--no_confirm", "-F", action="store_true",
                             help=("flag to bypass confirmation message, "
                                   "default = do not bypass"))
         self.command_dictionary["issu"] = ["cluster_id_old", "cluster_id_new",
-                                 "cluster_id_new", "tag", "all", "no_confirm" ]
+                                 "cluster_id_new", "tag", "all", "no_confirm",
+                                                                 "server_id" ]
         return parser
 
     def take_action(self, parsed_args):
@@ -68,6 +72,8 @@ class Issu(Command):
             payload['compute_tag'] = "all_computes"
         elif parsed_args.tag:
             payload['compute_tag'] = parsed_args.tag
+        elif parsed_args.server_id:
+            payload['compute_tag'] = "__server__id__" + parsed_args.server_id
         else:
             payload['compute_tag'] = ""
 
