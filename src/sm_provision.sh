@@ -33,8 +33,6 @@ CLEANUP_PUPPET_AGENT=""
 NO_LOCAL_REPO=1
 LOCAL_REPO_DIR=/opt/contrail/contrail_local_repo
 CLUSTER_ID="cluster_auto_$RANDOM"
-NO_SM_MON=""
-NO_SM_WEBUI=""
 SM_WEBUI_PORT=""
 
 function usage()
@@ -51,8 +49,6 @@ function usage()
     echo -e  "\t-ni|--no-install-sm-lite"
     echo -e "\t-cp|--cleanup-puppet-agent"
     echo -e "\t-nr|--no-local-repo"
-    echo -e "\t-nm|--no-sm-mon"
-    echo -e "\t-nw|--no-sm-webui"
     echo -e "\t-swp|--sm-webui-port"
     echo -e "\t-ip|--hostip"
     echo -e "\t-cid|--cluster-id <cluster-id>"
@@ -94,12 +90,6 @@ while [[ $# > 0 ]]
         ;;
         -ni|--no-install-sm-lite)
         INSTALL_SM_LITE=""
-        ;;
-        -nm|--no-sm-mon)
-        NO_SM_MON="--nosm-mon"
-        ;;
-        -nw|--no-sm-webui)
-        NO_SM_WEBUI="--nowebui"
         ;;
         -swp|--sm-webui-port)
         SM_WEBUI_PORT="$2"
@@ -248,7 +238,7 @@ if [ "$INSTALL_SM_LITE" != "" ]; then
    if [ ! -z "$NOEXTERNALREPOS" ]; then
        optional_args+=" --no-external-repos"
    fi
-   ./setup.sh --all --smlite ${NO_SM_MON} ${NO_SM_WEBUI} $optional_args
+   ./setup.sh --all --smlite $optional_args
    popd >> $log_file 2>&1
 fi 
 

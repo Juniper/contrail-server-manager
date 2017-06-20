@@ -34,8 +34,6 @@ CLEANUP_PUPPET_AGENT=""
 NO_LOCAL_REPO=1
 LOCAL_REPO_DIR=/opt/contrail/contrail_local_repo
 CLUSTER_ID="cluster_auto_$RANDOM"
-NO_SM_MON=""
-NO_SM_WEBUI=""
 SM_WEBUI_PORT=""
 JSON_PATH=""
 TRANSLATION_DICT_PATH="/opt/contrail/server_manager/client/container-parameter-translation-dict.json"
@@ -52,8 +50,6 @@ function usage()
     echo -e "\t-cp|--cleanup-puppet-agent"
     echo -e "\t-j|--json"
     echo -e "\t-t|--testbed <testbed.py>"
-    echo -e "\t-nm|--no-sm-mon"
-    echo -e "\t-nw|--no-sm-webui"
     echo -e "\t-swp|--sm-webui-port"
     echo -e "\t-ip|--hostip"
     echo -e "\t-cid|--cluster-id <cluster-id>"
@@ -84,12 +80,6 @@ while [[ $# > 0 ]]
         ;;
         -ni|--no-install-sm-lite)
         INSTALL_SM_LITE=""
-        ;;
-        -nm|--no-sm-mon)
-        NO_SM_MON="--nosm-mon"
-        ;;
-        -nw|--no-sm-webui)
-        NO_SM_WEBUI="--nowebui"
         ;;
         -swp|--sm-webui-port)
         SM_WEBUI_PORT="$2"
@@ -147,7 +137,7 @@ if [ "$INSTALL_SM_LITE" != "" ]; then
    if [ ! -z "$HOSTIP" ]; then
        optional_args="--hostip=$HOSTIP"
    fi
-   ./setup.sh --all --smlite ${NO_SM_MON} ${NO_SM_WEBUI} --no-external-repos $optional_args
+   ./setup.sh --all --smlite --no-external-repos $optional_args
    popd >> $log_file 2>&1
 
 fi 
