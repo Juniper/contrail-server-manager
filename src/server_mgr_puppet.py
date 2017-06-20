@@ -52,15 +52,10 @@ class ServerMgrPuppet:
         self_ip = server.get("ip_address", "")
         if configured_external_openstack_ip:
             openstack_ip = configured_external_openstack_ip
-        elif self_ip in role_ips_dict['openstack']:
-            openstack_ip = self_ip
-        elif 'openstack' in role_ips_dict and len(role_ips_dict['openstack']):
+        elif 'openstack' in role_ips_dict and len(role_ips_dict['openstack']) and self_ip not in role_ips_dict['openstack']:
             openstack_ip = role_ips_dict['openstack'][0]
         else:
-            msg = "Openstack role not defined for cluster AND External Openstack not configured in cluster parameters.\n " \
-                  "The cluster needs to point to at least one Openstack node.\n"
-            self._smgr_log.log(self._smgr_log.ERROR, msg)
-            raise ServerMgrException(msg, ERR_OPR_ERROR)
+            openstack_ip = self_ip
 
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
