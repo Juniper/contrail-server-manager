@@ -5116,9 +5116,11 @@ class VncServerManager():
             subprocess.check_call(cmd, shell=True)
 
         for toragent_compute_server in role_servers['contrail-compute']:
-            tor_config = eval(toragent_compute_server['top_of_rack'])
+            if 'top_of_rack' not in toragent_compute_server.keys():
+                continue
+            tor_config = eval(str(toragent_compute_server['top_of_rack']))
             toragent_compute_server_id = str(toragent_compute_server['host_name'])
-            if len(tor_config) > 0:
+            if tor_config and len(tor_config) > 0:
                 tsn_ip = self.get_control_ip(toragent_compute_server)
                 node_id = toragent_compute_server['id']
                 tor_ha_config[node_id]= {}
