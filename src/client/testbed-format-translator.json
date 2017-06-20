@@ -1,0 +1,19 @@
+{
+  "cluster_params": ["ext_routers", "router_asn", "host_build", "openstack_admin_password", "orchestrator",
+                     "ntp_server", "key_filename", "backup_node", "backup_db_path", "cassandra_backup",
+                     "skip_keyspace", "service_token", "database_dir", "analytics_data_dir", "ssd_data_dir",
+                     "database_ttl", "analytics_config_audit_ttl", "analytics_statistics_ttl", "analytics_flow_ttl",
+                     "minimum_diskGB", "storage_replica_size", "live_migration", "nova_uid_fix", "live_migration_scope",
+                     "ext_nfs_livem", "ext_nfs_livem_mount", "ceph_nfs_livem", "ceph_nfs_livem_subnet", "ceph_nfs_livem_image",
+                     "ceph_nfs_livem_host", "ceph_ssd_cache_tier", "ceph_object_storage", "ceph_object_storage_pool",
+                     "interface_rename", "ca_cert_file", "neutron_metadata_proxy_shared_secret", "multi_tenancy",
+                     "cloud_admin_role", "analytics_aaa_mode", "haproxy", "do_parallel", "encap_priority", "http_proxy",
+                     "enable_lbaas", "enable_ceilometer", "ceilometer_polling_interval", "ceilometer_ttl", "rally_git_url",
+                     "rally_git_branch", "kernel_upgrade", "kernel_version"],
+  "server_params": ["hostnames", "passwords", "ostypes", "hypervisor", "qos_priority_tagging", "compute_as_gateway_mode", "md5"],
+  "cluster_dict_params": ["keystone", "nova", "ha", "openstack", "cfgm", "rsyslog_params", "rally_task_args"],
+  "server_dict_params": ["bond", "control_data", "storage_data", "storage_node_config", "dpdk", "vrouter_module_params"],
+  "server_dict_list_params": ["sriov", "static_route", "qos", "qos_niantic", "tor_agent"],
+  "server_group_params": ["roledefs"],
+  "server_nested_dict_params": ["vgw"]
+}
