@@ -1873,28 +1873,16 @@ class VncServerManager():
         image_version  = image.get("version", None)
         image_category = image.get("category", None)
 
-        msg = "Image(s) specified refers to external registry. Make \
-                        sure the following image(s) exist(s): "
-        external_image = False
-        local_image    = False
         for container in image_params.get("containers", None):
             cpath = container.get("container_path", None)
             role  = container.get("role", None)
 
-            if cpath == None or not os.path.exists(cpath):
-                external_image = True
-                if cpath == None:
-                    container_name = self._args.docker_insecure_registries + \
+            if cpath == None:
+                container_name = self._args.docker_insecure_registries + \
                              '/' + image_id + '-' + role + ':' +     \
                              image_version
-                else:
-                    container_name = cpath
-                msg = msg + container_name + " "
             else:
-                local_image = True
-
-        if external_image == True and local_image == False:
-            resp_msg = self.form_operartion_data(msg, 0, entity)
+                container_name = cpath
 
         for idx, container in enumerate(image_params.get("containers", None)):
             cpath = container.get("container_path", None)
@@ -1958,13 +1946,10 @@ class VncServerManager():
             image_params["containers"][idx]["docker_image_id"] = new_image["Id"]
         #for container ...
 
-        if external_image == False:
-            msg = "Image add/Modify success"
-            resp_msg = self.form_operartion_data(msg, 0, entity)
-            self._smgr_log.log(self._smgr_log.INFO, msg)
-        else:
-            msg = "Image add/Modify success. " + msg
-            self._smgr_log.log(self._smgr_log.INFO, msg)
+        msg = "Image add/Modify success"
+        resp_msg = self.form_operartion_data(msg, 0, entity)
+        self._smgr_log.log(self._smgr_log.INFO, msg)
+
         #delete the temporarily extracted files 
         for package_to_clean in cleanup_list:
             cmd = 'rm -rf %s > /dev/null' % package_to_clean 
@@ -4075,9 +4060,6 @@ class VncServerManager():
             merged_inv["[all:vars]"]["ansible_user"]="root"
             merged_inv["[all:vars]"]["ansible_password"] = \
                     server["password"]
-            for x in eval(server['roles']):
-                self.set_container_image_for_role(
-                        merged_inv['[all:vars]'], x, package)
 
         if "contrail_image_id" in package.keys() and \
             package["contrail_image_id"]:
@@ -5856,6 +5838,8 @@ class VncServerManager():
             var_list = self.build_calculated_srvr_inventory_params(x)
 
             for role in server_roles:
+                self.set_container_image_for_role(cur_inventory["[all:vars]"],
+                        role, package)
                 if role in _valid_roles:
                     if role == BARE_METAL_COMPUTE:
                         cur_inventory["[all:vars]"]["contrail_compute_mode"] = \
@@ -6594,7 +6578,8 @@ class VncServerManager():
     def set_container_image_for_role(self, params, x, package):
         img = self.get_container_image_for_role(x, package)
         if img != None:
-            params[_container_img_keys[x]] = img
+            if _container_img_keys[x] not in params:
+                params[_container_img_keys[x]] = img
 
     # Internal private call to provision server. This is called by REST API
     # provision_server and provision_cluster
