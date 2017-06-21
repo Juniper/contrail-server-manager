@@ -97,7 +97,6 @@ class ServerMgrStatusThread(threading.Thread):
     # end check_issu_cluster_status
 
     def put_ansible_status(self):
-        #pdb.set_trace()
         server_hostname= request.query['server_id']
         server_state = request.query['state']
         server_data = {}
@@ -105,6 +104,11 @@ class ServerMgrStatusThread(threading.Thread):
             result = parse_qs(request.query_string)
             server_data['status'] = str(result['state'][0])
             test_servers = self._status_serverDb.get_server({"ip_address" : server_hostname}, detail=True)
+            if not len(test_servers):
+                time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
+                message = server_data['status'] + ' ' + server_hostname + ' ' + time_str
+                self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % message)
+                return
             server_id = test_servers[0]['id']
             server_data['id'] = server_id
             time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
