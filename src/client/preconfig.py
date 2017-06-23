@@ -357,7 +357,7 @@ class Server(object):
             raise RuntimeError('UnSupported OS type (%s)' % self.os_version)
 
         for package in packages_list:
-            self.exec_cmd('apt-get -y install %s' % package,
+            self.exec_cmd('DEBIAN_FRONTEND=noninteractive apt-get -y install %s' % package,
                           error_on_fail=True)
 
     def verify_interface_ip(self, interface, ip):
@@ -480,7 +480,7 @@ class Server(object):
 
     def setup_ntp(self):
         log.debug('Install ntp package')
-        self.exec_cmd('apt-get -y install ntp', error_on_fail=True)
+        self.exec_cmd('DEBIAN_FRONTEND=noninteractive apt-get -y install ntp', error_on_fail=True)
         log.debug('Setup NTP configuration')
         self.exec_cmd('ntpdate %s' % self.server_manager_ip)
         log.debug('Backup existing ntp.conf')
