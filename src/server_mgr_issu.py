@@ -335,7 +335,7 @@ class SmgrIssuClass(VncServerManager):
         compute_prov = []
         # update cluster for the computes
         if "__server__id__" in self.compute_tag:
-            srv_id = self.compute_tag.strip('__server__id__').strip()
+            srv_id = self.compute_tag.split('__server__id__')[-1]
             computes = self._serverDb.get_server({"id" :
                                                  srv_id}, detail=True)
         else:
@@ -434,22 +434,22 @@ class SmgrIssuClass(VncServerManager):
                                                  self.new_config_password)
         self._execute_cmd(self.ssh_new_config, cmd)
 
-        cmd = "crudini --set %s V1_CONTROLLER control_list %s" %(
+        cmd = "crudini --set %s V1_CONTROLLER control_list \"%s\"" %(
                   self.issu_conf_file, str([str(each[0]) for each in \
                                            self.old_control_ip_list]))
         self._execute_cmd(self.ssh_new_config, cmd)
 
-        cmd = "crudini --set %s V1_CONTROLLER config_list %s" %(
+        cmd = "crudini --set %s V1_CONTROLLER config_list \"%s\"" %(
                   self.issu_conf_file, str([str(each[0]) for each in \
                                             self.old_config_ip_list]))
         self._execute_cmd(self.ssh_new_config, cmd)
 
-        cmd = "crudini --set %s V1_CONTROLLER analytics_list %s" %(
+        cmd = "crudini --set %s V1_CONTROLLER analytics_list \"%s\"" %(
                   self.issu_conf_file, str([str(each[0]) for each in \
                                        self.old_collector_ip_list]))
         self._execute_cmd(self.ssh_new_config, cmd)
 
-        cmd = "crudini --set %s V1_CONTROLLER webui_list %s" %(
+        cmd = "crudini --set %s V1_CONTROLLER webui_list \"%s\"" %(
                   self.issu_conf_file, str([str(each[0]) for each in \
                                            self.old_webui_ip_list]))
         self._execute_cmd(self.ssh_new_config, cmd)
