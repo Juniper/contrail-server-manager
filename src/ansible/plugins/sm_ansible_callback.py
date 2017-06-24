@@ -64,6 +64,20 @@ class CallbackModule(CallbackBase):
         self.logger = PlayLogger()
         self.start_time = datetime.now()
 
+    # Send provision status updates based on strategically placed tasks whose
+    # name contains the magic word "sm_status_report". Sends the last word of
+    # the task name as the status when that task executes 'ok'
+    def report_status_using_task_name(self, result):
+        tname = result._task.get_name()
+        tlist = tname.split()
+        if 'sm_status_report' in tname:
+            status_resp = { "server_id" : result._host.get_name(),
+                    "state" : tlist[-1] }
+            send_REST_request(self.logger.smgr_ip,
+                              SM_STATUS_PORT,
+                              "ansible_status", urllib.urlencode(status_resp),
+                              method='PUT', urlencode=True)
+
     def v2_runner_on_failed(self, result, ignore_errors=False):
         err_str = ""
         if ignore_errors:
@@ -97,7 +111,7 @@ class CallbackModule(CallbackBase):
             else:
                 self.logger.append("%s: [%s]: FAILED! => (item - %s) %s" %
                         (err_str, result._host.get_name(),
-                            self._get_item(result._result, ""),
+                            self._get_item(result._result),
                          self._dump_results(result._result)))
 
     def v2_runner_item_on_ok(self, result):
@@ -115,7 +129,7 @@ class CallbackModule(CallbackBase):
         else:
             msg += ": [%s]" % result._host.get_name()
 
-        msg += " => (item=%s)" % (self._get_item(result._result),)
+        msg += " => (item=%s)" % (self._get_item(result._result))
 
         if (self._display.verbosity > 0 or \
                 '_ansible_verbose_always' in result._result) and \
@@ -171,6 +185,8 @@ class CallbackModule(CallbackBase):
             self._process_items(result)
         else:
             self.logger.append(msg)
+        self.report_status_using_task_name(result)
+
 
     def v2_runner_on_skipped(self, result):
         if result._task.loop and 'results' in result._result:
