@@ -62,6 +62,15 @@ def build_storage_config(self, server, cluster, role_servers,
     storage_chassis_config_set = set()
     pool_names = set()
     storage_servers = {}
+    storage_role_present = 0
+
+    for storage_server in cluster_servers:
+        if CEPH_COMPUTE in eval(storage_server.get('roles', '[]')) or \
+            CEPH_CONTROLLER in eval(storage_server.get('roles', '[]')):
+            storage_role_present = 1
+
+    if storage_role_present == 0:
+        return
 
     if 'live_migration_host' in cluster_storage_params:
         live_migration_host = cluster_storage_params['live_migration_host']
@@ -332,6 +341,15 @@ def get_server_contrail_4_cfg_section(server, section):
 def get_calculated_storage_ceph_cfg_dict(cluster, cluster_srvrs):
     storage_cfg = dict()
     disk_cfg = dict()
+    storage_role_present = 0
+
+    for storage_server in cluster_srvrs:
+        if CEPH_COMPUTE in eval(storage_server.get('roles', '[]')) or \
+            CEPH_CONTROLLER in eval(storage_server.get('roles', '[]')):
+            storage_role_present = 1
+
+    if storage_role_present == 0:
+        return storage_cfg
 
     cluster_storage_params = get_cluster_contrail_cfg_section(cluster,
                                                                 'storage')
