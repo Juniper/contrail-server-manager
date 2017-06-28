@@ -152,9 +152,13 @@ class Status(Command):
         elif parsed_args.which == "provision":
             rest_api_params = self.set_provision_status(parsed_args)
         if rest_api_params:
-            resp = smgrutils.send_REST_request(self.smgr_ip, self.smgr_port, obj=str(rest_api_params['object']+"_status"),
-                                              match_key=rest_api_params['match_key'],
-                                              match_value=rest_api_params['match_value'])
+            resp = smgrutils.send_authed_REST_request(
+                self.smgr_ip, self.smgr_port,
+                obj=str(rest_api_params['object']+"_status"),
+                match_key=rest_api_params['match_key'],
+                match_value=rest_api_params['match_value'],
+                temp_username=self.app.temp_username,
+                temp_password=self.app.temp_password)
             json_format = getattr(parsed_args, "json", False)
             if json_format:
                 self.app.stdout.write(str(smgrutils.print_rest_response(resp)) + "\n")

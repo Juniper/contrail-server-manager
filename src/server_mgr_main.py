@@ -22,11 +22,15 @@ monkey.patch_all(thread=not 'unittest' in sys.modules)
 import subprocess
 import bottle
 from bottle import route, run, request, abort
+from beaker.middleware import SessionMiddleware
+from cork import Cork
+from cork.backends import SQLiteBackend
 import ConfigParser
 import paramiko
 import base64
 import shutil
 import string
+import random as rand_gen
 import tarfile
 from urlparse import urlparse, parse_qs
 from time import gmtime, strftime, localtime
@@ -566,11 +570,58 @@ class VncServerManager():
                                            self._args.listen_port)
         self._pipe_start_app = bottle.app()
 
+        # SQLite Backend
+        self._sqlite_backend = SQLiteBackend(
+            filename=self._args.server_manager_base_dir
+                     + self._args.database_name,
+            users_tname='user_table', roles_tname='role_table',
+            pending_reg_tname='register_table')
+        self._sqlite_backend._connection = self._serverDb._con
+        self._backend = Cork(backend=self._sqlite_backend)
+
+        # Create administrator role if necessary
+        if not self._serverDb.get_role(match_dict={'role': 'administrator'}):
+            role_data = {'role': 'administrator', 'level': 100}
+            self._serverDb.add_role(role_data=role_data)
+
+        # Create admin user if necessary
+        if not self._serverDb.get_user(match_dict={'username': 'admin'}):
+            username = 'admin'
+            password = 'c0ntrail123'
+            role = 'administrator'
+            tstamp = str(datetime.datetime.utcnow())
+            h = self._backend._hash(username, password)
+            h = h.decode('ascii')
+            user_data = {'username': username, 'role': role, 'hash': h,
+                         'email_addr': '', 'desc': '', 'creation_date': tstamp,
+                         'last_login': tstamp}
+            self._serverDb.add_user(user_data=user_data)
+
+        # Session
+        config = {
+            'session.encrypt_key': ''.join(rand_gen.SystemRandom().choice(
+                string.ascii_letters + string.digits + string.punctuation)
+                                           for _ in range(64)),
+            'session.save_accessed_time': True,
+            'session.timeout': 300,
+            'session.type': 'cookie',
+            'session.validate_key': ''.join(rand_gen.SystemRandom().choice(
+                string.ascii_letters + string.digits) for _ in range(64))
+        }
+        self._pipe_start_app = SessionMiddleware(wrap_app=self._pipe_start_app,
+                                                 config=config)
+
+        # Authentication logging
+        self.ACCESS_LOG = '/var/log/contrail-server-manager/access.log'
+
+
         # All bottle routes to be defined here...
         # REST calls for GET methods (Get Info about existing records)
         bottle.route('/all', 'GET', self.get_server_mgr_config)
         bottle.route('/cluster', 'GET', self.get_cluster)
         bottle.route('/server', 'GET', self.get_server)
+        bottle.route('/user', 'GET', self.get_user)
+        bottle.route('/role', 'GET', self.get_role)
         bottle.route('/image', 'GET', self.get_image)
         bottle.route('/status', 'GET', self.get_status)
         bottle.route('/server_status', 'GET', self.get_server_status)
@@ -588,6 +639,10 @@ class VncServerManager():
         bottle.route('/InventoryConf', 'GET', self._server_inventory_obj.get_inv_conf_details)
         bottle.route('/InventoryInfo', 'GET', self._server_inventory_obj.get_inventory_info)
         bottle.route('/defaults', 'GET', self.get_defaults)
+        bottle.route('/current_user', 'GET', self.get_current_user)
+        bottle.route('/login_success', 'GET', self.get_login_success)
+        bottle.route('/login_failed', 'GET', self.get_login_failed)
+        bottle.route('/logout', 'GET', self.logout)
 
         #bottle.route('/logs/<filepath:path>', 'GET', self.get_defaults)
         @route('/logs/<filename:re:.*>')
@@ -650,6 +705,8 @@ class VncServerManager():
         bottle.route('/config', 'PUT', self.put_config)
         bottle.route('/server', 'PUT', self.put_server)
         bottle.route('/image', 'PUT', self.put_image)
+        bottle.route('/user', 'PUT', self.put_user)
+        bottle.route('/role', 'PUT', self.put_role)
         bottle.route('/cluster', 'PUT', self.put_cluster)
         bottle.route('/tag', 'PUT', self.put_server_tags)
         bottle.route('/dhcp_subnet', 'PUT', self.put_dhcp_subnet)
@@ -659,6 +716,8 @@ class VncServerManager():
         bottle.route('/cluster', 'DELETE', self.delete_cluster)
         bottle.route('/server', 'DELETE', self.delete_server)
         bottle.route('/image', 'DELETE', self.delete_image)
+        bottle.route('/user', 'DELETE', self.delete_user)
+        bottle.route('/role', 'DELETE', self.delete_role)
         bottle.route('/dhcp_subnet', 'DELETE', self.delete_dhcp_subnet)
         bottle.route('/dhcp_host', 'DELETE', self.delete_dhcp_host)
 
@@ -670,8 +729,65 @@ class VncServerManager():
         bottle.route('/server/provision', 'POST', self.provision_server)
         bottle.route('/interface_created', 'POST', self.interface_created)
         bottle.route('/run_inventory', 'POST', self._server_inventory_obj.run_inventory)
+        bottle.route('/login', 'POST', self.login)
 
         self.verify_smlite_provision()
+
+    # Ensure permissions
+    def sufficient_perms(self, username=None, role=None, fixed_role=False):
+        # Get current user
+        current_user = None
+        try:
+            current_user = self._backend.current_user
+        except Exception as e:
+            return False
+
+        # Ensure username requirements
+        if username is not None and username != current_user.username:
+            return False
+
+        # Ensure role requirements
+        if role is not None:
+            if fixed_role:
+                if role != current_user.role:
+                    return False
+            else:
+                # Ensure level requirements
+                req_level = self._sqlite_backend.roles.get(role, None)
+                if req_level is None:
+                    return False
+                elif req_level > current_user.level:
+                    return False
+
+        # Requirements met
+        return True
+    # End of sufficient_perms
+
+    # Determine object restrictions based on currently logged in user
+    def determine_restrictions(self):
+        # If admin, no restrictions
+        if self.sufficient_perms(role='administrator', fixed_role=True):
+            user_obj = None
+            username = None
+            is_admin = True
+            logged_in = True
+
+        # If other account, restrict actions to that user
+        elif self.sufficient_perms():
+            user_obj = self._backend.current_user
+            username = user_obj.username
+            is_admin = False
+            logged_in = True
+
+        # If not logged in
+        else:
+            user_obj = None
+            username = None
+            is_admin = False
+            logged_in = False
+
+        return user_obj, username, is_admin, logged_in
+    # end determine_restrictions
 
     def get_pipe_start_app(self):
         return self._pipe_start_app
@@ -688,6 +804,11 @@ class VncServerManager():
     # REST API call to get sever manager config - configuration of all
     # clusters & all servers is returned.
     def get_server_mgr_config(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
         self._smgr_log.log(self._smgr_log.DEBUG, "get_server_mgr_config")
         config = {}
         try:
@@ -715,6 +836,11 @@ class VncServerManager():
     # end get_server_mgr_config
 
     def get_table_columns(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
         self._smgr_log.log(self._smgr_log.DEBUG, "get_table_columns")
         query_args = parse_qs(urlparse(request.url).query,
                               keep_blank_values=True)
@@ -738,6 +864,11 @@ class VncServerManager():
     # above. This call additionally provides a way of getting all the
     # configuration for a particular cluster.
     def get_cluster(self):
+        # Ensure permissions
+        _, username, is_admin, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         self._smgr_log.log(self._smgr_log.DEBUG, "get_cluster")
         try:
             ret_data = self.validate_smgr_request("CLUSTER", "GET",
@@ -781,6 +912,11 @@ class VncServerManager():
     # end get_cluster
 
     def get_server_logs(self):
+        # Ensure permissions
+        _, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         try:
             query_args = parse_qs(bottle.request.query_string,
                                     keep_blank_values=True)
@@ -797,7 +933,7 @@ class VncServerManager():
                 remote_dir = '/var/log/contrail/'
 
                 server = self._serverDb.get_server(
-                    {"id" : sid[0]}, detail=True)
+                    {"id" : sid[0]}, detail=True, username=username)
                 ssh_client = self.create_ssh_connection(server[0]['ip_address'],
                     'root', server[0]['password'])
                 sftp_client = ssh_client.open_sftp()
@@ -1281,6 +1417,10 @@ class VncServerManager():
             validation_data = cluster_fields
         elif type == "IMAGE":
             validation_data = image_fields
+        elif type == "USER":
+            validation_data = user_fields
+        elif type == "ROLE":
+            validation_data = role_fields
         elif type == "DHCP_SUBNET":
             validation_data = dhcp_subnet_fields
         elif type == "DHCP_HOST":
@@ -1371,6 +1511,11 @@ class VncServerManager():
     # if provided, information about all the servers in server manager
     # configuration is returned.
     def get_server_status(self):
+        # Ensure permissions
+        _, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         ret_data = None
         try:
             ret_data = self.validate_smgr_request("SERVER", "GET",
@@ -1388,7 +1533,8 @@ class VncServerManager():
                 if not select_clause:
                     select_clause = ["id", "mac_address", "ip_address", "status"]
                 servers = self._serverDb.get_server(
-                    match_dict, detail=detail, field_list=select_clause)
+                    match_dict, detail=detail, field_list=select_clause,
+                    username=username)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
@@ -1413,6 +1559,11 @@ class VncServerManager():
     # is provided, or if cluster/server is not being currently provisioned, then error is returned
     # configuration is returned.
     def get_provision_status(self):
+        # Ensure permissions
+        _, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         ret_data = None
         provision_server_status = []
         try:
@@ -1431,7 +1582,7 @@ class VncServerManager():
                 if not select_clause:
                     select_clause = ["id", "host_name", "cluster_id", "status"]
                 servers = self._serverDb.get_server(
-                    match_dict, field_list=select_clause)
+                    match_dict, field_list=select_clause, username=username)
                 if not len(servers):
                     msg =  ("There are no servers for which provision info can be displayed.")
                     self.log_and_raise_exception(msg)
@@ -1511,6 +1662,11 @@ class VncServerManager():
     # if provided, information about all the servers in server manager
     # configuration is returned.
     def get_server(self):
+        # Ensure permissions
+        _, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         ret_data = None
         servers = []
         try:
@@ -1626,6 +1782,11 @@ class VncServerManager():
 
     #API Call to list DHCP Hosts
     def get_dhcp_subnet(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
         try:
             ret_data = self.validate_smgr_request("DHCP_SUBNET", "GET",
                                                          bottle.request)
@@ -1655,6 +1816,11 @@ class VncServerManager():
 
     #API Call to list DHCP Hosts
     def get_dhcp_host(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
         try:
             ret_data = self.validate_smgr_request("DHCP_HOST", "GET",
                                                          bottle.request)
@@ -1738,9 +1904,98 @@ class VncServerManager():
        outfile.close()
        
        return {"hw_data": {}}
+    # API Call to list users
+    def get_user(self):
+        # Ensure permissions
+        _, username, is_admin, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
+        try:
+            ret_data = self.validate_smgr_request("USER", "GET", bottle.request)
+
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                select_clause = ret_data["select"]
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
+                detail = ret_data["detail"]
+            users = self._serverDb.get_user(match_dict, detail=detail,
+                                            field_list=select_clause,
+                                            username=username,
+                                            is_admin=is_admin)
+
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_USER, False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_USER, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.GET_SMGR_CFG_USER)
+        for user in users:
+            if user.get("parameters", None) is not None:
+                user['parameters'] = eval(user['parameters'])
+        return {"user": users}
+    # End of get_user
+
+    # API Call to list roles
+    def get_role(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
+        try:
+            ret_data = self.validate_smgr_request("ROLE", "GET", bottle.request)
+
+            if ret_data["status"] == 0:
+                match_key = ret_data["match_key"]
+                match_value = ret_data["match_value"]
+                select_clause = ret_data["select"]
+                match_dict = {}
+                if match_key:
+                    match_dict[match_key] = match_value
+                detail = ret_data["detail"]
+            roles = self._serverDb.get_role(match_dict, detail=detail,
+                                            field_list=select_clause)
+
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_ROLE,
+                                     False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.GET_SMGR_CFG_ROLE,
+                                     False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.GET_SMGR_CFG_ROLE)
+        for role in roles:
+            if role.get("parameters", None) is not None:
+                role['parameters'] = eval(role['parameters'])
+        return {"role": roles}
 
     # API Call to list images
     def get_image(self):
+        # Ensure permissions
+        _, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         try:
             ret_data = self.validate_smgr_request("IMAGE", "GET",
                                                          bottle.request)
@@ -1754,7 +2009,8 @@ class VncServerManager():
                 detail = ret_data["detail"]
             images = self._serverDb.get_image(match_dict,
                                               detail=detail,
-                                              field_list=select_clause)
+                                              field_list=select_clause,
+                                              username=username)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_IMAGE, False)
@@ -1857,7 +2113,8 @@ class VncServerManager():
         diff=difflib.ndiff(str1, str2)
         return ''.join(diff)
 
-    def put_container_image(self, entity, image, cleanup_list):
+    def put_container_image(self, entity, image, cleanup_list, username=None,
+                            is_admin=None):
         new_containers = {}
         image_id       = image.get("id", None)
         image_path     = image.get("path", None)
@@ -1955,10 +2212,11 @@ class VncServerManager():
             'path': image_path,
             'category' : image_category,
             'parameters' : image_params}
-        self._serverDb.add_image(image_data)
+        self._serverDb.add_image(image_data, admin=is_admin, username=username)
         return resp_msg
 
-    def validate_container_image(self, image_params, entity, image, cleanup_list):
+    def validate_container_image(self, image_params, entity, image,
+                                 cleanup_list, username=None, is_admin=None):
         for container in image_params.get("containers", None):
             role  = container.get("role", None)
             if role not in _valid_roles and role not in _openstack_containers:
@@ -1969,7 +2227,8 @@ class VncServerManager():
                  resp_msg = self.form_operartion_data(msg, 0, entity)
                  return False, resp_msg
 
-        gevent.spawn(self.put_container_image, entity, image, cleanup_list)
+        gevent.spawn(self.put_container_image, entity, image, cleanup_list,
+                     username, is_admin)
         msg = \
         "Image add/Modify of containers happening in the background. "\
         "Check /var/log/contrail-server-manager/debug.log "\
@@ -1987,6 +2246,11 @@ class VncServerManager():
          return True
 
     def put_image(self, entity=None):
+        # Ensure permissions
+        _, username, is_admin, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         if not entity:
             entity = bottle.request.json
         add_db = True
@@ -2074,7 +2338,7 @@ class VncServerManager():
                             # Get the contrail package version
                             for key in container_params:
                                 image_params[key] = container_params[key]
-                            add_db, additional_ret_msg = self.validate_container_image(image_params, entity, image, image_params.pop("cleanup_list"))
+                            add_db, additional_ret_msg = self.validate_container_image(image_params, entity, image, image_params.pop("cleanup_list"), username=username, is_admin=is_admin)
                             image_params['version'] = playbooks_version
                             image_params['playbooks_version'] = playbooks_version
                             image_params['contrail-container-package'] = True
@@ -2138,7 +2402,8 @@ class VncServerManager():
                             'path': image_path,
                             'category' : image_category,
                             'parameters' : image_params}
-                        self._serverDb.add_image(image_data)
+                        self._serverDb.add_image(image_data, admin=is_admin,
+                                                 username=username)
         except subprocess.CalledProcessError as e:
             msg = ("put_image: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
@@ -2168,7 +2433,189 @@ class VncServerManager():
         resp_msg = self.form_operartion_data(msg, 0, entity)
         return resp_msg
 
+    # API Call to add user
+    def put_user(self):
+        # Ensure permissions
+        _, user_logged_in, is_admin, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
+        # Get passed in params
+        entity = bottle.request.json
+        if not entity:
+            msg = 'Parameters not specified'
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
+        entity = entity.get("user", None)
+        if not entity:
+            msg = 'Parameters not specified'
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
+        entity = entity[0]
+        username = entity.get("username", None)
+        password = entity.get("password", None)
+        role = entity.get("role", None)
+        desc = entity.get("desc", None)
+        email = entity.get("email", None)
+
+        try:
+            # username is required
+            if not username:
+                msg = 'username is a required parameter.'
+                resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+                abort(404, resp_msg)
+
+            # Users can only modify self
+            if not is_admin and user_logged_in != username:
+                return 'Error: Insufficient permissions.'
+
+            # Do not allow users to change own role
+            if not is_admin and role:
+                msg = 'Cannot change own role.'
+                resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+                abort(404, resp_msg)
+
+            # Ensure role exists
+            if role and not self._serverDb.get_role(match_dict={'role': role}):
+                msg = 'Role does not exist.'
+                resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+                abort(404, resp_msg)
+
+            # Modify user
+            if self._serverDb.get_user(match_dict={'username': username}):
+                # Modify in db
+                user_obj = self._backend.user(username)
+                user_obj.update(role=role, pwd=password, email_addr=email)
+                self._sqlite_backend.connection.commit()
+
+            # Add user
+            else:
+                # Only administrators may add users
+                if not is_admin:
+                    return 'Error: Insufficient permissions.'
+
+                # role, password are required
+                if not (role and password):
+                    msg = 'role and password are required parameters.'
+                    resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR,
+                                                         None)
+                    abort(404, resp_msg)
+
+                # Add to db
+                self._backend.create_user(username=username, role=role,
+                                          password=password, email_addr=email,
+                                          description=desc)
+                self._sqlite_backend.connection.commit()
+
+        # Catch exceptions
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_USER, False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_USER, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+
+        self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.PUT_SMGR_CFG_USER)
+        msg = "User add/modify success"
+        resp_msg = self.form_operartion_data(msg, 0, entity)
+        return resp_msg
+    # end put_user
+
+    # API Call to add role
+    def put_role(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
+        # Get passed in params
+        entity = bottle.request.json
+        if not entity:
+            msg = 'Parameters not specified'
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
+        entity = entity.get("role", None)
+        if not entity:
+            msg = 'Parameters not specified'
+            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            abort(404, resp_msg)
+        entity = entity[0]
+        role = entity.get("role", None)
+        R = entity.get("R", None)
+        RW = entity.get("RW", None)
+        level = entity.get("level", None)
+
+        try:
+            # role is required
+            if not role:
+                msg = 'role is a required parameter.'
+                resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+                abort(404, resp_msg)
+
+            # Build role data
+            role_data = {}
+            role_data['role'] = role
+            if R:
+                role_data['R'] = R
+            if RW:
+                role_data['RW'] = RW
+            if level:
+                role_data['level'] = level
+
+            # Modify role
+            if self._serverDb.get_role(match_dict={'role': role}):
+                # Modify in db
+                self._serverDb.modify_role(role_data)
+
+            # Add role
+            else:
+                # level is required
+                if not level:
+                    msg = 'level is a required parameter.'
+                    resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR,
+                                                         None)
+                    abort(404, resp_msg)
+
+                # Add to db
+                self._serverDb.add_role(role_data)
+
+        # Catch exceptions
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_ROLE,
+                                     False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_ROLE,
+                                     False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+
+        self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.PUT_SMGR_CFG_ROLE)
+        msg = "Role add/modify success"
+        resp_msg = self.form_operartion_data(msg, 0, entity)
+        return resp_msg
+    # end put_role
+
     def put_cluster(self, entity=None):
+        # Ensure permissions
+        user_obj, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         if not entity:
             entity = bottle.request.json
         try:
@@ -2179,10 +2626,18 @@ class VncServerManager():
                 if self._serverDb.check_obj(
                     "cluster", {"id" : cur_cluster['id']},
                     raise_exception=False):
+
+                    # If user doesn't have RW to this cluster, stop
+                    if not self._serverDb.get_cluster({'id': cur_cluster['id']},
+                                                      username=username,
+                                                      perms='RW'):
+                        return 'Error: Insufficient permissions for cluster ' \
+                               '%s' % cur_cluster['id']
                     #TODO Handle uuid here
                     self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
                                                 cur_cluster, True)
-                    self._serverDb.modify_cluster(cur_cluster)
+                    self._serverDb.modify_cluster(cur_cluster,
+                                                  username=username)
                 else:
                     self.validate_smgr_request("CLUSTER", "PUT", bottle.request,
                                                 cur_cluster)
@@ -2196,7 +2651,10 @@ class VncServerManager():
                                 "generating ceph uuid/keys for storage")
                     generate_storage_keys(cur_cluster)
                     self.generate_passwords(cur_cluster.get("parameters", {}))
-                    self._serverDb.add_cluster(cur_cluster)
+                    if self._serverDb.add_cluster(
+                            cur_cluster, user_obj=user_obj) == -1:
+                        return 'Error: Insufficient permissions for ' \
+                               'cluster table.'
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER,
@@ -2274,6 +2732,11 @@ class VncServerManager():
             # check if old details are there else throw error
 
     def put_dhcp_host(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
         entity = bottle.request.json
         if (not entity):
             msg = 'Host FQDN not specified'
@@ -2351,6 +2814,11 @@ class VncServerManager():
         return resp_msg
 
     def put_dhcp_subnet(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
         entity = bottle.request.json
         if (not entity):
             msg = 'Subnet Address not specified'
@@ -2438,6 +2906,11 @@ class VncServerManager():
         return config_resp
 
     def put_server(self, entity=None):
+        # Ensure permissions
+        user_obj, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         if not entity:
             entity = bottle.request.json
         if (not entity):
@@ -2455,29 +2928,42 @@ class VncServerManager():
                 db_servers = self._serverDb.get_server(
                     {"id" : server['id']},
                     None, True)
+                db_servers_owned = self._serverDb.get_server(
+                    {"id" : server['id']},
+                    None, True, username=username, perms='RW')
                 if not db_servers:
                     db_servers = self._serverDb.get_server(
                         {"mac_address" : server['mac_address']},
                         None, True)
-                if db_servers:
+                    db_servers_owned = self._serverDb.get_server(
+                        {"mac_address" : server['mac_address']},
+                        None, True, username=username, perms='RW')
+                if db_servers_owned:
                     #TODO - Revisit this logic
                     # Do we need mac to be primary MAC
                     server_fields['primary_keys'] = "['id']"
                     self.validate_smgr_request("SERVER", "PUT", bottle.request,
                                                server, True)
-                    status = db_servers[0]['status']
+                    status = db_servers_owned[0]['status']
                     if not status or status == "server_discovered":
                         server['status'] = "server_added"
                         server['discovered'] = "false"
-                    self._serverDb.modify_server(server)
+                    self._serverDb.modify_server(server,
+                                                 username=username)
                     server_fields['primary_keys'] = "['id', 'mac_address']"
-                else:
+                elif not db_servers:
                     new_servers.append(server)
                     self.validate_smgr_request("SERVER", "PUT",
                                                bottle.request, server)
                     server['status'] = "server_added"
                     server['discovered'] = "false"
-                    self._serverDb.add_server(server)
+                    if self._serverDb.add_server(server, user_obj=user_obj) \
+                        == -1:
+                        return 'Error: Insufficient permissions for server ' \
+                               'table.'
+                else:
+                    return 'Error: Insufficient permissions.'
+
                     # Trigger to collect monitoring info
 
             # End of for
@@ -2503,6 +2989,11 @@ class VncServerManager():
 
     # Function to change tags used for grouping together servers.
     def put_server_tags(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
         entity = bottle.request.json
         if (not entity):
             msg = 'no tags specified'
@@ -2593,6 +3084,11 @@ class VncServerManager():
     # created in cobbler. This is similar to function above (add_image),
     # but this call actually upload ISO image from client to the server.
     def upload_image(self):
+        # Ensure permissions
+        _, username, is_admin, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         image_id = bottle.request.forms.id
         image_version = bottle.request.forms.version
         image_type = bottle.request.forms.type
@@ -2678,7 +3174,7 @@ class VncServerManager():
                     image_data.update({'path': dest})
                     image_data.update({'parameters' : image_params})
                     entity = bottle.request.json
-                    add_db, additional_ret_msg = self.validate_container_image(image_params, entity, image_data, image_params.pop("cleanup_list"))
+                    add_db, additional_ret_msg = self.validate_container_image(image_params, entity, image_data, image_params.pop("cleanup_list"), username=username, is_admin=is_admin)
                     msg = \
                     "Image upload of containers happening in the background. "\
                     "Check /var/log/contrail-server-manager/debug.log "\
@@ -2727,7 +3223,8 @@ class VncServerManager():
             image_data.update({'path': dest})
             image_data.update({'parameters' : image_params})
             if add_db:
-                self._serverDb.add_image(image_data)
+                self._serverDb.add_image(image_data, admin=is_admin,
+                                         username=username)
             # Removing the package/image from /etc/contrail_smgr/images/ after it has been added
             os.remove(dest)
         except subprocess.CalledProcessError as e:
@@ -3285,6 +3782,11 @@ class VncServerManager():
     # cluster, all servers in that cluster and associated roles are also
     # deleted.
     def delete_cluster(self):
+        # Ensure permissions
+        _, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         self._smgr_log.log(self._smgr_log.DEBUG, "delete_cluster")
         try:
             ret_data = self.validate_smgr_request("CLUSTER", "DELETE",
@@ -3295,7 +3797,11 @@ class VncServerManager():
                 match_dict = {}
                 if match_key:
                     match_dict[match_key] = match_value
-                self._serverDb.delete_cluster(match_dict)
+                clusters = self._serverDb.get_cluster(
+                    match_dict=match_dict, username=username, perms='RW')
+                if not clusters:
+                    return 'Error: Insufficient permissions.'
+                self._serverDb.delete_cluster(match_dict, username=username)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.DELETE_SMGR_CFG_CLUSTER,
@@ -3322,6 +3828,11 @@ class VncServerManager():
 
     # API call to delete a server from the configuration.
     def delete_server(self):
+        # Ensure permissions
+        _, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         self._smgr_log.log(self._smgr_log.DEBUG, "delete_server")
         try:
             ret_data = self.validate_smgr_request("SERVER", "DELETE",
@@ -3337,8 +3848,10 @@ class VncServerManager():
                     match_dict[match_key] = match_value
 
             servers = self._serverDb.get_server(
-                match_dict, detail= True)
-            self._serverDb.delete_server(match_dict)
+                match_dict, detail= True, username=username, perms='RW')
+            if not servers:
+                return 'Error: Insufficient permissions.'
+            self._serverDb.delete_server(match_dict, username=username)
             # delete the system entries from cobbler
             for server in servers:
                 if server['id'] and self._smgr_cobbler:
@@ -3374,6 +3887,11 @@ class VncServerManager():
 
     # API call to delete a dhcp subnet from the configuration.
     def delete_dhcp_subnet(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
         try:
             ret_data = self.validate_smgr_request("DHCP_SUBNET", "DELETE",
                                                          bottle.request)
@@ -3413,6 +3931,11 @@ class VncServerManager():
 
     # API call to delete a dhcp host from the configuration.
     def delete_dhcp_host(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
         try:
             ret_data = self.validate_smgr_request("DHCP_HOST", "DELETE",
                                                          bottle.request)
@@ -3452,6 +3975,11 @@ class VncServerManager():
 
     # API Call to delete an image
     def delete_image(self):
+        # Ensure permissions
+        _, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         self._smgr_log.log(self._smgr_log.DEBUG, "delete_image")
         try:
             ret_data = self.validate_smgr_request("IMAGE", "DELETE",
@@ -3463,11 +3991,20 @@ class VncServerManager():
                 msg = "Validation failed"
                 self.log_and_raise_exception(msg)
             images = self._serverDb.get_image(image_dict, detail=True)
+            images_owned = self._serverDb.get_image(image_dict, detail=True,
+                                                    username=username,
+                                                    perms='RW')
             if not images:
                 msg = "Image %s doesn't exist" % (image_dict)
                 self.log_and_raise_exception(msg)
                 self._smgr_log.log(self._smgr_log.ERROR,
                         msg)
+            elif not images_owned:
+                msg = "Error: Insufficient permissions for image %s" % \
+                      image_dict
+                self.log_and_raise_exception(msg)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                   msg)
             image = images[0]
             image_id = image['id']
             image_path = image['path']
@@ -3543,7 +4080,7 @@ class VncServerManager():
                 if os.path.exists(kseed_path):
                     os.remove(kseed_path)
             # remove the entry from DB
-            self._serverDb.delete_image(image_dict)
+            self._serverDb.delete_image(image_dict, username=username)
         except ServerMgrException as e:
             self.log_trace()
             self._smgr_trans_log.log(bottle.request,
@@ -3568,9 +4105,131 @@ class VncServerManager():
 
     # End of delete_image
 
+    # API to delete a user
+    def delete_user(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
+        self._smgr_log.log(self._smgr_log.DEBUG, "delete_user")
+        try:
+            # Validate request
+            ret_data = self.validate_smgr_request("USER", "DELETE",
+                                                  bottle.request)
+            if ret_data["status"] == 0:
+                user_dict = {}
+                user_dict[ret_data["match_key"]] = ret_data["match_value"]
+            else:
+                msg = "Validation failed"
+                self.log_and_raise_exception(msg)
+            users = self._serverDb.get_user(user_dict, detail=True)
+
+            # Stop if user does not exist
+            if not users:
+                msg = "User %s doesn't exist" % user_dict
+                self.log_and_raise_exception(msg)
+                self._smgr_log.log(self._smgr_log.ERROR,
+                                   msg)
+            user = users[0]
+            username = user['username']
+
+            # Remove from db
+            self._serverDb.delete_user(user_dict)
+
+        # Catch exceptions
+        except ServerMgrException as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                    self._smgr_trans_log.DELETE_SMGR_CFG_USER,
+                                    False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.DELETE_SMGR_CFG_USER,
+                                     False)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               "Unable to delete user, %s" % repr(e))
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.DELETE_SMGR_CFG_USER)
+        msg = "User Deleted"
+        resp_msg = self.form_operartion_data(msg, 0, None)
+        return resp_msg
+    # End of delete_user
+
+    # API to delete a role
+    def delete_role(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
+        self._smgr_log.log(self._smgr_log.DEBUG, "delete_role")
+        try:
+            # Validate request
+            ret_data = self.validate_smgr_request("ROLE", "DELETE",
+                                                  bottle.request)
+            if ret_data["status"] == 0:
+                role_dict = {}
+                role_dict[ret_data["match_key"]] = ret_data["match_value"]
+            else:
+                msg = "Validation failed"
+                self.log_and_raise_exception(msg)
+            roles = self._serverDb.get_role(role_dict, detail=True)
+
+            # Stop if role does not exist
+            if not roles:
+                msg = "Role %s doesn't exist" % role_dict
+                self.log_and_raise_exception(msg)
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+
+            # Stop if there are users assigned this role
+            role = roles[0]['role']
+            users = self._serverDb.get_user({'role': role})
+            if users:
+                msg = "Users currently assigned role %s" % role_dict
+                self.log_and_raise_exception(msg)
+                self._smgr_log.log(self._smgr_log.ERROR, msg)
+
+            # Remove from db
+            self._serverDb.delete_role(role_dict)
+
+        # Catch exceptions
+        except ServerMgrException as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.DELETE_SMGR_CFG_ROLE,
+                                     False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.DELETE_SMGR_CFG_ROLE,
+                                     False)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               "Unable to delete role, %s" % repr(e))
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                 None)
+            abort(404, resp_msg)
+        self._smgr_trans_log.log(bottle.request,
+                                 self._smgr_trans_log.DELETE_SMGR_CFG_ROLE)
+        msg = "Role Deleted"
+        resp_msg = self.form_operartion_data(msg, 0, None)
+        return resp_msg
+    # End of delete_role
+
     # API to create the server manager configuration DB from provided JSON
     # file.
     def create_server_mgr_config(self):
+        # Ensure permissions
+        _, _, is_admin, _ = self.determine_restrictions()
+        if not is_admin:
+            return 'Error: Insufficient permissions.'
+
         entity = bottle.request.json
         if not entity:
             msg =  "No JSON config file specified"
@@ -3722,6 +4381,11 @@ class VncServerManager():
     # If no server if provided, information about all the servers
     # in server manager configuration is returned.
     def reimage_server(self):
+        _, username, _, logged_in = self.determine_restrictions()
+        # Ensure permissions
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         self._smgr_log.log(self._smgr_log.DEBUG, "reimage_server")
         try:
             ret_data = self.validate_smgr_request("SERVER", "REIMAGE", bottle.request)
@@ -3742,7 +4406,8 @@ class VncServerManager():
             base_image = {}
             if base_image_id:
                 base_image_id, base_image = self.get_base_image(base_image_id)
-            servers = self._serverDb.get_server(match_dict, detail=True)
+            servers = self._serverDb.get_server(match_dict, detail=True,
+                                                username=username, perms='RW')
             if len(servers) == 0:
                 msg = "No Servers found for %s" % (match_value)
                 self.log_and_raise_exception(msg)
@@ -4439,6 +5104,11 @@ class VncServerManager():
 
     # API call to power-cycle the server (IMPI Interface)
     def restart_server(self):
+        # Ensure permissions
+        _, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
         self._smgr_log.log(self._smgr_log.DEBUG, "restart_server")
         net_boot = None
         match_key = None
@@ -4456,7 +5126,8 @@ class VncServerManager():
                     match_dict[match_key] = match_value
             reboot_server_list = []
             # if the key is server_id, server_table server key is 'id'
-            servers = self._serverDb.get_server(match_dict, detail=True)
+            servers = self._serverDb.get_server(match_dict, detail=True,
+                                                username=username, perms='RW')
             if len(servers) == 0:
                 msg = "No Servers found for match %s" % \
                     (match_value)
@@ -4667,6 +5338,37 @@ class VncServerManager():
         print "Interface Created"
         self.provision_server()
 
+    # Login
+    def login(self):
+        username = request.json['username'].encode('ascii')
+        password = request.json['password'].encode('ascii')
+        self._backend.login(username=username, password=password)
+        self._sqlite_backend.connection.commit()
+
+        # Return whether login was successful
+        try:
+            if self._backend.current_user.username == username:
+                with open (self.ACCESS_LOG, "a") as access_log:
+                    access_log.write('User %s logged in.\n' % username)
+                return 'Login successful.'
+            with open (self.ACCESS_LOG, "a") as access_log:
+                access_log.write('User %s failed to log in.\n' % username)
+            return 'Login failed.'
+        except Exception as e:
+            with open (self.ACCESS_LOG, "a") as access_log:
+                access_log.write('User %s failed to log in.\n' % username)
+            return 'Login failed.'
+    # End of login
+
+    # Logout
+    def logout(self):
+        curr_user = self._backend.current_user
+        if curr_user:
+            with open (self.ACCESS_LOG, "a") as access_log:
+                access_log.write('User %s logged out.\n' % curr_user.username)
+        self._backend.logout()
+    # End of logout
+
     def log_trace(self):
         exc_type, exc_value, exc_traceback = sys.exc_info()
         if not exc_type or not exc_value or not exc_traceback:
@@ -4803,6 +5505,23 @@ class VncServerManager():
                                                                             None)
             abort(404, resp_msg)
 
+    # Current user page
+    def get_current_user(self):
+        try:
+            current_user = self._backend.current_user
+        except Exception as e:
+            return {}
+        return {'user': current_user.username}
+
+    # Login success page
+    def get_login_success(self):
+        return 'Login success.'
+    # End of get_login_success
+
+    # Login failed page
+    def get_login_failed(self):
+        return 'Login failed.'
+    # End of get_login_failed
 
     def update_cluster_provision(self, cluster_id, role_sequence):
         if not cluster_id or not role_sequence:
@@ -6389,12 +7108,18 @@ class VncServerManager():
     # puppet manifest file for the server and adds it to site
     # manifest file.
     def provision_server(self, issu_flag = False):
+        # Ensure permissions
+        user_obj, username, _, logged_in = self.determine_restrictions()
+        if not logged_in:
+            return 'Error: Insufficient permissions.'
+
 	provision_server_list = []
         package_type_list = ["contrail-ubuntu-package", "contrail-centos-package", "contrail-storage-ubuntu-package"]
         self._smgr_log.log(self._smgr_log.DEBUG, "provision_server")
         provision_status = {}
         try:
             entity = bottle.request.json
+
             if entity.get('opcode', '') == "issu" and not issu_flag:
                 # create SmgrIssuClass instance
                 self.issu_obj = SmgrIssuClass(self, entity)
@@ -6432,16 +7157,47 @@ class VncServerManager():
                             'package_image_id': entity['new_image']}
                 ret_data = self.validate_smgr_provision(
                                      "PROVISION", req_json, issu_flag=issu_flag)
+            container = False
             if ret_data['status'] == 0:
                 if 'category' in ret_data and ret_data['category'] == 'container':
                     server_packages = ret_data['package_image_id']
+                    container = True
                 else:
                     server_packages = ret_data['server_packages']
             else:
                 msg = "Error validating request"
                 self.log_and_raise_exception(msg)
+
+            # Ensure user has read to server packages image
+            server_packages_id = None
+            if container:
+                server_packages_id = server_packages
+            else:
+                server_packages_id = ret_data['server_packages'][0]['package_image_id'].encode('ascii')
+            server_packages_owned = bool(self._serverDb.get_image(
+                match_dict={'id': server_packages_id}, username=username))
+            if not server_packages_owned:
+                return 'Error: Insufficient permissions for image %s' \
+                       % server_packages_id
+
+            # Ensure user has read to contrail image
+            contrail_image_id = ret_data.get('contrail_image_id', None)
+            if contrail_image_id:
+                contrail_image_owned = bool(self._serverDb.get_image(
+                    match_dict={'id': contrail_image_id}, username=username))
+                if not contrail_image_owned:
+                    return 'Error: Insufficient permissions for image %s' \
+                           % contrail_image_id
+
+            # Ensure user has RW to cluster
             cluster_id = ret_data['cluster_id']
             tasks      = ret_data['tasks']
+            cluster_owned = bool(self._serverDb.get_cluster(
+                match_dict={'id': cluster_id}, username=username, perms='RW'))
+            if not cluster_owned:
+                return 'Error: Insufficient permissions for cluster %s' \
+                       % cluster_id
+
             provision_server_list, role_sequence, provision_status = \
                                       self.prepare_provision(ret_data)
 

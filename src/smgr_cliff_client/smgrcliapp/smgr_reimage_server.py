@@ -127,7 +127,10 @@ class Reimage(Command):
 
         if payload:
             #self.app.print_error_message_and_quit("Payload = " + str(payload) + "\n\n")
-            resp = smgrutils.send_REST_request(self.smgr_ip, self.smgr_port, obj="server/reimage",
-                                               payload=payload, method="POST")
+            resp = smgrutils.send_authed_REST_request(
+                self.smgr_ip, self.smgr_port, obj="server/reimage",
+                payload=payload, method="POST",
+                temp_username=self.app.temp_username,
+                temp_password=self.app.temp_password)
             self.app.stdout.write("\n" + str(smgrutils.print_rest_response(resp)) + "\n")
         # End of reimage_server
