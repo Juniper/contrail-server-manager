@@ -94,6 +94,14 @@ class DbUtils():
             prov       = params.get("provision", {})
         return prov.get("contrail_4", {})
 
+    def get_contrail_cfg(self,parent):
+        params     = parent.get("parameters", {})
+        if isinstance(params, unicode):
+            pparams = eval(params)
+            prov    = pparams.get("provision", {})
+        else:
+            prov       = params.get("provision", {})
+        return prov.get("contrail", {})
 
 class DictUtils():
     def merge_dict():
