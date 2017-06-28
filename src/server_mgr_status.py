@@ -103,10 +103,31 @@ class ServerMgrStatusThread(threading.Thread):
         server_data = {}
         try:
             result = parse_qs(request.query_string)
-            server_data['status'] = str(result['state'][0])
-            test_servers = self._status_serverDb.get_server({"ip_address" : server_hostname}, detail=True)
+            ansible_status = str(result['state'][0])
+            test_servers = self._status_serverDb.get_server(\
+                    {"ip_address" : server_hostname}, detail=True)
+            if not len(test_servers):
+                time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
+                message = ansible_status + ' ' + server_hostname + ' ' + time_str
+                self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % message)
+                return
+            if "provision_failed" in ansible_status:
+                cur_status = test_servers[0]['status']
+                if isinstance(cur_status, unicode):
+                    cur_status = cur_status.encode('ascii')
+                matched = 0
+                for pattern in ["started", "completed", "issued"]:
+                    if pattern in cur_status:
+                        matched = 1
+                        cur_status = cur_status.replace(pattern, "failed")
+                        break
+                if matched == 0:
+                    cur_status = ansible_status
+            else:
+                cur_status = ansible_status
             server_id = test_servers[0]['id']
             server_data['id'] = server_id
+            server_data['status'] = cur_status
             time_str = strftime("%Y_%m_%d__%H_%M_%S", localtime())
             message = server_id + ' ' + server_state + ' ' + time_str
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % message)
