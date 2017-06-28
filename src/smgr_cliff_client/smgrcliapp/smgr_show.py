@@ -83,6 +83,32 @@ class Show(Command):
         self.command_dictionary["server"] = ['server_id', 'mac', 'ip', 'cluster_id', 'tag',
                                              'where', 'discovered', 'select', 'detail']
 
+        # Subparser for user show
+        parser_user = subparsers.add_parser("user", help='Show user')
+        user_group = parser_user.add_mutually_exclusive_group()
+        user_group.add_argument("--username", help=("username for user"))
+        user_select_group = parser_user.add_mutually_exclusive_group()
+        user_select_group.add_argument(
+            "--select", help=("sql select statement in quotation marks"))
+        user_select_group.add_argument(
+            "--detail", "-d", action='store_true',
+            help="Flag to indicate if details are requested")
+        parser_user.set_defaults(which='user')
+        self.command_dictionary["user"] = ['username', 'select', 'detail']
+
+        # Subparser for role show
+        parser_role = subparsers.add_parser("role", help='Show role')
+        role_group = parser_role.add_mutually_exclusive_group()
+        role_group.add_argument("--role_id", help=("role name for role"))
+        role_select_group = parser_role.add_mutually_exclusive_group()
+        role_select_group.add_argument(
+            "--select", help=("sql select statement in quotation marks"))
+        role_select_group.add_argument(
+            "--detail", "-d", action='store_true',
+            help="Flag to indicate if details are requested")
+        parser_role.set_defaults(which='role')
+        self.command_dictionary["role"] = ['role_id', 'select', 'detail']
+
         # Subparser for image show
         parser_image = subparsers.add_parser(
             "image", help='Show image')
@@ -250,6 +276,35 @@ class Show(Command):
             rest_api_params['match_value'] = None
         return rest_api_params
 
+    def show_user(self, parsed_args):
+        rest_api_params = {}
+        rest_api_params['object'] = 'user'
+        rest_api_params['select'] = getattr(parsed_args, "select", None)
+
+        if getattr(parsed_args, "username", None):
+            rest_api_params['match_key'] = 'username'
+            rest_api_params['match_value'] = getattr(parsed_args, "username",
+                                                     None)
+        else:
+            rest_api_params['match_key'] = None
+            rest_api_params['match_value'] = None
+        return rest_api_params
+    # End of show_user
+
+    def show_role(self, parsed_args):
+        rest_api_params = {}
+        rest_api_params['object'] = 'role'
+        rest_api_params['select'] = getattr(parsed_args, "select", None)
+
+        if getattr(parsed_args, "role_id", None):
+            rest_api_params['match_key'] = 'role'
+            rest_api_params['match_value'] = getattr(parsed_args, "role_id",
+                                                     None)
+        else:
+            rest_api_params['match_key'] = None
+            rest_api_params['match_value'] = None
+        return rest_api_params
+
     def show_server(self, parsed_args):
         rest_api_params = {}
         rest_api_params['object'] = 'server'
@@ -397,6 +452,10 @@ class Show(Command):
         # end except
         if parsed_args.which == "server":
             rest_api_params = self.show_server(parsed_args)
+        elif parsed_args.which == "user":
+            rest_api_params = self.show_user(parsed_args)
+        elif parsed_args.which == "role":
+            rest_api_params = self.show_role(parsed_args)
         elif parsed_args.which == "image":
             rest_api_params = self.show_image(parsed_args)
         elif parsed_args.which == "cluster":
@@ -432,8 +491,10 @@ class Show(Command):
                 self.app.report_missing_config("smgr_port")
         except Exception as e:
             sys.exit("Exception: %s : Error getting smgr config" % e.message)
-        resp = smgrutils.send_REST_request(self.smgr_ip, self.smgr_port, rest_api_params=rest_api_params,
-                                          detail=detail, method='GET')
+        resp = smgrutils.send_authed_REST_request(
+            self.smgr_ip, self.smgr_port, rest_api_params=rest_api_params,
+            detail=detail, method='GET', temp_username=self.app.temp_username,
+            temp_password=self.app.temp_password)
 
         json_format = getattr(parsed_args, "json", False)
 

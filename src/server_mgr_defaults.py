@@ -61,6 +61,32 @@ image_fields = {
                 }"""
 }
 
+user_fields = {
+    "match_keys": "['username']",
+    "obj_name": "user",
+    "primary_keys": "['username']",
+    "id": "",
+    "category": "",
+    "type": "",
+    "version": "",
+    "path": "",
+    "parameters": """{
+                }"""
+}
+
+role_fields = {
+    "match_keys": "['role']",
+    "obj_name": "role",
+    "primary_keys": "['role']",
+    "id": "",
+    "category": "",
+    "type": "",
+    "version": "",
+    "path": "",
+    "parameters": """{
+                }"""
+}
+
 fru_fields = {
     "id": "",
     "fru_description": "",
