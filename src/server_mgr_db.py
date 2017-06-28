@@ -16,6 +16,8 @@ def_server_db_file = 'smgr_data.db'
 cluster_table = 'cluster_table'
 server_table = 'server_table'
 image_table = 'image_table'
+user_table = 'user_table'
+role_table = 'role_table'
 inventory_table = 'inventory_table'
 server_status_table = 'status_table'
 server_tags_table = 'server_tags_table'
@@ -54,9 +56,14 @@ class ServerMgrDb:
             return table_columns
     # end get_table_columns
 
-    def _add_table_column(self, cursor, table, column, column_type):
+    def _add_table_column(self, cursor, table, column, column_type, default=None):
         try:
             cmd = "ALTER TABLE " + table + " ADD COLUMN " + column + " " + column_type
+            if default:
+                if column_type == "TEXT":
+                    cmd += " DEFAULT '%s'" % str(default)
+                else:
+                    cmd += " DEFAULT %s" % str(default)
             cursor.execute(cmd)
         except lite.OperationalError:
             pass
@@ -142,13 +149,34 @@ class ServerMgrDb:
                                     full_hw TEXT,
                                     sm_json TEXT,
                                     sid TEXT)""")
+                # Create role table
+                cursor.execute(
+                    "CREATE TABLE IF NOT EXISTS " + role_table +
+                    """ (role TEXT PRIMARY KEY,
+                         level TEXT,
+                         R TEXT DEFAULT '[]',
+                         RW TEXT DEFAULT '[]')""")
+                # Create user table
+                cursor.execute(
+                    "CREATE TABLE IF NOT EXISTS " + user_table +
+                    """ (username TEXT PRIMARY KEY,
+                         role TEXT,
+                         hash TEXT,
+                         email_addr TEXT,
+                         desc TEXT,
+                         creation_date TEXT,
+                         last_login TEXT)""")
                 # Add columns for image_table
                 self._add_table_column(cursor, image_table, "category", "TEXT")
+                self._add_table_column(cursor, image_table, "R", "TEXT", "[]")
+                self._add_table_column(cursor, image_table, "RW", "TEXT", "[]")
                 # Add columns for cluster_table
                 self._add_table_column(cursor, cluster_table, "base_image_id", "TEXT")
                 self._add_table_column(cursor, cluster_table, "package_image_id", "TEXT")
                 self._add_table_column(cursor, cluster_table, "provisioned_id", "TEXT")
                 self._add_table_column(cursor, cluster_table, "provision_role_sequence", "TEXT")
+                self._add_table_column(cursor, cluster_table, "R", "TEXT", "[]")
+                self._add_table_column(cursor, cluster_table, "RW", "TEXT", "[]")
                 # Add columns for server_table
                 self._add_table_column(cursor, server_table, "reimaged_id", "TEXT")
                 self._add_table_column(cursor, server_table, "provisioned_id", "TEXT")
@@ -158,6 +186,11 @@ class ServerMgrDb:
                 self._add_table_column(cursor, server_table, "ssh_public_key", "TEXT")
                 self._add_table_column(cursor, server_table, "ssh_private_key", "TEXT")
                 self._add_table_column(cursor, server_table, "ipmi_interface", "TEXT")
+                self._add_table_column(cursor, server_table, "R", "TEXT", "[]")
+                self._add_table_column(cursor, server_table, "RW", "TEXT", "[]")
+                # Add columns for role table
+                self._add_table_column(cursor, role_table, "R", "TEXT", "[]")
+                self._add_table_column(cursor, role_table, "RW", "TEXT", "[]")
 
             self._smgr_log.log(self._smgr_log.DEBUG, "Created tables")
 
@@ -175,6 +208,36 @@ class ServerMgrDb:
         except e:
             raise e
     # End of __init__
+
+    # Checks whether user has read or read/write access to table
+    def has_permission(self, user_obj, table_name, perms):
+        # Ensure params are correct
+        if not (user_obj and table_name and perms):
+            return False
+        if not (table_name == 'server_table' or table_name == 'cluster_table'):
+            return False
+        if not (perms == 'R' or perms == 'RW'):
+            return False
+
+        # Query database to check for permissions
+        role = user_obj.role
+        query_str = "SELECT * FROM role_table WHERE role = '%s' AND %s " \
+                    "LIKE '%%''%s''%%'" % (role, perms, table_name)
+        with self._con:
+            cursor = self._con.cursor()
+            cursor.execute(query_str)
+        rows = [x for x in cursor]
+        cols = [x[0] for x in cursor.description]
+        items = []
+        for row in rows:
+            item = {}
+            for prop, val in zip(cols, row):
+                item[prop] = val
+            items.append(item)
+
+        # Return
+        return bool(items)
+    # End of has_permission
 
     def update_image_version(self, image):
         if not image:
@@ -365,7 +428,7 @@ class ServerMgrDb:
     # Match dict is dictionary of columns and values to match for.
     # unmatch dict is not of dictionaty of columns and values to match for.
     def _delete_row(self, table_name,
-                    match_dict=None, unmatch_dict=None):
+                    match_dict=None, unmatch_dict=None, username=None):
         try:
             delete_str = "DELETE FROM %s" %(table_name)
             # form a string to provide to where match clause
@@ -376,6 +439,8 @@ class ServerMgrDb:
 
             if where:
                 delete_str += " WHERE " + where
+                if username:
+                    delete_str += " AND RW LIKE '%''" + username + "''%' "
             else:
                 if match_dict:
                     match_list = ["%s = \'%s\'" %(
@@ -386,6 +451,10 @@ class ServerMgrDb:
                 if match_list:
                     match_str = " and ".join(match_list)
                     delete_str+= " WHERE " + match_str
+                    if username:
+                        delete_str += " AND RW LIKE '%''" + username + "''%' "
+                elif username:
+                    delete_str += " WHERE RW LIKE '%''" + username + "''%' "
 
             with self._con:
                 cursor = self._con.cursor()
@@ -423,7 +492,8 @@ class ServerMgrDb:
 
     def _get_items(
         self, table_name, match_dict=None,
-        unmatch_dict=None, detail=False, always_fields=None):
+        unmatch_dict=None, detail=False, always_fields=None, username=None,
+            perms='R'):
         try:
             with self._con:
                 cursor = self._con.cursor()
@@ -439,6 +509,13 @@ class ServerMgrDb:
                     where = match_dict.get("where", None)
                 if where:
                     select_str += " WHERE " + where
+                    if username:
+                        select_str += " AND %s LIKE '%%''%s''%%'" % \
+                                      (perms, username)
+                        select_str += " OR %s LIKE '%%''*''%%'" % perms
+                        if perms == 'R':
+                            select_str += " OR RW LIKE '%%''%s''%%'" % username
+                        select_str += " OR RW LIKE '%%''*''%%'" % perms
                 else:
                     if match_dict:
                         match_list = ["%s = \'%s\'" %(
@@ -449,6 +526,21 @@ class ServerMgrDb:
                     if match_list:
                         match_str = " and ".join(match_list)
                         select_str+= " WHERE " + match_str
+                        if username:
+                            select_str += " AND %s LIKE '%%''%s''%%'" % \
+                                          (perms, username)
+                            select_str += " OR %s LIKE '%%''*''%%'" % perms
+                            if perms == 'R':
+                                select_str += " OR RW LIKE '%%''%s''%%'" % \
+                                              username
+                                select_str += " OR RW LIKE '%%''*''%%'"
+                    elif username:
+                        select_str += " WHERE %s LIKE '%%''%s''%%'" % \
+                                      (perms, username)
+                        select_str += " OR %s LIKE '%%''*''%%'" % perms
+                        if perms == 'R':
+                            select_str += " OR RW LIKE '%%''%s''%%'" % username
+                            select_str += " OR RW LIKE '%%''*''%%'"
                 cursor.execute(select_str)
             rows = [x for x in cursor]
             cols = [x[0] for x in cursor.description]
@@ -463,7 +555,11 @@ class ServerMgrDb:
             raise e
     # End _get_items
 
-    def add_cluster(self, cluster_data):
+    def add_cluster(self, cluster_data, user_obj=None):
+        # If permission requirements not met, stop here
+        if user_obj and not self.has_permission(
+                user_obj=user_obj, table_name=cluster_table, perms='RW'):
+            return -1
         try:
             # covert all unicode strings in dict
             cluster_data = ServerMgrUtil.convert_unicode(cluster_data)
@@ -483,6 +579,12 @@ class ServerMgrDb:
             email = cluster_data.pop("email", None)
             if email is not None:
                 cluster_data['email'] = str(email)
+
+            # Give self R and R/W permissions
+            if user_obj:
+                perm_str = "['%s']" % user_obj.username
+                cluster_data['R'] = perm_str
+                cluster_data['RW'] = perm_str
             self._add_row(cluster_table, cluster_data)
         except Exception as e:
             raise e
@@ -531,7 +633,12 @@ class ServerMgrDb:
         return 0
     # End of add_dhcp_host
 
-    def add_server(self, server_data):
+    def add_server(self, server_data, user_obj=None):
+        # If permission requirements not met, stop here
+        if user_obj and not self.has_permission(
+                user_obj=user_obj, table_name=server_table, perms='RW'):
+            return -1
+
         try:
             # covert all unicode strings in dict
             server_data = ServerMgrUtil.convert_unicode(server_data)
@@ -600,6 +707,11 @@ class ServerMgrDb:
                 if not server_parameters:
                     server_parameters = {}
                 server_data['parameters'] = str(server_parameters)
+            # Give self R and R/W permissions
+            if user_obj:
+                perm_str = "['%s']" % user_obj.username
+                server_data['R'] = perm_str
+                server_data['RW'] = perm_str
             self._add_row(server_table, server_data)
         except Exception as e:
             raise e
@@ -660,7 +772,7 @@ class ServerMgrDb:
             return
     # End of server_discovery
 
-    def add_image(self, image_data):
+    def add_image(self, image_data, admin=False, username=None):
         try:
             # covert all unicode strings in dict
             image_data = ServerMgrUtil.convert_unicode(image_data)
@@ -668,12 +780,54 @@ class ServerMgrDb:
             image_parameters = image_data.pop("parameters", None)
             if image_parameters is not None:
                 image_data['parameters'] = str(image_parameters)
+
+            # If admin, give all users read access to image
+            if admin:
+                image_data['R'] = "['*']"
+                image_data['RW'] = ''
+
+            # Otherwise, give self read/write access to image
+            elif username:
+                image_data['R'] = "['%s']" % username
+                image_data['RW'] = "['%s']" % username
+
+            # Add to db
             self._add_row(image_table, image_data)
         except Exception as e:
             raise e
     # End of add_image
 
-    def delete_cluster(self, match_dict=None, unmatch_dict=None):
+    # Add user to database
+    def add_user(self, user_data):
+        try:
+            # Convert all unicode
+            user_data = ServerMgrUtil.convert_unicode(user_data)
+
+            # Add to db
+            self._add_row(user_table, user_data)
+        except Exception as e:
+            raise e
+    # End of add_user
+
+    # Add role to database
+    def add_role(self, role_data):
+        try:
+            # Convert all unicode
+            role_data = ServerMgrUtil.convert_unicode(role_data)
+
+            # Defaults
+            if not role_data.get('R', None):
+                role_data['R'] = '[]'
+            if not role_data.get('RW', None):
+                role_data['RW'] = '[]'
+
+            # Add to db
+            self._add_row(role_table, role_data)
+        except Exception as e:
+            raise e
+    # End of add_role
+
+    def delete_cluster(self, match_dict=None, unmatch_dict=None, username=None):
         try:
             self.check_obj("cluster", match_dict, unmatch_dict)
             cluster_id = match_dict.get("id", None)
@@ -684,7 +838,8 @@ class ServerMgrDb:
                 msg = ("Servers are present in this cluster, "
                         "remove cluster association, prior to cluster delete.")
                 self.log_and_raise_exception(msg, ERR_OPR_ERROR)
-            self._delete_row(cluster_table, match_dict, unmatch_dict)
+            self._delete_row(cluster_table, match_dict, unmatch_dict,
+                             username=username)
         except Exception as e:
             raise e
     # End of delete_cluster
@@ -699,6 +854,12 @@ class ServerMgrDb:
             db_obj = cb(match_dict, unmatch_dict, detail=False)
         elif type == "image":
             cb = self.get_image
+            db_obj = cb(match_dict, unmatch_dict, detail=False)
+        elif type == "role":
+            cb = self.get_role
+            db_obj = cb(match_dict, unmatch_dict, detail=False)
+        elif type == "user":
+            cb = self.get_user
             db_obj = cb(match_dict, unmatch_dict, detail=False)
         elif type == "dhcp_subnet":
             cb = self.get_dhcp_subnet
@@ -758,7 +919,7 @@ class ServerMgrDb:
         return True
     #end of validate_dhcp_delete
  
-    def delete_server(self, match_dict=None, unmatch_dict=None):
+    def delete_server(self, match_dict=None, unmatch_dict=None, username=None):
         try:
             if match_dict and match_dict.get("mac_address", None):
                 if match_dict["mac_address"]:
@@ -770,7 +931,7 @@ class ServerMgrDb:
                         EUI(unmatch_dict["mac_address"])).replace("-", ":")
             self.check_obj("server", match_dict, unmatch_dict)
             self._delete_row(server_table,
-                             match_dict, unmatch_dict)
+                             match_dict, unmatch_dict, username=username)
         except Exception as e:
             raise e
     # End of delete_server
@@ -782,13 +943,30 @@ class ServerMgrDb:
             raise e
     # End of delete_server_tag
 
-    def delete_image(self, match_dict=None, unmatch_dict=None):
+    def delete_image(self, match_dict=None, unmatch_dict=None, username=None):
         try:
             self.check_obj("image", match_dict, unmatch_dict)
-            self._delete_row(image_table, match_dict, unmatch_dict)
+            self._delete_row(image_table, match_dict, unmatch_dict,
+                             username=username)
         except Exception as e:
             raise e
     # End of delete_image
+
+    def delete_user(self, match_dict=None, unmatch_dict=None):
+        try:
+            self.check_obj("user", match_dict, unmatch_dict)
+            self._delete_row(user_table, match_dict, unmatch_dict)
+        except Exception as e:
+            raise e
+    # End of delete_user
+
+    def delete_role(self, match_dict=None, unmatch_dict=None):
+        try:
+            self.check_obj("role", match_dict, unmatch_dict)
+            self._delete_row(role_table, match_dict, unmatch_dict)
+        except Exception as e:
+            raise e
+    # End of delete_role
 
     def delete_dhcp_subnet(self, match_dict=None, unmatch_dict=None):
         try:
@@ -808,7 +986,7 @@ class ServerMgrDb:
             raise e
     # End of delete_dhcp_host
 
-    def modify_cluster(self, cluster_data):
+    def modify_cluster(self, cluster_data, username=None):
         try:
             # covert all unicode strings in dict
             cluster_data = ServerMgrUtil.convert_unicode(cluster_data)
@@ -817,7 +995,7 @@ class ServerMgrDb:
                 raise Exception("No cluster id specified")
             self.check_obj("cluster", {"id" : cluster_id})
             db_cluster = self.get_cluster(
-                {"id" : cluster_id}, detail=True)
+                {"id" : cluster_id}, detail=True, username=username, perms='RW')
             if not db_cluster:
                 msg = "%s is not valid" % cluster_id
                 self.log_and_raise_exception(msg, ERR_OPR_ERROR)
@@ -877,7 +1055,33 @@ class ServerMgrDb:
             raise e
     # End of modify_image
 
-    def modify_server(self, server_data):
+    def modify_user(self, user_data):
+        try:
+            # covert all unicode strings in dict
+            user_data = ServerMgrUtil.convert_unicode(user_data)
+            username = user_data.get('username', None)
+            if not username:
+                raise Exception("No username specified")
+            self._modify_row(
+                user_table, user_data,
+                {'username' : username})
+        except Exception as e:
+            raise e
+    # End of modify_user
+
+    def modify_role(self, role_data):
+        try:
+            # convert all unicode strings in dict
+            role_data = ServerMgrUtil.convert_unicode(role_data)
+            role = role_data.get('role', None)
+            if not role:
+                raise Exception("No role specified")
+            self._modify_row(role_table, role_data, {'role': role})
+        except Exception as e:
+            raise e
+    # End of modify_role
+
+    def modify_server(self, server_data, username=None):
         # covert all unicode strings in dict
         server_data = ServerMgrUtil.convert_unicode(server_data)
         db_server = None
@@ -885,11 +1089,11 @@ class ServerMgrDb:
                  server_data['mac_address'] != None:
             db_server = self.get_server(
                 {'mac_address' : server_data['mac_address']},
-                detail=True)
+                detail=True, username=username, perms='RW')
         elif 'id' in server_data.keys() and server_data['id'] != None:
             db_server = self.get_server(
                 {'id': server_data['id']},
-                detail=True)
+                detail=True, username=username, perms='RW')
 
         if not db_server:
             return db_server
@@ -1094,17 +1298,51 @@ class ServerMgrDb:
             return e.message
 
     def get_image(self, match_dict=None, unmatch_dict=None,
-                  detail=False, field_list=None):
+                  detail=False, field_list=None, username=None, perms='R'):
         try:
             if not field_list:
                 field_list = ["id"]
             images = self._get_items(
                 image_table, match_dict,
-                unmatch_dict, detail, field_list)
+                unmatch_dict, detail, field_list, username=username,
+                perms=perms)
         except Exception as e:
             raise e
         return images
     # End of get_image
+
+    def get_user(self, match_dict=None, unmatch_dict=None, detail=False,
+                 field_list=None, username=None, is_admin=True):
+        try:
+            # If not admin, only show info about self
+            if not is_admin:
+                match_dict = {'username': username}
+            if not field_list:
+                field_list = ["username"]
+            users = self._get_items(user_table, match_dict, unmatch_dict,
+                                    detail, field_list)
+
+            # Don't show password hash
+            if users:
+                for user_dict in users:
+                    if user_dict.get('hash', None):
+                        user_dict['hash'] = '********'
+        except Exception as e:
+            raise e
+        return users
+    # End of get_user
+
+    def get_role(self, match_dict=None, unmatch_dict=None, detail=False,
+                 field_list=None):
+        try:
+            if not field_list:
+                field_list = ["role", "level"]
+            roles = self._get_items(role_table, match_dict, unmatch_dict,
+                                    detail, field_list)
+        except Exception as e:
+            raise e
+        return roles
+    # End of get_role
 
     def get_server_tags(self, match_dict=None, unmatch_dict=None,
                   detail=True):
@@ -1151,7 +1389,7 @@ class ServerMgrDb:
 
 
     def get_server(self, match_dict=None, unmatch_dict=None,
-                   detail=False, field_list=None):
+                   detail=False, field_list=None, username=None, perms='R'):
         try:
             if match_dict and match_dict.get("mac_address", None):
                 if match_dict["mac_address"]:
@@ -1163,7 +1401,8 @@ class ServerMgrDb:
                 field_list = ["id", "mac_address", "ip_address"]
             servers = self._get_items(
                 server_table, match_dict,
-                unmatch_dict, detail, field_list)
+                unmatch_dict, detail, field_list, username=username,
+                perms=perms)
         except Exception as e:
             raise e
         return servers
@@ -1202,13 +1441,15 @@ class ServerMgrDb:
     # End of get_inventory
 
     def get_cluster(self, match_dict=None,
-                unmatch_dict=None, detail=False, field_list=None):
+                unmatch_dict=None, detail=False, field_list=None,
+                    username=None, perms='R'):
         try:
             if not field_list:
                 field_list = ["id"]
             cluster = self._get_items(
                 cluster_table, match_dict,
-                unmatch_dict, detail, field_list)
+                unmatch_dict, detail, field_list, username=username,
+                perms=perms)
         except Exception as e:
             raise e
         return cluster

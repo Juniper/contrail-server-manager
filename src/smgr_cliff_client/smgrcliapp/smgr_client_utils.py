@@ -2,6 +2,8 @@
 
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
+import os
+import sys
 from StringIO import StringIO
 import pycurl
 import json
@@ -110,6 +112,19 @@ main_object_dict = {
             ("kickstart", "kickstart file for base image"),
             ("kickseed", "kickseed file for base image")])),
     ]),
+    "user": OrderedDict([
+        ("username", "Specify unique username for this user"),
+        ("password", "Specify password for this user"),
+        ("role", "Specify role for this user"),
+        ("email", "Specify email address for this user"),
+        ("desc", "Specify description for this user"),
+    ]),
+    "role": OrderedDict([
+        ("role", "Specify unique role name for this role"),
+        ("level", "Specify level for this role"),
+        ("R", "Specify which tables this role has read permissions for"),
+        ("RW", "Specify which tables this role has read/write permissions for"),
+    ]),
     "tag": OrderedDict([
         ("tag1", "Specify tag name for tag1"),
         ("tag2", "Specify tag name for tag2"),
@@ -170,7 +185,7 @@ class SmgrClientUtils():
 
     @staticmethod
     def send_REST_request(ip, port, obj=None, rest_api_params=None,
-                          payload=None, match_key=None, match_value=None, detail=False, force=False, method="PUT"):
+                          payload=None, match_key=None, match_value=None, detail=False, force=False, method="PUT", cookie=None):
         try:
             args_str = ""
             show_pass = False
@@ -226,6 +241,9 @@ class SmgrClientUtils():
                 return None
             conn = pycurl.Curl()
             conn.setopt(pycurl.URL, url)
+            if cookie is not None:
+                conn.setopt(pycurl.COOKIEJAR, cookie)
+                conn.setopt(pycurl.COOKIEFILE, cookie)
             if obj != "image/upload":
                 conn.setopt(pycurl.HTTPHEADER, headers)
             if method == "POST" and payload:
@@ -249,6 +267,98 @@ class SmgrClientUtils():
         except Exception as e:
             return "Error: " + str(e)
             # end def send_REST_request
+
+    @staticmethod
+    def send_authed_REST_request(ip, port, obj=None, rest_api_params=None,
+                                 payload=None, match_key=None, match_value=None,
+                                 detail=False, force=False, method="PUT",
+                                 temp_username=None, temp_password=None):
+
+        # Determine whether to use temporary credentials
+        temp_credentials = bool(temp_username) and bool(temp_password)
+
+        # Cookie file location
+        COOKIE_DIR = os.path.expanduser('~/.SM/')
+        if temp_credentials:
+            COOKIE_FILE = '%stemp_cookie' % COOKIE_DIR
+        else:
+            COOKIE_FILE = '%scookie' % COOKIE_DIR
+        if not os.path.exists(COOKIE_DIR):
+            os.makedirs(COOKIE_DIR)
+
+        # Get credentials
+        if temp_credentials:
+            login_username = temp_username
+            login_password = temp_password
+        else:
+            login_username = os.environ.get('SM_USERNAME')
+            login_password = os.environ.get('SM_PASSWORD')
+
+        # Determine currently logged in user
+        if not temp_credentials:
+            response = SmgrClientUtils.send_REST_request(
+                ip=ip, port=port, obj='current_user', method='GET',
+                cookie=COOKIE_FILE)
+            response_json = None
+            try:
+                response_json = json.loads(response)
+            except Exception as e:
+                pass
+            logged_in = type(response_json) is dict and str(response) != '{}'
+
+        # Authenticate if credentials supplied
+        if temp_credentials or \
+                (login_username is not None and login_password is not None):
+            # Logout if necessary
+            if not temp_credentials and logged_in:
+                sys.stderr.write('Current user: ' + response_json['user'] +
+                                 '\n')
+                if response_json['user'] != login_username:
+                    sys.stderr.write('Attempting logout.\n')
+                    SmgrClientUtils.send_REST_request(
+                        ip=ip, port=port, obj='logout', method='GET',
+                        cookie=COOKIE_FILE)
+                    logged_in = False
+
+            # Login if necessary
+            if temp_credentials or not logged_in:
+                credentials = {
+                    'username': login_username,
+                    'password': login_password
+                }
+                sys.stderr.write('Attempting login.\n')
+                sys.stderr.write(str(SmgrClientUtils.send_REST_request(
+                    ip=ip, port=port, obj='login', payload=credentials,
+                    method='POST', cookie=COOKIE_FILE)) + '\n')
+
+        # Logout if no credentials supplied
+        elif logged_in:
+            sys.stderr.write('Attempting logout.\n')
+            SmgrClientUtils.send_REST_request(
+                ip=ip, port=port, obj='logout', method='GET',
+                cookie=COOKIE_FILE)
+
+
+        # send REST request
+        ret_data = SmgrClientUtils.send_REST_request(
+            ip=ip, port=port, obj=obj, rest_api_params=rest_api_params,
+            payload=payload, match_key=match_key, match_value=match_value,
+            detail=detail, force=force, method=method, cookie=COOKIE_FILE)
+
+        # Logout if using temp credentials
+        if temp_credentials:
+            sys.stderr.write('Attempting logout.\n')
+            SmgrClientUtils.send_REST_request(ip=ip, port=port, obj='logout',
+                                              method='GET', cookie=COOKIE_FILE)
+            logged_in = False
+
+        # Delete temporary cookie if exists
+        if temp_credentials and os.path.exists(COOKIE_FILE):
+            os.remove(COOKIE_FILE)
+
+        # Return
+        return ret_data
+    # end def send_authed_REST_request
 
     @staticmethod
     def convert_json_to_list(obj, json_resp):
