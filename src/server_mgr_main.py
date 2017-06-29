@@ -5779,11 +5779,26 @@ class VncServerManager():
             if feature_configs[str(feature)] and isinstance(feature_configs[str(feature)], dict):
                 cur_inventory["[all:vars]"][str(feature)] = str(feature_configs[str(feature)])
 
+
+        # Push internal_vip, external_vip and contrail_internal_vip details to ansible
+        # These param are required to fill the ctrl-details file used by Nova Compute script
+
+        cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
+        ops_ha_cfg = cluster_ops_cfg.get("ha",{})
+        openstack_internal_vip = ops_ha_cfg.get("internal_vip","")
+        openstack_external_vip = ops_ha_cfg.get("external_vip","")
+        cluster_contrail_cfg = db_utils.get_contrail_cfg(cluster)
+        contrail_ha_cfg = cluster_contrail_cfg.get("ha",{})
+        contrail_internal_vip = contrail_ha_cfg.get("contrail_internal_vip","")
+        cur_inventory["[all:vars]"]["internal_vip"] = openstack_internal_vip
+        cur_inventory["[all:vars]"]["external_vip"] = openstack_external_vip
+        cur_inventory["[all:vars]"]["contrail_internal_vip"] = contrail_internal_vip
+
+        # If there are external Openstack servers outside the cluster, we wish to provision neutron plugin
         if "global_config" in contrail_4 and "external_openstack_servers" in contrail_4["global_config"] and \
           len(contrail_4["global_config"]["external_openstack_servers"]):
             external_openstack_servers = contrail_4["global_config"].pop("external_openstack_servers").split(',')
             cur_inventory["[all:vars]"]["global_config"].pop("external_openstack_servers")
-            cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
             external_openstack_ip = cluster_ops_cfg.get("external_openstack_ip", None)
             openstack_grp = "[openstack]"
             cur_inventory[openstack_grp] = []
