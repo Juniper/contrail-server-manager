@@ -3978,7 +3978,13 @@ class VncServerManager():
             smlite_server = servers[0]
             smlite_server_status = smlite_server["status"]
             smlite_server_roles = smlite_server["roles"]
-            if "contrail-compute" in smlite_server_roles and smlite_server_status == "provision_in_progress":
+            #FIXME: This needs a revisit - it should be independent of
+            # smlite_server_status because that is dependent on order of tasks in
+            # the ansible playbook. Temporary fix to unblock CI sanity:
+            if "contrail-compute" in smlite_server_roles and \
+                    (smlite_server_status == "provision_in_progress" or \
+                    smlite_server_status == "bare_metal_agent_completed" or \ 
+                    smlite_server_status == "bare_metal_agent_started"):
                 server_control_ip = self.get_control_ip(smlite_server)
                 result = ansible_verify_provision_complete(server_control_ip)
                 if result:
