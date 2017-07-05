@@ -3099,6 +3099,10 @@ class VncServerManager():
                     ks_file = self._args.html_root_dir + \
                         "kickstarts/contrail-centos.ks"
                     kickstart = ks_file
+                    file_dest = self._args.html_root_dir + \
+                        "contrail/images/" + image_id + ".ks"
+                    subprocess.check_call(["cp", "-f", kickstart, file_dest])
+                    kickstart = file_dest
                 kernel_options = ''
                 ks_meta = ''
             elif ((image_type == "esxi5.1") or
@@ -3118,11 +3122,19 @@ class VncServerManager():
                 if not ks_file:
                     ubuntu_ks_file = 'kickstarts/contrail-ubuntu_trusty.ks'
                     kickstart = _DEF_COBBLER_KICKSTARTS_PATH + "contrail-ubuntu_trusty.ks"
+                    file_dest = self._args.html_root_dir + \
+                        "contrail/images/" + image_id + ".ks"
+                    subprocess.check_call(["cp", "-f", kickstart, file_dest])
+                    kickstart = file_dest
                 else:
                     ubuntu_ks_file = 'contrail/images/' + ks_file.split('/').pop()
                 if not kseed_file:
                     ks_file = _DEF_COBBLER_KICKSTARTS_PATH + "contrail-ubuntu_trusty.seed"
                     kickseed = ks_file
+                    file_dest = self._args.html_root_dir + \
+                        "contrail/images/" + image_id + ".seed"
+                    subprocess.check_call(["cp", "-f", kickseed, file_dest])
+                    kickseed = file_dest
                 else:
                     ks_file = kseed_file
                 kernel_options = (
