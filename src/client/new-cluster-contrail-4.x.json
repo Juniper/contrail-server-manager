@@ -123,6 +123,10 @@
                             "log": "/var/log/contrail/contrail-topology.log",
                             "log_level": "SYS_NOTICE"
                         },
+                        "rabbitmq_config": {
+                            "user": "guest",
+                            "password": "guest"
+                        },
                         "storage_ceph_config": {
                             "journal_size": "2048",
                             "replica_size": "2",
@@ -159,6 +163,9 @@
                             "server_ip": "",
                             "ip_list": [],
                             "port": ""
+                        },
+                        "rabbitmq": {
+                            "password": "guest"
                         },
                         "mysql": {
                             "root_password": "c0ntrail123",
