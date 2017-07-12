@@ -6,6 +6,7 @@ import subprocess
 import json
 import pdb
 import glob
+import shutil
 from StringIO import StringIO
 
 SM_STATUS_PORT = "9002"
@@ -294,12 +295,24 @@ def _create_container_repo(image_id, image_type, image_version, dest, pkg_type,o
                     playbooks_version = unpack_ansible_playbook(ansible_package,mirror,image_id)
                 if docker_images_package_list != []:
                     unpack_containers(docker_images_package_list,mirror)
+                if image_type == 'contrail-centos-package':
+                    for filename in glob.glob(os.path.join(folder, '*.rpm')):
+                        shutil.copy(filename, mirror + '/contrail-repo')
 
-	    # build repo using reprepro based on repo pinning availability
-	    cmd = ("cp -v -a /opt/contrail/server_manager/reprepro/conf %s/" % mirror)
-	    subprocess.check_call(cmd, shell=True)
-	    cmd = ("reprepro includedeb contrail %s/contrail-repo/*.deb" % mirror)
-	    subprocess.check_call(cmd, shell=True)
+            if image_type == 'contrail-centos-package':
+                string_partition = '-centos'
+                cmd = 'createrepo  %s/contrail-repo > /dev/null' % mirror
+                subprocess.check_call(cmd, shell=True)
+                #for filename in glob.glob(os.path.join(mirror + '/contrail-repo', '*.rpm')):
+                    #shutil.copy2(filename, mirror)
+                #shutil.copytree(mirror + '/contrail-repo/repodata', mirror + '/repodata')
+            else:
+                string_partition = '-u'
+	        cmd = ("cp -v -a /opt/contrail/server_manager/reprepro/conf %s/" % mirror)
+	        subprocess.check_call(cmd, shell=True)
+	        cmd = ("reprepro includedeb contrail %s/contrail-repo/*.deb" % mirror)
+	        subprocess.check_call(cmd, shell=True)
+	        cleanup_package_list.append(mirror+"/contrail-repo")
 
 	    # Add containers from tar file
 	    container_base_path = mirror+"/contrail-docker"
@@ -308,13 +321,12 @@ def _create_container_repo(image_id, image_type, image_version, dest, pkg_type,o
 	    for container in containers_list:
 		container_details = {}
 		container_path = str(container)
-		role = container_path.partition(str(container_base_path)+"/")[2].rpartition("-u")[0]
+                role = container_path.partition(str(container_base_path)+'/')[2].rpartition(string_partition)[0]
 		if str(role) in _valid_roles:
 		    container_dict = {"role": role, "container_path": container_path}
 		    image_params["containers"].append(container_dict.copy())
 	    cleanup_package_list.append(mirror+"/contrail-docker")
 	    cleanup_package_list.append(mirror+"/contrail-puppet")
-	    cleanup_package_list.append(mirror+"/contrail-repo")
 
 	    image_params["cleanup_list"] = cleanup_package_list
 	    # change directory back to original
