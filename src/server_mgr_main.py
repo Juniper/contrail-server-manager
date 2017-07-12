@@ -1947,6 +1947,9 @@ class VncServerManager():
                                 self.log_and_raise_exception(_ERR_OPENSTACK_SKU_NEEDED)
                             puppet_package_path, playbooks_version, container_params = _create_container_repo(
                                 image_id, image_type, image_version, image_path, pkg_type,image_params.get("openstack_sku", None),self._args)
+                            if image_type == 'contrail-centos-package':
+                                self._smgr_cobbler.create_repo(image_id, self._args.html_root_dir + 'contrail/repo/'\
+                                                               + image_id+"/contrail-repo")
                             # check if the image added is a cloud docker image
                             if pkg_type == "contrail-cloud-docker-tgz":
                                 puppet_manifest_version, sequence_provisioning_available, puppet_version \
