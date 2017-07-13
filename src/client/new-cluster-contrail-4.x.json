@@ -151,6 +151,10 @@
                             "service_protocol": "http",
                             "port": 9697
                         },
+                        "ceilometer": {
+                            "ttl": 7200,
+                            "polling_interval": 600,
+                        },
                         "amqp" : {
                             "server_ip": "",
                             "ip_list": [],
