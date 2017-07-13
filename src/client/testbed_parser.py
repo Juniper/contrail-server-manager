@@ -277,6 +277,18 @@ class Host(object):
             mac = ether_match.groups()[0]
         return mac
 
+    def get_mac_from_if_name(self, interface, iface_data=None):
+        mac = ''
+        if iface_data is None:
+            iface_info = self.parse_iface_info()
+            if interface and interface in iface_info.keys():
+                iface_data = iface_info[str(interface)]
+        ether_pattern = re.compile(r'\bether\s([^\s]+)\b')
+        ether_match = ether_pattern.search(iface_data)
+        if ether_match:
+            mac = ether_match.groups()[0]
+        return mac
+
     def get_ip_from_ifconfig(self, iface_data=None):
         ip_net = []
         if iface_data is None:
@@ -758,7 +770,7 @@ class BaseJsonGenerator(object):
             fid.write('%s\n' % json.dumps(self.dict_data, sort_keys=True,
                                           indent=4, separators=(',', ': ')))
 
-    def recalculate_control_data_interface(self, cfg_dict, source_dict):
+    def recalculate_control_data_interface(self, cfg_dict, source_dict, host_ip):
         interface_list = cfg_dict['network']['interfaces']
         control_data_source_dict = source_dict['control_data']
         bond_dict = None
@@ -775,11 +787,18 @@ class BaseJsonGenerator(object):
                     if "vlan" in intf_dict:
                         vlan_flag = True
         if bond_dict and control_data_dict["name"].startswith('bond'):
-            if "vlan" in control_data_dict.keys():
-                log.error('ERROR: VLAN cannot be set for a bond interface which is control-data interface')
-                raise Exception('VLAN cannot be set for a bond interface which is control-data interface')
             for k in bond_dict.keys():
                 control_data_dict[k] = bond_dict[k]
+            member_interfaces = bond_dict["member_interfaces"]
+            for member_interface in member_interfaces:
+                member_intf_dict = {}
+                member_intf_dict["name"] = member_interface
+                host_ids = self.testsetup.get_host_ids()
+                for host_id in host_ids:
+                    if host_ip == self.testsetup.get_host_ip_from_hostid(str(host_id))[1]:
+                        host_id_to_process = host_id
+                member_intf_dict["mac_address"] = self.testsetup.hosts[host_id_to_process].get_mac_from_if_name(member_interface)
+                interface_list.append(member_intf_dict)
             interface_list.remove(bond_dict)
         if vlan_flag and control_data_dict:
             vlan_intf_dict = {}
@@ -826,7 +845,7 @@ class BaseJsonGenerator(object):
         if "ext_routers" in params_to_recalculate:
             self.recalculate_external_router_list(cfg_dict)
         if "control_data" in params_to_recalculate and "network" in cfg_dict:
-            self.recalculate_control_data_interface(cfg_dict, source_dict)
+            self.recalculate_control_data_interface(cfg_dict, source_dict, host_ip)
         if "tor_agent" in params_to_recalculate and "top_of_rack" in cfg_dict:
             self.verify_tor_tsn_ip(cfg_dict, source_dict, host_ip)
 
