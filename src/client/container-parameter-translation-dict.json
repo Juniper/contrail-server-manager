@@ -51,6 +51,14 @@
     "name": "parameters.provision.openstack.enable_ceilometer",
     "format": "boolean"
   },
+  "ceilometer_polling_interval": {
+    "name": "parameters.provision.openstack.ceilometer.polling_interval",
+    "format": "integer"
+  },
+  "ceilometer_ttl": {
+    "name": "parameters.provision.openstack.ceilometer.ttl",
+    "format": "integer"
+  },
   "cloud_orchestrator": {
     "name": "parameters.provision.contrail_4.global_config.cloud_orchestrator",
     "format": "string"
