@@ -325,6 +325,6 @@ end_time=$(date +"%s")
 diff=$(($end_time-$start_time))
 echo "$arrow Provisioning is issued, and took $(($diff / 60)) minutes and $(($diff % 60)) seconds."
 echo "$arrow Populated JSON files and logs are saved at $PROVISION_DIR"
-echo "$arrow Provisioning logs are available at /var/log/contrail_server_manager/debug.log"
+echo "$arrow Provisioning logs are available at /var/log/contrail-server-manager/debug.log"
 echo "$arrow Openstack Provisioning logs are available at /var/log/syslog on the Openstack nodes"
 echo "$arrow Check provisioning status using /opt/contrail/contrail_server_manager/provision_status.sh"
