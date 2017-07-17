@@ -282,6 +282,18 @@ class Host(object):
             ip_net = inet_match.groups()[0].split('/')
         return ip_net
 
+    def get_mac_from_if_name(self, interface, iface_data=None):
+        mac = ''
+        if iface_data is None:
+            iface_info = self.parse_iface_info()
+            if interface and interface in iface_info.keys():
+                iface_data = iface_info[str(interface)]
+        ether_pattern = re.compile(r'\bether\s([^\s]+)\b')
+        ether_match = ether_pattern.search(iface_data)
+        if ether_match:
+            mac = ether_match.groups()[0]
+        return mac
+
     def get_interface_details_from_ip(self, ip=None):
         interface = matched_data = ''
         if ip is None:
@@ -881,6 +893,13 @@ class ServerJsonGenerator(BaseJsonGenerator):
         if getattr(hostobj, 'control_data', None):
             if hostobj.control_data['device'].startswith('bond'):
                 control_data_dict = self.update_bond_details(server_dict, hostobj)
+                member_interfaces = control_data_dict["member_interfaces"]
+                for member_interface in member_interfaces:
+                    member_intf_dict = {}
+                    member_intf_dict["name"] = member_interface
+                    member_intf_dict["mac_address"] = hostobj.get_mac_from_if_name(member_interface)
+                    server_dict['network']['interfaces'].append(member_intf_dict)
+
             else:
                 control_data_dict = {"name": hostobj.control_data['device']}
             if 'vlan' in hostobj.control_data:
