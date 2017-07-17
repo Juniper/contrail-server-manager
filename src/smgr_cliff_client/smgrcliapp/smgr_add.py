@@ -41,11 +41,12 @@ class Add(Command):
 
     def get_parser(self, prog_name):
 
-        self.smgr_objects = ["server", "cluster", "image", "tag", "dhcp_host", "dhcp_subnet"]
+        self.smgr_objects = ["config", "server", "cluster", "image", "tag", "dhcp_host", "dhcp_subnet"]
         self.mandatory_params["server"] = ['id', 'mac_address', 'ip_address', 'subnet_mask', 'gateway']
         self.mandatory_params["cluster"] = ['id']
         self.mandatory_params["image"] = ['id', 'category', 'version', 'type', 'path']
         self.mandatory_params["tag"] = []
+        self.mandatory_params["config"] = ['file_name']
         self.mandatory_params["dhcp_subnet"] = ['subnet_address','subnet_mask','subnet_domain','subnet_gateway','dns_server_list','search_domains_list']
         self.mandatory_params["dhcp_host"] = ['host_fqdn','mac_address','ip_address','host_name']
         self.multilevel_param_classes["server"] = ["network", "parameters", "contrail"]
@@ -60,6 +61,13 @@ class Add(Command):
                                            description='valid objects',
                                            help='help for objects',
                                            dest='object')
+
+        # Subparser for combined config edit
+        parser_config = subparsers.add_parser(
+            "config", help='Create server cluster and image from JSON')
+        parser_config.add_argument(
+            "--file_name", "-f",
+            help="json file containing server cluster and image param values", dest="file_name", default=None)
 
         # Subparser for server edit
         parser_server = subparsers.add_parser(
@@ -174,7 +182,6 @@ class Add(Command):
     def get_object_config_ini_entries(self, obj):
         default_config_dict = self.app.get_default_config()
         return default_config_dict[obj]
-
     # end get_object_config_ini_entries
 
     def get_default_object(self, obj):
@@ -202,7 +209,6 @@ class Add(Command):
             elif key in rev_tag_dict:
                 default_object["tag"][key] = value
         return default_object
-
     # end get_default_object
 
     def merge_with_defaults(self, object_item, payload):
@@ -438,12 +444,17 @@ class Add(Command):
                 payload = json.load(open(parsed_args.file_name))
                 if smgr_obj == "tag":
                     self.verify_added_tags(smgr_obj, payload)
+                elif smgr_obj == "config":
+                    for obj in payload.keys():
+                        for obj_payload in payload[obj]:
+                            if "id" not in obj_payload:
+                                self.app.print_error_message_and_quit("No id specified for object %s being added\n" % (obj))
                 else:
                     for obj_payload in payload[str(smgr_obj)]:
                         if "tag" in obj_payload and smgr_obj == "server":
                             self.verify_added_tags(smgr_obj, obj_payload)
                         if "id" not in obj_payload and (smgr_obj != "tag" and smgr_obj != "dhcp_host" and smgr_obj != "dhcp_subnet"):
-                            self.app.print_error_message_and_quit("No id specified for object being added")
+                            self.app.print_error_message_and_quit("No id specified for object being added\n")
             elif not (getattr(parsed_args, "id", None) or getattr(parsed_args, "mac_address", None)) \
                     and smgr_obj != "tag" and smgr_obj != "dhcp_subnet":
                 # Check if parsed args has id for object
