@@ -4042,9 +4042,16 @@ class VncServerManager():
 
         if "contrail_image_id" in package.keys() and \
             package["contrail_image_id"]:
-            merged_inv['[all:vars]']["contrail_apt_repo"] = \
-                "[arch=amd64] http://" + str(self._args.listen_ip_addr) + "/contrail/repo/" + \
-                package["contrail_image_id"] + " contrail main"
+            if package["type"] == "contrail-ubuntu-package":
+                merged_inv['[all:vars]']["contrail_apt_repo"] = \
+                    "[arch=amd64] http://" + str(self._args.listen_ip_addr) + "/contrail/repo/" + \
+                    package["contrail_image_id"] + " contrail main"
+            elif package["type"] == "contrail-centos-package":
+                merged_inv['[all:vars]']["contrail_yum_repo"] = \
+                    "http://" + str(self._args.listen_ip_addr) + "/cobbler/repo_mirror/" + \
+                    package["contrail_image_id"]
+
+            merged_inv['[all:vars]']["contrail_image_id"] = package["contrail_image_id"]
             
         package_params = package.get('parameters', {})
         if "contrail-container-package" in package_params and package_params["contrail-container-package"]:
