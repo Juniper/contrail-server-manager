@@ -52,12 +52,12 @@
     "newformat": "boolean"
   },
   "ceilometer_polling_interval": {
-    "name": "parameters.provision.openstack.ceilometer.polling_interval",
-    "format": "integer"
+    "newname": "openstack.ceilometer.polling_interval",
+    "newformat": "integer"
   },
   "ceilometer_ttl": {
-    "name": "parameters.provision.openstack.ceilometer.ttl",
-    "format": "integer"
+    "newname": "openstack.ceilometer.ttl",
+    "newformat": "integer"
   },
   "cloud_orchestrator": {
     "newname": "contrail_4.global_config.cloud_orchestrator",
