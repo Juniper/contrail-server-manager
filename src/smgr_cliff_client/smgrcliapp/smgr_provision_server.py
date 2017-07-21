@@ -63,9 +63,11 @@ class Provision(Command):
         parser.add_argument("--no_confirm", "-F", action="store_true",
                             help=("flag to bypass confirmation message, "
                                   "default = do not bypass"))
+        parser.add_argument("--tasks",
+                            help=("tags that user will specify to run only some specific ansible tasks"))
         self.command_dictionary["provision"] = ["server_id", "cluster_id", "tag", "where",
                                                 "interactive",
-                                                "contrail_image_id",
+                                                "contrail_image_id","tasks",
                                                 "no_confirm",
                                                 "provision_params_file", "f", "F", "I"]
         for key in self.command_dictionary:
@@ -126,6 +128,7 @@ class Provision(Command):
         match_value = None
         match_param = None
         contrail_img_id = None
+        tasks =  None
         if getattr(parsed_args, "server_id", None):
             match_key = 'id'
             match_value = getattr(parsed_args, "server_id", None)
@@ -154,6 +157,11 @@ class Provision(Command):
             payload[match_key] = match_value
         if provision_params:
             payload['provision_parameters'] = provision_params
+        
+        if getattr(parsed_args, "tasks", None):
+            tasks =  getattr(parsed_args, "tasks", None)
+        if tasks != None:
+            payload['tasks'] = tasks
 
         if not getattr(parsed_args, "no_confirm", None):
             if getattr(parsed_args, "package_image_id", None):
@@ -161,8 +169,8 @@ class Provision(Command):
             else:
                 pkg_id_str = "configured package"
             if match_key:
-                msg = "Provision servers (%s:%s) with %s? (y/N) :" % (
-                    match_key, match_value, pkg_id_str)
+                msg = "Provision servers (%s:%s) with %s and %s? (y/N) :" % (
+                    match_key, match_value, pkg_id_str,tasks)
             else:
                 msg = "Provision servers with %s? (y/N) :" % (pkg_id_str)
             user_input = raw_input(msg).lower()

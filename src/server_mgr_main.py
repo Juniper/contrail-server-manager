@@ -1047,6 +1047,14 @@ class VncServerManager():
             raise ServerMgrException(msg)
         return packages[0]['parameters']
 
+    def validate_smgr_provision_tasks(self,tasks):
+        separate_tasks = re.split("[, ]+",tasks)
+        tasks_list = ['openstack_bootstrap', 'openstack_deploy', 'openstack_destroy',
+                'openstack_post_deploy','contrail_deploy']
+        valid_tasks = all (x in tasks_list for x in separate_tasks)
+        #returns true if correct tasks are entered and false otherwise
+        return valid_tasks
+    
     def validate_smgr_provision(self, validation_data, request, data=None, issu_flag = False):
         ret_data = {}
         ret_data['status'] = 1
@@ -1057,6 +1065,7 @@ class VncServerManager():
         package_image_id = entity.get("package_image_id", '')
         if package_image_id:
             self.get_package_image(package_image_id)
+        tasks =  entity.get("tasks", '')
         #if package_image_id is None:
         #    msg = "No contrail package specified for provisioning"
         #    raise ServerMgrException(msg)
@@ -1121,6 +1130,7 @@ class VncServerManager():
             ret_data["status"] = 0
             ret_data["servers"] = servers
             ret_data["package_image_id"] = package_image_id
+            ret_data["tasks"] = tasks
         else:
             matches = self.validate_smgr_keys(entity)
             match_key, match_value = matches.popitem()
@@ -1154,6 +1164,12 @@ class VncServerManager():
             ret_data["servers"] = servers
             ret_data["cluster_id"] = cluster_id
             ret_data["package_image_id"] = package_image_id
+            ret_data["tasks"] = tasks
+            #tasks are validated here
+            valid_tasks = self.validate_smgr_provision_tasks(tasks)
+            if valid_tasks == False:
+                msg = "Incorrect provision tasks were entered"
+                self.log_and_raise_exception(msg)
         return ret_data
     # end validate_smgr_provision
 
@@ -4018,7 +4034,7 @@ class VncServerManager():
                              "%Y-%m-%d %H:%M:%S", gmtime())}
                 self._serverDb.modify_server(update)
 
-    def _do_ansible_provision_cluster(self, server_list, cluster, package):
+    def _do_ansible_provision_cluster(self, server_list, cluster, package, tasks):
         pp = []
         inv = {}
         params   = {}
@@ -4061,7 +4077,8 @@ class VncServerManager():
             self.log_and_raise_exception(msg)
         inv["inventory"] = merged_inv
         parameters = { 'hosts_in_inv': self.hosts_in_inventory(cluster_inv), 
-                       'cluster_id': cluster['id'], 'parameters': inv }
+                       'cluster_id': cluster['id'], 'parameters': inv,
+                       'task_list':tasks}
         pp.append(copy.deepcopy(parameters))
 
         send_REST_request(self._args.ansible_srvr_ip,
@@ -4093,7 +4110,7 @@ class VncServerManager():
 
     #TODO: Temporary - Block ansible provision till openstack provision completes
     # If no openstack role in cluster, the ansible provision kicks off immediately
-    def manage_ansible_provision(self, provision_server_list, cluster, package):
+    def manage_ansible_provision(self, provision_server_list, cluster, package, tasks):
         servers = self.get_servers_for_role('openstack',
                 provision_server_list)
         if len(servers):
@@ -4108,7 +4125,7 @@ class VncServerManager():
                     if server_status == "provision_completed":
                         wait_for_openstack_provision_flag = False
         self._do_ansible_provision_cluster(
-                provision_server_list, cluster, package)
+                provision_server_list, cluster, package, tasks)
 
     # This function runs on a separate gevent thread and processes requests for reimage.
     def _reimage_server_cobbler(self):
@@ -4150,6 +4167,7 @@ class VncServerManager():
                     if provision_server_list:
                         cluster_id = reimage_item[2]
                         role_sequence = reimage_item[3]
+                        tasks = reimage_item[4]
                         # package will be same for all servers. So its ok to
                         # decide based on the first.
                         package = provision_server_list[0]['package']
@@ -4213,7 +4231,8 @@ class VncServerManager():
                         # If no role_sequence present, just update cluster with it.
                         self.update_cluster_provision(cluster_id, role_sequence)
                         if package["parameters"].get("containers",None):
-                            gevent.spawn(self.manage_ansible_provision, provision_server_list, cluster, package)
+                            gevent.spawn(self.manage_ansible_provision, provision_server_list, cluster,
+                                    package, tasks)
                 if optype == 'issu':
                     if not self.issu_obj:
                         entity = {}
@@ -6081,7 +6100,8 @@ class VncServerManager():
             else:
                 # only validate provision request, no harm making this generic not just for issu
                 req_json = {'cluster_id': entity['new_cluster'],
-                            'package_image_id': entity['new_image']}
+                            'package_image_id': entity['new_image'],
+                            'tasks': entity['new_task']}
                 ret_data = self.validate_smgr_provision(
                                      "PROVISION", req_json, issu_flag=issu_flag)
             if ret_data['status'] == 0:
@@ -6093,13 +6113,14 @@ class VncServerManager():
                 msg = "Error validating request"
                 self.log_and_raise_exception(msg)
             cluster_id = ret_data['cluster_id']
+            tasks = ret_data['tasks']
             provision_server_list, role_sequence, provision_status = \
                                       self.prepare_provision(ret_data)
 
             # Add the provision request to reimage_queue (name of queue needs to be changed,
             # earlier it was used only for reimage, now provision requests also queued there).
             provision_item = ('provision', provision_server_list,
-                                        cluster_id, role_sequence)
+                                        cluster_id, role_sequence, tasks)
             self._reimage_queue.put_nowait(provision_item)
             self._smgr_log.log(self._smgr_log.DEBUG,
                                "provision queued. Number of servers " \
