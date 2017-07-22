@@ -256,6 +256,7 @@ class VncServerManager():
                           "parameters.provision.openstack.heat.encryption_key",
                           "parameters.provision.openstack.ceilometer.password",
                           "parameters.provision.openstack.ceilometer.mongo",
+                          "parameters.provision.openstack.rabbitmq.password",
                          ]
     #fileds here except match_keys, obj_name and primary_key should
     #match with the db columns
@@ -391,6 +392,7 @@ class VncServerManager():
             "snmp_collector_config" : self.get_calculated_snmp_coll_cfg_dict,
             "topology_config"       : self.get_calculated_topo_cfg_dict,
             "openstack_config"      : self.get_calculated_openstack_cfg_dict,
+            "rabbitmq_config"       : self.get_calculated_rabbitmq_cfg_dict,
             "storage_ceph_config"   : get_calculated_storage_ceph_cfg_dict
         }
                 
@@ -5644,6 +5646,14 @@ class VncServerManager():
         return keystone_cfg
     #end  get_calculated_keystone_cfg_dict
 
+    def get_calculated_rabbitmq_cfg_dict(self, cluster, cluster_srvrs):
+        rabbitmq_cfg = dict()
+        ops_rabbitmq_cfg = self.get_cluster_openstack_cfg_section(cluster, "rabbitmq")
+        if ops_rabbitmq_cfg:
+            rabbitmq_cfg["user"] = ops_rabbitmq_cfg.get("user","guest")
+            rabbitmq_cfg["password"] = ops_rabbitmq_cfg.get("password","guest")
+        return rabbitmq_cfg
+
     def build_calculated_srvr_feature_params(self, cluster_servers):
 
         collated_config = {}
@@ -5821,6 +5831,11 @@ class VncServerManager():
         cur_inventory["[all:vars]"]["internal_vip"] = openstack_internal_vip
         cur_inventory["[all:vars]"]["external_vip"] = openstack_external_vip
         cur_inventory["[all:vars]"]["contrail_internal_vip"] = contrail_internal_vip
+
+        # Plugin the configured or generated rabbitmq password to ansible code
+        ops_rabbitmq_cfg = cluster_ops_cfg.get("rabbitmq",{})
+        rabbitmq_password = ops_rabbitmq_cfg.get("password","guest")
+        cur_inventory["[all:vars]"]["rabbitmq_password"] = rabbitmq_password
 
         # If there are external Openstack servers outside the cluster, we wish to provision neutron plugin
         if "global_config" in contrail_4 and "external_openstack_servers" in contrail_4["global_config"] and \
@@ -6670,6 +6685,9 @@ class VncServerManager():
             openstack_params["keystone"] = keystone_params
             keystone_params["admin_password"] = keystone_params.get("admin_password", self.random_string(12))
             keystone_params["admin_token"] = keystone_params.get("admin_token", self.random_string(12))
+            rabbitmq_params = openstack_params.get("rabbitmq", {})
+            rabbitmq_params["password"] = rabbitmq_params.get("password", self.random_string(12))
+            openstack_params["rabbitmq"] = rabbitmq_params
             #generate passwords for service
             self._plug_service_passwords(openstack_params, "glance", "password",
                                                     keystone_params["admin_password"])
