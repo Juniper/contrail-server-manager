@@ -360,6 +360,15 @@ class Server(object):
             self.exec_cmd('DEBIAN_FRONTEND=noninteractive apt-get -y install %s' % package,
                           error_on_fail=True)
 
+    def is_already_bond_member(self, name):
+        cmd = "cat /sys/class/net/" +name.strip() +"/master/bonding/slaves"
+        status, output = self.exec_cmd(cmd)
+        if not status:
+            members_list = output.split()
+            if name in members_list:
+                return True
+        return False
+
     def verify_interface_ip(self, interface, ip):
         return self.exec_cmd('ip addr show %s | grep %s' % (interface, ip), self.sm)
 
@@ -433,6 +442,9 @@ class Server(object):
                                                   iface_info['ip_address']))
                 else:
                     self.exec_setup_interface(iface_info)
+            elif self.is_already_bond_member(iface_info['name']):
+                 log.warn('Interface (%s) already a member of the bond interfaces', \
+                            (iface_info['name']))
             else:
                 self.exec_setup_interface(iface_info)
 
