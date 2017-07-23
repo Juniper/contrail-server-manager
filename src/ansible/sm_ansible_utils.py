@@ -25,6 +25,7 @@ LB_CONTAINER          = "contrail-lb"
 BARE_METAL_COMPUTE    = "contrail-compute"
 CEPH_CONTROLLER       = "contrail-ceph-controller"
 CEPH_COMPUTE          = "contrail-ceph-compute"
+VC_PLUGIN             = "contrail-vcenter-plugin"
 _DEF_BASE_PLAYBOOKS_DIR = "/opt/contrail/server_manager/ansible/playbooks"
 
 # Add new roles and corresponding container_name here
@@ -35,7 +36,8 @@ _container_names = { CONTROLLER_CONTAINER  : 'controller',
                      AGENT_CONTAINER       : 'agent',
                      BARE_METAL_COMPUTE    : 'agent',
                      CEPH_CONTROLLER       : 'ceph-master',
-                     CEPH_COMPUTE          : 'ceph-compute'}
+                     CEPH_COMPUTE          : 'ceph-compute',
+                     VC_PLUGIN             : 'vcenterplugin'}
 _valid_roles = _container_names.keys()
 
 _inventory_group = { CONTROLLER_CONTAINER  : "contrail-controllers",
@@ -45,14 +47,16 @@ _inventory_group = { CONTROLLER_CONTAINER  : "contrail-controllers",
                      AGENT_CONTAINER       : "contrail-compute",
                      BARE_METAL_COMPUTE    : "contrail-compute",
                      CEPH_CONTROLLER       : "ceph-controller",
-                     CEPH_COMPUTE          : "ceph-compute"}
+                     CEPH_COMPUTE          : "ceph-compute",
+                     VC_PLUGIN             : "contrail-vc-plugin"}
 
 _container_img_keys = { CONTROLLER_CONTAINER  : "controller_image",
                         ANALYTICS_CONTAINER   : "analytics_image",
                         ANALYTICSDB_CONTAINER : "analyticsdb_image",
                         LB_CONTAINER          : "lb_image",
                         AGENT_CONTAINER       : "agent_image",
-                        CEPH_CONTROLLER       : "storage_ceph_controller_image" }
+                        CEPH_CONTROLLER       : "storage_ceph_controller_image",
+                        VC_PLUGIN             : "vcenterplugin_image" }
 
 def send_REST_request(ip, port, endpoint, payload,
                       method='POST', urlencode=False):
