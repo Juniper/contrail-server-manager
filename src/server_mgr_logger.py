@@ -8,6 +8,27 @@ import logging.handlers
 import inspect
 import os
 
+_DEF_SM_BASELOG_PATH = '/var/log/contrail-server-manager/'
+_DEF_SM_PROVLOG_PATH = _DEF_SM_BASELOG_PATH + 'provision/'
+_DEF_SM_REIMGLOG_PATH = _DEF_SM_BASELOG_PATH + 'reimage/'
+
+def common_log(log_obj, level, msg):
+    try:
+        if level == "debug":
+            log_obj.debug(msg)
+        elif level == "info":
+            log_obj.info(msg)
+        elif level == "warn":
+            log_obj.warn(msg)
+        elif level == "error":
+            log_obj.error(msg)
+        elif level == "critical":
+            log_obj.critical(msg)
+    except formatException as e:
+      print "format exception"
+    except Exception as e:
+      print "Error logging msg"
+    
 class ServerMgrlogger(object):
     class _ServerMgrlogger:
         DEBUG = "debug"
@@ -70,7 +91,6 @@ class ServerMgrlogger(object):
         return ServerMgrlogger._instance
 
 
-
 class ServerMgrTransactionlogger:
     GET_SMGR_CFG_ALL = "GET_SMGR_ALL"
     GET_SMGR_CFG_CLUSTER = "GET_SMGR_CLUSTER"
@@ -129,9 +149,72 @@ class ServerMgrTransactionlogger:
 
         self._smgr_trans_log.error(msg)
 
+# python singleton with parameters
+# for the same parameter you get the same object
+class Singleton(type):
+    '''Reference code: https://gist.github.com/noamkush/856ccc86734f6301689a'''
+    _instances = {}
+    _init = {}
+
+    def __init__(cls, name, bases, dct):
+        cls._init[cls] = dct.get('__init__', None)
+
+    def __call__(cls, *args, **kwargs):
+        init = cls._init[cls]
+        if init is not None:
+            key = (cls, frozenset(
+                    inspect.getcallargs(init, None, *args, **kwargs).items()))
+        else:
+            key = cls
+
+        if key not in cls._instances:
+            cls._instances[key] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[key]
+
+class SMProvisionLogger(object):
+    __metaclass__ = Singleton
+    _smgr_prov_log = None
+
+    def __init__(self, name):
+        self._smgr_prov_log = logging.getLogger(name)
+        self._smgr_prov_log.setLevel(logging.DEBUG)
+        if not os.path.exists(_DEF_SM_PROVLOG_PATH):
+            os.makedirs(_DEF_SM_PROVLOG_PATH)
+        handler = logging.handlers.RotatingFileHandler(os.path.join(_DEF_SM_PROVLOG_PATH, name + '_provision.log'),maxBytes=100*1000*1024, backupCount=10)
+        self._smgr_prov_log.addHandler(handler)
+
+    def log(self,level,msg):
+        common_log(self._smgr_prov_log,level,msg)
+
+
+# THIS CLASS IS NOT WORKING AS EXPECTED NOW
+# WILL REVISIT THIS ONE
+class SMReimageLogger(object):
+    __metaclass__ = Singleton
+    _smgr_reimg_log = None
     
+    def __init__(self, name):
+        self._smgr_reimg_log = logging.getLogger(name)
+        self._smgr_reimg_log.setLevel(logging.INFO)
+        if not os.path.exists(_DEF_SM_REIMGLOG_PATH):
+            os.makedirs(_DEF_SM_REIMGLOG_PATH)
+        handler = logging.handlers.RotatingFileHandler(os.path.join(_DEF_SM_REIMGLOG_PATH, 'reimage.log'),maxBytes=100*1000*1024, backupCount=10)
+        self._smgr_reimg_log.addHandler(handler)
+    
+    def log(self,level,msg):
+        common_log(self._smgr_reimg_log,level,msg)
 
 if __name__ == "__main__":
     smgr_log = ServerMgrlogger()
-    smgr_log.log(DEBUG, "test log ")
-    smgr_log.log(INFO, "INFO log %s" % "Thilak")
+    smgr_log.log(smgr_log.DEBUG, "test log ")
+    smgr_log.log("info", "INFO log %s" % "Thilak")
+    prov_log =  SMProvisionLogger('server1')
+    prov_log.log("debug", "test log ")
+    reimg_log =  SMReimageLogger()
+    reimg_log.log("debug", "test2 log ")
+    prov_log =  SMProvisionLogger('server1')
+    prov_log.log("debug", "test3 log ")
+    prov_log =  SMProvisionLogger('server3')
+    prov_log.log("debug", "test4 log ")
+    reimg_log =  SMReimageLogger()
+    reimg_log.log("debug", "test6 log ")
