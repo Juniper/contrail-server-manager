@@ -3917,7 +3917,7 @@ class VncServerManager():
                     bond_opts = intf.get('bond_options', {})
                     member_interfaces = []
                     if "member_interfaces" in intf:
-                        member_interfaces = intf['member_interfaces'].split(",")
+                        member_interfaces = intf['member_interfaces']
                     member_intfs = self.get_member_interfaces(network_dict,
                                                               member_interfaces)
                     bond_opts = "--members %s --bond-opts \'%s\'" % \
