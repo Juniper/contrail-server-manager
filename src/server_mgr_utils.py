@@ -130,8 +130,48 @@ class DictUtils():
         return remove_none_from_dict
     remove_none_from_dict = staticmethod(remove_none_from_dict())
 
+class ContrailVersion(object):
+    def __init__(self, package, v1 = 0, v2 = 0, v3 = 0, v4 = 0):
+        if package == None:
+            self.major_version = v1
+            self.moderate_version = v2
+            self.minor_version_1 = v3
+            self.minor_version_2 = v4
+        elif package["parameters"]["contrail-container-package"] != True:
+            raise ValueError
+        else:
+            try:
+                version_list = re.split(r'[\.\-]',
+                        package["parameters"]["playbooks_version"])
+                self.major_version = version_list[0]
+                self.moderate_version = version_list[1]
+                self.minor_version_1 = version_list[2]
+                self.minor_version_2 = version_list[3]
+            except:
+                raise KeyError
+
+    def __gt__(self, other):
+        if int(self.major_version) > int(other.major_version):
+            return True
+        if int(self.major_version) == int(other.major_version) and \
+                int(self.moderate_version) > int(other.moderate_version):
+            return True
+        if int(self.major_version) == int(other.major_version) and \
+                int(self.moderate_version) == int(other.moderate_version) and \
+                int(self.minor_version_1) > int(other.minor_version_1):
+            return True
+        if int(self.major_version) == int(other.major_version) and \
+                int(self.moderate_version) == int(other.moderate_version) and \
+                int(self.minor_version_1) == int(other.minor_version_1) and \
+                int(self.minor_version_2) > int(other.minor_version_2):
+            return True
+        return False
+
 if __name__ == '__main__':
     # test code
     print ServerMgrUtil.convert_unicode(u'this is converted unicode string')
     sm = ServerMgrUtil()
     print sm.get_package_version('/root/contrail-install-packages-3.0-2712~juno.el7.centos.noarch.rpm')
+    v1 = ContrailVersion(None, 4, 0, 0, 0)
+    v2 = ContrailVersion(None, 4, 0, 0, 0)
+    print " v1 > v2 returns %s" % str(v1 > v2)
