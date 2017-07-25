@@ -10,7 +10,7 @@ from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_logger import SMProvisionLogger as ServerMgrProvlogger
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from sm_ansible_utils import send_REST_request
+from sm_ansible_utils import *
 from sm_ansible_utils import SM_STATUS_PORT
 from sm_ansible_utils import STATUS_SUCCESS
 from sm_ansible_utils import STATUS_FAILED
@@ -75,7 +75,7 @@ class CallbackModule(CallbackBase):
         if 'sm_status_report' in tname:
             status_resp = { "server_id" : result._host.get_name(),
                     "state" : tlist[-1] }
-            send_REST_request(self.logger.smgr_ip,
+            SMAnsibleUtils(self.logger._sm_logger).send_REST_request(self.logger.smgr_ip,
                               SM_STATUS_PORT,
                               "ansible_status", urllib.urlencode(status_resp),
                               method='PUT', urlencode=True)
@@ -304,7 +304,7 @@ class CallbackModule(CallbackBase):
                 status_resp = { "server_id" : h,
                         "state" : STATUS_FAILED }
 
-            send_REST_request(self.logger.smgr_ip,
+            SMAnsibleUtils(self.logger._sm_logger).send_REST_request(self.logger.smgr_ip,
                               SM_STATUS_PORT,
                               "ansible_status", urllib.urlencode(status_resp),
                               method='PUT', urlencode=True)
