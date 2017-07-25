@@ -162,23 +162,20 @@
                         "type": "vlan",
                         "vlan": "2003",
                         "parent_interface": "bond0",
-                        "ip_address": "10.224.11.10/24",
-                        "default_gateway": "10.224.12.1"
+                        "ip_address": "10.224.11.10/24"
                     },
                     {
                         "name": "vlan2004",
                         "type": "vlan",
                         "vlan": "2004",
                         "parent_interface": "eth2",
-                        "ip_address": "192.168.20.21/24",
-                        "default_gateway": "192.168.20.1"
+                        "ip_address": "192.168.20.21/24"
                     },
                     {
                         "name": "eth2",
                         "mac_address": "aa:bb:cc:dd:ee:ef"
                     },
                     {
-                        "default_gateway": "3.3.3.254",
                         "ip_address": "3.3.3.0/24",
                         "name": "eth4",
                         "mac_address": "aa:bb:cc:dd:ee:12"
