@@ -5834,7 +5834,9 @@ class VncServerManager():
 
         # Plugin the configured or generated rabbitmq password to ansible code
         ops_rabbitmq_cfg = cluster_ops_cfg.get("rabbitmq",{})
+        rabbitmq_user = ops_rabbitmq_cfg.get("user","guest")
         rabbitmq_password = ops_rabbitmq_cfg.get("password","guest")
+        cur_inventory["[all:vars]"]["rabbitmq_user"] = rabbitmq_user
         cur_inventory["[all:vars]"]["rabbitmq_password"] = rabbitmq_password
 
         # If there are external Openstack servers outside the cluster, we wish to provision neutron plugin

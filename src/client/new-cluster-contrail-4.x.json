@@ -165,6 +165,7 @@
                             "port": ""
                         },
                         "rabbitmq": {
+                            "user": "guest",
                             "password": "guest"
                         },
                         "mysql": {
