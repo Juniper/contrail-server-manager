@@ -12,8 +12,9 @@ import argparse
 import threading
 import ConfigParser
 from bottle import Bottle, route
-from sm_ansible_playbook import ContrailAnsiblePlayBook
-from sm_ansible_utils import send_REST_request
+from sm_ansible_playbook import ContrailAnsiblePlaybooks
+from sm_ansible_playbook import ContrailOpenstackPlayBook
+from sm_ansible_utils import *
 from collections import defaultdict
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -53,7 +54,6 @@ class SMAnsibleServer():
             print "Error Creating logger object"
 
         self._smgr_log.log(self._smgr_log.INFO, "Starting SM Ansible Server")
-        self.host_run_results = defaultdict(dict)
         if not args_str:
             args_str = sys.argv[1:]
         self._parse_args(args_str)
@@ -62,8 +62,8 @@ class SMAnsibleServer():
         self.joiner.start()
         self._smgr_log.log(self._smgr_log.INFO,  'Initializing Bottle App')
         self.app = bottle.app()
-        bottle.route('/start_provision', 'POST', self.start_provision)
-        bottle.route('/run_playbook', 'POST', self.start_playbook)
+        bottle.route('/run_contrail_playbook', 'POST', self.start_contrail_playbook)
+        bottle.route('/run_openstack_playbook', 'POST', self.start_openstack_playbook)
 
     def _parse_args(self, args_str):
         '''
@@ -131,15 +131,19 @@ class SMAnsibleServer():
         self._args.config_file = args.config_file
     # end _parse_args
 
-    def start_provision(self):
-        self.host_run_results = defaultdict(dict)
-        print "starting provision"
-        return json.dumps({'status': 'Provision Started'})
-
-    def start_playbook(self):
-        print "starting playbook"
+    def start_contrail_playbook(self):
         entity = bottle.request.json
         pb     = ContrailAnsiblePlayBook(entity, self._args)
+        pb.start()
+        self.joinq.put(pb)
+        # Return success. Actual status will be supplied when the pb thread
+        # completes and the next status query is made
+        bottle.response.headers['Content-Type'] = 'application/json'
+        return json.dumps({'status': 'Provision in Progress'})
+
+    def start_openstack_playbook(self):
+        entity = bottle.request.json
+        pb     = ContrailAnsiblePlaybooks(entity, self._args)
         pb.start()
         self.joinq.put(pb)
         # Return success. Actual status will be supplied when the pb thread

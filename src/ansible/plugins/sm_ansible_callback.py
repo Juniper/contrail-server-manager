@@ -7,9 +7,10 @@ from ansible.plugins.callback import CallbackBase
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from server_mgr_logger import SMProvisionLogger as ServerMgrProvlogger
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from sm_ansible_utils import send_REST_request
+from sm_ansible_utils import *
 from sm_ansible_utils import SM_STATUS_PORT
 from sm_ansible_utils import STATUS_SUCCESS
 from sm_ansible_utils import STATUS_FAILED
@@ -20,7 +21,7 @@ class PlayLogger:
     Store log output in a single object
     One object per Ansible run
     """
-    def __init__(self):
+    def __init__(self, cluster_id):
         self.log = ''
         self.runtime = 0
         self.defaults_file = "/etc/contrail/sm-client-config.ini"
@@ -32,6 +33,7 @@ class PlayLogger:
         f.write("Ansible callback init - smgr_ip: %s" % self.smgr_ip)
         try:
             self._sm_logger = ServerMgrlogger()
+            self._sm_prov_logger = ServerMgrProvlogger(cluster_id)
         except:
             f = open("/var/log/contrail-server-manager/debug.log", "a")
             f.write("Ansible Callback Init - ServerMgrlogger init failed\n")
@@ -40,6 +42,7 @@ class PlayLogger:
 
     def append(self, log_line):
         self.log += log_line+"\n"
+        self._sm_prov_logger.log("info", log_line)
         self._sm_logger.log(self._sm_logger.INFO, log_line)
 
     def banner(self, msg):
@@ -61,7 +64,6 @@ class CallbackModule(CallbackBase):
 
     def __init__(self):
         super(CallbackModule, self).__init__()
-        self.logger = PlayLogger()
         self.start_time = datetime.now()
 
     # Send provision status updates based on strategically placed tasks whose
@@ -73,7 +75,7 @@ class CallbackModule(CallbackBase):
         if 'sm_status_report' in tname:
             status_resp = { "server_id" : result._host.get_name(),
                     "state" : tlist[-1] }
-            send_REST_request(self.logger.smgr_ip,
+            SMAnsibleUtils(self.logger._sm_logger).send_REST_request(self.logger.smgr_ip,
                               SM_STATUS_PORT,
                               "ansible_status", urllib.urlencode(status_resp),
                               method='PUT', urlencode=True)
@@ -214,6 +216,14 @@ class CallbackModule(CallbackBase):
 
     def v2_playbook_on_play_start(self, play):
         name = play.get_name().strip()
+        vm = play.get_variable_manager()
+        inv = vm._inventory
+        vars = vm.get_vars(inv._loader, play)
+        host_vars = vars['vars']['hostvars']
+        vars = inv.get_hosts()
+        cluster_id = host_vars[vars[0].name]['cluster_id']
+        self.logger = PlayLogger(cluster_id)
+        self.logger.append("CLUSTER = %s" % str(cluster_id))
         if not name:
             msg = "PLAY"
         else:
@@ -294,7 +304,7 @@ class CallbackModule(CallbackBase):
                 status_resp = { "server_id" : h,
                         "state" : STATUS_FAILED }
 
-            send_REST_request(self.logger.smgr_ip,
+            SMAnsibleUtils(self.logger._sm_logger).send_REST_request(self.logger.smgr_ip,
                               SM_STATUS_PORT,
                               "ansible_status", urllib.urlencode(status_resp),
                               method='PUT', urlencode=True)

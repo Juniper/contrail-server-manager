@@ -50,9 +50,7 @@ from server_mgr_issu import *
 from server_mgr_discovery import *
 from generate_dhcp_template import *
 sys.path.append(os.path.join(os.path.dirname(__file__), 'ansible'))
-from sm_ansible_utils import send_REST_request
-from sm_ansible_utils import ansible_verify_provision_complete
-from sm_ansible_utils import _create_container_repo
+from sm_ansible_utils import *
 from sm_ansible_utils import _container_img_keys
 from sm_ansible_utils import _valid_roles
 from sm_ansible_utils import _inventory_group
@@ -65,6 +63,8 @@ from sm_ansible_utils import ANALYTICSDB_CONTAINER
 from sm_ansible_utils import LB_CONTAINER
 from sm_ansible_utils import CEPH_COMPUTE
 from sm_ansible_utils import CEPH_CONTROLLER
+from sm_ansible_utils import OPENSTACK_CONTAINER
+from sm_ansible_utils import kolla_inv_hosts, kolla_inv_groups
 from server_mgr_docker import SM_Docker
 from server_mgr_storage import generate_storage_keys, build_storage_config, \
                                get_calculated_storage_ceph_cfg_dict
@@ -79,6 +79,8 @@ except ImportError:
     pass
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from server_mgr_logger import SMProvisionLogger as ServerMgrProvlogger
+from server_mgr_logger import SMReimageLogger as ServerMgrReimglogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_validations import ServerMgrValidations as ServerMgrValidations
@@ -99,8 +101,8 @@ bottle.BaseRequest.MEMFILE_MAX = 2 * 102400
 
 _WEB_HOST = '127.0.0.1'
 _WEB_PORT = 9001
-_ANSIBLE_PROVISION_START_ENDPOINT = 'start_provision'
-_ANSIBLE_PROVISION_ENDPOINT = 'run_playbook'
+_ANSIBLE_CONTRAIL_PROVISION_ENDPOINT = 'run_contrail_playbook'
+_ANSIBLE_OPENSTACK_PROVISION_ENDPOINT = 'run_openstack_playbook'
 _ANSIBLE_SRVR_PORT = 9003
 _DEF_CFG_DB = 'cluster_server_mgr.db'
 _DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
@@ -175,6 +177,7 @@ class VncServerManager():
     '''
     _smgr_log = None
     _smgr_trans_log = None
+    _smgr_reimg_log = None
     _tags_list = ['tag1', 'tag2', 'tag3', 'tag4',
                   'tag5', 'tag6', 'tag7']
     _image_list = ["centos", "fedora", "ubuntu", "redhat",
@@ -353,11 +356,13 @@ class VncServerManager():
         #Create an instance of logger
         try:
             self._smgr_log = ServerMgrlogger()
+            self.ansible_utils = SMAnsibleUtils(self._smgr_log)
         except:
             print "Error Creating logger object"
 
         self._smgr_log.log(self._smgr_log.INFO, "Starting Server Manager")
-
+        #TODO: Temporarily disable kolla-openstack for 4.x - use puppet for now
+        self.last_puppet_version = ContrailVersion(None, 5, 0, 0, 0)
 
         #Create an instance of Transaction logger
         try:
@@ -1052,6 +1057,13 @@ class VncServerManager():
             raise ServerMgrException(msg)
         return packages[0]['parameters']
 
+    def get_invalid_provision_task(self, tasks):
+        task_list = re.split(r'[, ]+', tasks)
+        for x in task_list:
+            if x not in ansible_valid_tasks:
+                return x
+        return None
+
     def validate_smgr_provision(self, validation_data, request, data=None, issu_flag = False):
         ret_data = {}
         ret_data['status'] = 1
@@ -1062,6 +1074,15 @@ class VncServerManager():
         package_image_id = entity.get("package_image_id", '')
         if package_image_id:
             self.get_package_image(package_image_id)
+        tasks = entity.get("tasks", None)
+        if tasks == None:
+            tasks = ','.join(ansible_default_tasks)
+        else:
+            # Here tasks is a string already from CLI
+            inv_task = self.get_invalid_provision_task(tasks)
+            if inv_task:
+                msg = "Invalid task specified : %s" % inv_task
+                self.log_and_raise_exception(msg)
         #if package_image_id is None:
         #    msg = "No contrail package specified for provisioning"
         #    raise ServerMgrException(msg)
@@ -1126,6 +1147,7 @@ class VncServerManager():
             ret_data["status"] = 0
             ret_data["servers"] = servers
             ret_data["package_image_id"] = package_image_id
+            ret_data["tasks"] = tasks
         else:
             matches = self.validate_smgr_keys(entity)
             match_key, match_value = matches.popitem()
@@ -1159,6 +1181,7 @@ class VncServerManager():
             ret_data["servers"] = servers
             ret_data["cluster_id"] = cluster_id
             ret_data["package_image_id"] = package_image_id
+            ret_data["tasks"] = tasks
         return ret_data
     # end validate_smgr_provision
 
@@ -2013,8 +2036,12 @@ class VncServerManager():
                         if (pkg_type == "contrail-cloud-docker-tgz" or pkg_type == "contrail-networking-docker-tgz"):
                             if pkg_type == "contrail-networking-docker-tgz" and not image_params.has_key("openstack_sku"):
                                 self.log_and_raise_exception(_ERR_OPENSTACK_SKU_NEEDED)
-                            puppet_package_path, playbooks_version, container_params = _create_container_repo(
-                                image_id, image_type, image_version, image_path, pkg_type,image_params.get("openstack_sku", None),self._args)
+                            puppet_package_path, playbooks_version, \
+                                    container_params = \
+                                    self.ansible_utils._create_container_repo(
+                                        image_id, image_type, image_version, \
+                                        image_path, pkg_type,image_params.get( \
+                                            "openstack_sku", None),self._args)
                             if image_type == 'contrail-centos-package':
                                 self._smgr_cobbler.create_repo(image_id, self._args.html_root_dir + 'contrail/repo/'\
                                                                + image_id+"/contrail-repo")
@@ -2559,8 +2586,7 @@ class VncServerManager():
                     if pkg_type == "contrail-networking-docker-tgz" and not image_params.has_key("openstack_sku"):
                         msg = _ERR_OPENSTACK_SKU_NEEDED
                         self.log_and_raise_exception(msg)
-                    puppet_package_path, playbooks_version, container_params = _create_container_repo(
-                        image_id, image_type, image_version, dest, pkg_type,openstack_sku, self._args)
+                    puppet_package_path, playbooks_version, container_params = self.ansible_utils._create_container_repo(image_id, image_type, image_version, dest, pkg_type,openstack_sku, self._args)
                     # check if the image added is a cloud docker image
                     if pkg_type == "contrail-cloud-docker-tgz":
                         puppet_manifest_version, sequence_provisioning_available, puppet_version \
@@ -3979,17 +4005,6 @@ class VncServerManager():
                           (device, ipaddr, netmask, gateway)
         return routes_str
 
-    def hosts_in_inventory(self, inventory):
-        hosts = []
-        for role in _valid_roles:
-            grp = "[" + _inventory_group[role] + "]"
-            if grp in inventory.keys():
-                for ip in inventory[grp]:
-                    h = ip.split()
-                    if h[0] not in hosts:
-                        hosts.append(h[0])
-        return hosts
-
     # Function to verify that SM Lite node with compute role finished provision after reboot
     def verify_smlite_provision(self):
         smgr_ip = self._args.listen_ip_addr
@@ -4006,7 +4021,7 @@ class VncServerManager():
                     smlite_server_status == "bare_metal_agent_completed" or \
                     smlite_server_status == "bare_metal_agent_started"):
                 server_control_ip = self.get_control_ip(smlite_server)
-                result = ansible_verify_provision_complete(server_control_ip)
+                result = self.ansible_utils.ansible_verify_provision_complete(server_control_ip)
                 if result:
                     status = "provision_completed"
                     self._smgr_log.log(self._smgr_log.INFO,
@@ -4023,17 +4038,17 @@ class VncServerManager():
                              "%Y-%m-%d %H:%M:%S", gmtime())}
                 self._serverDb.modify_server(update)
 
-    def _do_ansible_provision_cluster(self, server_list, cluster, package):
+    def _do_ansible_provision_cluster(self, server_list, cluster, package, tasks):
         pp = []
         inv = {}
         params   = {}
-        cluster_inv = self.get_container_inventory(cluster)
+        cluster_inv, kolla_inv = self.get_container_inventory(cluster)
         merged_inv = cluster_inv
         if not cluster_inv:
             msg = "No Inventory definition found in cluster json"
             self.log_and_raise_exception(msg)
 
-        for s in self.hosts_in_inventory(cluster_inv):
+        for s in self.ansible_utils.hosts_in_inventory(cluster_inv):
             servers = self._serverDb.get_server({'ip_address': s}, detail=True)
             if not servers:
                 continue
@@ -4044,6 +4059,18 @@ class VncServerManager():
             merged_inv["[all:vars]"]["ansible_user"]="root"
             merged_inv["[all:vars]"]["ansible_password"] = \
                     server["password"]
+            merged_inv["[all:vars]"]["cluster_id"] = \
+                    cluster["id"]
+
+            # Needed for logging infra to do per-provision logging
+            merged_inv["[all:vars]"]["cluster_id"] = \
+                    cluster["id"]
+
+            # FIXME: Needed for kolla-ansible for now.
+            # Revisit the playbooks to see if dependency on this variable can be
+            # removed
+            if ContrailVersion(package) > self.last_puppet_version:
+                merged_inv["[all:vars]"]["openstack_sku"] = 'ocata'
 
         if "contrail_image_id" in package.keys() and \
             package["contrail_image_id"]:
@@ -4078,13 +4105,41 @@ class VncServerManager():
                     if esx_srv.values()[0]["vcenter_server"] == vc_srv.keys()[0]:
                         esx_srv.values()[0]["vcenter_server"] = vc_srv.values()[0]
         inv["inventory"] = merged_inv
-        parameters = { 'hosts_in_inv': self.hosts_in_inventory(cluster_inv), 
-                       'cluster_id': cluster['id'], 'parameters': inv }
+        inv["kolla_inv"] = kolla_inv
+        inv["contrail_deploy_pb"] = str(_DEF_BASE_PLAYBOOKS_DIR)+ \
+                "/"+package.get('id','')+"/playbooks/site.yml"
+        inv["kolla_deploy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
+                "/" + package.get('id','') + "/kolla-ansible/ansible/site.yml"
+        inv["kolla_bootstrap_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
+                "/" + package.get('id','') + "/kolla-ansible/ansible/kolla-host.yml"
+        inv["kolla_destroy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
+                "/" + package.get('id','') + "/kolla-ansible/ansible/destroy.yml"
+        inv["kolla_post_deploy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
+                "/" + package.get('id','') + "/kolla-ansible/ansible/post-deploy.yml"
+        inv["kolla_post_deploy_contrail_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
+                "/" + package.get('id','') + \
+                "/kolla-ansible/ansible/post-deploy-contrail.yml"
+ 
+        parameters = { 'hosts_in_inv': self.ansible_utils.hosts_in_inventory(cluster_inv), 
+                'cluster_id': cluster['id'], 'parameters': inv, "tasks": tasks}
         pp.append(copy.deepcopy(parameters))
 
-        send_REST_request(self._args.ansible_srvr_ip,
+        #update = {'id': server['id'],
+        #        'status' : 'openstack_started',
+        #        'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+        #        'provisioned_id': package.get('id', '')}
+        #self._serverDb.modify_server(update)
+        #SMAnsibleUtils(self._smgr_log).send_REST_request(self._args.ansible_srvr_ip,
+        #              self._args.ansible_srvr_port,
+        #              _ANSIBLE_OPENSTACK_PROVISION_ENDPOINT, pp)
+        #update = {'id': server['id'],
+        #        'status' : 'openstack_completed',
+        #        'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+        #        'provisioned_id': package.get('id', '')}
+        #self._serverDb.modify_server(update)
+        self.ansible_utils.send_REST_request(self._args.ansible_srvr_ip,
                       self._args.ansible_srvr_port,
-                      _ANSIBLE_PROVISION_ENDPOINT, pp)
+                      _ANSIBLE_OPENSTACK_PROVISION_ENDPOINT, pp)
         update = {'id': server['id'],
                 'status' : 'provision_issued',
                 'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
@@ -4095,8 +4150,9 @@ class VncServerManager():
 
     def is_role_in_cluster(self, role, provision_server_list):
         for server in provision_server_list:
-           if role in server['server']['roles']:
-               return True
+           for r in eval(server['server']['roles']):
+               if role == r:
+                   return True
 
         return False
 
@@ -4111,13 +4167,18 @@ class VncServerManager():
 
     #TODO: Temporary - Block ansible provision till openstack provision completes
     # If no openstack role in cluster, the ansible provision kicks off immediately
-    def manage_ansible_provision(self, provision_server_list, cluster, package):
+    def manage_ansible_provision(self, provision_server_list, cluster, package,
+            tasks):
         servers = self.get_servers_for_role('openstack',
                 provision_server_list)
         if len(servers):
             for server in servers:
                 openstack_server_id = str(server['server']['id'])
-                wait_for_openstack_provision_flag = True
+                if ContrailVersion(package) > self.last_puppet_version:
+                    wait_for_openstack_provision_flag = False
+                else:
+                    wait_for_openstack_provision_flag = True
+                    tasks = "contrail_deploy"
                 while wait_for_openstack_provision_flag:
                     gevent.sleep(10)
                     status_for_server = self._serverDb.get_server(
@@ -4126,7 +4187,7 @@ class VncServerManager():
                     if server_status == "provision_completed":
                         wait_for_openstack_provision_flag = False
         self._do_ansible_provision_cluster(
-                provision_server_list, cluster, package)
+                provision_server_list, cluster, package, tasks)
 
     # This function runs on a separate gevent thread and processes requests for reimage.
     def _reimage_server_cobbler(self):
@@ -4168,6 +4229,7 @@ class VncServerManager():
                     if provision_server_list:
                         cluster_id = reimage_item[2]
                         role_sequence = reimage_item[3]
+                        tasks = reimage_item[4]
                         # package will be same for all servers. So its ok to
                         # decide based on the first.
                         package = provision_server_list[0]['package']
@@ -4227,11 +4289,15 @@ class VncServerManager():
                                     server['cluster'], server['cluster_servers'],
                                     server['package'], server['serverDb'])
                                 self._smgr_log.log(self._smgr_log.DEBUG, "provision processed from queue")
+                                smgr_prov_log = ServerMgrProvlogger(server['cluster']['id'])
+                                sm_prov_log.log("debug", "provision processed from queue")
                         # Update cluster with role_sequence and apply sequence first step
                         # If no role_sequence present, just update cluster with it.
                         self.update_cluster_provision(cluster_id, role_sequence)
                         if package["parameters"].get("containers",None):
-                            gevent.spawn(self.manage_ansible_provision, provision_server_list, cluster, package)
+                            gevent.spawn(self.manage_ansible_provision, 
+                                         provision_server_list, cluster,
+                                         package, tasks)
                 if optype == 'issu':
                     if not self.issu_obj:
                         entity = {}
@@ -5865,8 +5931,15 @@ class VncServerManager():
         # this gets referenced at a later point in _do_ansible_provision_cluster
         cluster["parameters"]["provision"]["containers"] = {}
         cluster["parameters"]["provision"]["containers"]["inventory"] = {}
+        cluster["parameters"]["provision"]["containers"]["kolla_inventory"] = {}
         cur_inventory = \
-               cluster["parameters"]["provision"]["containers"]["inventory"]
+            cluster["parameters"]["provision"]["containers"]["inventory"]
+        cur_kolla_inventory = \
+            cluster["parameters"]["provision"]["containers"]["kolla_inventory"]
+        for k,v in kolla_inv_groups.iteritems():
+            cur_kolla_inventory[k] = v          
+        for k,v in kolla_inv_hosts.iteritems(): 
+            cur_kolla_inventory[k] = v          
 
         cur_inventory["[all:children]"] = []
         cur_inventory["[all:vars]"] = copy.deepcopy(contrail_4)
@@ -5926,6 +5999,25 @@ class VncServerManager():
                 self.set_container_image_for_role(cur_inventory["[all:vars]"],
                         role, package)
                 if role in _valid_roles:
+                    #if role == OPENSTACK_CONTAINER or role == BARE_METAL_COMPUTE:
+                    #    grp_line = grp_line + ' ansible_connection=ssh \
+                    #            ansible_ssh_pass=%s' % x['password']
+                    #    for g in kolla_inv_hosts:
+                    #        if role == BARE_METAL_COMPUTE and "compute" in g:
+                    #            if grp_line not in cur_kolla_inventory[g]:
+                    #                cur_kolla_inventory[g].append(grp_line)
+                    #        elif role == OPENSTACK_CONTAINER:
+                    #            if grp_line not in cur_kolla_inventory[g]:
+                    #                cur_kolla_inventory[g].append(grp_line)
+                    #    if role == OPENSTACK_CONTAINER:
+                    #        continue
+                    if role == OPENSTACK_CONTAINER:
+                        grp_line = grp_line + ' ansible_connection=ssh \
+                                ansible_ssh_pass=%s' % x['password']
+                        for g in kolla_inv_hosts:
+                            if grp_line not in cur_kolla_inventory[g]:
+                                cur_kolla_inventory[g].append(grp_line)
+                        continue
                     if role == BARE_METAL_COMPUTE:
                         cur_inventory["[all:vars]"]["contrail_compute_mode"] = \
                                 "bare_metal"
@@ -5995,6 +6087,7 @@ class VncServerManager():
         provision_status = {}
         provision_status['server'] = []
         cluster_id = provisioning_data['cluster_id']
+        smgr_prov_log = ServerMgrProvlogger(cluster_id)
         server_packages = provisioning_data['server_packages']
         contrail_image_id = provisioning_data.get('contrail_image_id',None)
         #Validate the vip configurations for the cluster
@@ -6112,6 +6205,8 @@ class VncServerManager():
             provision_status['server'].append(server_status)
             self._smgr_log.log(self._smgr_log.DEBUG,
                   "%s added in the provision server list" %server['ip_address'])
+            smgr_prov_log.log("debug",
+                  "%s added in the provision server list" %server['ip_address'])
             #end of for
         return provision_server_list, role_sequence, provision_status
     # end prepare_provision
@@ -6154,7 +6249,13 @@ class VncServerManager():
                                      "PROVISION", "PROVISION", bottle.request)
             else:
                 # only validate provision request, no harm making this generic not just for issu
-                req_json = {'cluster_id': entity['new_cluster'],
+                if 'tasks' in entity.keys():
+                    req_json = {'cluster_id': entity['new_cluster'],
+                            'package_image_id': entity['new_image'],
+                            'tasks': entity['tasks']}
+
+                else:
+                    req_json = {'cluster_id': entity['new_cluster'],
                             'package_image_id': entity['new_image']}
                 ret_data = self.validate_smgr_provision(
                                      "PROVISION", req_json, issu_flag=issu_flag)
@@ -6167,14 +6268,19 @@ class VncServerManager():
                 msg = "Error validating request"
                 self.log_and_raise_exception(msg)
             cluster_id = ret_data['cluster_id']
+            tasks      = ret_data['tasks']
             provision_server_list, role_sequence, provision_status = \
                                       self.prepare_provision(ret_data)
 
             # Add the provision request to reimage_queue (name of queue needs to be changed,
             # earlier it was used only for reimage, now provision requests also queued there).
             provision_item = ('provision', provision_server_list,
-                                        cluster_id, role_sequence)
+                                        cluster_id, role_sequence, tasks)
             self._reimage_queue.put_nowait(provision_item)
+            self._sm_prov_log = ServerMgrProvlogger(cluster_id)
+            self._sm_prov_log.log("debug",
+                               "provision queued. Number of servers " \
+                               "provisioned is %d:" %len(provision_server_list))
             self._smgr_log.log(self._smgr_log.DEBUG,
                                "provision queued. Number of servers " \
                                "provisioned is %d:" %len(provision_server_list))
@@ -6622,6 +6728,7 @@ class VncServerManager():
 
     def get_container_inventory(self, parent):
         inventory = {}
+        kolla_inv = {}
         containers = {}
         params     = parent.get("parameters", {})
         if isinstance(params, unicode):
@@ -6635,12 +6742,13 @@ class VncServerManager():
 
         if (containers):
             inventory = containers.get("inventory", {})
+            kolla_inv = containers.get("kolla_inventory", {})
 
-        return inventory
+        return inventory, kolla_inv
 
 
     def get_container_image_for_role(self, role, package):
-        if role == BARE_METAL_COMPUTE or role == 'openstack' or \
+        if role == BARE_METAL_COMPUTE or role == OPENSTACK_CONTAINER or \
             role == CEPH_COMPUTE:
             return None
         container_image = self._args.docker_insecure_registries + \
@@ -6666,11 +6774,22 @@ class VncServerManager():
             if _container_img_keys[x] not in params:
                 params[_container_img_keys[x]] = img
 
+    #FIXME: STUB - Use appropriate logic to return image verison
+    def get_image_version(self, pkg):
+        return 5
+        
     # Internal private call to provision server. This is called by REST API
     # provision_server and provision_cluster
     def _do_provision_server(
         self, provision_parameters, server,
         cluster, cluster_servers, package, serverDb):
+
+        # For version >= 4.0.1 all roles use puppet. Just return here...
+        #FIXME: RAMP - use the right function to get the version and add the
+        #logic here to properly decide whether to do puppet or ansible for
+        #openstack
+        if ContrailVersion(package) > self.last_puppet_version:
+            return
 
         #Start the puppet agent in the target servers
         gevent.spawn(self._monitoring_base_plugin_obj.gevent_puppet_agent_action, server, serverDb, self._args, "start")
@@ -6690,9 +6809,11 @@ class VncServerManager():
                   'provisioned_id': package.get('id', '')}
             self._serverDb.modify_server(update)
         except subprocess.CalledProcessError as e:
+            self._sm_prov_log = ServerMgrProvlogger(cluster['id'])
             msg = ("do_provision_server: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
             self._smgr_log.log(self._smgr_log.ERROR, msg)
+            self._sm_prov_log.log("error", msg)
         except Exception as e:
             raise e
 # end _do_provision_server
