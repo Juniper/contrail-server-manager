@@ -20,8 +20,8 @@ from collections import defaultdict
 # Testbed Converter Version
 __version__ = '1.0'
 # Default translation dictionaries
-DEF_TRANS_DICT='/opt/contrail/server_manager/client/parameter-translation-dict.json'
-DEF_TESTBED_FORMAT_DICT='/opt/contrail/server_manager/client/testbed-format-translator.json'
+DEF_TRANS_DICT='/opt/contrail/contrail_server_manager/container-parameter-translation-dict.json'
+DEF_TESTBED_FORMAT_DICT='/opt/contrail/contrail_server_manager/testbed-format-translator.json'
 # List of parameters that need to be recalculated in specific ways before being put into Server/Cluster JSONs
 recalculate_list=["ext_routers","tor_agent","control_data"]
 
@@ -67,7 +67,7 @@ class Utils(object):
                             help='Print version and exit')
         parser.add_argument('-v', action='count', default=0,
                             help='Increase verbosity. -vvv prints more logs')
-        parser.add_argument('--testbed',
+        parser.add_argument('--testbed', '-t',
                             required=True,
                             help='Absolute path to testbed file')
         parser.add_argument('--translation-dict',
@@ -78,7 +78,7 @@ class Utils(object):
                             nargs='+',
                             help='Absolute path to Contrail Package file, '\
                                  'Multiple files can be separated with space')
-        parser.add_argument('--contrail-cloud-package',
+        parser.add_argument('--contrail-cloud-package', '-c',
                             nargs='+',
                             help='Absolute path to Contrail Docker Cloud Package file')
         parser.add_argument('--contrail-storage-packages',
@@ -147,11 +147,11 @@ class Utils(object):
         testsetup.update(testbed_format_translation_dict)
         server_json = ServerJsonGenerator(testsetup=testsetup,
                                           storage_packages=args.contrail_storage_packages)
-        server_json.generate_json_file(translation_dict,testbed_format_translation_dict)
+        server_json_dict = server_json.generate_json_dict(translation_dict,testbed_format_translation_dict)
         storage_keys = Utils.get_section_from_ini_file(args.storage_keys_ini_file, 'STORAGE-KEYS')
         cluster_json = ClusterJsonGenerator(testsetup=testsetup,
                                             storage_keys=storage_keys)
-        cluster_json.generate_json_file(translation_dict, testbed_format_translation_dict)
+        cluster_json_dict = cluster_json.generate_json_dict(translation_dict, testbed_format_translation_dict)
         cloud_package=False
         if args.contrail_packages or args.contrail_cloud_package:
             if args.contrail_packages:
@@ -161,7 +161,18 @@ class Utils(object):
                 cloud_package=True
             image_json = ImageJsonGenerator(testsetup=testsetup,
                                             package_files=package_files)
-            image_json.generate_json_file(cloud_package)
+            image_json_dict = image_json.generate_json_dict(cloud_package)
+        combined_json_dict = {}
+        if "cluster" in cluster_json_dict:
+            combined_json_dict["cluster"] = cluster_json_dict["cluster"]
+        if "server" in server_json_dict:
+            combined_json_dict["server"] = server_json_dict["server"]
+        if "image" in image_json_dict:
+            combined_json_dict["image"] = image_json_dict["image"]
+        image_json.generate()
+        cluster_json.generate()
+        server_json.generate()
+        server_json.generate('./combined.json', combined_json_dict)
 
 class Host(object):
     def __init__(self, ip, username, password, **kwargs):
@@ -763,11 +774,15 @@ class BaseJsonGenerator(object):
                     dest_format,dest_path = self.get_dest_format(str(key)+"."+str(cfg_dict.keys()[0]), translation_dict)
                     self.process_key_translation(dest_format, dest_path, key, cfg_dict, dest_dict, translation_dict, {key: cfg_dict})
 
-    def generate(self):
-        log.debug('Generate Json with Dict data: %s' % self.dict_data)
-        log.info('Generating Json File (%s)...' % self.jsonfile)
-        with open(self.jsonfile, 'w') as fid:
-            fid.write('%s\n' % json.dumps(self.dict_data, sort_keys=True,
+    def generate(self, json_path=None, json_data=None):
+        if not json_path:
+            json_path = self.jsonfile
+        if not json_data:
+            json_data = self.dict_data
+        log.debug('Generate Json with Dict data: %s' % json_data)
+        log.info('Generating Json File (%s)...' % json_path)
+        with open(json_path, 'w') as fid:
+            fid.write('%s\n' % json.dumps(json_data, sort_keys=True,
                                           indent=4, separators=(',', ': ')))
 
     def recalculate_control_data_interface(self, cfg_dict, source_dict, host_ip):
@@ -914,9 +929,9 @@ class ServerJsonGenerator(BaseJsonGenerator):
             server_dict = self._initialize(hostobj, translation_dict, testbed_format_dict)
             self.dict_data['server'].append(server_dict)
 
-    def generate_json_file(self, translation_dict, testbed_format_dict):
+    def generate_json_dict(self, translation_dict, testbed_format_dict):
         self.update(translation_dict, testbed_format_dict)
-        self.generate()
+        return self.dict_data
 
 class ClusterJsonGenerator(BaseJsonGenerator):
     def __init__(self, testsetup, **kwargs):
@@ -948,10 +963,10 @@ class ClusterJsonGenerator(BaseJsonGenerator):
             self.recalculate_params(cluster_dict, set(recalculate_list).intersection(all_cluster_dict_params), source_dict, None)
         return cluster_dict
 
-    def generate_json_file(self,translation_dict,testbed_format_dict):
+    def generate_json_dict(self,translation_dict,testbed_format_dict):
         cluster_dict = self._initialize(translation_dict, testbed_format_dict)
         self.dict_data['cluster'].append(cluster_dict)
-        self.generate()
+        return self.dict_data
 
 class ImageUtils(object):
     @staticmethod
@@ -1035,7 +1050,7 @@ class ImageJsonGenerator(BaseJsonGenerator):
         log.debug('Created Basic image_dict: %s' % image_dict)
         return image_dict
 
-    def generate_json_file(self,cloud_package=False):
+    def generate_json_dict(self,cloud_package=False):
         for package_type, package_file in self.package_files:
             image_dict = self._initialize(package_file, package_type, cloud_package)
             if cloud_package:
@@ -1043,7 +1058,7 @@ class ImageJsonGenerator(BaseJsonGenerator):
             else:
                 image_dict["parameters"] = {}
             self.dict_data['image'].append(image_dict)
-            self.generate()
+            return self.dict_data
 
 if __name__ == '__main__':
     args = Utils.parse_args(sys.argv[1:])
