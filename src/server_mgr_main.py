@@ -393,7 +393,8 @@ class VncServerManager():
             "topology_config"       : self.get_calculated_topo_cfg_dict,
             "openstack_config"      : self.get_calculated_openstack_cfg_dict,
             "rabbitmq_config"       : self.get_calculated_rabbitmq_cfg_dict,
-            "storage_ceph_config"   : get_calculated_storage_ceph_cfg_dict
+            "storage_ceph_config"   : get_calculated_storage_ceph_cfg_dict,
+            "vc_plugin_config"      : self.get_calculated_vcplugin_dict
         }
                 
 
@@ -1003,7 +1004,9 @@ class VncServerManager():
                 "control", "collector", "webui", "compute"]
         roles_set = set(role_list)
         # adding role here got the role in hieradata yaml file
-        optional_role_list = ["storage-compute", "storage-master", "tsn", "toragent", "loadbalancer", "global_controller"]
+        optional_role_list = ["storage-compute", "storage-master", "tsn",
+                              "toragent", "loadbalancer", "global_controller",
+                              "contrail-vc-plugin"]
         optional_role_set = set(optional_role_list)
 
         cluster_role_list = []
@@ -1236,7 +1239,7 @@ class VncServerManager():
 
 
     def validate_smgr_request(self, type, oper, request, data = None, modify =
-                              False ):
+                              False):
         self._smgr_log.log(self._smgr_log.DEBUG, "validate_smgr_request")
         ret_data = {}
         ret_data['status'] = 1
@@ -2375,7 +2378,7 @@ class VncServerManager():
                 else:
                     new_servers.append(server)
                     self.validate_smgr_request("SERVER", "PUT",
-                                               bottle.request, server )
+                                               bottle.request, server)
                     server['status'] = "server_added"
                     server['discovered'] = "false"
                     self._serverDb.add_server(server)
@@ -4061,6 +4064,19 @@ class VncServerManager():
         if not os.path.isfile(merged_inv["[all:vars]"]["ansible_playbook"]):
             msg = "No playbook found under path: %s" % (merged_inv["[all:vars]"]["ansible_playbook"])
             self.log_and_raise_exception(msg)
+        # substitue vcenter dict for esxi host in inventory
+        # raise if both esxi hosts and vc servers not present
+        if not (merged_inv.get("[all:vars]").get("esxi_hosts") and \
+                merged_inv.get("[all:vars]").get("vcenter_servers")):
+            if (merged_inv.get("[all:vars]").get("esxi_hosts") or \
+                merged_inv.get("[all:vars]").get("vcenter_servers")):
+                self.log_and_raise("Both esxi_hosts and vcenter_servers \
+                                                  need to be specified")
+        if merged_inv.get("[all:vars]").get("esxi_hosts"):
+            for esx_srv in merged_inv["[all:vars]"]["esxi_hosts"]:
+                for vc_srv in merged_inv["[all:vars]"]["vcenter_servers"]:
+                    if esx_srv.values()[0]["vcenter_server"] == vc_srv.keys()[0]:
+                        esx_srv.values()[0]["vcenter_server"] = vc_srv.values()[0]
         inv["inventory"] = merged_inv
         parameters = { 'hosts_in_inv': self.hosts_in_inventory(cluster_inv), 
                        'cluster_id': cluster['id'], 'parameters': inv }
@@ -5338,30 +5354,33 @@ class VncServerManager():
             openstack_params["openstack_ip_list"] = external_openstack_ip_list
         elif len(openstack_ips) and self_ip not in openstack_ips:
             openstack_ip = openstack_ips[0]
-        else:
+        elif self_ip in openstack_ips:
             openstack_ip = self_ip
+        else:
+            openstack_ip = ''
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
         net_and_mask = openstack_ip + "/" + subnet_mask
-        openstack_params['network'] = {
-            "api": net_and_mask,
-            "external": net_and_mask,
-            "management": net_and_mask,
-            "data": net_and_mask,
-        }
-        openstack_params['controller'] = {
-            "address": {
-                 "api": openstack_ip,
-                 "management": openstack_ip
-             }
-        }
-        openstack_params['storage'] = {
-            "address": {
-                 "api": openstack_ip,
-                 "management": openstack_ip
-             }
-        }
+        if openstack_ip:
+            openstack_params['network'] = {
+                "api": net_and_mask,
+                "external": net_and_mask,
+                "management": net_and_mask,
+                "data": net_and_mask,
+            }
+            openstack_params['controller'] = {
+                "address": {
+                     "api": openstack_ip,
+                     "management": openstack_ip
+                 }
+            }
+            openstack_params['storage'] = {
+                "address": {
+                     "api": openstack_ip,
+                     "management": openstack_ip
+                 }
+            }
         # if this is issu job for my cluster and role is compute, rabbit should be from old cluster
         # neutron should be from old cluster
         issu_params = cluster_params.get("issu", {})
@@ -5387,17 +5406,24 @@ class VncServerManager():
                 'rabbit_hosts' : old_rabbit_server,
                 'neutron_ip' : neutron_ip
             }
-        openstack_params['mysql'] = {
-             "allowed_hosts": ['localhost', '127.0.0.1'] + mysql_allowed_hosts
-        }
+        if openstack_ip:
+            openstack_params['mysql'] = {
+                 "allowed_hosts": ['localhost', '127.0.0.1'] + mysql_allowed_hosts
+            }
 
         contrail_params = ServerMgrUtil.convert_unicode(contrail_params)
-        openstack_params = ServerMgrUtil.convert_unicode(openstack_params)
-        cluster['calc_params'] = {
-            "contrail": contrail_params,
-            "openstack": openstack_params,
-            "mysql_allowed_hosts": mysql_allowed_hosts
-        }
+        if openstack_ip:
+            openstack_params = ServerMgrUtil.convert_unicode(openstack_params)
+            cluster['calc_params'] = {
+                "contrail": contrail_params,
+                "openstack": openstack_params,
+                "mysql_allowed_hosts": mysql_allowed_hosts
+            }
+        else:
+            cluster['calc_params'] = {
+                "contrail": contrail_params,
+            }
+
     # end build_calculated_cluster_params
 
     def build_calculated_server_params(
@@ -5558,6 +5584,39 @@ class VncServerManager():
                         openstack_cfg["management_ip"] = self.get_mgmt_ip(x)
         return openstack_cfg
     #end  get_calculated_openstack_cfg_dict
+
+    def get_calculated_vcplugin_dict(self, cluster, cluster_srvrs):
+        vc_plugin_dict = {}
+        cont_params = cluster['parameters']['provision']['contrail_4']
+        esx_hosts = cont_params.get('esxi_hosts')
+        vc_servers = cont_params.get('vcenter_servers')
+        if not (esx_hosts and vc_servers):
+            return vc_plugin_dict
+        # For vcenter orchestrator case there is only one VC and DC
+        vc_server = vc_servers[0]
+        vc_plugin_dict['datacenter'] = vc_server.values()[0]['datacentername']
+        vc_plugin_dict['dvs'] = vc_server.values()[0]['dv_switch']\
+                                                 ['dv_switch_name']
+        vc_plugin_dict['username'] = vc_server.values()[0]['username']
+        vc_plugin_dict['password'] = vc_server.values()[0]['password']
+        vc_plugin_dict['vc_url'] = "https://" + vc_server.values()[0]\
+                                                ['hostname'] + "/sdk"
+        # hardcode the fab PG for now
+        vc_plugin_dict['ipfabricpg'] = "contrail-fab-pg"
+        # set mode to vcenter-only if cloud_orchestrator is vcenter
+        if cluster['parameters']['provision']['contrail_4']\
+                           ['cloud_orchestrator'] == "vcenter":
+            vc_plugin_dict['mode'] = "vcenter-only"
+        vc_plugin_dict['introspect_port'] = "8234"
+        # create mapfile entries
+        map_string = ""
+        for host in cluster['parameters']['provision']['contrail_4']\
+                                                     ['esxi_hosts']:
+            vm_ip = host.values()[0]['contrail_vm']['host']
+            esx_ip = host.values()[0]['name']
+            map_string = map_string + "%s:%s," %(esx_ip, vm_ip)
+        vc_plugin_dict['esxtocomputemap'] = map_string
+        return vc_plugin_dict
 
     def get_calculated_global_cfg_dict(self, cluster, cluster_srvrs):
         global_cfg = dict()
