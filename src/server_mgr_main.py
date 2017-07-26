@@ -2201,6 +2201,24 @@ class VncServerManager():
                 server_parameters = {}
             server_parameters['interface_name'] = mgmt_intf_name
             server['parameters'] = server_parameters
+
+            # Validate that only one interface on server has a default gateway
+            node_default_gateway = None
+            node_gateway_device = None
+            for intf in network_dict["interfaces"]:
+                name = intf['name']
+                d_gw = intf.get('default_gateway', None)
+                if node_default_gateway is None and node_gateway_device is None and d_gw:
+                    node_default_gateway = d_gw
+                    node_gateway_device = name
+                elif node_default_gateway and node_gateway_device and d_gw:
+                    msg = "Multiple default gateways added for server %s. " % \
+                        (server["id"])
+                    msg += "Gateway %s already exists for interface %s, cannot add again for interface %s" %\
+                        (node_default_gateway, node_gateway_device, name)
+                    self.log_and_raise_exception(msg)
+
+            # Validate that for static management interface default gateway is mandatory
             dhcp = mgmt_intf_obj.get('dhcp', False)
             if not dhcp  and mgmt_intf_obj['d_gw'] is None:
                 raise ServerMgrException("For managment interface configured as static default gateway has to be specified", ERR_OPR_ERROR)
