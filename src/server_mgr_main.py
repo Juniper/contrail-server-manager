@@ -79,6 +79,8 @@ except ImportError:
     pass
 from server_mgr_puppet import ServerMgrPuppet as ServerMgrPuppet
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from server_mgr_logger import SMProvisionLogger as ServerMgrProvlogger
+from server_mgr_logger import SMReimageLogger as ServerMgrReimglogger
 from server_mgr_logger import ServerMgrTransactionlogger as ServerMgrTlog
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_validations import ServerMgrValidations as ServerMgrValidations
@@ -175,6 +177,7 @@ class VncServerManager():
     '''
     _smgr_log = None
     _smgr_trans_log = None
+    _smgr_reimg_log = None
     _tags_list = ['tag1', 'tag2', 'tag3', 'tag4',
                   'tag5', 'tag6', 'tag7']
     _image_list = ["centos", "fedora", "ubuntu", "redhat",
@@ -4059,6 +4062,8 @@ class VncServerManager():
             merged_inv["[all:vars]"]["ansible_user"]="root"
             merged_inv["[all:vars]"]["ansible_password"] = \
                     server["password"]
+            merged_inv["[all:vars]"]["cluster_id"] = \
+                    cluster["id"]
 
         if "contrail_image_id" in package.keys() and \
             package["contrail_image_id"]:
@@ -4229,6 +4234,8 @@ class VncServerManager():
                                     server['cluster'], server['cluster_servers'],
                                     server['package'], server['serverDb'])
                                 self._smgr_log.log(self._smgr_log.DEBUG, "provision processed from queue")
+                                smgr_prov_log = ServerMgrProvlogger(server['cluster']['id'])
+                                sm_prov_log.log("debug", "provision processed from queue")
                         # Update cluster with role_sequence and apply sequence first step
                         # If no role_sequence present, just update cluster with it.
                         self.update_cluster_provision(cluster_id, role_sequence)
@@ -5956,6 +5963,7 @@ class VncServerManager():
         provision_status = {}
         provision_status['server'] = []
         cluster_id = provisioning_data['cluster_id']
+        smgr_prov_log = ServerMgrProvlogger(cluster_id)
         server_packages = provisioning_data['server_packages']
         contrail_image_id = provisioning_data.get('contrail_image_id',None)
         #Validate the vip configurations for the cluster
@@ -6073,6 +6081,8 @@ class VncServerManager():
             provision_status['server'].append(server_status)
             self._smgr_log.log(self._smgr_log.DEBUG,
                   "%s added in the provision server list" %server['ip_address'])
+            smgr_prov_log.log("debug",
+                  "%s added in the provision server list" %server['ip_address'])
             #end of for
         return provision_server_list, role_sequence, provision_status
     # end prepare_provision
@@ -6136,6 +6146,10 @@ class VncServerManager():
             provision_item = ('provision', provision_server_list,
                                         cluster_id, role_sequence)
             self._reimage_queue.put_nowait(provision_item)
+            self._sm_prov_log = ServerMgrProvlogger(cluster_id)
+            self._sm_prov_log.log("debug",
+                               "provision queued. Number of servers " \
+                               "provisioned is %d:" %len(provision_server_list))
             self._smgr_log.log(self._smgr_log.DEBUG,
                                "provision queued. Number of servers " \
                                "provisioned is %d:" %len(provision_server_list))
@@ -6651,9 +6665,11 @@ class VncServerManager():
                   'provisioned_id': package.get('id', '')}
             self._serverDb.modify_server(update)
         except subprocess.CalledProcessError as e:
+            self._sm_prov_log = ServerMgrProvlogger(cluster['id'])
             msg = ("do_provision_server: error %d when executing"
                    "\"%s\"" %(e.returncode, e.cmd))
             self._smgr_log.log(self._smgr_log.ERROR, msg)
+            self._sm_prov_log.log("error", msg)
         except Exception as e:
             raise e
 # end _do_provision_server

@@ -20,6 +20,7 @@ import yaml
 import uuid
 from server_mgr_err import *
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from server_mgr_logger import SMProvisionLogger as ServerMgrProvlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from esxi_contrailvm import ContrailVM as ContrailVM
 from contrail_defaults import *
@@ -610,6 +611,7 @@ class ServerMgrPuppet:
         # The new way to create necessary puppet manifest files and parameters data.
         # The existing method is kept till the new method is well tested and confirmed
         # to be working.
+        self._sm_prov_log = ServerMgrProvlogger(cluster['id'])
         package_params = package.get("parameters", {})
         puppet_manifest_version = package_params.get(
             'puppet_manifest_version', "")
@@ -621,9 +623,15 @@ class ServerMgrPuppet:
         else:
             # old puppet manifests not supported anymore, log message
             # and return
+            self._sm_prov_log.log(
+                "debug",
+                "No environment for version found AND this version does not support old contrail puppet manifest (2.0 and before)")
             self._smgr_log.log(
                 self._smgr_log.DEBUG,
                 "No environment for version found AND this version does not support old contrail puppet manifest (2.0 and before)")
+            self._sm_prov_log.log(
+                "debug",
+                "Use server manager version 2.21 or earlier if you have old style contrail puppet manifests")
             self._smgr_log.log(
                 self._smgr_log.DEBUG,
                 "Use server manager version 2.21 or earlier if you have old style contrail puppet manifests")
