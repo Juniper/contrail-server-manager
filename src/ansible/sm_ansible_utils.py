@@ -4,9 +4,10 @@ import pycurl
 import ConfigParser
 import subprocess
 import json
+import yaml
 import pdb
 import glob
-import shutil
+import copy
 from StringIO import StringIO
 
 #sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -249,6 +250,26 @@ class SMAnsibleUtils():
     def __init__(self, logger):
         self.logger = logger
 
+    def merge_dict(self, d1, d2):
+        for k,v2 in d2.items():
+            v1 = d1.get(k) # returns None if v1 has no value for this key
+            if ( isinstance(v1, dict) and
+                 isinstance(v2, dict) ):
+                self.merge_dict(v1, v2)
+            elif v1:
+                #do nothing, Retain value
+                #msg = "%s already present in dict d1," \
+                #    "Retaining value %s against %s" % (k, v1, v2)
+                #if self.logger:
+                #    self.logger.log(self.logger.DEBUG, msg)
+                pass
+            else:
+                #do nothing, Retain value
+                #msg = "adding %s:%s" % (k, v1)
+                #if self.logger:
+                #    self.logger.log(self.logger.DEBUG, msg)
+                d1[k] = copy.deepcopy(v2)
+
     def hosts_in_inventory(self, inventory):
         hosts = []
         for role in _valid_roles:
@@ -280,7 +301,9 @@ class SMAnsibleUtils():
                         url = url + ("%s=%s" % (k,v))
                 else:
                     url = url + '?' + payload
-            self.logger.log(self.logger.INFO, "Sending post request to %s" % url)
+            if self.logger:
+                self.logger.log(self.logger.INFO,
+                                "Sending post request to %s" % url)
             conn.setopt(pycurl.URL, url)
             conn.setopt(pycurl.HTTPHEADER, headers)
             conn.setopt(pycurl.POST, 1)
