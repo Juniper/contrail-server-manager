@@ -662,6 +662,33 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
 
         return STATUS_VALID
 
+    def create_kolla_param_files(self, pw, glbl, pbook_dir):
+        self.logger.log(self.logger.INFO,"Changing globals and passwords files")
+        pw_file_name = pbook_dir + '/../etc/kolla/passwords.yml'
+        try:
+            with open(pw_file_name) as kolla_pws:
+                SMAnsibleUtils(self.logger).merge_dict(pw, yaml.load(kolla_pws))
+        except IOError as e :
+            self.logger.log(self.logger.INFO,
+                    "%s : Creating %s" % (e, pw_file_name))
+        finally:
+            with open(pw_file_name, 'w+') as kolla_pws:
+                yaml.dump(pw, kolla_pws, explicit_start=True,
+                        default_flow_style=False, width=1000)
+
+        gl_file_name = pbook_dir + '/../etc/kolla/globals.yml'
+        try:
+            with open(gl_file_name) as kolla_globals:
+                SMAnsibleUtils(self.logger).merge_dict(glbl,
+                               yaml.load(kolla_globals))
+        except IOError as e :
+            self.logger.log(self.logger.INFO,
+                    "%s : Creating %s" % (e, gl_file_name))
+        finally:
+            with open(gl_file_name, 'w+') as kolla_globals:
+                yaml.dump(glbl, kolla_globals, explicit_start=True,
+                          default_flow_style=False, width=1000)
+
 
     def run_playbook(self, pb, kolla, action):
         cluster_id = self.json_entity[0]["cluster_id"]
@@ -675,6 +702,9 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
             if kolla:
                 inv_file = inv_dir + cluster_id + "_kolla.inv"
                 inv_dict = parameters["kolla_inv"]
+                kolla_pwds = parameters['kolla_passwords']
+                kolla_vars = parameters['kolla_globals']
+                self.create_kolla_param_files(kolla_pwds, kolla_vars, pbook_dir)
                 ev = { 'action': action }
                 with open(pbook_dir + '/../etc/kolla/globals.yml') as info:
                     ev.update(yaml.load(info))
@@ -684,7 +714,7 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
                 inv_file = inv_dir + cluster_id + ".inv"
                 inv_dict = parameters["inventory"]
                 self.current_status = self.validate_provision_params(inv_dict, self.args)
-         
+
             Options = namedtuple('Options', ['connection', 'forks', 'module_path',
                              'become', 'become_method', 'become_user', 'check',
                              'listhosts', 'listtasks', 'listtags', 'syntax',
@@ -695,7 +725,7 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
                                check=False, listhosts=None, listtasks=None,
                                listtags=None, syntax=None, verbosity=None,
                                extra_vars=ev)
-         
+
             self.logger.log(self.logger.INFO, "Creating inventory %s for playbook %s" %
                     (inv_file, self.pbook_path))
             SMAnsibleUtils(None).create_inv_file(inv_file, inv_dict)
@@ -717,7 +747,7 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
             if rv != 0:
                 self.current_status = STATUS_FAILED
                 self.update_status()
-                self.logger.log(self.logger.ERROR, 
+                self.logger.log(self.logger.ERROR,
                         "Playbook Failed: %s" % self.pbook_path)
                 rv = None
             else:
@@ -730,7 +760,7 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
         return rv
 
     def run(self):
-        self.logger.log(self.logger.INFO, 
+        self.logger.log(self.logger.INFO,
             "Executing Ansible Playbook Actions: %s" % self.tasks)
         if 'openstack_bootstrap' in self.tasks:
             rv = self.run_playbook("kolla_bootstrap_pb", True,
