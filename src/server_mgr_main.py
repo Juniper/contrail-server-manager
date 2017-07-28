@@ -360,6 +360,9 @@ class VncServerManager():
 
         self._smgr_log.log(self._smgr_log.INFO, "Starting Server Manager")
         #TODO: Temporarily disable kolla-openstack for 4.x - use puppet for now
+        # To turn on Kolla-ansible for openstack, uncomment the next line and
+        # remove the one with ContrailVersion(None, 5, 0, 0, 0)
+        #self.last_puppet_version = ContrailVersion(None, 4, 0, 0, 0)
         self.last_puppet_version = ContrailVersion(None, 5, 0, 0, 0)
 
         #Create an instance of Transaction logger
@@ -896,7 +899,7 @@ class VncServerManager():
         return ret_data
 
     def validate_smgr_put(self, validation_data, request, data=None,
-                                modify = False):
+                                                        modify = False):
         ret_data = {}
         ret_data['status'] = 1
         try:
@@ -1852,8 +1855,6 @@ class VncServerManager():
         image_path     = image.get("path", None)
         image_type     = image.get("type", None)
         image_params   = image.get("parameters", {})
-        #TODO: should be possible to specify version per container
-        # inside the parameters
         image_version  = image.get("version", None)
         image_category = image.get("category", None)
 
@@ -4059,6 +4060,7 @@ class VncServerManager():
         inv = {}
         params   = {}
         cluster_inv, kolla_inv = self.get_container_inventory(cluster)
+        kolla_pwds, kolla_vars = self.get_container_kolla_params(cluster)
         merged_inv = cluster_inv
         if not cluster_inv:
             msg = "No Inventory definition found in cluster json"
@@ -4208,6 +4210,8 @@ class VncServerManager():
             merged_inv["[all:vars]"]["esxi_hosts"] = esxi_hosts
         inv["inventory"] = merged_inv
         inv["kolla_inv"] = kolla_inv
+        inv["kolla_passwords"] = kolla_pwds
+        inv["kolla_globals"]   = kolla_vars
         inv["contrail_deploy_pb"] = str(_DEF_BASE_PLAYBOOKS_DIR)+ \
                 "/"+package.get('id','')+"/playbooks/site.yml"
         inv["kolla_deploy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
@@ -5650,6 +5654,17 @@ class VncServerManager():
         }
     # end build_calculated_package_params
 
+    def get_cluster_provision_cfg_section(self, cluster, section):
+        params = cluster.get("parameters", {})
+        if params:
+            prov = params.get("provision", {})
+            if prov:
+                if not section:
+                    return prov
+                if section in prov.keys():
+                    return prov[section]
+        return {}
+
     def get_cluster_openstack_cfg_section(self, cluster, section):
         params = cluster.get("parameters", {})
         if params:
@@ -6188,6 +6203,71 @@ class VncServerManager():
 
     # end build_calculated_inventory_params
 
+    # This function needs to be called after build_calculated_inventory_params
+    def build_calculated_kolla_params(self, cluster, cluster_servers, pkg):
+
+        os = self.get_cluster_openstack_cfg_section(cluster, None)
+
+        # calculated values go into this dict
+        kolla_passwds = {}
+        kolla_globals = {}
+        pub_key = None
+        priv_key = None
+        for srvr in cluster_servers:
+            server_roles = eval(srvr.get('roles', '[]'))
+            if 'openstack' in server_roles:
+                pub_key = srvr["ssh_public_key"]
+                priv_key = srvr["ssh_private_key"]
+
+
+        # passwords from openstack section of cluster JSON
+        kolla_passwds["glance_database_password"] = os["glance"]["password"]
+        kolla_passwds["glance_keystone_password"] = os["glance"]["password"]
+
+        kolla_passwds["ceilometer_database_password"] = os["ceilometer"]["password"]
+        kolla_passwds["ceilometer_keystone_password"] = os["ceilometer"]["password"]
+
+        kolla_passwds["cinder_database_password"] = os["cinder"]["password"]
+        kolla_passwds["cinder_keystone_password"] = os["cinder"]["password"]
+
+        kolla_passwds["heat_database_password"] = os["heat"]["password"]
+        kolla_passwds["heat_keystone_password"] = os["heat"]["password"]
+
+        kolla_passwds["kolla_ssh_key"] = {}
+        kolla_passwds["kolla_ssh_key"]["public_key"] = pub_key
+        kolla_passwds["kolla_ssh_key"]["private_key"] = priv_key
+        kolla_passwds["nova_ssh_key"] = {}
+        kolla_passwds["nova_ssh_key"]["public_key"] = pub_key
+        kolla_passwds["nova_ssh_key"]["private_key"] = priv_key
+        kolla_passwds["keystone_ssh_key"] = {}
+        kolla_passwds["keystone_ssh_key"]["public_key"] = pub_key
+        kolla_passwds["keystone_ssh_key"]["private_key"] = priv_key
+        kolla_passwds["bifrost_ssh_key"] = {}
+        kolla_passwds["bifrost_ssh_key"]["public_key"] = pub_key
+        kolla_passwds["bifrost_ssh_key"]["private_key"] = priv_key
+        # Passwords from 'kolla_passwords' section of cluster JSON takes highest
+        # precedence. 
+        # FIXME: Revisit how to keep the passwords in kolla_passwords section in
+        # sync with the openstack section of the cluster JSON
+        pw_from_json = self.get_cluster_provision_cfg_section(cluster,
+                "kolla_passwords")
+        self.merge_dict(pw_from_json, kolla_passwds)
+
+        # globals:
+        # For now there is nothing to derive for kolla - Add derivation logic
+        # here to populate the kolla_globals dict
+
+        # Merge values from "kolla_globals" section of cluster JSON
+        globals_from_json = self.get_cluster_provision_cfg_section(cluster,
+                "kolla_globals")
+        self.merge_dict(globals_from_json, kolla_globals)
+
+        cluster["parameters"]["provision"]["containers"]["kolla_passwds"] = \
+                pw_from_json
+        cluster["parameters"]["provision"]["containers"]["kolla_globals"] = \
+                globals_from_json
+    #end build_calculated_kolla_params
+
     def build_calculated_provision_params(
             self, server, cluster, role_servers, cluster_servers, package):
         # Build cluster calculated parameters
@@ -6201,6 +6281,9 @@ class VncServerManager():
             server, cluster, package)
         # Build calculated inventory parameters
         self.build_calculated_inventory_params(cluster, cluster_servers, package)
+        # Build calculated kolla openstack parameters - this should be called
+        # after build_calculated_inventory_params
+        self.build_calculated_kolla_params(cluster, cluster_servers, package)
     # end build_calculated_provision_params
 
     def prepare_provision(self, provisioning_data):
@@ -6845,6 +6928,27 @@ class VncServerManager():
             containers = prov.get("containers", {})
         return containers
 
+    def get_container_kolla_params(self, parent):
+        inventory = {}
+        kolla_inv = {}
+        containers = {}
+        params     = parent.get("parameters", {})
+        if isinstance(params, unicode):
+            pparams = eval(params)
+            prov    = pparams.get("provision", {})
+        else:
+            prov       = params.get("provision", {})
+
+        if (prov):
+            containers = prov.get("containers", {})
+
+        if (containers):
+            kolla_pwds = containers.get("kolla_passwds", {})
+            kolla_globals = containers.get("kolla_globals", {})
+
+        return kolla_pwds, kolla_globals
+
+
     def get_container_inventory(self, parent):
         inventory = {}
         kolla_inv = {}
@@ -6903,10 +7007,6 @@ class VncServerManager():
             if _container_img_keys[x] not in params:
                 params[_container_img_keys[x]] = img
 
-    #FIXME: STUB - Use appropriate logic to return image verison
-    def get_image_version(self, pkg):
-        return 5
-        
     # Internal private call to provision server. This is called by REST API
     # provision_server and provision_cluster
     def _do_provision_server(
@@ -6914,9 +7014,6 @@ class VncServerManager():
         cluster, cluster_servers, package, serverDb):
 
         # For version >= 4.0.1 all roles use puppet. Just return here...
-        #FIXME: RAMP - use the right function to get the version and add the
-        #logic here to properly decide whether to do puppet or ansible for
-        #openstack
         if ContrailVersion(package) > self.last_puppet_version:
             return
 
