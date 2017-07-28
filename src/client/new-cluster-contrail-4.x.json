@@ -157,7 +157,7 @@
                         },
                         "ceilometer": {
                             "ttl": 7200,
-                            "polling_interval": 600,
+                            "polling_interval": 600
                         },
                         "amqp" : {
                             "server_ip": "",
@@ -180,6 +180,152 @@
                             "nfs_server": "",
                             "nfs_glance_path": ""
                         }
+                    },
+                    "kolla_globals": {
+                        "kolla_base_distro": "ubuntu",
+                        "openstack_release": "4.0.0",
+                        "kolla_internal_vip_address": "192.168.1.22",
+                        "enable_haproxy": "no",
+                        "docker_registry": "192.168.1.1:4000",
+                        "keystone_admin_url": "{{ admin_protocol }}://{{ kolla_internal_fqdn }}:{{ keystone_admin_port }}",
+                        "keystone_internal_url": "{{ internal_protocol }}://{{ kolla_internal_fqdn }}:{{ keystone_public_port }}",
+                        "keystone_public_url": "{{ public_protocol }}://{{ kolla_external_fqdn }}:{{ keystone_public_port }}",
+                        "enable_nova": "yes",
+                        "network_interface": "eth1",
+                        "neutron_external_interface": "eth2",
+                        "neutron_plugin_agent": "openvswitch",
+                        "nova_compute_image_full": "192.168.1.1:4000/kolla/ubuntu-binary-nova-compute:5.0.0",
+                        "neutron_server_image_full": "192.168.1.1:4000/kolla/ubuntu-binary-neutron-server: 5.0.0",
+                        "enable_neutron_opencontrail": "yes",
+                        "contrail_api_interface_address": "192.168.1.21"
+                    },
+                    "kolla_passwords": {
+                        "ceph_cluster_fsid": "c0ntrail123",
+                        "rbd_secret_uuid": "c0ntrail123",
+                        "cinder_rbd_secret_uuid": "c0ntrail123",
+
+                        "database_password": "c0ntrail123",
+
+                        "docker_registry_password": "c0ntrail123",
+
+                        "aodh_database_password": "c0ntrail123",
+                        "aodh_keystone_password": "c0ntrail123",
+
+                        "barbican_database_password": "c0ntrail123",
+                        "barbican_keystone_password": "c0ntrail123",
+                        "barbican_p11_password": "c0ntrail123",
+                        "barbican_crypto_key": "c0ntrail123",
+                        "barbican_crypto_password": "c0ntrail123",
+
+                        "keystone_admin_password": "c0ntrail123",
+                        "keystone_database_password": "c0ntrail123",
+
+                        "grafana_database_password": "c0ntrail123",
+                        "grafana_admin_password": "c0ntrail123",
+
+                        "glance_database_password": "c0ntrail123",
+                        "glance_keystone_password": "c0ntrail123",
+
+                        "gnocchi_database_password": "c0ntrail123",
+                        "gnocchi_keystone_password": "c0ntrail123",
+
+                        "karbor_database_password": "c0ntrail123",
+                        "karbor_keystone_password": "c0ntrail123",
+                        "karbor_openstack_infra_id": "c0ntrail123",
+
+                        "kuryr_keystone_password": "c0ntrail123",
+
+                        "nova_database_password": "c0ntrail123",
+                        "nova_api_database_password": "c0ntrail123",
+                        "nova_keystone_password": "c0ntrail123",
+
+                        "placement_keystone_password": "c0ntrail123",
+
+                        "neutron_database_password": "c0ntrail123",
+                        "neutron_keystone_password": "c0ntrail123",
+
+                        "cinder_database_password": "c0ntrail123",
+                        "cinder_keystone_password": "c0ntrail123",
+
+                        "cloudkitty_database_password": "c0ntrail123",
+                        "cloudkitty_keystone_password": "c0ntrail123",
+
+                        "panko_database_password": "c0ntrail123",
+                        "panko_keystone_password": "c0ntrail123",
+
+                        "freezer_database_password": "c0ntrail123",
+                        "freezer_keystone_password": "c0ntrail123",
+
+                        "sahara_database_password": "c0ntrail123",
+                        "sahara_keystone_password": "c0ntrail123",
+
+                        "designate_database_password": "c0ntrail123",
+                        "designate_pool_manager_database_password": "c0ntrail123",
+                        "designate_keystone_password": "c0ntrail123",
+                        "designate_pool_id": "c0ntrail123",
+                        "designate_rndc_key": "c0ntrail123",
+
+                        "swift_keystone_password": "c0ntrail123",
+                        "swift_hash_path_suffix": "c0ntrail123",
+                        "swift_hash_path_prefix": "c0ntrail123",
+
+                        "heat_database_password": "c0ntrail123",
+                        "heat_keystone_password": "c0ntrail123",
+                        "heat_domain_admin_password": "c0ntrail123",
+
+                        "murano_database_password": "c0ntrail123",
+                        "murano_keystone_password": "c0ntrail123",
+
+                        "ironic_database_password": "c0ntrail123",
+                        "ironic_keystone_password": "c0ntrail123",
+
+                        "ironic_inspector_database_password": "c0ntrail123",
+                        "ironic_inspector_keystone_password": "c0ntrail123",
+
+                        "magnum_database_password": "c0ntrail123",
+                        "magnum_keystone_password": "c0ntrail123",
+
+                        "mistral_database_password": "c0ntrail123",
+                        "mistral_keystone_password": "c0ntrail123",
+
+                        "trove_database_password": "c0ntrail123",
+                        "trove_keystone_password": "c0ntrail123",
+
+                        "ceilometer_database_password": "c0ntrail123",
+                        "ceilometer_keystone_password": "c0ntrail123",
+
+                        "watcher_database_password": "c0ntrail123",
+                        "watcher_keystone_password": "c0ntrail123",
+
+                        "congress_database_password": "c0ntrail123",
+                        "congress_keystone_password": "c0ntrail123",
+
+                        "rally_database_password": "c0ntrail123",
+
+                        "senlin_database_password": "c0ntrail123",
+                        "senlin_keystone_password": "c0ntrail123",
+
+                        "solum_database_password": "c0ntrail123",
+                        "solum_keystone_password": "c0ntrail123",
+
+                        "horizon_secret_key": "c0ntrail123",
+                        "horizon_database_password": "c0ntrail123",
+
+                        "telemetry_secret_key": "c0ntrail123",
+
+                        "manila_database_password": "c0ntrail123",
+                        "manila_keystone_password": "c0ntrail123",
+
+                        "octavia_database_password": "c0ntrail123",
+                        "octavia_keystone_password": "c0ntrail123",
+                        "octavia_ca_password": "c0ntrail123",
+
+                        "searchlight_keystone_password": "c0ntrail123",
+
+                        "tacker_database_password": "c0ntrail123",
+                        "tacker_keystone_password": "c0ntrail123",
+
+                        "memcache_secret_key": "c0ntrail123"
                     }
                 }
             }
