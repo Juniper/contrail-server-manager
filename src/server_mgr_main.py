@@ -255,6 +255,7 @@ class VncServerManager():
                           "parameters.provision.openstack.nova.password",
                           "parameters.provision.openstack.horizon.password",
                           "parameters.provision.openstack.neutron.password",
+                          "parameters.provision.openstack.neutron.shared_secret",
                           "parameters.provision.openstack.heat.password",
                           "parameters.provision.openstack.heat.encryption_key",
                           "parameters.provision.openstack.ceilometer.password",
@@ -5930,6 +5931,11 @@ class VncServerManager():
         cur_inventory["[all:vars]"]["rabbitmq_user"] = rabbitmq_user
         cur_inventory["[all:vars]"]["rabbitmq_password"] = rabbitmq_password
 
+        # Plugin the configured or generated neutron metadata proxy shared secret to inventory
+        ops_neutron_cfg = cluster_ops_cfg.get("neutron", {})
+        neutron_metadata_proxy_shared_secret = ops_neutron_cfg.get("shared_secret","")
+        cur_inventory["[all:vars]"]["neutron_metadata_proxy_shared_secret"] = neutron_metadata_proxy_shared_secret
+
         # If there are external Openstack servers outside the cluster, we wish to provision neutron plugin
         if "global_config" in contrail_4 and "external_openstack_servers" in contrail_4["global_config"] and \
           len(contrail_4["global_config"]["external_openstack_servers"]):
@@ -6829,6 +6835,9 @@ class VncServerManager():
             rabbitmq_params = openstack_params.get("rabbitmq", {})
             rabbitmq_params["password"] = rabbitmq_params.get("password", self.random_string(12))
             openstack_params["rabbitmq"] = rabbitmq_params
+            neutron_params = openstack_params.get("neutron", {})
+            neutron_params["shared_secret"] = neutron_params.get("shared_secret", self.random_string(12))
+            openstack_params["neutron"] = neutron_params
             #generate passwords for service
             self._plug_service_passwords(openstack_params, "glance", "password",
                                                     keystone_params["admin_password"])
