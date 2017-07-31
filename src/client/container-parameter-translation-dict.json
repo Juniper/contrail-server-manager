@@ -63,6 +63,10 @@
     "newname": "openstack.ceilometer.ttl",
     "newformat": "integer"
   },
+  "neutron_metadata_proxy_shared_secret": {
+    "name": "parameters.provision.openstack.neutron.shared_secret",
+    "format": "boolean"
+  },
   "cloud_orchestrator": {
     "newname": "contrail_4.global_config.cloud_orchestrator",
     "newformat": "string"
