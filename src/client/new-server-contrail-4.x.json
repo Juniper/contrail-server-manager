@@ -205,6 +205,7 @@
                 "contrail-analytics",
                 "contrail-analyticsdb",
                 "contrail-compute",
+                "contrail-vcenter-compute",
                 "contrail-lb",
                 "contrail-ceph-controller",
                 "contrail-ceph-compute",
