@@ -54,8 +54,10 @@ from sm_ansible_utils import *
 from sm_ansible_utils import _container_img_keys
 from sm_ansible_utils import _valid_roles
 from sm_ansible_utils import _inventory_group
+from sm_ansible_utils import _non_container_roles
 from sm_ansible_utils import AGENT_CONTAINER
 from sm_ansible_utils import BARE_METAL_COMPUTE
+from sm_ansible_utils import VCENTER_COMPUTE
 from sm_ansible_utils import _DEF_BASE_PLAYBOOKS_DIR 
 from sm_ansible_utils import CONTROLLER_CONTAINER
 from sm_ansible_utils import ANALYTICS_CONTAINER
@@ -1008,7 +1010,7 @@ class VncServerManager():
         # adding role here got the role in hieradata yaml file
         optional_role_list = ["storage-compute", "storage-master", "tsn",
                               "toragent", "loadbalancer", "global_controller",
-                              "contrail-vc-plugin"]
+                              "contrail-vc-plugin","contrail-vcenter-compute"]
         optional_role_set = set(optional_role_list)
 
         cluster_role_list = []
@@ -5998,15 +6000,17 @@ class VncServerManager():
 
             smutil = ServerMgrUtil()
             x = smutil.calculate_kernel_upgrade(x,package["calc_params"])
+
+            # The host specific variables from contrail_4 of the server json
+            var_list = self.build_calculated_srvr_inventory_params(x)
+
             vr_if_str = None
             server_roles = eval(x.get('roles', '[]'))
             server_roles_set = set(server_roles)
             if len(ansible_roles_set.intersection(server_roles_set)) == 0:
                 continue
-            grp_line = str(x["ip_address"])
 
-            # The host specific variables from contrail_4 of the server json
-            var_list = self.build_calculated_srvr_inventory_params(x)
+            grp_line = str(x["ip_address"])
 
             for role in server_roles:
                 self.set_container_image_for_role(cur_inventory["[all:vars]"],
@@ -6037,6 +6041,9 @@ class VncServerManager():
                     if role == AGENT_CONTAINER:
                         cur_inventory["[all:vars]"]["contrail_compute_mode"] = \
                                 "container"
+                    if role == VCENTER_COMPUTE:
+                        cur_inventory["[all:vars]"]["vcenter_compute_mode"] = \
+                                self.get_vcenter_compute_mode(package)
                     grp = "[" + _inventory_group[role] + "]"
                     if grp in cur_inventory:
                         # compare x['ip_address'] to the first word of the
@@ -6752,10 +6759,20 @@ class VncServerManager():
 
         return inventory, kolla_inv
 
+    # The Vcenter compute mode is container for Ocata Sku and bare_metal for lower
+    def get_vcenter_compute_mode(self,package):
+        package_params = package['parameters']
+        openstack_sku = package_params['sku']
+        if int(openstack_sku.partition(":")[2].split('.')[0]) >= 15:
+            return "container"
+        else:
+            return "bare_metal"
 
     def get_container_image_for_role(self, role, package):
         if role == BARE_METAL_COMPUTE or role == OPENSTACK_CONTAINER or \
             role == CEPH_COMPUTE:
+            return None
+        if role == VCENTER_COMPUTE and self.get_vcenter_compute_mode(package) == "bare_metal":
             return None
         container_image = self._args.docker_insecure_registries + \
                            '/' + package['id'] + '-' + role + ':' + \
