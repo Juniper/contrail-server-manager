@@ -137,8 +137,27 @@ class ContrailVersion(object):
             self.moderate_version = v2
             self.minor_version_1 = v3
             self.minor_version_2 = v4
+        elif "contrail-container-package" not in package["parameters"]:
+            # Image is not a container version. Set version such
+            # that puppet gets triggered
+            self.major_version = 4
+            self.moderate_version = 0
+            self.minor_version_1 = 0
+            self.minor_version_2 = 0
         elif package["parameters"]["contrail-container-package"] != True:
-            raise ValueError
+            # Image is not a container version. Set version such
+            # that puppet gets triggered
+            self.major_version = 4
+            self.moderate_version = 0
+            self.minor_version_1 = 0
+            self.minor_version_2 = 0
+        elif "playbooks_version" not in package["parameters"]:
+            # Could not detect playbooks in image. Set version such
+            # that puppet gets triggered
+            self.major_version = 4
+            self.moderate_version = 0
+            self.minor_version_1 = 0
+            self.minor_version_2 = 0
         else:
             try:
                 version_list = re.split(r'[\.\-]',
