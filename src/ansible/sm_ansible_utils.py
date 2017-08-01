@@ -29,8 +29,11 @@ BARE_METAL_COMPUTE    = "contrail-compute"
 CEPH_CONTROLLER       = "contrail-ceph-controller"
 CEPH_COMPUTE          = "contrail-ceph-compute"
 VC_PLUGIN             = "contrail-vcenter-plugin"
+VCENTER_COMPUTE       = "vcenter-compute"
 OPENSTACK_CONTAINER   = "openstack"
 _DEF_BASE_PLAYBOOKS_DIR = "/opt/contrail/server_manager/ansible/playbooks"
+
+_non_container_roles = [VCENTER_COMPUTE]
 
 # Add new roles and corresponding container_name here
 _container_names = { CONTROLLER_CONTAINER  : 'controller',

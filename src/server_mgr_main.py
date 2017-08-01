@@ -54,8 +54,10 @@ from sm_ansible_utils import *
 from sm_ansible_utils import _container_img_keys
 from sm_ansible_utils import _valid_roles
 from sm_ansible_utils import _inventory_group
+from sm_ansible_utils import _non_container_roles
 from sm_ansible_utils import AGENT_CONTAINER
 from sm_ansible_utils import BARE_METAL_COMPUTE
+from sm_ansible_utils import VCENTER_COMPUTE
 from sm_ansible_utils import _DEF_BASE_PLAYBOOKS_DIR 
 from sm_ansible_utils import CONTROLLER_CONTAINER
 from sm_ansible_utils import ANALYTICS_CONTAINER
@@ -1008,7 +1010,7 @@ class VncServerManager():
         # adding role here got the role in hieradata yaml file
         optional_role_list = ["storage-compute", "storage-master", "tsn",
                               "toragent", "loadbalancer", "global_controller",
-                              "contrail-vc-plugin"]
+                              "contrail-vc-plugin","vcenter-compute"]
         optional_role_set = set(optional_role_list)
 
         cluster_role_list = []
@@ -5998,15 +6000,34 @@ class VncServerManager():
 
             smutil = ServerMgrUtil()
             x = smutil.calculate_kernel_upgrade(x,package["calc_params"])
+
+            # The host specific variables from contrail_4 of the server json
+            var_list = self.build_calculated_srvr_inventory_params(x)
+
             vr_if_str = None
             server_roles = eval(x.get('roles', '[]'))
             server_roles_set = set(server_roles)
             if len(ansible_roles_set.intersection(server_roles_set)) == 0:
-                continue
-            grp_line = str(x["ip_address"])
+                # For roles that do not have container but have to run from ansible code, we have to run them separately:
+                server_non_container_roles = server_roles_set.intersection(set(_non_container_roles))
+                if len(server_non_container_roles):
+                    for role in server_non_container_roles:
+                        role_grp = "[" + role + "]"
+                        if role_grp in cur_inventory:
+                          cur_inventory[role_grp].append(str(x["ip_address"]))
+                        else:
+                          cur_inventory[role_grp] = [ str(x["ip_address"]) ]
+                          cur_inventory["[all:children]"].append(role)
+                    indx = next(i for i,k in \
+                        enumerate(cur_inventory[role_grp]) if \
+                        x["ip_address"] in k)
+                    cur_inventory[role_grp][indx] = \
+                        cur_inventory[role_grp][indx] + var_list
+                    server_roles = server_roles_set.difference(set(_non_container_roles))
+                else:
+                    continue
 
-            # The host specific variables from contrail_4 of the server json
-            var_list = self.build_calculated_srvr_inventory_params(x)
+            grp_line = str(x["ip_address"])
 
             for role in server_roles:
                 self.set_container_image_for_role(cur_inventory["[all:vars]"],
@@ -6755,7 +6776,7 @@ class VncServerManager():
 
     def get_container_image_for_role(self, role, package):
         if role == BARE_METAL_COMPUTE or role == OPENSTACK_CONTAINER or \
-            role == CEPH_COMPUTE:
+            role == CEPH_COMPUTE or role == VCENTER_COMPUTE:
             return None
         container_image = self._args.docker_insecure_registries + \
                            '/' + package['id'] + '-' + role + ':' + \
