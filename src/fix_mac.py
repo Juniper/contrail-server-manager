@@ -21,23 +21,26 @@ def get_args():
 
     parser.add_argument('-p', '--password', required=True, action='store', help='Password to use.')
 
-    parser.add_argument('--mac', required=True, action='store', help='Mac address of the VM')
+    parser.add_argument('--nics', required=True, action='store', help='Mac address of the VM')
     parser.add_argument('--vm_name', required=True, action='store', help='Name of the VM')
 
     args = parser.parse_args()
 
     return args
 
-def update_mac(args, vm_obj):
+def update_mac(nic, vm_obj):
+    if nic:
+        mac = nic.split('*')[1]
+        pg = nic.split('*')[0]
     spec = vim.vm.ConfigSpec()
     nic_spec = vim.vm.device.VirtualDeviceSpec()
     nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
     for dev in vm_obj.config.hardware.device:
         if isinstance(dev, vim.vm.device.VirtualEthernetCard):
-            if dev.macAddress == args.mac:
+            if dev.deviceInfo.summary == pg.strip():
                 nic_spec.device = dev
-                # Assume this is standard switch for now
                 #nic_spec.device.backing = vim.vm.device.VirtualEthernetCard.NetworkBackingInfo()
+                nic_spec.device.macAddress = mac.strip()
                 nic_spec.device.addressType = 'manual'
     nic_update = [nic_spec]
     spec.deviceChange = nic_update
@@ -60,8 +63,12 @@ def main():
         print "VM %s not pressent" %(args.vm_name)
         exit(1)
     #net_obj = get_obj(si_content, [vim.Network], args.network_name)
-    task = update_mac(args, vm_obj)
-    wait_for_task(task)
+    nics = args.nics.split(',')
+    for nic in nics:
+        if not nic:
+           continue
+        task = update_mac(nic, vm_obj)
+        wait_for_task(task)
     connect.Disconnect(si)
 
 if __name__ == "__main__":
