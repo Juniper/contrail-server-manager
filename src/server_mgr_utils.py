@@ -137,8 +137,13 @@ class ContrailVersion(object):
             self.moderate_version = v2
             self.minor_version_1 = v3
             self.minor_version_2 = v4
-        elif package["parameters"]["contrail-container-package"] != True:
-            raise ValueError
+        elif package["parameters"].get("playbooks_version", False) == False:
+            # Could not detect playbooks in image. Set version such
+            # that puppet gets triggered
+            self.major_version = 4
+            self.moderate_version = 0
+            self.minor_version_1 = 0
+            self.minor_version_2 = 0
         else:
             try:
                 version_list = re.split(r'[\.\-]',
