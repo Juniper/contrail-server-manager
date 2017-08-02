@@ -164,11 +164,11 @@ class ServerMgrValidations:
         all_single = False
         all_multi = False
         for server in servers_dict:
-            param = eval(server['parameters'])
-            contrail = eval(server['contrail'])
-            if param['interface_name'] and contrail:
+            management_intf = eval(server['parameters'])['interface_name']
+            ctrl_data_intf = eval(server['contrail'])['control_data_interface']
+            if management_intf != ctrl_data_intf:
                 all_multi = True
-            elif param['interface_name']:
+            elif management_intf:
                 all_single = True
             else:
                 return None
@@ -298,7 +298,7 @@ class ServerMgrValidations:
         if len(config_only_list) > 1:
             #contrail internal vip has to be configured
             if not contrail_internal_vip:
-                raise Exception("Only contrail internal vip can be configured")
+                raise Exception("Contrail internal vip has to be configured")
             #If contrail external vip is configured it has to be the same the contrail internal vip
             if contrail_external_vip and contrail_external_vip != contrail_internal_vip:
                 raise Exception("contrail internal vip and contrail external vip have to be the same")
@@ -307,10 +307,10 @@ class ServerMgrValidations:
         if len(openstack_only_list) > 1:
             #internal vip has to be configured
             if not internal_vip:
-                raise Exception("Only internal vip can be configured")
+                raise Exception("Internal vip has to be configured")
             #If external vip is configured it has to be the same as internal vip
             if external_vip and external_vip != internal_vip:
-                raise Exception("contrail internal vip and contrail external vip have to be the same")
+                raise Exception("Internal vip and External vip have to be the same if there is only one interface")
             return
     
     #Function to do the configuration validation of vips 
