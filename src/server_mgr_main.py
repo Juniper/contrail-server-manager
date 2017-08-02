@@ -136,6 +136,7 @@ _DEF_COBBLER_KICKSTARTS_PATH = '/var/lib/cobbler/kickstarts/'
 _ENABLE_NEW_PUPPET_FRAMEWORK = True
 _ERR_INVALID_CONTRAIL_PKG = 'Invalid contrail package. Please specify a valid package'
 _ERR_OPENSTACK_SKU_NEEDED = 'openstack_sku image parameter has to be specified in the json file'
+_ERR_INVALID_IMAGE_ID = 'Invalid image id. The image id can contain only alphanumeric and _ characters in it'
 DEFAULT_PATH_LSTOPO_XML='/var/www/html/contrail/lstopo/'
 
 
@@ -1967,6 +1968,12 @@ class VncServerManager():
         "for progress"
         return False, msg
 
+    def is_valid_imageid(self, image_id):
+         pattern = re.compile("[a-zA-Z0-9_]*$")
+         if pattern.match(image_id):
+             return True
+         return False
+
     def put_image(self):
         entity = bottle.request.json
         add_db = True
@@ -2001,6 +2008,9 @@ class VncServerManager():
                                      "Image ID cannot start with digit")
                        raise ServerMgrException("Image ID cannot start with digit",
                                  ERR_OPR_ERROR)
+                    if (image_type == "contrail-ubuntu-package" or image_type == "contrail-centos-package") \
+                          and not self.is_valid_imageid(image_id):
+                        raise ServerMgrException(_ERR_INVALID_IMAGE_ID, ERR_OPR_ERROR)
                     if (image_type not in self._image_list):
                         msg = "image type not specified or invalid for image %s" %(
                                     image_id)
