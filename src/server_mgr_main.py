@@ -5629,9 +5629,13 @@ class VncServerManager():
             hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
             cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
             external_openstack_ip = cluster_ops_cfg.get("external_openstack_ip", None)
+            # If only external_vip is given, then it is ignored
             if hacfg and "internal_vip" in hacfg:
+                if "external_vip" in hacfg:
+                    openstack_cfg["management_ip"] = hacfg["external_vip"]
+                else:
+                    openstack_cfg["management_ip"] = hacfg["internal_vip"]
                 openstack_cfg["ctrl_data_ip"] = hacfg["internal_vip"]
-                openstack_cfg["management_ip"] = hacfg["external_vip"]
             elif external_openstack_ip:
                 openstack_cfg["ctrl_data_ip"] = external_openstack_ip
                 openstack_cfg["management_ip"] = external_openstack_ip
