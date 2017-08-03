@@ -4192,6 +4192,9 @@ class VncServerManager():
                     server_status = str(status_for_server["status"])
                     if server_status == "provision_completed":
                         wait_for_openstack_provision_flag = False
+        else:
+            # When there are no openstack nodes, just run 'contrail_deploy'
+            tasks = "contrail_deploy"
         self._do_ansible_provision_cluster(
                 provision_server_list, cluster, package, tasks)
 
