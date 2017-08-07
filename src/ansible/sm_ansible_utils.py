@@ -29,6 +29,7 @@ BARE_METAL_COMPUTE    = "contrail-compute"
 CEPH_CONTROLLER       = "contrail-ceph-controller"
 CEPH_COMPUTE          = "contrail-ceph-compute"
 VC_PLUGIN             = "contrail-vcenter-plugin"
+VCENTER_COMPUTE       = "contrail-vcenter-compute"
 OPENSTACK_CONTAINER   = "openstack"
 _DEF_BASE_PLAYBOOKS_DIR = "/opt/contrail/server_manager/ansible/playbooks"
 
@@ -42,6 +43,7 @@ _container_names = { CONTROLLER_CONTAINER  : 'controller',
                      CEPH_CONTROLLER       : 'ceph-master',
                      CEPH_COMPUTE          : 'ceph-compute',
                      VC_PLUGIN             : 'vcenterplugin',
+                     VCENTER_COMPUTE       : 'vcentercompute',
                      # Dummy - there wont be a container named 'openstack'
                      # This is just for code convenience
                      OPENSTACK_CONTAINER   : 'openstack' 
@@ -57,6 +59,7 @@ _inventory_group = { CONTROLLER_CONTAINER  : "contrail-controllers",
                      CEPH_CONTROLLER       : "ceph-controller",
                      CEPH_COMPUTE          : "ceph-compute",
                      VC_PLUGIN             : "contrail-vc-plugin",
+                     VCENTER_COMPUTE       : "contrail-vc-compute",
                      OPENSTACK_CONTAINER   : 'openstack' 
                    }
 
@@ -69,6 +72,7 @@ _container_img_keys = { CONTROLLER_CONTAINER  : "controller_image",
                         LB_CONTAINER          : "lb_image",
                         AGENT_CONTAINER       : "agent_image",
                         CEPH_CONTROLLER       : "storage_ceph_controller_image",
+                        VCENTER_COMPUTE       : "vcentercompute_image",
                         VC_PLUGIN             : "vcenterplugin_image" }
 
 ansible_valid_tasks = [ 'openstack_bootstrap',
