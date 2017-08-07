@@ -37,7 +37,8 @@ def update_mac(nic, vm_obj):
     nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
     for dev in vm_obj.config.hardware.device:
         if isinstance(dev, vim.vm.device.VirtualEthernetCard):
-            if dev.deviceInfo.summary == pg.strip():
+            if dev.deviceInfo.summary == pg.strip() or \
+               dev.macAddress == mac.strip():
                 nic_spec.device = dev
                 #nic_spec.device.backing = vim.vm.device.VirtualEthernetCard.NetworkBackingInfo()
                 nic_spec.device.macAddress = mac.strip()

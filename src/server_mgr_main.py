@@ -4161,7 +4161,7 @@ class VncServerManager():
             else:
                 vmnic = {}
                 vmnic['mac'] = mgmt_mac
-                vmnic['pg'] = contrail_esx_params['vcenter_server']\
+                vmnic['pg'] = compute_esx_params['vcenter_server']\
                                      ['dv_port_group_mgmt']\
                                        ['dv_portgroup_name']
                 vmnic['switch_name'] = dvs_mgmt_name
@@ -4190,7 +4190,7 @@ class VncServerManager():
             else:
                 vmnic = {}
                 vmnic['mac'] = control_data_mac
-                vmnic['pg'] = contrail_esx_params['vcenter_server']\
+                vmnic['pg'] = compute_esx_params['vcenter_server']\
                                      ['dv_port_group_control_data']\
                                        ['dv_portgroup_name']
                 vmnic['switch_name'] = dvs_ctrl_data_name
@@ -5774,8 +5774,7 @@ class VncServerManager():
         vc_plugin_dict['vc_url'] = "https://" + vc_server.values()[0]\
                                                 ['hostname'] + "/sdk"
         # set mode to vcenter-only if cloud_orchestrator is vcenter
-        if cluster['parameters']['provision']['contrail_4']\
-                           ['cloud_orchestrator'] == "vcenter":
+        if cont_params.get('cloud_orchestrator') == "vcenter":
             vc_plugin_dict['mode'] = "vcenter-only"
         vc_plugin_dict['introspect_port'] = "8234"
         # create mapfile entries
