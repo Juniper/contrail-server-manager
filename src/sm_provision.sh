@@ -34,6 +34,7 @@ NO_LOCAL_REPO=1
 LOCAL_REPO_DIR=/opt/contrail/contrail_local_repo
 CLUSTER_ID="cluster_auto_$RANDOM"
 SM_WEBUI_PORT=""
+TRANSLATION_DICT_PATH="/opt/contrail/contrail_server_manager/parameter-translation-dict.json"
 
 function usage()
 {
@@ -262,6 +263,7 @@ fi
 if [ ! -z "$CLUSTER_ID" ]; then
     optional_args="$optional_args --cluster-id $CLUSTER_ID"
 fi
+optional_args="$optional_args --translation-dict $TRANSLATION_DICT_PATH"
 cd $PROVISION_DIR && /opt/contrail/server_manager/client/testbed_parser.py --testbed ${TESTBED} --contrail-packages ${CONTRAIL_PKG} $optional_args
 
 echo "$arrow Pre provision checks to make sure setup is ready for contrail provisioning"

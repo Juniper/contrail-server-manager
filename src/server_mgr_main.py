@@ -639,6 +639,7 @@ class VncServerManager():
         bottle.route('/hw_server', 'PUT', self.add_hw_server)
 
         #smgr_add
+        bottle.route('/config', 'PUT', self.put_config)
         bottle.route('/server', 'PUT', self.put_server)
         bottle.route('/image', 'PUT', self.put_image)
         bottle.route('/cluster', 'PUT', self.put_cluster)
@@ -1967,8 +1968,9 @@ class VncServerManager():
         "for progress"
         return False, msg
 
-    def put_image(self):
-        entity = bottle.request.json
+    def put_image(self, entity=None):
+        if not entity:
+            entity = bottle.request.json
         add_db = True
         try:
             self.validate_smgr_entity("image", entity)
@@ -2150,8 +2152,9 @@ class VncServerManager():
         resp_msg = self.form_operartion_data(msg, 0, entity)
         return resp_msg
 
-    def put_cluster(self):
-        entity = bottle.request.json
+    def put_cluster(self, entity=None):
+        if not entity:
+            entity = bottle.request.json
         try:
             self.validate_smgr_entity("cluster", entity)
             cluster = entity.get('cluster', None)
@@ -2385,8 +2388,42 @@ class VncServerManager():
         resp_msg = self.form_operartion_data(msg, 0, entity)
         return resp_msg
 
-    def put_server(self):
+    def put_config(self):
         entity = bottle.request.json
+        try:
+            server_resp_msg = "Couldn't add servers"
+            cluster_resp_msg = "Couldn't add clusters"
+            image_resp_msg = "Couldn't add images"
+            clusters = entity.get("cluster", None)
+            if clusters:
+                cluster_resp_msg = self.put_cluster({"cluster": clusters})
+            servers = entity.get("server", None)
+            if servers:
+                server_resp_msg = self.put_server({"server": servers})
+            images = entity.get("image", None)
+            if images:
+                image_resp_msg = self.put_image({"image": images})
+        except ServerMgrException as e:
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            abort(404, resp_msg)
+        except Exception as e:
+            self.log_trace()
+            self._smgr_trans_log.log(bottle.request,
+                                     self._smgr_trans_log.PUT_SMGR_CFG_SERVER, False)
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                            None)
+            abort(404, resp_msg)
+        config_resp = ""
+        config_resp = config_resp + cluster_resp_msg + "\n"
+        config_resp = config_resp + server_resp_msg + "\n"
+        config_resp = config_resp + image_resp_msg + "\n"
+        return config_resp
+
+    def put_server(self, entity=None):
+        if not entity:
+            entity = bottle.request.json
         if (not entity):
             msg = 'Server MAC or server_id not specified'
             resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)

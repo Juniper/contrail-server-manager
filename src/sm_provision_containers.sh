@@ -49,7 +49,6 @@ function usage()
     echo -e  "\t-ni|--no-install-sm-lite"
     echo -e "\t-cp|--cleanup-puppet-agent"
     echo -e "\t-j|--json"
-    echo -e "\t-t|--testbed <testbed.py>"
     echo -e "\t-swp|--sm-webui-port"
     echo -e "\t-ip|--hostip"
     echo -e "\t-cid|--cluster-id <cluster-id>"
@@ -113,6 +112,20 @@ while [[ $# > 0 ]]
     shift # past argument or value
 done
 
+if [ ! -z "$TESTBED" ]
+then
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "$arrow The use of testbed.py as an input to Server Manager has been deprecated!"
+    echo "$arrow Please convert the testbed.py you have provided as input to a JSON using the testbed_parser utility"
+    echo "$arrow You can invoke the utility as below:"
+    echo "python /opt/contrail/contrail_server_manager/testbed_parser.py -t <path to testbed.py> -c <path to contrail-package>"
+    echo "$arrow This script will create a file - combined.json - Which you can use as an input to the provision script as below:"
+    echo "/opt/contrail/server_manager/client/provision_containers.sh -j <Path to combined.json>"
+    echo "$arrow This script will now exit"
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    exit
+fi
+
 function get_real_path ()
 {
     eval contrail_package=$1
@@ -123,6 +136,11 @@ function get_real_path ()
     fi
 }
 
+function install_sm_lite ()
+{
+  ./setup.sh --all --smlite $optional_args
+}
+
 if [ "$CLEANUP_PUPPET_AGENT" != "" ]; then
    echo "$arrow Remove puppet agent, if it is present"
    cleanup_puppet_agent
@@ -131,15 +149,35 @@ fi
 # Install sever manager 
 if [ "$INSTALL_SM_LITE" != "" ]; then
 
-   echo "$arrow Install server manager without cobbler option"
+   echo "$arrow Installing server manager without cobbler option"
    pushd /opt/contrail/contrail_server_manager >> $log_file 2>&1
    optional_args=""
    if [ ! -z "$HOSTIP" ]; then
        optional_args="--hostip=$HOSTIP"
    fi
-   ./setup.sh --all --smlite --no-external-repos $optional_args
-   popd >> $log_file 2>&1
 
+   # Check if SM is already installed
+   installed_version=`dpkg -l | grep "contrail-server-manager-lite " | awk '{print $3}'`
+   check_upgrade=1
+   skipping_install=0
+   if [ "$installed_version" != ""  ]; then
+      version_to_install=`ls /opt/contrail/contrail_server_manager/packages/contrail-server-manager-lite_* | cut -d'_' -f 4`
+      set +e
+      comparison=`dpkg --compare-versions $installed_version lt $version_to_install`
+      check_upgrade=`echo $?`
+      set -e
+      if [[ $check_upgrade == 0 ]]; then
+          install_sm_lite
+      elif [[ "$installed_version" == "$version_to_install" ]]; then
+          echo "$space$arrow Same version of SM already installed, skipping install"
+          skipping_install=1
+      else
+          echo "$space$arrow Higher version of SM already installed, skipping install"
+          skipping_install=1
+      fi
+   else
+     install_sm_lite
+   fi
 fi 
 
 if [ -f /etc/contrail/config.global.sm.js ]  && [ "$SM_WEBUI_PORT" != "" ]
@@ -149,75 +187,39 @@ then
   service supervisor-webui-sm restart >> $log_file 2>&1
 fi
 
-if [ ! -z "$TESTBED" ]
-then
-    # Verify Mandatory Arguments exists
-    if [ "$TESTBED" == "" ] || [ "$CONTRAIL_PKG" == "" ]; then
-       echo "ONE OF CONTRAIL CLOUD IMAGE OR TESTBED MISSING"
-       exit
-    fi
+# Verify Mandatory Arguments exists
+if [ "$JSON_PATH" == "" ]; then
+   echo "JSON FILE CONTAINING CLUSTER, SERVER AND IMAGE OBJECTS IS MISSING"
+   exit
+fi
+# set cluster, server and image json file paths.
+CLUSTER_JSON_PATH="$PROVISION_DIR/cluster.json"
+SERVER_JSON_PATH="$PROVISION_DIR/server.json"
+IMAGE_JSON_PATH="$PROVISION_DIR/image.json"
+$(python -c "import json;\
+             fid = open('$JSON_PATH', 'r');\
+             data = json.load(fid);\
+             fid.close();\
+             fid = open('$CLUSTER_JSON_PATH', 'w');\
+             json.dump({'cluster': data['cluster']}, fid, indent=4);\
+             fid.close();\
+             fid = open('$SERVER_JSON_PATH', 'w');\
+             json.dump({'server': data['server']}, fid, indent=4);\
+             fid.close();\
+             fid = open('$IMAGE_JSON_PATH', 'w');\
+             json.dump({'image': data['image']}, fid, indent=4);\
+             fid.close();\
+             ")
 
-    # Update with real path
-    CONTRAIL_PKG=$(get_real_path $CONTRAIL_PKG)
-    TESTBED=$(get_real_path $TESTBED)
+read CLUSTER_ID <<< $(python -c "import json;\
+                        fid = open('${CLUSTER_JSON_PATH}', 'r');\
+                        data = json.load(fid);\
+                        fid.close();\
+                        print data['cluster'][0]['id']")
 
-    echo "$space$arrow Convert testbed.py to server manager entities"
-    # Convert testbed.py to server manager object json files
-    optional_args=""
-    if [ ! -z "$CLUSTER_ID" ]; then
-        optional_args="$optional_args --cluster-id $CLUSTER_ID"
-    fi
-
-    optional_args="$optional_args --translation-dict $TRANSLATION_DICT_PATH"
-
-    cd $PROVISION_DIR && /opt/contrail/server_manager/client/testbed_parser.py --testbed ${TESTBED} --contrail-cloud-package ${CONTRAIL_PKG} $optional_args
-    # Retrieve info from json files
-    cd $PROVISION_DIR && CLUSTER_ID=$(python -c "import json;\
-                                      fid = open('cluster.json', 'r');\
-                                      data = json.load(fid);\
-                                      fid.close();\
-                                      print data['cluster'][0]['id']")
-
-    CLUSTER_JSON_PATH="$PROVISION_DIR/cluster.json"
-    SERVER_JSON_PATH="$PROVISION_DIR/server.json"
-    IMAGE_JSON_PATH="$PROVISION_DIR/image.json"
-else
-    # Verify Mandatory Arguments exists
-    if [ "$JSON_PATH" == "" ]; then
-       echo "JSON FILE CONTAINING CLUSTER, SERVER AND IMAGE OBJECTS IS MISSING"
-       exit
-    fi
-
-    # set cluster, server and image json file paths.
-    CLUSTER_JSON_PATH="$PROVISION_DIR/cluster.json"
-    SERVER_JSON_PATH="$PROVISION_DIR/server.json"
-    IMAGE_JSON_PATH="$PROVISION_DIR/image.json"
-    $(python -c "import json;\
-                 fid = open('$JSON_PATH', 'r');\
-                 data = json.load(fid);\
-                 fid.close();\
-                 fid = open('$CLUSTER_JSON_PATH', 'w');\
-                 json.dump({'cluster': data['cluster']}, fid, indent=4);\
-                 fid.close();\
-                 fid = open('$SERVER_JSON_PATH', 'w');\
-                 json.dump({'server': data['server']}, fid, indent=4);\
-                 fid.close();\
-                 fid = open('$IMAGE_JSON_PATH', 'w');\
-                 json.dump({'image': data['image']}, fid, indent=4);\
-                 fid.close();\
-                 ")
-
-    read CLUSTER_ID <<< $(python -c "import json;\
-                            fid = open('${CLUSTER_JSON_PATH}', 'r');\
-                            data = json.load(fid);\
-                            fid.close();\
-                            print data['cluster'][0]['id']")
-
-    if [ "$CLUSTER_ID" == "" ]; then
-        echo "CLUSTER ID MISSING"
-        exit
-    fi
-
+if [ "$CLUSTER_ID" == "" ]; then
+    echo "CLUSTER ID MISSING"
+    exit
 fi
 
 # Retrieve info from json files
