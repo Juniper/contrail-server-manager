@@ -44,7 +44,6 @@ openstack::nova::libvirt_type: 'kvm'
 openstack::nova::password: $openstack::keystone::admin_password
 ######## Neutron
 openstack::neutron::password: $openstack::keystone::admin_password
-openstack::neutron::shared_secret : $openstack::keystone::admin_password
 neutron::bind_port: '9697'
 ######## Ceilometer
 openstack::ceilometer::mongo: $openstack::keystone::admin_password
