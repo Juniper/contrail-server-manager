@@ -748,12 +748,6 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
             if rv == None:
                 return rv
 
-        if 'openstack_post_deploy_contrail' in self.tasks:
-            rv = self.run_playbook("kolla_post_deploy_contrail_pb", True,
-                    "post-deploy-contrail")
-            if rv == None:
-                return rv
-
         if 'openstack_destroy' in self.tasks:
             rv = self.run_playbook("kolla_destroy_pb", True, "destroy")
             if rv == None:
@@ -762,6 +756,13 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
         if 'contrail_deploy' in self.tasks:
             rv = self.run_playbook("contrail_deploy_pb", False,
                     "contrail-deploy")
+            if rv == None:
+                return rv
+
+        # This has to happen after contrail_deploy
+        if 'openstack_post_deploy_contrail' in self.tasks:
+            rv = self.run_playbook("kolla_post_deploy_contrail_pb", True,
+                    "post-deploy-contrail")
             if rv == None:
                 return rv
 

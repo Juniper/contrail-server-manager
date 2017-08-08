@@ -133,13 +133,15 @@ class DictUtils():
 class ContrailVersion(object):
     def __init__(self, package, v1 = 0, v2 = 0, v3 = 0, v4 = 0):
         if package == None:
+            self.os_sku = 14
             self.major_version = v1
             self.moderate_version = v2
             self.minor_version_1 = v3
             self.minor_version_2 = v4
-        elif package["parameters"].get("playbooks_version", False) == False:
+        elif eval(str(package["parameters"])).get("playbooks_version", False) == False:
             # Could not detect playbooks in image. Set version such
             # that puppet gets triggered
+            self.os_sku = 14
             self.major_version = 4
             self.moderate_version = 0
             self.minor_version_1 = 0
@@ -147,7 +149,12 @@ class ContrailVersion(object):
         else:
             try:
                 version_list = re.split(r'[\.\-]',
-                        package["parameters"]["playbooks_version"])
+                        eval(str(package["parameters"]))["playbooks_version"])
+                # sku is of the following format:
+                # 2:14.0.2-0ubuntu1~cloud0.1contrail
+                # here, 14 represents the openstack sku - newton
+                sku_list = re.split(r'[:.]', eval(str(package["parameters"]))["sku"])
+                self.os_sku = sku_list[1]
                 self.major_version = version_list[0]
                 self.moderate_version = version_list[1]
                 self.minor_version_1 = version_list[2]
@@ -156,6 +163,10 @@ class ContrailVersion(object):
                 raise KeyError
 
     def __gt__(self, other):
+        if int(self.os_sku) < 15:
+            # Always return False for openstack sku less than ocata (15)
+            # so that ansible can be triggered only for ocata or higher
+            return False
         if int(self.major_version) > int(other.major_version):
             return True
         if int(self.major_version) == int(other.major_version) and \
