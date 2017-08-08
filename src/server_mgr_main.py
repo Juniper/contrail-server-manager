@@ -64,7 +64,7 @@ from sm_ansible_utils import LB_CONTAINER
 from sm_ansible_utils import CEPH_COMPUTE
 from sm_ansible_utils import CEPH_CONTROLLER
 from sm_ansible_utils import OPENSTACK_CONTAINER
-from sm_ansible_utils import kolla_inv_hosts, kolla_inv_groups
+from sm_ansible_utils import kolla_inv_hosts, kolla_inv_groups, kolla_pw_keys
 from server_mgr_docker import SM_Docker
 from server_mgr_storage import generate_storage_keys, build_storage_config, \
                                get_calculated_storage_ceph_cfg_dict
@@ -361,11 +361,14 @@ class VncServerManager():
             print "Error Creating logger object"
 
         self._smgr_log.log(self._smgr_log.INFO, "Starting Server Manager")
-        #TODO: Temporarily disable kolla-openstack for 4.x - use puppet for now
-        # To turn on Kolla-ansible for openstack, uncomment the next line and
-        # remove the one with ContrailVersion(None, 5, 0, 0, 0)
-        #self.last_puppet_version = ContrailVersion(None, 4, 0, 0, 0)
-        self.last_puppet_version = ContrailVersion(None, 5, 0, 0, 0)
+        self.last_puppet_version = ContrailVersion(None, 4, 0, 0, 0)
+        msg = "Setting last_puppet_version to %s:%s:%s:%s:%s" % (
+                str(self.last_puppet_version.os_sku),
+                str(self.last_puppet_version.major_version),
+                str(self.last_puppet_version.moderate_version),
+                str(self.last_puppet_version.minor_version_1),
+                str(self.last_puppet_version.minor_version_2))
+        self._smgr_log.log(self._smgr_log.INFO, msg)
 
         #Create an instance of Transaction logger
         try:
@@ -4058,12 +4061,39 @@ class VncServerManager():
                           (device, ipaddr, netmask, gateway)
         return routes_str
 
+    def self_provision(self, payload):
+        ret_data = {}
+        ret_data['status'] = 0
+        ret_data['cluster_id'] = payload['cluster_id']
+        ret_data['tasks'] = payload['tasks']
+        ret_data['package_image_id'] = payload['contrail_image_id']
+        ret_data['contrail_image_id'] =payload['contrail_image_id']
+        match_dict = {}
+        match_dict['cluster_id'] = payload['cluster_id']
+        servers = self._serverDb.get_server(match_dict, detail=True)
+        if len(servers) == 0:
+            return
+        ret_data['servers'] = servers
+        ret_data['server_packages'] = self.get_server_packages(servers,
+                payload['contrail_image_id'])
+        provision_server_list, role_seq, prov_status = \
+                self.prepare_provision(ret_data)
+        provision_item = ('provision', provision_server_list, cluster_id,
+                role_seq, payload['tasks'])
+        self._reimage_queue.put_nowait(provision_item)
+
+
     # Function to verify that SM Lite node with compute role finished provision after reboot
     def verify_smlite_provision(self):
         smgr_ip = self._args.listen_ip_addr
         servers = self._serverDb.get_server({'ip_address': smgr_ip}, detail=True)
         if servers:
             smlite_server = servers[0]
+            smlite_cluster = self._serverDb.get_cluster( \
+                    {'id': smlite_server['cluster_id']}, detail=True)
+            smlite_pkg_id = smlite_server["provisioned_id"]
+            smlite_pkg = self._serverDb.get_image(\
+                    {'id': smlite_pkg_id}, detail=True)
             smlite_server_status = smlite_server["status"]
             smlite_server_roles = smlite_server["roles"]
             #FIXME: This needs a revisit - it should be independent of
@@ -4076,9 +4106,23 @@ class VncServerManager():
                 server_control_ip = self.get_control_ip(smlite_server)
                 result = self.ansible_utils.ansible_verify_provision_complete(server_control_ip)
                 if result:
-                    status = "provision_completed"
-                    self._smgr_log.log(self._smgr_log.INFO,
-                         "Completed SM Lite provisioning for server %s" % \
+                    if ContrailVersion(smlite_pkg[0]) > self.last_puppet_version:
+                        payload = {}
+                        payload['contrail_image_id'] = smlite_pkg_id
+                        payload['cluster_id'] = smlite_server['cluster_id']
+                        payload['tasks'] = 'openstack_post_deploy_contrail'
+
+                        status = "post_provision_in_progress"
+                        self._serverDb.modify_server(update)
+                        self._smgr_log.log(self._smgr_log.INFO,
+                           "Running SM Lite provisioning (task "\
+                           "openstack_post_deply_contrail) for server %s" % \
+                                           (smlite_server['id']))
+                        self.self_provision(payload)
+                    else:
+                        status = "provision_completed"
+                        self._smgr_log.log(self._smgr_log.INFO,
+                           "Completed SM Lite provisioning for server %s" % \
                                            (smlite_server['id']))
                 else:
                     status = "provision_failed"
@@ -4113,8 +4157,6 @@ class VncServerManager():
             merged_inv["[all:vars]"]["ansible_user"]="root"
             merged_inv["[all:vars]"]["ansible_password"] = \
                     server["password"]
-            if ContrailVersion(package) > self.last_puppet_version:
-                merged_inv["[all:vars]"]["openstack_sku"] = 'ocata'
 
             # Needed for logging infra to do per-provision logging
             merged_inv["[all:vars]"]["cluster_id"] = \
@@ -4167,11 +4209,11 @@ class VncServerManager():
                 'cluster_id': cluster['id'], 'parameters': inv, "tasks": tasks}
         pp.append(copy.deepcopy(parameters))
 
-        #update = {'id': server['id'],
-        #        'status' : 'openstack_started',
-        #        'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
-        #        'provisioned_id': package.get('id', '')}
-        #self._serverDb.modify_server(update)
+        update = {'id': server['id'],
+                'status' : 'openstack_started',
+                'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                'provisioned_id': package.get('id', '')}
+        self._serverDb.modify_server(update)
         #SMAnsibleUtils(self._smgr_log).send_REST_request(self._args.ansible_srvr_ip,
         #              self._args.ansible_srvr_port,
         #              _ANSIBLE_OPENSTACK_PROVISION_ENDPOINT, pp)
@@ -6086,10 +6128,16 @@ class VncServerManager():
     def build_calculated_kolla_params(self, cluster, cluster_servers, pkg):
 
         os = self.get_cluster_openstack_cfg_section(cluster, None)
+        ks = self.get_cluster_openstack_cfg_section(cluster, "keystone")
 
         # calculated values go into this dict
         kolla_passwds = {}
         kolla_globals = {}
+        kolla_globals["cluster_id"] = cluster['id']
+        kolla_globals["contrail_apt_repo"] = \
+                    "[arch=amd64] http://" + str(self._args.listen_ip_addr) + "/contrail/repo/" + \
+                    pkg["contrail_image_id"] + " contrail main"
+        kolla_globals["contrail_docker_registry"] = self._args.docker_insecure_registries
         pub_key = None
         priv_key = None
         for srvr in cluster_servers:
@@ -6098,6 +6146,10 @@ class VncServerManager():
                 pub_key = srvr["ssh_public_key"]
                 priv_key = srvr["ssh_private_key"]
 
+        # By default populate with keystone admin password for all keys in the
+        # kolla passwords.yml file
+        for x in kolla_pw_keys:
+            kolla_passwds[x] = ks["admin_password"]
 
         # passwords from openstack section of cluster JSON
         kolla_passwds["glance_database_password"] = os["glance"]["password"]
@@ -6112,6 +6164,11 @@ class VncServerManager():
         kolla_passwds["heat_database_password"] = os["heat"]["password"]
         kolla_passwds["heat_keystone_password"] = os["heat"]["password"]
 
+        kolla_passwds["swift_keystone_password"] = os["swift"]["password"]
+        kolla_passwds["swift_hash_path_suffix"] = os["swift"]["password"]
+        kolla_passwds["swift_hash_path_prefix"] = os["swift"]["password"]
+
+        # keys
         kolla_passwds["kolla_ssh_key"] = {}
         kolla_passwds["kolla_ssh_key"]["public_key"] = pub_key
         kolla_passwds["kolla_ssh_key"]["private_key"] = priv_key
@@ -6889,8 +6946,17 @@ class VncServerManager():
         self, provision_parameters, server,
         cluster, cluster_servers, package, serverDb):
 
-        # For version >= 4.0.1 all roles use puppet. Just return here...
+        # For version >= 4.0.1 (>= ocata) all roles use ansible. Just return here...
         if ContrailVersion(package) > self.last_puppet_version:
+            v = ContrailVersion(package)
+            msg = "%s:%s:%s:%s:%s > %s:%s:%s:%s:%s - Returning from _do_provision_server" % (str(v.os_sku),
+                    str(v.major_version), str(v.moderate_version), str(v.minor_version_1),
+                    str(v.minor_version_2), str(self.last_puppet_version.os_sku),
+                    str(self.last_puppet_version.major_version),
+                    str(self.last_puppet_version.moderate_version),
+                    str(self.last_puppet_version.minor_version_1),
+                    str(self.last_puppet_version.minor_version_2))
+            self._smgr_log.log(self._smgr_log.INFO, msg)
             return
 
         #Start the puppet agent in the target servers
