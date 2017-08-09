@@ -19,6 +19,10 @@
     "name": "parameters.provision.openstack.keystone.admin_user",
     "format": "string"
   },
+  "keystone.version": {
+    "newname": "openstack.keystone.version",
+    "newformat": "string"
+  },
   "keystone.admin_tenant": {
     "name": "parameters.provision.openstack.keystone.admin_tenant",
     "format": "string"
