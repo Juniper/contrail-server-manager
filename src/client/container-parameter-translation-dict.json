@@ -27,6 +27,10 @@
     "newname": "openstack.keystone.admin_user",
     "newformat": "string"
   },
+  "keystone.version": {
+    "newname": "openstack.keystone.version",
+    "newformat": "string"
+  },
   "keystone.admin_tenant": {
     "newname": "openstack.keystone.admin_tenant",
     "newformat": "string"
