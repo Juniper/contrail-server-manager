@@ -10,9 +10,9 @@
                      "cloud_admin_role", "analytics_aaa_mode", "haproxy", "do_parallel", "encap_priority", "http_proxy",
                      "enable_lbaas", "enable_ceilometer", "ceilometer_polling_interval", "ceilometer_ttl", "rally_git_url",
                      "rally_git_branch", "kernel_upgrade", "kernel_version"],
-  "server_params": ["hostnames", "passwords", "ostypes", "hypervisor", "qos_priority_tagging", "compute_as_gateway_mode", "md5"],
-  "cluster_dict_params": ["keystone", "nova", "ha", "openstack", "cfgm", "rsyslog_params", "rally_task_args"],
-  "server_dict_params": ["bond", "control_data", "storage_data", "storage_node_config", "dpdk", "vrouter_module_params"],
+  "server_params": ["hostnames", "passwords", "ostypes", "hypervisor", "qos_priority_tagging", "compute_as_gateway_mode"],
+  "cluster_dict_params": ["keystone", "nova", "ha", "openstack", "cfgm"],
+  "server_dict_params": ["bond", "control_data", "dpdk", "vrouter_module_params"],
   "server_dict_list_params": ["sriov", "static_route", "qos", "qos_niantic", "tor_agent"],
   "server_group_params": ["roledefs"],
   "server_nested_dict_params": ["vgw"]
