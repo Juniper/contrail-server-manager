@@ -213,6 +213,9 @@ class ServerMgrDb:
           host_name = server.get('host_name', "")
           server_id = server.get('id',"")
           self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], host_name))
+          # dhcp based server discovery will have server id as empty
+          if server_id == None or server_id == "":
+            continue
           if host_name is None or host_name == "":
               server['host_name'] = server_id.lower()
           else :
