@@ -4,9 +4,10 @@ import pycurl
 import ConfigParser
 import subprocess
 import json
+import yaml
 import pdb
 import glob
-import shutil
+import copy
 from StringIO import StringIO
 
 #sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -17,6 +18,95 @@ STATUS_VALID = "parameters_valid"
 STATUS_IN_PROGRESS = "provision_in_progress"
 STATUS_SUCCESS = "provision_completed"
 STATUS_FAILED  = "provision_failed"
+
+# Kolla password keys for populating etc/kolla/passwords.yml
+kolla_pw_keys = [
+	"ceph_cluster_fsid",
+	"rbd_secret_uuid",
+	"cinder_rbd_secret_uuid",
+	"database_password",
+	"docker_registry_password",
+	"aodh_database_password",
+	"aodh_keystone_password",
+	"barbican_database_password",
+	"barbican_keystone_password",
+	"barbican_p11_password",
+	"barbican_crypto_key",
+	"barbican_crypto_password",
+	"keystone_admin_password",
+	"keystone_database_password",
+	"grafana_database_password",
+	"grafana_admin_password",
+	"glance_database_password",
+	"glance_keystone_password",
+	"gnocchi_database_password",
+	"gnocchi_keystone_password",
+	"karbor_database_password",
+	"karbor_keystone_password",
+	"karbor_openstack_infra_id",
+	"kuryr_keystone_password",
+	"nova_database_password",
+	"nova_api_database_password",
+	"nova_keystone_password",
+	"placement_keystone_password",
+	"neutron_database_password",
+	"neutron_keystone_password",
+	"cinder_database_password",
+	"cinder_keystone_password",
+	"cloudkitty_database_password",
+	"cloudkitty_keystone_password",
+	"panko_database_password",
+	"panko_keystone_password",
+	"freezer_database_password",
+	"freezer_keystone_password",
+	"sahara_database_password",
+	"sahara_keystone_password",
+	"designate_database_password",
+	"designate_pool_manager_database_password",
+	"designate_keystone_password",
+	"designate_pool_id",
+	"designate_rndc_key",
+	"swift_keystone_password",
+	"swift_hash_path_suffix",
+	"swift_hash_path_prefix",
+	"heat_database_password",
+	"heat_keystone_password",
+        "heat_domain_admin_password",
+        "murano_database_password",
+        "murano_keystone_password",
+        "ironic_database_password",
+        "ironic_keystone_password",
+        "ironic_inspector_database_password",
+        "ironic_inspector_keystone_password",
+        "magnum_database_password",
+        "magnum_keystone_password",
+        "mistral_database_password",
+        "mistral_keystone_password",
+        "trove_database_password",
+        "trove_keystone_password",
+        "ceilometer_database_password",
+        "ceilometer_keystone_password",
+        "watcher_database_password",
+        "watcher_keystone_password",
+        "congress_database_password",
+        "congress_keystone_password",
+        "rally_database_password",
+        "senlin_database_password",
+        "senlin_keystone_password",
+        "solum_database_password",
+        "solum_keystone_password",
+        "horizon_secret_key",
+        "horizon_database_password",
+        "telemetry_secret_key",
+        "manila_database_password",
+        "manila_keystone_password",
+        "octavia_database_password",
+        "octavia_keystone_password",
+        "octavia_ca_password",
+        "searchlight_keystone_password",
+        "tacker_database_password",
+        "tacker_keystone_password",
+        "memcache_secret_key"]
 
 
 # Role strings
@@ -254,6 +344,26 @@ class SMAnsibleUtils():
     def __init__(self, logger):
         self.logger = logger
 
+    def merge_dict(self, d1, d2):
+        for k,v2 in d2.items():
+            v1 = d1.get(k) # returns None if v1 has no value for this key
+            if ( isinstance(v1, dict) and
+                 isinstance(v2, dict) ):
+                self.merge_dict(v1, v2)
+            elif v1:
+                #do nothing, Retain value
+                #msg = "%s already present in dict d1," \
+                #    "Retaining value %s against %s" % (k, v1, v2)
+                #if self.logger:
+                #    self.logger.log(self.logger.DEBUG, msg)
+                pass
+            else:
+                #do nothing, Retain value
+                #msg = "adding %s:%s" % (k, v1)
+                #if self.logger:
+                #    self.logger.log(self.logger.DEBUG, msg)
+                d1[k] = copy.deepcopy(v2)
+
     def hosts_in_inventory(self, inventory):
         hosts = []
         for role in _valid_roles:
@@ -285,7 +395,9 @@ class SMAnsibleUtils():
                         url = url + ("%s=%s" % (k,v))
                 else:
                     url = url + '?' + payload
-            self.logger.log(self.logger.INFO, "Sending post request to %s" % url)
+            if self.logger:
+                self.logger.log(self.logger.INFO,
+                                "Sending post request to %s" % url)
             conn.setopt(pycurl.URL, url)
             conn.setopt(pycurl.HTTPHEADER, headers)
             conn.setopt(pycurl.POST, 1)
