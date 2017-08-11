@@ -136,6 +136,7 @@ _DEF_COBBLER_KICKSTARTS_PATH = '/var/lib/cobbler/kickstarts/'
 _ENABLE_NEW_PUPPET_FRAMEWORK = True
 _ERR_INVALID_CONTRAIL_PKG = 'Invalid contrail package. Please specify a valid package'
 _ERR_OPENSTACK_SKU_NEEDED = 'openstack_sku image parameter has to be specified in the json file'
+_ERR_INVALID_IMAGE_ID = 'Invalid image id. The image id cannot begin with a number and can contain only alphanumeric and _ characters in it'
 DEFAULT_PATH_LSTOPO_XML='/var/www/html/contrail/lstopo/'
 
 
@@ -1971,6 +1972,16 @@ class VncServerManager():
         "for progress"
         return False, msg
 
+    def is_valid_imageid(self, image_id, image_type):
+         pattern = re.compile("[^0-9].*$")
+         if not pattern.match(image_id):
+             return False
+         if (image_type == "contrail-ubuntu-package" or image_type == "contrail-centos-package"):
+             pattern = re.compile("[a-zA-Z0-9_]*$")
+             if not pattern.match(image_id):
+                 return False
+         return True
+
     def put_image(self, entity=None):
         if not entity:
             entity = bottle.request.json
@@ -2001,11 +2012,9 @@ class VncServerManager():
                                      "image id or location not specified")
                         raise ServerMgrException("image id or location \
                                  not specified", ERR_OPR_ERROR)
-                    if image_id[0].isdigit():
-                       self._smgr_log.log(self._smgr_log.ERROR,
-                                     "Image ID cannot start with digit")
-                       raise ServerMgrException("Image ID cannot start with digit",
-                                 ERR_OPR_ERROR)
+                    if not self.is_valid_imageid(image_id, image_type):
+                        self._smgr_log.log(self._smgr_log.ERROR, _ERR_INVALID_IMAGE_ID)
+                        raise ServerMgrException(_ERR_INVALID_IMAGE_ID, ERR_OPR_ERROR)
                     if (image_type not in self._image_list):
                         msg = "image type not specified or invalid for image %s" %(
                                     image_id)
@@ -2607,7 +2616,9 @@ class VncServerManager():
             msg = "image category (%s) is not supported" % (image_category)
             self._smgr_log.log(self._smgr_log.ERROR, msg)
             raise ServerMgrException(msg, ERR_OPR_ERROR)
-
+        if not self.is_valid_imageid(image_id, image_type):
+            self._smgr_log.log(self._smgr_log.ERROR, _ERR_INVALID_IMAGE_ID)
+            raise ServerMgrException(_ERR_INVALID_IMAGE_ID, ERR_OPR_ERROR)
         db_images = self._serverDb.get_image(
             {'id' : image_id}, detail=False)
         if db_images:
