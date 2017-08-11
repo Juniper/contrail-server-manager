@@ -4175,6 +4175,9 @@ class VncServerManager():
             compute_esx_params = compute_params.get('esxi_parameters')
             if not compute_esx_params:
                 continue
+            # save the sm_id for the compute in contrail_vm stanza
+            # this is used in preconfig play in playbook
+            compute_esx_params['id_in_sm'] = compute['id']
 
             # create contrail_vm nic list with mac, pg, switch, type
             vmnics = []
