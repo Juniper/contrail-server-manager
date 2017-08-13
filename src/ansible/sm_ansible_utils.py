@@ -28,6 +28,8 @@ kolla_pw_keys = [
 	"docker_registry_password",
 	"aodh_database_password",
 	"aodh_keystone_password",
+        "rabbitmq_password",
+        "rabbitmq_cluster_cookie",
 	"barbican_database_password",
 	"barbican_keystone_password",
 	"barbican_p11_password",
