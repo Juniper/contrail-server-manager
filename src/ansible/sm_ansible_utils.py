@@ -561,7 +561,8 @@ class SMAnsibleUtils():
             for package in package_list:
                 package_name = str(package).partition(package_path+"/")[2]
                 package_name = str(package_name).partition('_')[0]
-                if package_name not in ['contrail-ansible', 'contrail-puppet','contrail-docker-images','contrail-cloud-docker-images', 'openstack-docker-images']:
+                if package_name not in ['contrail-ansible', 'contrail-puppet', 'contrail-vcenter-docker-images',
+                  'contrail-docker-images','contrail-cloud-docker-images', 'openstack-docker-images']:
                     cmd = "mkdir -p %s/%s" %(package_path,package_name)
                     subprocess.check_call(cmd, shell=True)
                     cmd = "tar -xvzf %s -C %s/%s > /dev/null" %(package, package_path, package_name)
@@ -575,7 +576,8 @@ class SMAnsibleUtils():
                        and openstack_sku != "liberty":
                         self.manipulate_openstack_extra_tgz(package_path, package_name, openstack_sku)
                     folder_list.append(folder_path)
-                elif package_name == "contrail-docker-images" or package_name == "contrail-cloud-docker-images":
+                elif package_name == "contrail-docker-images" or package_name == "contrail-cloud-docker-images" or \
+                 package_name == "contrail-vcenter-docker-images":
                     docker_images_package_list.append(package)
                 elif package_name == "openstack-docker-images":
                     openstack_images_package_list.append(package)
