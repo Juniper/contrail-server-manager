@@ -6263,6 +6263,10 @@ class VncServerManager():
     # This function needs to be called after build_calculated_inventory_params
     def build_calculated_kolla_params(self, cluster, cluster_servers, pkg):
 
+        # No use calculating anything if it is not going to be used
+        if not ContrailVersion(pkg) > self.last_puppet_version:
+            return
+
         os = self.get_cluster_openstack_cfg_section(cluster, None)
         ks = self.get_cluster_openstack_cfg_section(cluster, "keystone")
 
@@ -6326,8 +6330,18 @@ class VncServerManager():
         self.merge_dict(pw_from_json, kolla_passwds)
 
         # globals:
-        # For now there is nothing to derive for kolla - Add derivation logic
-        # here to populate the kolla_globals dict
+        # For now the only parameter that is derived is the image names
+        image_params = pkg.get("parameters", {})
+        for container in image_params.get("containers", None):
+            role = container.get("role", None)
+            if role in _openstack_containers:
+                role_with_underbar = re.sub(r'-', '_', role)
+                img_key = role_with_underbar + '_image_full'
+                container_image =  container.get("container_image", None)
+                if container_image:
+                    kolla_globals[img_key] = container_image
+
+        # Add any more derivations for globals.yml above this
 
         # Merge values from "kolla_globals" section of cluster JSON
         globals_from_json = self.get_cluster_provision_cfg_section(cluster,
