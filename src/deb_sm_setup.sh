@@ -320,6 +320,8 @@ if [ "$SM" != "" ]; then
   fi
 
   if [ $check_upgrade == 0 ]; then
+    # Take a backup of the existing dhcp.template
+    cp /etc/cobbler/dhcp.template /var/tmp/dhcp.template
     # Upgrade
     echo "$space$arrow Upgrading Server Manager"
     RESTART_SERVER_MANAGER="1"
@@ -415,6 +417,11 @@ rm -f /etc/apt/sources.list.d/smgr_sources.list >> $log_file 2>&1
 set +e
 apt-get update >> $log_file 2>&1
 set -e
+
+# In case of upgrade restore the saved dhcp.template back
+if [ $check_upgrade == 0 ]; then
+    mv /var/tmp/dhcp.template /etc/cobbler/dhcp.template
+fi
 
 sm_installed=`dpkg -l | grep "contrail-server-manager " || true`
 if [ "$sm_installed" != "" ]; then
