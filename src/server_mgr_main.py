@@ -2190,7 +2190,16 @@ class VncServerManager():
                     self._smgr_log.log(self._smgr_log.INFO,
                                 "generating ceph uuid/keys for storage")
                     generate_storage_keys(cur_cluster)
-                    self.generate_passwords(cur_cluster.get("parameters", {}))
+
+                    # If using vcenter, do not generate passwords
+                    provision_params = cur_cluster["parameters"].get(
+                        "provision", None)
+                    if provision_params:
+                        contrail_4_params = provision_params.get(
+                            "contrail_4", None)
+                    if (not contrail_4_params) or contrail_4_params.get(
+                            "cloud_orchestrator", None) != "vcenter":
+                        self.generate_passwords(cur_cluster.get("parameters", {}))
                     self._serverDb.add_cluster(cur_cluster)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
