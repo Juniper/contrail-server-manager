@@ -53,6 +53,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'ansible'))
 from sm_ansible_utils import *
 from sm_ansible_utils import _container_img_keys
 from sm_ansible_utils import _valid_roles
+from sm_ansible_utils import _openstack_containers
 from sm_ansible_utils import _inventory_group
 from sm_ansible_utils import AGENT_CONTAINER
 from sm_ansible_utils import BARE_METAL_COMPUTE
@@ -1959,7 +1960,7 @@ class VncServerManager():
     def validate_container_image(self, image_params, entity, image, cleanup_list):
         for container in image_params.get("containers", None):
             role  = container.get("role", None)
-            if role not in _valid_roles:
+            if role not in _valid_roles and role not in _openstack_containers:
                  self._smgr_log.log(self._smgr_log.ERROR,
                      "Invalid role in image json: %s" % role)
                  msg = "Invalid role in image json: %s" % role

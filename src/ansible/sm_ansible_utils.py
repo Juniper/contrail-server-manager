@@ -180,6 +180,53 @@ kolla_inv_hosts = {
         '[monitoring]' : []
 }
 
+_openstack_containers = [
+  'barbican-base',
+  'barbican-keystone-listener',
+  'base',
+  'cron',
+  'fluentd',
+  'glance-api',
+  'glance-base',
+  'glance-registry',
+  'haproxy',
+  'heat-api-cfn',
+  'heat-api',
+  'heat-base',
+  'heat-engine',
+  'horizon',
+  'keepalived',
+  'keystone-base',
+  'keystone-fernet',
+  'keystone-ssh',
+  'keystone',
+  'kolla-toolbox',
+  'mariadb',
+  'memcached',
+  'neutron-base',
+  'neutron-dhcp-agent',
+  'neutron-l3-agent',
+  'neutron-metadata-agent',
+  'neutron-openvswitch-agent',
+  'neutron-server',
+  'nova-api',
+  'nova-base',
+  'nova-compute-ironic',
+  'nova-compute',
+  'nova-conductor',
+  'nova-consoleauth',
+  'nova-libvirt',
+  'nova-novncproxy',
+  'nova-placement-api',
+  'nova-scheduler',
+  'nova-ssh',
+  'openstack-base',
+  'openvswitch-base',
+  'openvswitch-db-server',
+  'openvswitch-vswitchd',
+  'rabbitmq'
+]
+
 kolla_inv_groups = {
     '[chrony-server:children]' : ['control'],
     '[chrony:children]' : ['network', 'compute', 'storage', 'monitoring'],
@@ -500,13 +547,14 @@ class SMAnsibleUtils():
         puppet_package = None
         ansible_package = None
         docker_images_package_list = []
+        openstack_images_package_list = []
         search_package = package_path+"/*.tgz"
         package_list = glob.glob(search_package)
         if package_list:
             for package in package_list:
                 package_name = str(package).partition(package_path+"/")[2]
                 package_name = str(package_name).partition('_')[0]
-                if package_name not in ['contrail-ansible', 'contrail-puppet','contrail-docker-images','contrail-cloud-docker-images']:
+                if package_name not in ['contrail-ansible', 'contrail-puppet','contrail-docker-images','contrail-cloud-docker-images', 'openstack-docker-images']:
                     cmd = "mkdir -p %s/%s" %(package_path,package_name)
                     subprocess.check_call(cmd, shell=True)
                     cmd = "tar -xvzf %s -C %s/%s > /dev/null" %(package, package_path, package_name)
@@ -522,6 +570,8 @@ class SMAnsibleUtils():
                     folder_list.append(folder_path)
                 elif package_name == "contrail-docker-images" or package_name == "contrail-cloud-docker-images":
                     docker_images_package_list.append(package)
+                elif package_name == "openstack-docker-images":
+                    openstack_images_package_list.append(package)
                 cleanup_package_list.append(package)
     
         search_puppet_package = package_path+"/contrail-puppet*.tar.gz"
@@ -539,7 +589,7 @@ class SMAnsibleUtils():
         if deb_package_list:
             cmd = "mv %s/*.deb %s/contrail-repo/ > /dev/null" %(package_path, str(mirror))
             subprocess.check_call(cmd, shell=True)
-        return folder_list, cleanup_package_list, puppet_package, ansible_package, docker_images_package_list
+        return folder_list, cleanup_package_list, puppet_package, ansible_package, docker_images_package_list, openstack_images_package_list
     
     def unpack_ansible_playbook(self, ansible_package,mirror,image_id):
         # create ansible playbooks dir from the image tar
@@ -557,6 +607,11 @@ class SMAnsibleUtils():
             cmd = 'tar -xvzf %s -C %s/contrail-docker/ > /dev/null' % (docker_images_package,mirror)
         subprocess.check_call(cmd, shell=True)
     
+    def unpack_openstack_containers(self, openstack_images_package_list,mirror):
+        for openstack_images_package in openstack_images_package_list:
+            cmd = 'tar -xvzf %s -C %s/contrail-openstack-containers/ > /dev/null' % (openstack_images_package,mirror)
+        subprocess.check_call(cmd, shell=True)
+
     # Wrapper function for add_puppet_modules for contrail-docker-cloud image
     def unpack_puppet_manifests(self, puppet_package,mirror):
         cmd = ("cp %s %s/contrail-puppet/contrail-puppet-manifest.tgz" % (puppet_package, mirror))
@@ -591,8 +646,8 @@ class SMAnsibleUtils():
                     raise Exception
             else:
                 raise Exception
-          
-            cmd = "mkdir -p %s/contrail-repo %s/contrail-docker %s/contrail-puppet" %(mirror,mirror,mirror)
+
+            cmd = "mkdir -p %s/contrail-repo %s/contrail-docker %s/contrail-puppet %s/contrail-openstack-containers" %(mirror,mirror,mirror,mirror)
             subprocess.check_call(cmd, shell=True)
             cleanup_package_list = []
             folder_list = []
@@ -603,7 +658,8 @@ class SMAnsibleUtils():
             playbooks_version = None
     
             for folder in folder_list:
-                new_folder_list, new_cleanup_list, puppet_package_path, ansible_package, docker_images_package_list = self.untar_package_to_folder(mirror,str(folder), pkg_type, openstack_sku)
+                new_folder_list, new_cleanup_list, puppet_package_path, ansible_package, docker_images_package_list, openstack_images_package_list = \
+                  self.untar_package_to_folder(mirror,str(folder), pkg_type, openstack_sku)
                 if folder == mirror:
                     cleanup_package_list = new_folder_list + new_cleanup_list
                 folder_list += new_folder_list
@@ -613,6 +669,8 @@ class SMAnsibleUtils():
                     playbooks_version = self.unpack_ansible_playbook(ansible_package,mirror,image_id)
                 if docker_images_package_list != []:
                     self.unpack_containers(docker_images_package_list,mirror)
+                if openstack_images_package_list != []:
+                    self.unpack_openstack_containers(openstack_images_package_list,mirror)
                 if image_type == 'contrail-centos-package':
                     for filename in glob.glob(os.path.join(folder, '*.rpm')):
                         shutil.copy(filename, mirror + '/contrail-repo')
@@ -645,7 +703,20 @@ class SMAnsibleUtils():
                     image_params["containers"].append(container_dict.copy())
             cleanup_package_list.append(mirror+"/contrail-docker")
             cleanup_package_list.append(mirror+"/contrail-puppet")
-        
+
+            # Add openstack containers from tar file
+            ops_string_partition = 'ubuntu-binary-'
+            ops_container_base_path = mirror+"/contrail-openstack-containers"
+            ops_containers_list = glob.glob(ops_container_base_path+"/*.tar.gz")
+            for ops_container in ops_containers_list:
+                ops_container_details = {}
+                ops_container_path = str(ops_container)
+                role = ops_container_path.partition(str(ops_container_base_path)+'/')[2].rpartition(ops_string_partition)[2]
+                role = role.rpartition(".tar.gz")[0]
+                container_dict = {"role": role, "container_path": ops_container_path}
+                image_params["containers"].append(container_dict.copy())
+            cleanup_package_list.append(mirror+"/contrail-openstack-containers")
+
             image_params["cleanup_list"] = cleanup_package_list
             # change directory back to original
             os.chdir(cwd)
