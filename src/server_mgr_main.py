@@ -256,6 +256,7 @@ class VncServerManager():
                           "parameters.provision.openstack.nova.password",
                           "parameters.provision.openstack.horizon.password",
                           "parameters.provision.openstack.neutron.password",
+                          "parameters.provision.openstack.neutron.shared_secret",
                           "parameters.provision.openstack.heat.password",
                           "parameters.provision.openstack.heat.encryption_key",
                           "parameters.provision.openstack.ceilometer.password",
@@ -389,6 +390,7 @@ class VncServerManager():
         self._inventory_calc_funcs = {
             "global_config"         : self.get_calculated_global_cfg_dict,
             "keystone_config"       : self.get_calculated_keystone_cfg_dict,
+            "neutron_config"        : self.get_calculated_neutron_cfg_dict,
             "control_config"        : self.get_calculated_control_cfg_dict,
             "dns_config"            : self.get_calculated_dns_cfg_dict,
             "cassandra_config"      : self.get_calculated_cassandra_cfg_dict,
@@ -5849,6 +5851,13 @@ class VncServerManager():
             rabbitmq_cfg["password"] = ops_rabbitmq_cfg.get("password","guest")
         return rabbitmq_cfg
 
+    def get_calculated_neutron_cfg_dict(self, cluster, cluster_srvrs):
+        neutron_cfg = dict()
+        ops_neutron_cfg = self.get_cluster_openstack_cfg_section(cluster, "neutron")
+        if ops_neutron_cfg:
+            neutron_cfg["metadata_proxy_secret"] = ops_neutron_cfg.get("shared_secret","")
+        return neutron_cfg
+
     def build_calculated_srvr_feature_params(self, cluster_servers):
 
         collated_config = {}
@@ -7073,6 +7082,9 @@ class VncServerManager():
             if 'E' in heat_encryption_key:
                 heat_encryption_key = heat_encryption_key.replace('E','D')
                 openstack_params["heat"]["encryption_key"] = heat_encryption_key
+            neutron_params = openstack_params.get("neutron", {})
+            neutron_params["shared_secret"] = neutron_params.get("shared_secret", self.random_string(12))
+            openstack_params["neutron"] = neutron_params
 
 # End class VncServerManager()
 

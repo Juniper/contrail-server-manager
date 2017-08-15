@@ -152,6 +152,7 @@
                             "auth_port": 35357
                         },
                         "neutron" : {
+                            "shared_secret": "contrail123",
                             "service_protocol": "http",
                             "port": 9697
                         },
