@@ -187,6 +187,19 @@ kolla_inv_hosts = {
         '[monitoring]' : []
 }
 
+
+# Some <role>_image_full variables in kolla-ansible do not follow that rule.
+# The 'key' for this dict is the entry in _openstack_containers list and the
+# value is the actual variable name minus the '_image_full' string. For example
+# for the nova-placement-api role, the actual variable is
+# "placement_api_image_full"
+_openstack_image_exceptions = {
+        'nova-placement-api' : 'placement_api',
+        'openvswitch-db-server': 'openvswitch_db'
+}
+
+# Do not change any string in this list without making sure they do not break
+# the _openstack_image_exceptions dictionary above
 _openstack_containers = [
   'barbican-base',
   'barbican-keystone-listener',
