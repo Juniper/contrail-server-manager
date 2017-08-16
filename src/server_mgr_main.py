@@ -54,6 +54,7 @@ from sm_ansible_utils import *
 from sm_ansible_utils import _container_img_keys
 from sm_ansible_utils import _valid_roles
 from sm_ansible_utils import _openstack_containers
+from sm_ansible_utils import _openstack_image_exceptions
 from sm_ansible_utils import _inventory_group
 from sm_ansible_utils import AGENT_CONTAINER
 from sm_ansible_utils import BARE_METAL_COMPUTE
@@ -6081,18 +6082,6 @@ class VncServerManager():
                 self.set_container_image_for_role(cur_inventory["[all:vars]"],
                         role, package)
                 if role in _valid_roles:
-                    #if role == OPENSTACK_CONTAINER or role == BARE_METAL_COMPUTE:
-                    #    grp_line = grp_line + ' ansible_connection=ssh \
-                    #            ansible_ssh_pass=%s' % x['password']
-                    #    for g in kolla_inv_hosts:
-                    #        if role == BARE_METAL_COMPUTE and "compute" in g:
-                    #            if grp_line not in cur_kolla_inventory[g]:
-                    #                cur_kolla_inventory[g].append(grp_line)
-                    #        elif role == OPENSTACK_CONTAINER:
-                    #            if grp_line not in cur_kolla_inventory[g]:
-                    #                cur_kolla_inventory[g].append(grp_line)
-                    #    if role == OPENSTACK_CONTAINER:
-                    #        continue
                     if role == OPENSTACK_CONTAINER:
                         grp_line = grp_line + ' ansible_connection=ssh \
                                 ansible_ssh_pass=%s' % x['password']
@@ -6217,9 +6206,14 @@ class VncServerManager():
         # For now the only parameter that is derived is the image names
         image_params = pkg.get("parameters", {})
         for container in image_params.get("containers", None):
+            role_with_underbar = None
             role = container.get("role", None)
-            if role in _openstack_containers:
+            if role in _openstack_image_exceptions.keys():
+                role_with_underbar = re.sub(r'-', '_',
+                        _openstack_image_exceptions[role])
+            elif role in _openstack_containers:
                 role_with_underbar = re.sub(r'-', '_', role)
+            if role_with_underbar != None:
                 img_key = role_with_underbar + '_image_full'
                 container_image =  container.get("container_image", None)
                 if container_image:
