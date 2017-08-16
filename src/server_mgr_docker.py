@@ -1,4 +1,7 @@
 import os
+import re
+import json
+import subprocess
 from docker import Client
 from server_mgr_err import *
 from server_mgr_exception import ServerMgrException as ServerMgrException
@@ -29,9 +32,41 @@ class SM_Docker():
         if found == True:
             return None
 
+    def get_image_id(self, image):
+        try:
+            new_img_id = {}
+            tmpdir = "/tmp/contrail_docker"
+            cmd = ("mkdir -p %s" % tmpdir)
+            subprocess.check_call(cmd, shell=True)
+
+            cmd = ("tar xvzf %s -C %s > /dev/null" % (image, tmpdir))
+            subprocess.check_call(cmd, shell=True)
+
+            manifest_file = tmpdir + "/manifest.json"
+            if not os.path.isfile(manifest_file):
+                self._smgr_log.log(self._smgr_log.ERROR,
+                        "Could not determine image_id in %s" % image)
+                return None
+            f = open(manifest_file, 'r')
+            dt = json.load(f)
+            cfg = re.split(r'\.', dt[0]['Config'])
+            new_img_id['Id'] = str(cfg[0])
+
+            cmd = ("rm -rf %s" % tmpdir)
+            subprocess.check_call(cmd, shell=True)
+            self._smgr_log.log(self._smgr_log.DEBUG,
+                        "image_id for %s is %s" % (image, new_img_id['Id']))
+            return new_img_id
+        except Exception as e:
+            msg = "Unable to determine image_id for %s (%s)" % (image, e)
+            self._smgr_log.log(self._smgr_log.ERROR, msg)
+            return None
+
     def load_containers(self, image):
         try:
-            pre = self._docker_client.images()
+            imageid = self.get_image_id(image)
+            if imageid == None:
+                return [False, None]
 
             f = open(image, 'r')
             self._docker_client.load_image(f)
@@ -39,8 +74,7 @@ class SM_Docker():
             self._smgr_log.log(self._smgr_log.INFO, msg)
             f.close()
 
-            post = self._docker_client.images()
-            return [True, self.new_image(pre, post)]
+            return [True, imageid]
         except Exception as e:
             msg = "docker load failed for image %s: %s" % (image, e)
             self._smgr_log.log(self._smgr_log.INFO, msg)
