@@ -999,6 +999,8 @@ class ClusterJsonGenerator(BaseJsonGenerator):
         cluster_dict = {"id": self.cluster_id, "parameters": {}}
         cluster_dict['parameters']['provision'] = {}
         for allowed_key in translation_dict:
+            if allowed_key in host_specific_param_list:
+                continue
             if "." in allowed_key:
                 sub_dict_name = str(allowed_key).split('.')[0]
                 sub_dict_key = str(allowed_key).split('.')[1]
