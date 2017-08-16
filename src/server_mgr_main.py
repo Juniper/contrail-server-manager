@@ -5849,6 +5849,9 @@ class VncServerManager():
         # set mode to vcenter-only if cloud_orchestrator is vcenter
         if cont_params.get('cloud_orchestrator') == "vcenter":
             vc_plugin_dict['mode'] = "vcenter-only"
+        # else set it to vcenter-as-compute in case of vc as compute
+        else:
+            vc_plugin_dict['mode'] = "vcenter-as-compute"
         vc_plugin_dict['introspect_port'] = "8234"
         # create mapfile entries
         map_string = ""

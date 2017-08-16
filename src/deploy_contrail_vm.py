@@ -163,6 +163,25 @@ def keep_lease_alive(lease):
         except:
             return
 
+def auto_start_vm(si, args, vm_obj):
+    si_content = si.RetrieveContent()
+    objs = get_objects(si, args)
+    host = objs['host_obj']
+    vm_obj = get_obj(si_content, [vim.VirtualMachine], args.vm_name)
+    host_settings = vim.host.AutoStartManager.SystemDefaults()
+    host_settings.enabled = True
+    config = host.configManager.autoStartManager.config
+    config.defaults = host_settings
+    auto_power_info = vim.host.AutoStartManager.AutoPowerInfo()
+    auto_power_info.key = vm_obj
+    auto_power_info.startOrder = 1
+    auto_power_info.startAction = "powerOn"
+    auto_power_info.startDelay = -1
+    auto_power_info.stopAction = "powerOff"
+    auto_power_info.stopDelay = -1
+    auto_power_info.waitForHeartbeat = 'no'
+    config.powerInfo = [auto_power_info]
+    host.configManager.autoStartManager.ReconfigureAutostart(config)
 
 def main():
     args = get_args()
@@ -219,11 +238,12 @@ def main():
                 response = urllib2.urlopen(req)
             lease.HttpNfcLeaseComplete()
             keepalive_thread.join()
+            auto_start_vm(si, args, vm_obj)
+            connect.Disconnect(si)
             return 0
         elif lease.state == vim.HttpNfcLease.State.error:
             print "Lease error: %s" % lease.error
             exit(1)
-    connect.Disconnect(si)
 
 if __name__ == "__main__":
     exit(main())
