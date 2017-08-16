@@ -3,6 +3,7 @@
 import re
 import subprocess
 from server_mgr_defaults import *
+from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 """
    Name : server_mgr_utils.py
@@ -132,6 +133,7 @@ class DictUtils():
 
 class ContrailVersion(object):
     def __init__(self, package, v1 = 0, v2 = 0, v3 = 0, v4 = 0):
+        self.logger = ServerMgrlogger()
         if package == None:
             self.os_sku = 14
             self.major_version = v1
@@ -150,17 +152,29 @@ class ContrailVersion(object):
             try:
                 version_list = re.split(r'[\.\-]',
                         eval(str(package["parameters"]))["playbooks_version"])
-                # sku is of the following format:
-                # 2:14.0.2-0ubuntu1~cloud0.1contrail
-                # here, 14 represents the openstack sku - newton
-                sku_list = re.split(r'[:.]', eval(str(package["parameters"]))["sku"])
-                self.os_sku = sku_list[1]
+
+                if "sku" in package["parameters"]:
+                    # sku is of the following format:
+                    # 2:14.0.2-0ubuntu1~cloud0.1contrail
+                    # here, 14 represents the openstack sku - newton
+                    sku_list = re.split(r'[:.]',
+                            eval(str(package["parameters"]))["sku"])
+                    self.os_sku = sku_list[1]
+                else:
+                    self.os_sku = 14
                 self.major_version = version_list[0]
                 self.moderate_version = version_list[1]
                 self.minor_version_1 = version_list[2]
                 self.minor_version_2 = version_list[3]
-            except:
-                raise KeyError
+            except Exception as e:
+                self.logger.log(self.logger.ERROR, 
+                        "ContrailVersion failed: %s. Falling back to 14.4.0.0.0" % e)
+                # Could not detect SKU. Fall back to puppet scheme of things
+                self.os_sku = 14
+                self.major_version = 4
+                self.moderate_version = 0
+                self.minor_version_1 = 0
+                self.minor_version_2 = 0
 
     def __gt__(self, other):
         if int(self.os_sku) < 15:
