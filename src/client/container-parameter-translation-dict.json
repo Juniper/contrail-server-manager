@@ -469,6 +469,10 @@
     "name": "parameters.provision.contrail_4.compute_as_gateway_mode",
     "format": "string"
   },
+  "compute_controller_list": {
+    "name": "parameters.provision.contrail_4.compute_controller_list",
+    "format": "string"
+  },
   "qos_priority_tagging": {
     "name": "parameters.provision.contrail_4.qos_priority_tagging",
     "format": "boolean"
