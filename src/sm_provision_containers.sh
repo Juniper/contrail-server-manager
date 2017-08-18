@@ -309,7 +309,7 @@ COUNTER=1
 server-manager display image --image_id ${CONTRAIL_IMAGE_ID} | grep -w ${CONTRAIL_IMAGE_ID}
 exit_status=$?
 echo "$arrow Waiting for containers to get loaded"
-while [ $exit_status != 0 ] && [ $COUNTER -lt 40 ]
+while [ $exit_status != 0 ] && [ $COUNTER -lt 60 ]
 do
   sleep 15
   server-manager display image --image_id ${CONTRAIL_IMAGE_ID} | grep -w ${CONTRAIL_IMAGE_ID}
