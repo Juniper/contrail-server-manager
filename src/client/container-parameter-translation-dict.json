@@ -119,6 +119,10 @@
     "newname": "contrail_4.global_config.xmpp_auth_enable",
     "newformat": "boolean"
   },
+  "metadata_ssl_enable": {
+    "newname": "contrail_4.global_config.metadata_ssl_enable",
+    "newformat": "boolean"
+  },
   "uve_partition_count": {
     "newname": "contrail_4.global_config.uve_partition_count",
     "newformat": "integer"
