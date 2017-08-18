@@ -406,7 +406,6 @@ class VncServerManager():
             "openstack_config"      : self.get_calculated_openstack_cfg_dict,
             "rabbitmq_config"       : self.get_calculated_rabbitmq_cfg_dict,
             "storage_ceph_config"   : get_calculated_storage_ceph_cfg_dict,
-            "vc_plugin_config"      : self.get_calculated_vcplugin_dict
         }
                 
 
@@ -4193,9 +4192,11 @@ class VncServerManager():
                 elif intf['name'] == control_data_intf_name:
                     control_data_mac = intf['mac_address']
 
-            # susbstitue vc server for host
+            # substitute vc server for host
+            vc_srvr_str = compute_esx_params["vcenter_server"] + "_" + \
+                          compute_esx_params["datacenter"]
             for vc_srv in merged_inv["[all:vars]"]["vcenter_servers"]:
-                if vc_srv.keys()[0] == compute_esx_params["vcenter_server"]:
+                if vc_srvr_str in vc_srv.keys()[0]:
                     compute_esx_params["vcenter_server"] = vc_srv.values()[0]
 
             # Generate std sw PG list of dicts with sw name and pg name
@@ -5832,28 +5833,92 @@ class VncServerManager():
         return openstack_cfg
     #end  get_calculated_openstack_cfg_dict
 
-    def get_calculated_vcplugin_dict(self, cluster, cluster_srvrs):
-        vc_plugin_dict = {}
+    def get_plugin_cfg_dict(self, srvrs, cont_params):
+        cfg_list = []
+        vc_servers = cont_params.get('vcenter_servers')
+        # For vcenter orchestrator case there is only one VC and DC
+        if cont_params.get('cloud_orchestrator') == "vcenter":
+            ret_dict = {}
+            vc_server = vc_servers[0]
+            ret_dict['datacenter'] = vc_server.values()[0]['datacenters']\
+                                      .keys()[0]
+            ret_dict['dvs'] = vc_server.values()[0]['datacenters']\
+                              .values()[0]['dv_switches'][0]['dv_switch_name']
+            ret_dict['username'] = vc_server.values()[0]['username']
+            ret_dict['password'] = vc_server.values()[0]['password']
+            ret_dict['vc_url'] = "https://" + vc_server.values()[0]\
+                                               ['hostname'] + "/sdk"
+            # set mode to vcenter-only if cloud_orchestrator is vcenter
+            ret_dict['mode'] = "vcenter-only"
+            ret_dict['introspect_port'] = "8234"
+            cfg_list.append(ret_dict)
+        else:
+            for vc_server in vc_servers:
+                for dc, dc_vals in vc_server.values()[0]['datacenters'].items():
+                    for dvs in dc_vals['dv_switches']:
+                        if dvs.get('vcenter_compute'):
+                            ret_dict = {}
+                            ret_dict['vcenter_compute_ip'] = \
+                                                   dvs['vcenter_compute']
+                            ret_dict['vc_plugin_ip'] = \
+                                           self.get_mgmt_ip(srvrs.pop(0))
+                            ret_dict['datacenter'] = dc
+                            ret_dict['dvs'] = dvs['dv_switch_name']
+                            ret_dict['username'] = vc_server.values()[0]\
+                                                             ['username']
+                            ret_dict['password'] = vc_server.values()[0]\
+                                                             ['password']
+                            ret_dict['vc_url'] = "https://" + \
+                                                 vc_server.values()[0]\
+                                                 ['hostname'] + "/sdk"
+                            ret_dict['mode'] = "vcenter-as-compute"
+                            ret_dict['introspect_port'] = "8234"
+                            cfg_list.append(ret_dict)
+        return cfg_list
+
+    def get_calculated_vcenters_dict(self, cluster, cluster_srvrs):
+        vcenters_dicts = []
         cont_params = cluster['parameters']['provision'].get('contrail_4', {})
         vc_servers = cont_params.get('vcenter_servers')
         if not vc_servers:
-            return vc_plugin_dict
-        # For vcenter orchestrator case there is only one VC and DC
-        vc_server = vc_servers[0]
-        vc_plugin_dict['datacenter'] = vc_server.values()[0]['datacentername']
-        vc_plugin_dict['dvs'] = vc_server.values()[0]['dv_switch']\
-                                                 ['dv_switch_name']
-        vc_plugin_dict['username'] = vc_server.values()[0]['username']
-        vc_plugin_dict['password'] = vc_server.values()[0]['password']
-        vc_plugin_dict['vc_url'] = "https://" + vc_server.values()[0]\
-                                                ['hostname'] + "/sdk"
-        # set mode to vcenter-only if cloud_orchestrator is vcenter
-        if cont_params.get('cloud_orchestrator') == "vcenter":
-            vc_plugin_dict['mode'] = "vcenter-only"
-        # else set it to vcenter-as-compute in case of vc as compute
-        else:
-            vc_plugin_dict['mode'] = "vcenter-as-compute"
-        vc_plugin_dict['introspect_port'] = "8234"
+            return vcenters_dicts
+#vcenter_servers=[{'server1': {'username': 'administrator@vsphere.local', 'datacentername': 'kp_datacenter11', 'password': 'Contrail123!', 'hostname': '10.84.5.76', 'dv_port_group_mgmt': {'dv_portgroup_name': u'', 'number_of_ports': u'', 'uplink': u''}, 'dv_switch_control_data': {'dv_switch_name': u''}, 'dv_switch_mgmt': {'dv_switch_name': u''}, 'clusternames': ['kp_cluster11', 'kp_cluster21'], 'dv_switch': {'dv_switch_name': 'vm_dvs2'}, 'dv_port_group_control_data': {'dv_portgroup_name': u'', 'number_of_ports': u'', 'uplink': u''}, 'validate_certs': False, 'dv_port_group': {'dv_portgroup_name': 'vm_dvs_pg2', 'number_of_ports': '3'}}}]
+        i = 0
+        for vc in vc_servers:
+            for dc_name, dc_vals in vc.values()[0]['datacenters'].items():
+                for each_dvs in dc_vals['dv_switches']:
+                    vcenters_dict = {}
+                    vc_key_name = vc.keys()[0] + "_" + dc_name + "_" + str(i)
+                    vcenters_dict[vc_key_name] = {}
+                    dd = vcenters_dict[vc_key_name]
+                    dd.update(vc.values()[0])
+                    del(dd['datacenters'])
+                    dd['datacentername'] = dc_name
+                    dd['clusternames'] = each_dvs.get('clusternames')
+                    dvs_mgmt_sw_det = dc_vals.get('dv_switch_mgmt', {})
+                    dvs_mgmt_sw_name = dvs_mgmt_sw_det.get('dv_switch_name')
+                    dvs_mgmt_pg_det = dvs_mgmt_sw_det.get('dv_port_group_mgmt')
+                    dd['dv_port_group_mgmt'] = dvs_mgmt_pg_det
+                    dd['dv_switch_mgmt'] = {'dv_switch_name': dvs_mgmt_sw_name}
+                    dvs_cd_det = dc_vals.get('dv_switch_control_data', {})
+                    dvs_cd_name = dvs_cd_det.get('dv_switch_name')
+                    dvs_cd_pg_det = dvs_cd_det.get('dv_port_group_control_data')
+                    dd['dv_port_group_control_data'] = dvs_cd_pg_det
+                    dd['dv_switch_control_data'] = {'dv_switch_name': dvs_cd_name}
+                    dvs_vm_sw_name = each_dvs.get('dv_switch_name')
+                    dvs_vm_pg_det = each_dvs.get('dv_port_group')
+                    dd['dv_switch'] = {'dv_switch_name': dvs_vm_sw_name}
+                    dd['dv_port_group'] = dvs_vm_pg_det
+                    vcenters_dicts.append(vcenters_dict)
+                    i += 1
+        return vcenters_dicts
+
+    def get_calculated_vcplugin_dict(self, cluster, cluster_srvrs):
+        cont_params = cluster['parameters']['provision'].get('contrail_4', {})
+        vc_servers = cont_params.get('vcenter_servers')
+        if not vc_servers:
+            return []
+        vc_plugin_dicts = self.get_plugin_cfg_dict(cluster_srvrs, cont_params)
         # create mapfile entries
         map_string = ""
         cluster_servers = self._serverDb.get_server(
@@ -5867,13 +5932,20 @@ class VncServerManager():
             vm_ip = self.get_control_ip(host)
             esx_ip = eval(host['parameters'])['esxi_parameters']['name']
             map_string = map_string + "%s:%s," %(esx_ip, vm_ip)
+            if cont_params.get('cloud_orchestrator') != "vcenter":
+                for each in vc_plugin_dicts:
+                    each['ipfabricpg'] = eval(host['parameters'])\
+                               ['esxi_parameters']['contrail_vm'].get(
+                                'control_data_pg', 'contrail-fab-pg')
         if map_string:
-            vc_plugin_dict['esxtocomputemap'] = map_string
-        # ipfab pg is same for all compute take from any compute
-        vc_plugin_dict['ipfabricpg'] = eval(host['parameters'])\
-                           ['esxi_parameters']['contrail_vm'].get(
-                            'control_data_pg', 'contrail-fab-pg')
-        return vc_plugin_dict
+            for each in vc_plugin_dicts:
+                each['esxtocomputemap'] = map_string
+        if cont_params.get('cloud_orchestrator') == "vcenter":
+            # ipfab pg is same for all compute take from any compute
+            vc_plugin_dicts[0]['ipfabricpg'] = eval(host['parameters'])\
+                               ['esxi_parameters']['contrail_vm'].get(
+                                'control_data_pg', 'contrail-fab-pg')
+        return vc_plugin_dicts
 
     def get_calculated_global_cfg_dict(self, cluster, cluster_srvrs):
         global_cfg = dict()
@@ -6250,6 +6322,13 @@ class VncServerManager():
                 self.merge_dict(cur_inventory["[all:vars]"][cfg], tmp_dict)
                 print "Found cfg for %s in inventory..." % cfg
 
+        # populate vcenter_plugin config in the inventory
+        # call get_calculated_vcenters and overwrite in inventory
+        if cur_inventory["[all:vars]"].get('vcenter_servers'):
+            tmp_dict = self.get_calculated_vcenters_dict(cluster, cluster_servers)
+            cur_inventory["[all:vars]"]['vcenter_servers'] = tmp_dict
+            tmp_dict = self.get_calculated_vcplugin_dict(cluster, cluster_servers)
+            cur_inventory["[all:vars]"]['vc_plugin_config'] = tmp_dict
     # end build_calculated_inventory_params
 
     # This function needs to be called after build_calculated_inventory_params
