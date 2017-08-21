@@ -36,6 +36,7 @@ LOCAL_REPO_DIR=/opt/contrail/contrail_local_repo
 CLUSTER_ID="cluster_auto_$RANDOM"
 SM_WEBUI_PORT=""
 JSON_PATH=""
+SM_OS_SKU=""
 TRANSLATION_DICT_PATH="/opt/contrail/server_manager/client/container-parameter-translation-dict.json"
 
 function usage()
@@ -52,6 +53,7 @@ function usage()
     echo -e "\t-swp|--sm-webui-port"
     echo -e "\t-ip|--hostip"
     echo -e "\t-cid|--cluster-id <cluster-id>"
+    echo -e "\t-sku|--sku <openstack-sku>"
     echo ""
 }
 
@@ -82,6 +84,10 @@ while [[ $# > 0 ]]
         ;;
         -swp|--sm-webui-port)
         SM_WEBUI_PORT="$2"
+        ;;
+        -sku|--sku)
+        SM_OS_SKU="$2"
+        shift
         ;;
         -cp|--no-cleanup-puppet-agent)
         CLEANUP_PUPPET_AGENT="cleanup_puppet_agent"
@@ -245,12 +251,19 @@ if [ ! -z "$CLUSTER_ID" ]; then
     optional_args="$optional_args --cluster-id $CLUSTER_ID"
 fi
 
+optional_preconfig_args=""
+
+if [ ! -z "$SM_OS_SKU" ]; then
+    optional_preconfig_args="$optional_preconfig_args --sku $SM_OS_SKU"
+fi
+
 echo "$arrow Pre provision checks to make sure setup is ready for contrail provisioning"
 # Precheck the targets to make sure that, ready for contrail provisioning
 SERVER_MGR_IP=$(grep listen_ip_addr /opt/contrail/server_manager/sm-config.ini | grep -Po "listen_ip_addr = \K.*")
 cd $PROVISION_DIR && /opt/contrail/server_manager/client/preconfig.py --server-json ${SERVER_JSON_PATH} \
                                                                       --server-manager-ip ${SERVER_MGR_IP} \
-                                                                      --server-manager-repo-port 80
+                                                                      --server-manager-repo-port 80 \
+                                                                      $optional_preconfig_args
 
 echo "$arrow Adding server manager objects to server manager database"
 if grep -q domain /etc/contrail/sm-client-config.ini; then
@@ -306,10 +319,22 @@ echo "$arrow Provisioning the cluster"
 
 set +e
 COUNTER=1
+COUNTER_LIMIT=40
+if [ ! -z "$SM_OS_SKU" ]; then
+    if [ $SM_OS_SKU == 'ocata' ]; then
+        COUNTER_LIMIT=400
+    fi
+fi
 server-manager display image --image_id ${CONTRAIL_IMAGE_ID} | grep -w ${CONTRAIL_IMAGE_ID}
 exit_status=$?
-echo "$arrow Waiting for containers to get loaded"
-while [ $exit_status != 0 ] && [ $COUNTER -lt 60 ]
+optional_message=""
+if [ ! -z "$SM_OS_SKU" ]; then
+    if [ $SM_OS_SKU == 'ocata' ]; then
+        optional_message="Check /var/log/contrail-server-manager/debug.log for more details"
+    fi
+fi
+echo "$arrow Waiting for containers to get loaded. $optional_message"
+while [ $exit_status != 0 ] && [ $COUNTER -lt $COUNTER_LIMIT ]
 do
   sleep 15
   server-manager display image --image_id ${CONTRAIL_IMAGE_ID} | grep -w ${CONTRAIL_IMAGE_ID}
