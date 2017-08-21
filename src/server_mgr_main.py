@@ -5862,6 +5862,10 @@ class VncServerManager():
             ret_dict['introspect_port'] = "8234"
             cfg_list.append(ret_dict)
         else:
+            # use a vcplugin instance for each vc-compute instance
+            # need to have equal plugin instances and vc-compute instances
+            vc_compute_srvrs = self.role_get_servers(srvrs,
+                                              "contrail-vcenter-plugin")
             for vc_server in vc_servers:
                 for dc, dc_vals in vc_server.values()[0]['datacenters'].items():
                     for dvs in dc_vals['dv_switches']:
@@ -5870,7 +5874,7 @@ class VncServerManager():
                             ret_dict['vcenter_compute_ip'] = \
                                                    dvs['vcenter_compute']
                             ret_dict['vc_plugin_ip'] = \
-                                           self.get_mgmt_ip(srvrs.pop(0))
+                                     self.get_mgmt_ip(vc_compute_srvrs.pop(0))
                             ret_dict['datacenter'] = dc
                             ret_dict['dvs'] = dvs['dv_switch_name']
                             ret_dict['username'] = vc_server.values()[0]\
