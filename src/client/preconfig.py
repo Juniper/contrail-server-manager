@@ -64,6 +64,9 @@ class Utils(object):
         parser.add_argument('--log-file',
                             default='preconfig.log',
                             help='Absolute path of a file for logging')
+        parser.add_argument('--sku',
+                            default='mitaka',
+                            help='Openstack SKU that is going to be provisioned')
         cliargs = parser.parse_args(args)
         if len(args) == 0:
             parser.print_help()
@@ -89,7 +92,7 @@ class Utils(object):
             hostobj = Server(host_dict, args.server_manager_ip,
                              args.server_manager_repo_port)
             hostobj.connect()
-            hostobj.preconfig()
+            hostobj.preconfig(sku=cliargs.sku)
             hosts.append(hostobj)
 
     @staticmethod
@@ -119,6 +122,9 @@ class Server(object):
                                      'ifenslave-2.6', 'sysstat',
                                      'ethtool', 'vlan']
         self.extra_packages_16_04 = ['puppet=3.8.5-2', 'python-netaddr',
+                                     'ifenslave-2.6', 'sysstat',
+                                     'ethtool', 'vlan']
+        self.extra_packages_16_04_no_puppet = ['python-netaddr',
                                      'ifenslave-2.6', 'sysstat',
                                      'ethtool', 'vlan']
 
@@ -248,20 +254,21 @@ class Server(object):
     def set_os_version(self):
         self.os_version = self.get_os_version()
 
-    def preconfig(self):
+    def preconfig(self, sku='mitaka'):
         self.set_os_version()
         #self.preconfig_verify_domain()
         self.preconfig_hosts_file()
         self.preconfig_unauthenticated_packages()
-        self.preconfig_repos()
-        self.preconfig_1604_repos()
-        self.install_packages()
+        self.preconfig_repos(sku)
+        self.preconfig_1604_repos(sku)
+        self.install_packages(sku)
         self.setup_interface()
         # Setup static routes if defined
         if getattr(self, 'network', None) and 'routes' in self.network and len(self.network['routes']) > 0:
             self.setup_static_routes()
         self.preconfig_ntp_config()
-        self.preconfig_puppet_config()
+        if sku != 'ocata':
+            self.preconfig_puppet_config()
 
     def verify_puppet_host(self):
         ping_cmd = r'ping -q -c 1 puppet > /dev/null 2>@1'
@@ -306,7 +313,7 @@ class Server(object):
             log.info('Configure Allow Unauthenticated true')
             self.exec_cmd('echo %s >> /etc/apt/apt.conf' % apt_auth, error_on_fail=True)
 
-    def preconfig_1604_repos(self):
+    def preconfig_1604_repos(self, sku):
         os_type, version, misc = self.os_version
         if os_type.lower() == 'ubuntu' and version != '16.04':
             return
@@ -326,15 +333,16 @@ class Server(object):
         else:
             self.exec_cmd('apt-get update')
 
-    def preconfig_repos(self):
+    def preconfig_repos(self, sku):
         repo_entry = r'deb http://%s:%s/thirdparty_packages/ ./' % (self.server_manager_ip, self.server_manager_repo_port)
         repo_entry_verify = r'%s.*\/thirdparty_packages' % self.server_manager_ip
         status, output = self.exec_cmd('apt-cache policy | grep "%s"' % repo_entry_verify)
         if status:
             log.info('/etc/apt/sources.list has no thirdparty_packages '
                      'repo entry')
-            log.debug('Backup existing sources.list')
-            self.exec_cmd(r'mv /etc/apt/sources.list '\
+            if sku != 'ocata':
+                log.debug('Backup existing sources.list')
+                self.exec_cmd(r'mv /etc/apt/sources.list '\
                           '/etc/apt/sources.list_$(date +%Y_%m_%d__%H_%M_%S).contrailbackup')
             log.debug('Adding Repo Entry (%s) to /etc/apt/sources.list' % repo_entry)
             self.exec_cmd('echo >> /etc/apt/sources.list', error_on_fail=True)
@@ -345,14 +353,17 @@ class Server(object):
         else:
             self.exec_cmd('apt-get update')
 
-    def install_packages(self):
+    def install_packages(self, sku):
         os_type, version, misc = self.os_version
         if os_type.lower() == 'ubuntu' and version == '12.04':
             packages_list = self.extra_packages_12_04
         elif os_type.lower() == 'ubuntu' and version == '14.04':
             packages_list = self.extra_packages_14_04
         elif os_type.lower() == 'ubuntu' and version == '16.04':
-            packages_list = self.extra_packages_16_04
+            if sku != 'ocata':
+                packages_list = self.extra_packages_16_04
+            else:
+                packages_list = self.extra_packages_16_04_no_puppet
         else:
             raise RuntimeError('UnSupported OS type (%s)' % self.os_version)
 
