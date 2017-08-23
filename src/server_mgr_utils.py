@@ -49,6 +49,9 @@ class ServerMgrUtil():
        cmd = base_cmd + "'contrail-networking-dependents*'"
        if self.command_output(cmd) is not None:
          return "contrail-networking-docker-tgz"
+       cmd = base_cmd + "'contrail-vcenter-dependents*'"
+       if self.command_output(cmd) is not None:
+         return "contrail-networking-docker-tgz"
        return None
 
     def get_package_version(self,package, image_type):
