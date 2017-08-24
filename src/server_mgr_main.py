@@ -58,6 +58,7 @@ from sm_ansible_utils import _openstack_image_exceptions
 from sm_ansible_utils import _inventory_group
 from sm_ansible_utils import AGENT_CONTAINER
 from sm_ansible_utils import BARE_METAL_COMPUTE
+from sm_ansible_utils import VCENTER_COMPUTE
 from sm_ansible_utils import _DEF_BASE_PLAYBOOKS_DIR 
 from sm_ansible_utils import CONTROLLER_CONTAINER
 from sm_ansible_utils import ANALYTICS_CONTAINER
@@ -1020,7 +1021,9 @@ class VncServerManager():
                 "control", "collector", "webui", "compute"]
         roles_set = set(role_list)
         # adding role here got the role in hieradata yaml file
-        optional_role_list = ["storage-compute", "storage-master", "tsn", "toragent", "loadbalancer", "global_controller"]
+        optional_role_list = ["storage-compute", "storage-master", "tsn",
+                              "toragent", "loadbalancer", "global_controller",
+                              "contrail-vcenter-plugin","contrail-vcenter-compute"]
         optional_role_set = set(optional_role_list)
 
         cluster_role_list = []
@@ -2196,6 +2199,15 @@ class VncServerManager():
                                 "generating ceph uuid/keys for storage")
                     generate_storage_keys(cur_cluster)
                     self.generate_passwords(cur_cluster.get("parameters", {}))
+                    # If using vcenter, do not generate passwords
+                    provision_params = cur_cluster["parameters"].get(
+                        "provision", None)
+                    if provision_params:
+                        contrail_4_params = provision_params.get(
+                            "contrail_4", None)
+                    if (not contrail_4_params) or contrail_4_params.get(
+                            "cloud_orchestrator", None) != "vcenter":
+                        self.generate_passwords(cur_cluster.get("parameters", {}))
                     self._serverDb.add_cluster(cur_cluster)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
@@ -4201,6 +4213,112 @@ class VncServerManager():
         if not os.path.isfile(merged_inv["[all:vars]"]["ansible_playbook"]):
             msg = "No playbook found under path: %s" % (merged_inv["[all:vars]"]["ansible_playbook"])
             self.log_and_raise_exception(msg)
+        # update esxi hosts list into inventory, fetch from server def
+        cluster_servers = self._serverDb.get_server(
+                           {"cluster_id" : cluster["id"]},
+                                            detail="True")
+        compute_servers = self.role_get_servers(cluster_servers,
+                                              "contrail-compute")
+        # build esxihosts list
+        esxi_hosts = []
+        for compute in compute_servers:
+            compute_params = eval(compute['parameters'])
+            # go further only if esxi host defined
+            compute_esx_params = compute_params.get('esxi_parameters')
+            if not compute_esx_params:
+                continue
+            # save the sm_id for the compute in contrail_vm stanza
+            # this is used in preconfig play in playbook
+            compute_esx_params['id_in_sm'] = compute['id']
+
+            # create contrail_vm nic list with mac, pg, switch, type
+            vmnics = []
+            # update mgmt and control_data PG info to contrail_vm
+            net_obj = eval(compute['network'])
+            mgmt_intf_name = self.get_mgmt_interface_name(compute)
+            control_data_intf_name = self.get_control_interface_name(compute)
+            for intf in net_obj['interfaces']:
+                if intf['name'] == mgmt_intf_name:
+                    mgmt_mac = intf['mac_address']
+                elif intf['name'] == control_data_intf_name:
+                    control_data_mac = intf['mac_address']
+
+            # substitute vc server for host
+            vc_srvr_str = compute_esx_params["vcenter_server"] + "_" + \
+                          compute_esx_params["datacenter"]
+            for vc_srv in merged_inv["[all:vars]"]["vcenter_servers"]:
+                if vc_srvr_str in vc_srv.keys()[0]:
+                    compute_esx_params["vcenter_server"] = vc_srv.values()[0]
+
+            # Generate std sw PG list of dicts with sw name and pg name
+            vm_nic_list = []
+            std_switch_list = []
+            dvs_mgmt_dict = compute_esx_params['vcenter_server'].get(\
+                                             'dv_switch_mgmt', {})
+            dvs_mgmt_name = dvs_mgmt_dict.get('dv_switch_name')
+            contrail_vm_params = compute_esx_params['contrail_vm']
+            if not dvs_mgmt_name:
+                if contrail_vm_params.get('mgmt_pg'):
+                    dd = {}
+                    vmnic = {}
+                    dd['switch_name'] = contrail_vm_params.get(
+                                        'mgmt_switch', 'vSwitch0')
+                    dd['pg_name'] = contrail_vm_params['mgmt_pg']
+                    std_switch_list.append(dd)
+                    vmnic['mac'] = mgmt_mac
+                    vmnic['pg'] = dd['pg_name']
+                    vmnic['switch_name'] = dd['switch_name']
+                    vmnic['role'] = "mgmt"
+                    vmnic['sw_type'] = "standard"
+                    vm_nic_list.append(vmnic)
+            else:
+                vmnic = {}
+                vmnic['mac'] = mgmt_mac
+                vmnic['pg'] = compute_esx_params['vcenter_server']\
+                                     ['dv_port_group_mgmt']\
+                                       ['dv_portgroup_name']
+                vmnic['switch_name'] = dvs_mgmt_name
+                vmnic['role'] = "mgmt"
+                vmnic['sw_type'] = "dvs"
+                vm_nic_list.append(vmnic)
+
+            dvs_ctrl_data_dict = compute_esx_params['vcenter_server'].get(\
+                                             'dv_switch_control_data', {})
+            dvs_ctrl_data_name = dvs_ctrl_data_dict.get('dv_switch_name')
+            if not dvs_ctrl_data_name:
+                if contrail_vm_params.get('control_data_pg'):
+                    dd = {}
+                    vmnic = {}
+                    dd['switch_name'] = \
+                    contrail_vm_params.get('control_data_switch', 'vSwitch0')
+                    dd['pg_name'] = \
+                              contrail_vm_params['control_data_pg']
+                    std_switch_list.append(dd)
+                    vmnic['mac'] = control_data_mac
+                    vmnic['pg'] = dd['pg_name']
+                    vmnic['switch_name'] = dd['switch_name']
+                    vmnic['role'] = "control_data"
+                    vmnic['sw_type'] = "standard"
+                    vm_nic_list.append(vmnic)
+            else:
+                vmnic = {}
+                vmnic['mac'] = control_data_mac
+                vmnic['pg'] = compute_esx_params['vcenter_server']\
+                                     ['dv_port_group_control_data']\
+                                       ['dv_portgroup_name']
+                vmnic['switch_name'] = dvs_ctrl_data_name
+                vmnic['role'] = "control_data"
+                vmnic['sw_type'] = "dvs"
+                vm_nic_list.append(vmnic)
+
+            if std_switch_list:
+                compute_esx_params['std_switch_list'] = std_switch_list
+            if vm_nic_list:
+                contrail_vm_params['networks'] = vm_nic_list
+
+            esxi_hosts.append(compute_esx_params)
+        if esxi_hosts:
+            merged_inv["[all:vars]"]["esxi_hosts"] = esxi_hosts
         inv["inventory"] = merged_inv
         inv["kolla_inv"] = kolla_inv
         inv["kolla_passwords"] = kolla_pwds
@@ -5522,30 +5640,33 @@ class VncServerManager():
             openstack_params["openstack_ip_list"] = external_openstack_ip_list
         elif len(openstack_ips) and self_ip not in openstack_ips:
             openstack_ip = openstack_ips[0]
-        else:
+        elif self_ip in openstack_ips:
             openstack_ip = self_ip
+        else:
+            openstack_ip = ''
         subnet_mask = server.get("subnet_mask", "")
         if not subnet_mask:
             subnet_mask = cluster_params.get("subnet_mask", "255.255.255.0")
         net_and_mask = openstack_ip + "/" + subnet_mask
-        openstack_params['network'] = {
-            "api": net_and_mask,
-            "external": net_and_mask,
-            "management": net_and_mask,
-            "data": net_and_mask,
-        }
-        openstack_params['controller'] = {
-            "address": {
-                 "api": openstack_ip,
-                 "management": openstack_ip
-             }
-        }
-        openstack_params['storage'] = {
-            "address": {
-                 "api": openstack_ip,
-                 "management": openstack_ip
-             }
-        }
+        if openstack_ip:
+            openstack_params['network'] = {
+                "api": net_and_mask,
+                "external": net_and_mask,
+                "management": net_and_mask,
+                "data": net_and_mask,
+            }
+            openstack_params['controller'] = {
+                "address": {
+                     "api": openstack_ip,
+                     "management": openstack_ip
+                 }
+            }
+            openstack_params['storage'] = {
+                "address": {
+                     "api": openstack_ip,
+                     "management": openstack_ip
+                 }
+            }
         # if this is issu job for my cluster and role is compute, rabbit should be from old cluster
         # neutron should be from old cluster
         issu_params = cluster_params.get("issu", {})
@@ -5571,17 +5692,24 @@ class VncServerManager():
                 'rabbit_hosts' : old_rabbit_server,
                 'neutron_ip' : neutron_ip
             }
-        openstack_params['mysql'] = {
-             "allowed_hosts": ['localhost', '127.0.0.1'] + mysql_allowed_hosts
-        }
+        if openstack_ip:
+            openstack_params['mysql'] = {
+                 "allowed_hosts": ['localhost', '127.0.0.1'] + mysql_allowed_hosts
+            }
 
         contrail_params = ServerMgrUtil.convert_unicode(contrail_params)
-        openstack_params = ServerMgrUtil.convert_unicode(openstack_params)
-        cluster['calc_params'] = {
-            "contrail": contrail_params,
-            "openstack": openstack_params,
-            "mysql_allowed_hosts": mysql_allowed_hosts
-        }
+        if openstack_ip:
+            openstack_params = ServerMgrUtil.convert_unicode(openstack_params)
+            cluster['calc_params'] = {
+                "contrail": contrail_params,
+                "openstack": openstack_params,
+                "mysql_allowed_hosts": mysql_allowed_hosts
+            }
+        else:
+            cluster['calc_params'] = {
+                "contrail": contrail_params,
+            }
+
     # end build_calculated_cluster_params
 
     def build_calculated_server_params(
@@ -5757,6 +5885,125 @@ class VncServerManager():
                         openstack_cfg["management_ip"] = self.get_mgmt_ip(x)
         return openstack_cfg
     #end  get_calculated_openstack_cfg_dict
+
+    def get_plugin_cfg_dict(self, srvrs, cont_params):
+        cfg_list = []
+        vc_servers = cont_params.get('vcenter_servers')
+        # For vcenter orchestrator case there is only one VC and DC
+        if cont_params.get('cloud_orchestrator') == "vcenter":
+            ret_dict = {}
+            vc_server = vc_servers[0]
+            ret_dict['datacenter'] = vc_server.values()[0]['datacenters']\
+                                      .keys()[0]
+            ret_dict['dvs'] = vc_server.values()[0]['datacenters']\
+                              .values()[0]['dv_switches'][0]['dv_switch_name']
+            ret_dict['username'] = vc_server.values()[0]['username']
+            ret_dict['password'] = vc_server.values()[0]['password']
+            ret_dict['vc_url'] = "https://" + vc_server.values()[0]\
+                                               ['hostname'] + "/sdk"
+            # set mode to vcenter-only if cloud_orchestrator is vcenter
+            ret_dict['mode'] = "vcenter-only"
+            ret_dict['introspect_port'] = "8234"
+            cfg_list.append(ret_dict)
+        else:
+            # use a vcplugin instance for each vc-compute instance
+            # need to have equal plugin instances and vc-compute instances
+            vc_compute_srvrs = self.role_get_servers(srvrs,
+                                              "contrail-vcenter-plugin")
+            for vc_server in vc_servers:
+                for dc, dc_vals in vc_server.values()[0]['datacenters'].items():
+                    for dvs in dc_vals['dv_switches']:
+                        if dvs.get('vcenter_compute'):
+                            ret_dict = {}
+                            ret_dict['vcenter_compute_ip'] = \
+                                                   dvs['vcenter_compute']
+                            ret_dict['vc_plugin_ip'] = \
+                                     self.get_mgmt_ip(vc_compute_srvrs.pop(0))
+                            ret_dict['datacenter'] = dc
+                            ret_dict['dvs'] = dvs['dv_switch_name']
+                            ret_dict['username'] = vc_server.values()[0]\
+                                                             ['username']
+                            ret_dict['password'] = vc_server.values()[0]\
+                                                             ['password']
+                            ret_dict['vc_url'] = "https://" + \
+                                                 vc_server.values()[0]\
+                                                 ['hostname'] + "/sdk"
+                            ret_dict['mode'] = "vcenter-as-compute"
+                            ret_dict['introspect_port'] = "8234"
+                            cfg_list.append(ret_dict)
+        return cfg_list
+
+    def get_calculated_vcenters_dict(self, cluster, cluster_srvrs):
+        vcenters_dicts = []
+        cont_params = cluster['parameters']['provision'].get('contrail_4', {})
+        vc_servers = cont_params.get('vcenter_servers')
+        if not vc_servers:
+            return vcenters_dicts
+#vcenter_servers=[{'server1': {'username': 'administrator@vsphere.local', 'datacentername': 'kp_datacenter11', 'password': 'Contrail123!', 'hostname': '10.84.5.76', 'dv_port_group_mgmt': {'dv_portgroup_name': u'', 'number_of_ports': u'', 'uplink': u''}, 'dv_switch_control_data': {'dv_switch_name': u''}, 'dv_switch_mgmt': {'dv_switch_name': u''}, 'clusternames': ['kp_cluster11', 'kp_cluster21'], 'dv_switch': {'dv_switch_name': 'vm_dvs2'}, 'dv_port_group_control_data': {'dv_portgroup_name': u'', 'number_of_ports': u'', 'uplink': u''}, 'validate_certs': False, 'dv_port_group': {'dv_portgroup_name': 'vm_dvs_pg2', 'number_of_ports': '3'}}}]
+        i = 0
+        for vc in vc_servers:
+            for dc_name, dc_vals in vc.values()[0]['datacenters'].items():
+                for each_dvs in dc_vals['dv_switches']:
+                    vcenters_dict = {}
+                    vc_key_name = vc.keys()[0] + "_" + dc_name + "_" + str(i)
+                    vcenters_dict[vc_key_name] = {}
+                    dd = vcenters_dict[vc_key_name]
+                    dd.update(vc.values()[0])
+                    del(dd['datacenters'])
+                    dd['datacentername'] = dc_name
+                    dd['clusternames'] = each_dvs.get('clusternames')
+                    dvs_mgmt_sw_det = dc_vals.get('dv_switch_mgmt', {})
+                    dvs_mgmt_sw_name = dvs_mgmt_sw_det.get('dv_switch_name')
+                    dvs_mgmt_pg_det = dvs_mgmt_sw_det.get('dv_port_group_mgmt')
+                    dd['dv_port_group_mgmt'] = dvs_mgmt_pg_det
+                    dd['dv_switch_mgmt'] = {'dv_switch_name': dvs_mgmt_sw_name}
+                    dvs_cd_det = dc_vals.get('dv_switch_control_data', {})
+                    dvs_cd_name = dvs_cd_det.get('dv_switch_name')
+                    dvs_cd_pg_det = dvs_cd_det.get('dv_port_group_control_data')
+                    dd['dv_port_group_control_data'] = dvs_cd_pg_det
+                    dd['dv_switch_control_data'] = {'dv_switch_name': dvs_cd_name}
+                    dvs_vm_sw_name = each_dvs.get('dv_switch_name')
+                    dvs_vm_pg_det = each_dvs.get('dv_port_group')
+                    dd['dv_switch'] = {'dv_switch_name': dvs_vm_sw_name}
+                    dd['dv_port_group'] = dvs_vm_pg_det
+                    dd['vcenter_compute_ip'] = each_dvs.get('vcenter_compute')
+                    vcenters_dicts.append(vcenters_dict)
+                    i += 1
+        return vcenters_dicts
+
+    def get_calculated_vcplugin_dict(self, cluster, cluster_srvrs):
+        cont_params = cluster['parameters']['provision'].get('contrail_4', {})
+        vc_servers = cont_params.get('vcenter_servers')
+        if not vc_servers:
+            return []
+        vc_plugin_dicts = self.get_plugin_cfg_dict(cluster_srvrs, cont_params)
+        # create mapfile entries
+        map_string = ""
+        cluster_servers = self._serverDb.get_server(
+                           {"cluster_id" : cluster["id"]},
+                                            detail="True")
+        compute_servers = self.role_get_servers(cluster_servers,
+                                              "contrail-compute")
+        for host in compute_servers:
+            if not eval(host['parameters']).get('esxi_parameters'):
+                continue
+            vm_ip = self.get_control_ip(host)
+            esx_ip = eval(host['parameters'])['esxi_parameters']['name']
+            map_string = map_string + "%s:%s," %(esx_ip, vm_ip)
+            if cont_params.get('cloud_orchestrator') != "vcenter":
+                for each in vc_plugin_dicts:
+                    each['ipfabricpg'] = eval(host['parameters'])\
+                               ['esxi_parameters']['contrail_vm'].get(
+                                'control_data_pg', 'contrail-fab-pg')
+        if map_string:
+            for each in vc_plugin_dicts:
+                each['esxtocomputemap'] = map_string
+        if cont_params.get('cloud_orchestrator') == "vcenter":
+            # ipfab pg is same for all compute take from any compute
+            vc_plugin_dicts[0]['ipfabricpg'] = eval(host['parameters'])\
+                               ['esxi_parameters']['contrail_vm'].get(
+                                'control_data_pg', 'contrail-fab-pg')
+        return vc_plugin_dicts
 
     def get_calculated_global_cfg_dict(self, cluster, cluster_srvrs):
         global_cfg = dict()
@@ -5965,6 +6212,12 @@ class VncServerManager():
             control_data_gateway = self.get_control_gateway(srvr)
             if control_data_gateway:
                 var_list = var_list + " ctrl_data_gw=" + control_data_gateway
+        # if esxi host defined for this compute
+        # save the esxi host ip
+        srvr_params = srvr.get('parameters', {})
+        if srvr_params.get('esxi_parameters'):
+            var_list = var_list + " esxi_host=" + \
+                            srvr['parameters']['esxi_parameters']['name']
         return var_list
 
 
@@ -6095,6 +6348,9 @@ class VncServerManager():
                     if role == AGENT_CONTAINER:
                         cur_inventory["[all:vars]"]["contrail_compute_mode"] = \
                                 "container"
+                    if role == VCENTER_COMPUTE:
+                        cur_inventory["[all:vars]"]["vcenter_compute_mode"] = \
+                                self.get_vcenter_compute_mode(package)
                     grp = "[" + _inventory_group[role] + "]"
                     if grp in cur_inventory:
                         # compare x['ip_address'] to the first word of the
@@ -6131,6 +6387,13 @@ class VncServerManager():
                 self.merge_dict(cur_inventory["[all:vars]"][cfg], tmp_dict)
                 print "Found cfg for %s in inventory..." % cfg
 
+        # populate vcenter_plugin config in the inventory
+        # call get_calculated_vcenters and overwrite in inventory
+        if cur_inventory["[all:vars]"].get('vcenter_servers'):
+            tmp_dict = self.get_calculated_vcenters_dict(cluster, cluster_servers)
+            cur_inventory["[all:vars]"]['vcenter_servers'] = tmp_dict
+            tmp_dict = self.get_calculated_vcplugin_dict(cluster, cluster_servers)
+            cur_inventory["[all:vars]"]['vc_plugin_config'] = tmp_dict
     # end build_calculated_inventory_params
 
     # This function needs to be called after build_calculated_inventory_params
@@ -6940,10 +7203,20 @@ class VncServerManager():
 
         return inventory, kolla_inv
 
+    # The Vcenter compute mode is container for Ocata Sku and bare_metal for lower
+    def get_vcenter_compute_mode(self,package):
+        package_params = package['parameters']
+        openstack_sku = package_params['sku']
+        if int(openstack_sku.partition(":")[2].split('.')[0]) >= 15:
+            return "container"
+        else:
+            return "bare_metal"
 
     def get_container_image_for_role(self, role, package):
         if role == BARE_METAL_COMPUTE or role == OPENSTACK_CONTAINER or \
             role == CEPH_COMPUTE:
+            return None
+        if role == VCENTER_COMPUTE and self.get_vcenter_compute_mode(package) == "bare_metal":
             return None
         container_image = self._args.docker_insecure_registries + \
                            '/' + package['id'] + '-' + role + ':' + \
