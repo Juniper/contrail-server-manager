@@ -321,10 +321,37 @@ class Server(object):
             log.info('Configure Allow Unauthenticated true')
             self.exec_cmd('echo %s >> /etc/apt/apt.conf' % apt_auth, error_on_fail=True)
 
+    def add_std_1604_repos(self):
+        default_entries = [
+            "deb http://archive.ubuntu.com/ubuntu xenial universe multiverse",
+            "deb-src http://archive.ubuntu.com/ubuntu xenial universe multiverse",
+            "deb http://us.archive.ubuntu.com/ubuntu/ xenial universe",
+            "deb-src http://us.archive.ubuntu.com/ubuntu/ xenial universe",
+            "deb http://us.archive.ubuntu.com/ubuntu/ xenial-updates universe",
+            "deb-src http://us.archive.ubuntu.com/ubuntu/ xenial-updates universe",
+            "deb http://us.archive.ubuntu.com/ubuntu/ xenial multiverse",
+            "deb-src http://us.archive.ubuntu.com/ubuntu/ xenial multiverse",
+            "deb http://us.archive.ubuntu.com/ubuntu/ xenial-updates multiverse",
+            "deb-src http://us.archive.ubuntu.com/ubuntu/ xenial-updates multiverse",
+            "deb http://security.ubuntu.com/ubuntu xenial-security universe",
+            "deb-src http://security.ubuntu.com/ubuntu xenial-security universe",
+            "deb http://security.ubuntu.com/ubuntu xenial-security multiverse",
+            "deb-src http://security.ubuntu.com/ubuntu xenial-security multiverse",
+        ]
+        for x in default_entries:
+            cmd = "echo '%s' >> /etc/apt/sources.list" % x
+            self.exec_cmd(cmd)
+
     def preconfig_1604_repos(self, sku):
         os_type, version, misc = self.os_version
         if os_type.lower() == 'ubuntu' and version != '16.04':
             return
+
+        # This is required because ocata kolla-ansible requires internet repos to pull
+        # in certain packages. Once these packages are made available in
+        # contrail repos, this can be removed
+        if sku == 'ocata':
+            self.add_std_1604_repos()
 
         repo_entry = r'deb http://%s:%s/thirdparty_packages_ubuntu_1604/ ./' % (self.server_manager_ip, self.server_manager_repo_port)
         repo_entry_verify = r'%s.*\/thirdparty_packages_ubuntu_1604' % self.server_manager_ip
@@ -348,9 +375,8 @@ class Server(object):
         if status:
             log.info('/etc/apt/sources.list has no thirdparty_packages '
                      'repo entry')
-            if sku != 'ocata':
-                log.debug('Backup existing sources.list')
-                self.exec_cmd(r'mv /etc/apt/sources.list '\
+            log.debug('Backup existing sources.list')
+            self.exec_cmd(r'mv /etc/apt/sources.list '\
                           '/etc/apt/sources.list_$(date +%Y_%m_%d__%H_%M_%S).contrailbackup')
             log.debug('Adding Repo Entry (%s) to /etc/apt/sources.list' % repo_entry)
             self.exec_cmd('echo >> /etc/apt/sources.list', error_on_fail=True)
