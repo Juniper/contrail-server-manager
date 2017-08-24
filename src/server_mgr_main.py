@@ -4093,7 +4093,8 @@ class VncServerManager():
                 payload['contrail_image_id'])
         provision_server_list, role_seq, prov_status = \
                 self.prepare_provision(ret_data)
-        provision_item = ('provision', provision_server_list, cluster_id,
+        provision_item = ('provision', provision_server_list,
+                payload['cluster_id'],
                 role_seq, payload['tasks'])
         self._reimage_queue.put_nowait(provision_item)
 
