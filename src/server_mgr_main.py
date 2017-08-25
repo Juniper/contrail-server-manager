@@ -183,15 +183,13 @@ class VncServerManager():
     _smgr_reimg_log = None
     _tags_list = ['tag1', 'tag2', 'tag3', 'tag4',
                   'tag5', 'tag6', 'tag7']
-    _image_list = ["centos", "fedora", "ubuntu", "redhat",
-                   "contrail-ubuntu-package", "contrail-centos-package",
-                   "contrail-storage-ubuntu-package",
-                   "esxi5.5", "esxi5.1"]
-    _iso_types = ["centos", "redhat", "ubuntu", "fedora", "esxi5.1", "esxi5.5"]
+    _vmware_types = ["esxi5.1", "esxi5.5", "esxi6.0", "esxi6.5"]
+    _iso_types = ["centos", "redhat", "ubuntu", "fedora"] + _vmware_types
 
     # Add here for each container that is built
     _package_types = ["contrail-ubuntu-package", "contrail-centos-package",
                       "contrail-storage-ubuntu-package"]
+    _image_list = _package_types + _iso_types
     _image_category_list = ["image", "package"]
     _control_roles = ['global_controller', 'loadbalancer', 'database',
             'openstack', 'config', 'control', 'collector', 'webui']
@@ -3210,8 +3208,7 @@ class VncServerManager():
                     kickstart = file_dest
                 kernel_options = ''
                 ks_meta = ''
-            elif ((image_type == "esxi5.1") or
-                  (image_type == "esxi5.5")):
+            elif (image_type in self._vmware_types):
                 kernel_file = "/mboot.c32"
                 initrd_file = "/imgpayld.tgz"
                 if not ks_file:
@@ -3826,8 +3823,7 @@ class VncServerManager():
 
 
                 reimage_parameters = {}
-                if ((image['type'] == 'esxi5.1') or
-                    (image['type'] == 'esxi5.5')):
+                if (image['type'] in self._vmware_types):
                     reimage_parameters['server_license'] = server_parameters.get(
                         'server_license', '')
                     reimage_parameters['esx_nicname'] = server_parameters.get(

@@ -28,6 +28,7 @@ class ServerMgrCobbler(object):
     _token = None
     # 30 minute timer to keep validating the cobbler token
     _COB_TOKEN_CHECK_TIMER = 1800
+    _vmware_types = ["esxi5.1", "esxi5.5", "esxi6.0", "esxi6.5"]
 
     def __init__(self, base_dir=_DEF_BASE_DIR,
                  ip_address=_DEF_COBBLER_IP,
@@ -142,12 +143,8 @@ class ServerMgrCobbler(object):
                                            'ubuntu', self._token)
                 self._server.modify_distro(distro_id, 'os_version',
                                            'precise', self._token)
-            elif ((image_type == 'esxi5.1') or
-                  (image_type == 'esxi5.5')):
-                if (image_type == 'esxi5.1'):
-                    os_version = 'esxi51'
-                else:
-                    os_version = 'esxi55'
+            elif (image_type in self._vmware_types):
+                os_version = image_type.replace(".", "")
                 self._server.modify_distro(
                     distro_id, 'ksmeta',
                     'tree=http://' + cobbler_ip_address +
@@ -320,8 +317,7 @@ class ServerMgrCobbler(object):
             if node_cfg:
                 ks_metadata += ' device_cfg=' + node_cfg
 
-            if ((base_image['type'] == 'esxi5.1') or
-                (base_image['type'] == 'esxi5.5')):
+            if (base_image['type'] in self._vmware_types):
                 ks_metadata += ' server_license=' + server_license
                 ks_metadata += ' esx_nicname=' + esx_nicname
 
