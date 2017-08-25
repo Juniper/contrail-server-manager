@@ -319,7 +319,7 @@ echo "$arrow Provisioning the cluster"
 
 set +e
 COUNTER=1
-COUNTER_LIMIT=40
+COUNTER_LIMIT=60
 if [ ! -z "$SM_OS_SKU" ]; then
     if [ $SM_OS_SKU == 'ocata' ]; then
         COUNTER_LIMIT=400
