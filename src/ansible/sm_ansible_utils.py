@@ -122,6 +122,7 @@ BARE_METAL_COMPUTE    = "contrail-compute"
 CEPH_CONTROLLER       = "contrail-ceph-controller"
 CEPH_COMPUTE          = "contrail-ceph-compute"
 VC_PLUGIN             = "contrail-vcenter-plugin"
+VCENTER_COMPUTE       = "contrail-vcenter-compute"
 OPENSTACK_CONTAINER   = "openstack"
 _DEF_BASE_PLAYBOOKS_DIR = "/opt/contrail/server_manager/ansible/playbooks"
 
@@ -135,6 +136,7 @@ _container_names = { CONTROLLER_CONTAINER  : 'controller',
                      CEPH_CONTROLLER       : 'ceph-master',
                      CEPH_COMPUTE          : 'ceph-compute',
                      VC_PLUGIN             : 'vcenterplugin',
+                     VCENTER_COMPUTE       : 'vcentercompute',
                      # Dummy - there wont be a container named 'openstack'
                      # This is just for code convenience
                      OPENSTACK_CONTAINER   : 'openstack' 
@@ -150,6 +152,7 @@ _inventory_group = { CONTROLLER_CONTAINER  : "contrail-controllers",
                      CEPH_CONTROLLER       : "ceph-controller",
                      CEPH_COMPUTE          : "ceph-compute",
                      VC_PLUGIN             : "contrail-vc-plugin",
+                     VCENTER_COMPUTE       : "contrail-vc-compute",
                      OPENSTACK_CONTAINER   : 'openstack' 
                    }
 
@@ -161,7 +164,9 @@ _container_img_keys = { CONTROLLER_CONTAINER  : "controller_image",
                         ANALYTICSDB_CONTAINER : "analyticsdb_image",
                         LB_CONTAINER          : "lb_image",
                         AGENT_CONTAINER       : "agent_image",
-                        CEPH_CONTROLLER       : "storage_ceph_controller_image" }
+                        CEPH_CONTROLLER       : "storage_ceph_controller_image",
+                        VCENTER_COMPUTE       : "vcentercompute_image",
+                        VC_PLUGIN             : "vcenterplugin_image" }
 
 ansible_valid_tasks = [ 'openstack_bootstrap',
                         'openstack_deploy',
@@ -570,7 +575,8 @@ class SMAnsibleUtils():
             for package in package_list:
                 package_name = str(package).partition(package_path+"/")[2]
                 package_name = str(package_name).partition('_')[0]
-                if package_name not in ['contrail-ansible', 'contrail-puppet','contrail-docker-images','contrail-cloud-docker-images', 'openstack-docker-images']:
+                if package_name not in ['contrail-ansible', 'contrail-puppet', 'contrail-vcenter-docker-images',
+                  'contrail-docker-images','contrail-cloud-docker-images', 'openstack-docker-images']:
                     cmd = "mkdir -p %s/%s" %(package_path,package_name)
                     subprocess.check_call(cmd, shell=True)
                     cmd = "tar -xvzf %s -C %s/%s > /dev/null" %(package, package_path, package_name)
@@ -584,7 +590,8 @@ class SMAnsibleUtils():
                        and openstack_sku != "liberty":
                         self.manipulate_openstack_extra_tgz(package_path, package_name, openstack_sku)
                     folder_list.append(folder_path)
-                elif package_name == "contrail-docker-images" or package_name == "contrail-cloud-docker-images":
+                elif package_name == "contrail-docker-images" or package_name == "contrail-cloud-docker-images" or \
+                 package_name == "contrail-vcenter-docker-images":
                     docker_images_package_list.append(package)
                 elif package_name == "openstack-docker-images":
                     openstack_images_package_list.append(package)
