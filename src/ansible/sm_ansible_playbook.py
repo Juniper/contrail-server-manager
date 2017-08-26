@@ -667,7 +667,9 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
         pw_file_name = pbook_dir + '/../etc/kolla/passwords.yml'
         try:
             with open(pw_file_name) as kolla_pws:
-                SMAnsibleUtils(self.logger).merge_dict(pw, yaml.load(kolla_pws))
+                #SMAnsibleUtils(self.logger).merge_dict(pw, yaml.load(kolla_pws))
+                self.logger.log(self.logger.INFO,
+                    "Creating %s" % (pw_file_name))
         except IOError as e :
             self.logger.log(self.logger.INFO,
                     "%s : Creating %s" % (e, pw_file_name))
@@ -679,8 +681,10 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
         gl_file_name = pbook_dir + '/../etc/kolla/globals.yml'
         try:
             with open(gl_file_name) as kolla_globals:
-                SMAnsibleUtils(self.logger).merge_dict(glbl,
-                               yaml.load(kolla_globals))
+                #SMAnsibleUtils(self.logger).merge_dict(glbl,
+                #               yaml.load(kolla_globals))
+                self.logger.log(self.logger.INFO,
+                    "Creating %s" % (gl_file_name))
         except IOError as e :
             self.logger.log(self.logger.INFO,
                     "%s : Creating %s" % (e, gl_file_name))
