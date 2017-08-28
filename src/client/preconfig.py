@@ -120,13 +120,13 @@ class Server(object):
                                      'ethtool', 'vlan']
         self.extra_packages_14_04 = ['puppet=3.7.3-1puppetlabs1', 'python-netaddr',
                                      'ifenslave-2.6', 'sysstat',
-                                     'ethtool', 'vlan']
+                                     'ethtool', 'vlan', 'i40e-dkms', 'bnxt-en-dkms']
         self.extra_packages_16_04 = ['puppet=3.8.5-2', 'python-netaddr',
                                      'ifenslave-2.6', 'sysstat',
-                                     'ethtool', 'vlan']
+                                     'ethtool', 'vlan', 'i40e-dkms', 'bnxt-en-dkms']
         self.extra_packages_16_04_no_puppet = ['python-netaddr',
                                      'ifenslave-2.6', 'sysstat',
-                                     'ethtool', 'vlan']
+                                     'ethtool', 'vlan', 'i40e-dkms', 'bnxt-en-dkms']
 
     def __del__(self):
         log.info('Disconnecting...')
@@ -396,6 +396,12 @@ class Server(object):
         for package in packages_list:
             self.exec_cmd('DEBIAN_FRONTEND=noninteractive apt-get -y install %s' % package,
                           error_on_fail=True)
+        # remove the existing the driver to install the one you want
+        self.exec_cmd('rmmod i40e')
+        self.exec_cmd('modprobe i40e')
+        self.exec_cmd('rmmod bnxt_en')
+        self.exec_cmd('modprobe bnxt_en')
+        self.exec_cmd('update-initramfs -k all -u')
 
     def is_already_bond_member(self, name):
         cmd = "cat /sys/class/net/" +name.strip() +"/master/bonding/slaves"
