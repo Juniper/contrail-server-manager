@@ -323,7 +323,7 @@ class Server(object):
 
     def add_std_1604_repos(self):
         default_entries = [
-            "deb http://archive.ubuntu.com/ubuntu xenial universe multiverse",
+            "deb http://archive.ubuntu.com/ubuntu xenial main universe multiverse",
             "deb-src http://archive.ubuntu.com/ubuntu xenial universe multiverse",
             "deb http://us.archive.ubuntu.com/ubuntu/ xenial universe",
             "deb-src http://us.archive.ubuntu.com/ubuntu/ xenial universe",
