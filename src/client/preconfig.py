@@ -324,19 +324,7 @@ class Server(object):
     def add_std_1604_repos(self):
         default_entries = [
             "deb http://archive.ubuntu.com/ubuntu xenial main universe multiverse",
-            "deb-src http://archive.ubuntu.com/ubuntu xenial universe multiverse",
-            "deb http://us.archive.ubuntu.com/ubuntu/ xenial universe",
-            "deb-src http://us.archive.ubuntu.com/ubuntu/ xenial universe",
-            "deb http://us.archive.ubuntu.com/ubuntu/ xenial-updates universe",
-            "deb-src http://us.archive.ubuntu.com/ubuntu/ xenial-updates universe",
-            "deb http://us.archive.ubuntu.com/ubuntu/ xenial multiverse",
-            "deb-src http://us.archive.ubuntu.com/ubuntu/ xenial multiverse",
-            "deb http://us.archive.ubuntu.com/ubuntu/ xenial-updates multiverse",
-            "deb-src http://us.archive.ubuntu.com/ubuntu/ xenial-updates multiverse",
-            "deb http://security.ubuntu.com/ubuntu xenial-security universe",
-            "deb-src http://security.ubuntu.com/ubuntu xenial-security universe",
-            "deb http://security.ubuntu.com/ubuntu xenial-security multiverse",
-            "deb-src http://security.ubuntu.com/ubuntu xenial-security multiverse",
+            "deb http://archive.ubuntu.com/ubuntu xenial-updates main universe multiverse"
         ]
         for x in default_entries:
             cmd = "echo '%s' >> /etc/apt/sources.list" % x
