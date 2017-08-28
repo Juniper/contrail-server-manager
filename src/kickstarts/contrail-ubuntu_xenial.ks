@@ -141,6 +141,11 @@ deb http://puppet/thirdparty_packages_ubuntu_1604 ./
 deb http://puppet/thirdparty_packages/ ./
 EOF
 
+apt-get update
+apt-get -y install i40e-dkms
+apt-get -y install bnxt-en-dkms
+update-initramfs -k all -u
+
 #--------------------------------------------------------------------------
 # Enable puppet conf setting to allow custom facts
 echo "[agent]" >> /etc/puppet/puppet.conf
