@@ -743,6 +743,14 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
                     loader=DataLoader(), options=self.options, passwords={})
             self.logger.log(self.logger.INFO, "Starting playbook %s" %
                     self.pbook_path)
+
+            # Update status before every playbook run
+            if kolla:
+                self.current_status = "openstack_" + action
+            else:
+                self.current_status = action
+            self.update_status()
+
             rv = self.pb_executor.run()
             if rv != 0:
                 self.current_status = STATUS_FAILED
