@@ -4212,6 +4212,10 @@ class VncServerManager():
                                              'dv_switch_mgmt', {})
             dvs_mgmt_name = dvs_mgmt_dict.get('dv_switch_name')
             contrail_vm_params = compute_esx_params['contrail_vm']
+
+            # save mode as vcenter for contrail_computeVM
+            contrail_vm_params['mode'] = 'vcenter'
+
             if not dvs_mgmt_name:
                 if contrail_vm_params.get('mgmt_pg'):
                     dd = {}
