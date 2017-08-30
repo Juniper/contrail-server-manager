@@ -6221,9 +6221,9 @@ class VncServerManager():
         cur_kolla_inventory = \
             cluster["parameters"]["provision"]["containers"]["kolla_inventory"]
         for k,v in kolla_inv_groups.iteritems():
-            cur_kolla_inventory[k] = v          
-        for k,v in kolla_inv_hosts.iteritems(): 
-            cur_kolla_inventory[k] = v          
+            cur_kolla_inventory[k] = copy.deepcopy(v)
+        for k,v in kolla_inv_hosts.iteritems():
+            cur_kolla_inventory[k] = copy.deepcopy(v)
 
         cur_inventory["[all:children]"] = []
         cur_inventory["[all:vars]"] = copy.deepcopy(contrail_4)
