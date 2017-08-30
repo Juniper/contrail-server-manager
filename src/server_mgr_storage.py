@@ -280,7 +280,12 @@ def build_storage_config(self, server, cluster, role_servers,
 
     contrail_params['storage']['storage_num_osd']       = total_osd
     contrail_params['storage']['storage_num_hosts']     = num_storage_hosts
-    contrail_params['storage']['storage_enabled']       = bool(num_storage_hosts > 0)
+    if (num_storage_hosts > 0) :
+      contrail_params['storage']['enabled']             = '1'
+      contrail_params['storage']['storage_enabled']     = 1
+    else:
+      contrail_params['storage']['enabled']             = '0'
+      contrail_params['storage']['storage_enabled']     = 0
     contrail_params['storage']['live_migration_ip']     = live_migration_ip
     contrail_params['storage']['storage_fsid']          = \
                         cluster_storage_params['storage_fsid']
