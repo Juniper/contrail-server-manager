@@ -166,7 +166,7 @@ class ServerMgrValidations:
         for server in servers_dict:
             management_intf = eval(server['parameters']).get('interface_name',None)
             ctrl_data_intf = eval(server['contrail']).get('control_data_interface',None)
-            if management_intf != ctrl_data_intf:
+            if ctrl_data_intf and management_intf != ctrl_data_intf:
                 all_multi = True
             elif management_intf:
                 all_single = True
@@ -305,11 +305,11 @@ class ServerMgrValidations:
             return
         #Validation for nodes configured only for Openstack HA
         if len(openstack_only_list) > 1:
-            #internal vip has to be configured
-            if not internal_vip:
-                raise Exception("Internal vip has to be configured")
+            #external vip has to be configured
+            if not external_vip:
+                raise Exception("External vip has to be configured have to be the same if there is only one interface")
             #If external vip is configured it has to be the same as internal vip
-            if external_vip and external_vip != internal_vip:
+            if internal_vip and external_vip != internal_vip:
                 raise Exception("Internal vip and External vip have to be the same if there is only one interface")
             return
     
