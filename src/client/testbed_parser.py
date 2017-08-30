@@ -23,7 +23,7 @@ DEF_TRANS_DICT='/opt/contrail/server_manager/client/parameter-translation-dict.j
 recalculate_list=["external_routers_list"]
 log = logging.getLogger('testbed_parser')
 log.setLevel(logging.DEBUG)
-host_specific_param_list = ['compute_as_gateway_mode','qos_priority_tagging']
+host_specific_param_list = ['compute_as_gateway_mode','qos_priority_tagging','tsn_evpn_mode']
 
 class Utils(object):
     @staticmethod

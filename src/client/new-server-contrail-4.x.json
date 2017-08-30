@@ -26,6 +26,7 @@
                         },
                         "qos_priority_tagging": true,
                         "compute_as_gateway_mode": "server",
+                        "tsn_evpn_mode": true,
                         "coremask": "",
                         "huge_pages": "",
                         "vgw": {

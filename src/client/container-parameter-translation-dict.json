@@ -371,6 +371,10 @@
     "newname": "contrail_4.compute_as_gateway_mode",
     "newformat": "string"
   },
+  "tsn_evpn_mode": {
+    "newname": "contrail_4.tsn_evpn_mode",
+    "newformat": "boolean"
+  },
   "qos_priority_tagging": {
     "newname": "contrail_4.qos_priority_tagging",
     "newformat": "boolean"
