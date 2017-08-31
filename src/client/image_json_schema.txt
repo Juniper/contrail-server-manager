@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#", 
+  "definitions": {}, 
+  "id": "http://example.com/example.json", 
+  "properties": {
+    "image": {
+      "id": "/properties/image", 
+      "items": {
+        "id": "/properties/image/items", 
+        "properties": {
+          "category": {
+            "default": "", 
+            "description": "image category, acceptable values are 'image' for os or 'package' for contrail artifacts",
+            "mandatory": "true",
+            "values": ['image', 'package'],
+            "type": "string"
+          }, 
+          "id": {
+            "default": "", 
+            "description": "unique id for the image",
+            "mandatory": "true", 
+            "type": "string"
+          }, 
+          "parameters": {
+            "id": "/properties/image/items/properties/parameters", 
+            "properties": {
+              "openstack_sku": {
+                "default": "", 
+                "description": "specify contrail sku, value 'vcenter' indicates package vcenter",
+                "mandatory": "mandatory for vcenter-as-orchestrator package",
+                "values": ['vcenter'] 
+                "type": "string"
+              }
+            }, 
+            "type": "object"
+          }, 
+          "path": {
+            "default": "",
+            "description": "path to the package",
+            "mandatory": "true",
+            "type": "string"
+          }, 
+          "type": {
+            "default": "", 
+            "description": "type of the os image or package", 
+            "mandatory": "true", 
+            "values": ['contrail-ubuntu-package'],
+            "type": "string"
+          }, 
+          "version": {
+            "default": "", 
+            "description": "version string for the package or os version",
+            "type": "string"
+          }
+        }, 
+        "type": "object"
+      }, 
+      "type": "array"
+    }
+  }, 
+  "type": "object"
+}

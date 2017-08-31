@@ -1,0 +1,202 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#", 
+  "definitions": {}, 
+  "id": "http://example.com/example.json", 
+  "description": "This schema focuses on server parameters specifically added for supporting vcenter-orchestrator and vcenter-compute mode provisioning. The server is refered to as computeVM in this schema document. The computeVM provides contrail networking functionality. The computeVM is created in the ESXI host when provisioning is issued for the cluster. The server parameters here include perperties of the computeVM, created on specified ESXI host."
+  "properties": {
+    "server": {
+      "id": "/properties/server", 
+      "items": {
+        "id": "/properties/server/items", 
+        "properties": {
+          "cluster_id": {
+            "default": "", 
+            "description": "cluster_id this server belongs to",
+            "type": "string"
+          }, 
+          "contrail": {
+            "id": "/properties/server/items/properties/contrail", 
+            "properties": {
+              "description": "contrail specific params go in here, example is control_data interface info. Refer to the existing server json samples for more details on options available in this stanza",
+            }, 
+            "type": "object"
+          }, 
+          "domain": {
+            "default": "", 
+            "description": "domain name",
+            "type": "string"
+          }, 
+          "host_name": {
+            "default": "", 
+            "description": "Hostname of the server",
+            "type": "string"
+          }, 
+          "id": {
+            "default": "", 
+            "description": "unique id for the server",
+            "type": "string"
+          }, 
+          "network": {
+            "id": "/properties/server/items/properties/network", 
+            "properties": {
+              "interfaces": {
+                "id": "/properties/server/items/properties/network/properties/interfaces", 
+                "items": {
+                  "id": "/properties/server/items/properties/network/properties/interfaces/items", 
+                  "properties": {
+                    "default_gateway": {
+                      "default": "", 
+                      "description": "default gateway, specify one default gateway for the server",
+                      "type": "string"
+                    }, 
+                    "dhcp": {
+                      "default": false, 
+                      "description": "dhcp true, SM configures the /etc/network/interfaces script on computeVM for dhcp for the interface. dhcp false, SM configures the /etc/network/interfaces script with static ip as specified in this stanza. For computeVM, mgmt interfaces is required to be dhcp.",
+                      "type": "boolean"
+                    }, 
+                    "ip_address": {
+                      "default": "",
+                      "description": "ip address of the computeVM",
+                      "type": "string"
+                    }, 
+                    "mac_address": {
+                      "default": "",
+                      "description": "mac address of the computeVM",
+                      "type": "string"
+                    }, 
+                    "name": {
+                      "default": "", 
+                      "description": "Name of the interface on computeVM",
+                      "type": "string"
+                    }
+                  }, 
+                  "type": "object"
+                }, 
+                "type": "array"
+              }
+            }, 
+            "type": "object"
+          }, 
+          "parameters": {
+            "id": "/properties/server/items/properties/parameters", 
+            "properties": {
+              "esxi_parameters": {
+                "id": "/properties/server/items/properties/parameters/properties/esxi_parameters",
+                "description": "when this stanza is configured, SM and ansible playbook treat this as VM to be created in specified ESXI host.",
+                "properties": {
+                  "cluster": {
+                    "default": "", 
+                    "description": "vcenter server associated with the esxi host",
+                    "type": "string"
+                  }, 
+                  "contrail_vm": {
+                    "id": "/properties/server/items/properties/parameters/properties/esxi_parameters/properties/contrail_vm", 
+                    "properties": {
+                      "mgmt_pg": {
+                        "default": "", 
+                        "description": "Port-group for mgmt nic on computeVM. When dv_switch_mgmt is defined at the cluster level configuration, this parameter is ignored.",
+                        "mandatory": "yes if no dv_switch_mgmt is configured at the cluster level",
+                        "type": "string"
+                      }, 
+                      "mgmt_switch": {
+                        "default": "vSwitch0", 
+                        "description": "standard switch to be used to create mgmt_pg in. This is ignored when dv_switch_mgmt is configured at cluster level.",
+                        "type": "string"
+                      }, 
+                      "control_data_pg": {
+                        "default": "", 
+                        "description": "Port-group for control_data nic on computeVM. When dv_switch_control_data is defined at the cluster level configuration, this parameter is ignored.",
+                        "type": "string"
+                      }, 
+                      "control_data_switch": {
+                        "default": "vSwitch0", 
+                        "description": "standard switch to be used to create control_data_pg in. This is ignored when dv_switch_control_data is configured at cluster level.",
+                        "type": "string"
+                      },
+                      "pci_devices": {
+                        "properties": {
+                          "nics": {
+                            "default": "",
+                            "description": "List of PCI nics to add to the computeVM. User is expected to pre-configure pci pass-through on esxi host",
+                            "type": "array"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "sr_iov_nics": {
+                        "default": "",
+                        "description": "List of sriov nics to add to the computeVM. dv_switch_sr_iov stanza is required to be configured at the cluster level. User is expected to preconfigre this dvswitch. Assiciated portgroup is created by SM provisioning",
+                        "type": "array"
+                      },
+                      "vmdk": {
+                        "default": "",
+                        "description": "Path to the ovf tar file to be used for computeVM",
+                        "type": "string"
+                      }
+                    }, 
+                    "type": "object"
+                  }, 
+                  "datacenter": {
+                    "default": "", 
+                    "description": "datacenter this esxi host belongs to",
+                    "type": "string"
+                  }, 
+                  "datastore": {
+                    "default": "", 
+                    "description": "datastore name configured on the esxi host",
+                    "type": "string"
+                  }, 
+                  "name": {
+                    "default": "", 
+                    "description": "ip address of the esxi host",
+                    "type": "string"
+                  }, 
+                  "password": {
+                    "default": "", 
+                    "description": "password credentials for the esxi host",
+                    "type": "string"
+                  }, 
+                  "username": {
+                    "default": "", 
+                    "description": "username for the esxi host",
+                    "type": "string"
+                  }, 
+                  "validate_certs": {
+                    "default": false, 
+                    "description": "cert validation when communicating with esxi host",
+                    "type": "boolean"
+                  }, 
+                  "vcenter_server": {
+                    "default": "", 
+                    "description": "vcenter server key in cluster configuration, this esxi host is associated with.",
+                    "type": "string"
+                  }
+                }, 
+                "type": "object"
+              }
+            }, 
+            "type": "object"
+          }, 
+          "password": {
+            "default": "c0ntrail123", 
+            "description": "computeVM password",
+            "type": "string"
+          }, 
+          "roles": {
+            "id": "/properties/server/items/properties/roles", 
+            "items": {
+              "default": "", 
+              "description": "configure contrail-compute role for the computeVM in esxi host. Other roles defined to support vcenter functionality are contrail-vcenter-compute and contrail-vcenter-plugin.",
+              "values": ['contrail-controller', 'contrail-analytics', 'contrail-analyticsdb', 'contrail-vcenter-compute', 'contrail-vcenter-plugin', 'contrail-compute'],
+              "type": "string"
+            }, 
+            "type": "array"
+          }
+        }, 
+        "type": "object"
+      }, 
+      "type": "array"
+    }
+  }, 
+  "type": "object"
+}
