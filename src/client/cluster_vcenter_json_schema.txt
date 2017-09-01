@@ -1,0 +1,195 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#", 
+  "description": "This schema goes as dict into contrail_4 stanza of the cluster json",
+  "properties": {
+    "cloud_orchestrator": {
+      "default": "openstack", 
+      "description": "orchestrator type for the cluster. The default value openstack, for vcenter orchestrator mode provisioning, 'vcenter' need to be specified",
+      "type": "string"
+    }, 
+    "vcenter_servers": {
+      "description": "specify a list of dicts of vcenter servers",
+      "type": "array"
+      "properties":
+      "$vc_server_key": {
+        "description": "vcenter server key string. This key is referenced in server json to indicate the vcenter given server belongs to.",
+        "properties": {
+          "datacenters": {
+            "description": "dict of datacenter belonging to the vcenter-server",
+            "properties": {
+              "$datacenter_name": {
+              "description": "The key is the datacenter name, it will be created in the vcenter-server by SM provisioning.",
+              "properties": {
+                      "datacenter_mtu": {
+                        "default": "1500", 
+                        "description": "This mtu is set on the DV switches provisioned using SM".
+                        "type": "string"
+                      }, 
+                      "dv_switch_control_data": {
+                        "description": "DV switch to create for Control_data. If this stanza is specified, a DVS is created by SM provisioning.",
+                        "mandatory": false,  
+                        "properties": {
+                          "dv_port_group_control_data": {
+                            "properties": {
+                              "dv_portgroup_name": {
+                                "default": "", 
+                                "description": "name of the port group to create in control-data DVS",
+                                "type": "string"
+                              }, 
+                              "number_of_ports": {
+                                "default": "", 
+                                "description": "Number of ports to be added to the DVS, by configuration the DVS number of ports are elastic it can grow as virtual ports for VMs are added."
+                                "type": "string"
+                              }, 
+                              "uplink": {
+                                "default": "", 
+                                "description": "Name of the uplink for the DVS",
+                                "type": "string"
+                              }
+                            }, 
+                            "type": "object"
+                          }, 
+                          "dv_switch_name": {
+                            "default": "", 
+                            "description": "Name of the control-data dvswitch",
+                            "type": "string"
+                          }
+                        }, 
+                        "type": "object"
+                      }, 
+                      "dv_switch_mgmt": {
+                        "description": "DV switch to create for management. If this stanza is specified, a DVS is created by SM provisioning.",
+                        "mandatory": false,  
+                        "properties": {
+                          "dv_port_group_mgmt": {
+                            "properties": {
+                              "dv_portgroup_name": {
+                                "default": "", 
+                                "description": "name of the port group to create in mgmt DVS",
+                                "type": "string"
+                              }, 
+                              "number_of_ports": {
+                                "default": "", 
+                                "description": "Number of ports to be added to the DVS, by configuration the DVS number of ports are elastic it can
+grow as virtual ports for VMs are added."
+                                "type": "string"
+                              }, 
+                              "uplink": {
+                                "default": "8", 
+                                "description": "Name of the uplink for the DVS",
+                                "type": "string"
+                              }
+                            }, 
+                            "type": "object"
+                          }, 
+                          "dv_switch_name": {
+                            "default": "", 
+                            "description": "Name of the mgmt dvswitch",
+                            "type": "string"
+                          }
+                        }, 
+                        "type": "object"
+                      }, 
+                      "dv_switch_sr_iov": {
+                        "description": "This stanza is defined when sriov interface is needed for computeVM. The user is exepcted to pre-create this switch and pre-configure sriov related items in vcenter/esxi. The associated PG is created by the SM provisioning",
+                        "mandatory": false,  
+                        "properties": {
+                          "": {
+                            "properties": {
+                              "dv_portgroup_name": {
+                                "default": "", 
+                                "description": "name of the port group to create in DVS",
+                                "type": "string"
+                              }, 
+                              "number_of_ports": {
+                                "default": "", 
+                                "description": "Number of ports to be added to the DVS, by configuration the DVS number of ports are elastic it can
+grow as virtual ports for VMs are added."
+                                "type": "string"
+                              }, 
+                            }, 
+                            "type": "object"
+                          }, 
+                          "dv_switch_name": {
+                            "default": "", 
+                            "description": "Name of the sriov dvswitch. This switch is expected to be pre-configured",
+                            "type": "string"
+                          }
+                        }, 
+                        "type": "object"
+                      },
+                      "dv_switches": {
+                        "description": "Specify dv switches for contrail networking support for the workload on esxi hosts. If this stanza is specified, a DVS is created by SM provisioning.",
+                        "mandatory": true,  
+                        "items": {
+                          "properties": {
+                            "clusternames": {
+                              "items": {
+                                "default": "", 
+                                "description": "Cluster names associated with this dvswitch, for contrail networking support",
+                                "type": "string"
+                              }, 
+                              "type": "array"
+                            }, 
+                            "dv_port_group": {
+                              "properties": {
+                                "dv_portgroup_name": {
+                                  "default": "", 
+                                  "description": "port-group to be created in the dvswitch this pg is added to the contrail VM",
+                                  "type": "string"
+                                }, 
+                                "number_of_ports": {
+                                  "default": "3", 
+                                  "description": "Number of ports to be added to the DVS, by configuration the DVS number of ports are elastic it can grow as virtual ports for VMs are added.",
+                                  "type": "string"
+                                }
+                              }, 
+                              "type": "object"
+                            }, 
+                            "dv_switch_name": {
+                              "default": "", 
+                              "description": "Name of the dvswitch for contrail networking support",
+                              "type": "string"
+                            }
+                          }, 
+                          "type": "object"
+                        }, 
+                        "type": "array"
+                      }
+                    }, 
+                    "type": "object"
+                  }
+                }, 
+                "type": "object"
+              }, 
+              "hostname": {
+                "default": "",
+                "description": "ip address of the vcenter server",
+                "type": "string"
+              }, 
+              "password": {
+                "default": "", 
+                "description": "vcenter server password",
+                "type": "string"
+              }, 
+              "username": {
+                "default": "", 
+                "description": "vcenter server username",
+                "type": "string"
+              }, 
+              "validate_certs": {
+                "default": false, 
+                "description": "validate certs for the vcenter server",
+                "type": "boolean"
+              }
+            }, 
+            "type": "object"
+          }
+        }, 
+        "type": "object"
+      }, 
+      "type": "array"
+    }
+  }, 
+  "type": "object"
+}
