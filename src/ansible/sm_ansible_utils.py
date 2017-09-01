@@ -109,6 +109,8 @@ kolla_pw_keys = [
         "searchlight_keystone_password",
         "tacker_database_password",
         "tacker_keystone_password",
+        "keepalived_password",
+        "haproxy_password",
         "memcache_secret_key"]
 
 
