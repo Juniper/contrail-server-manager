@@ -6048,11 +6048,14 @@ class VncServerManager():
         return keystone_cfg
     #end  get_calculated_keystone_cfg_dict
 
-    def get_calculated_rabbitmq_cfg_dict(self, cluster, cluster_srvrs):
+    def get_calculated_rabbitmq_cfg_dict(self, cluster, cluster_srvrs, pkg=None):
         rabbitmq_cfg = dict()
         ops_rabbitmq_cfg = self.get_cluster_openstack_cfg_section(cluster, "rabbitmq")
         if ops_rabbitmq_cfg:
-            rabbitmq_cfg["user"] = ops_rabbitmq_cfg.get("user","guest")
+            if pkg and ContrailVersion(pkg) > self.last_puppet_version:
+                rabbitmq_cfg["user"] = ops_rabbitmq_cfg.get("user","openstack")
+            else:
+                rabbitmq_cfg["user"] = ops_rabbitmq_cfg.get("user","guest")
             rabbitmq_cfg["password"] = ops_rabbitmq_cfg.get("password","guest")
         return rabbitmq_cfg
 
@@ -6352,6 +6355,15 @@ class VncServerManager():
             cur_inventory["[all:vars]"]['vc_plugin_config'] = tmp_dict
     # end build_calculated_inventory_params
 
+    def get_server_ip_list_for_role(self, role, servers):
+        server_role_list = []
+        for server in servers:
+            for r in eval(server['roles']):
+                if role == r:
+                    server_role_list.append(server['ip_address'])
+
+        return server_role_list
+
     # This function needs to be called after build_calculated_inventory_params
     def build_calculated_kolla_params(self, cluster, cluster_servers, pkg):
 
@@ -6359,8 +6371,26 @@ class VncServerManager():
         if not ContrailVersion(pkg) > self.last_puppet_version:
             return
 
+        os_ha_rid = None
+        os_srvrs = set(self.get_server_ip_list_for_role(OPENSTACK_CONTAINER,
+                cluster_servers))
+        cmpt_srvrs = set(self.get_server_ip_list_for_role(BARE_METAL_COMPUTE,
+                cluster_servers))
         os = self.get_cluster_openstack_cfg_section(cluster, None)
         ks = self.get_cluster_openstack_cfg_section(cluster, "keystone")
+        os_ha = self.get_cluster_openstack_cfg_section(cluster, "ha")
+        if os_ha and os_ha.get("internal_virtual_router_id", None):
+            os_ha_rid = os_ha.get("internal_virtual_router_id")
+
+        cl = self.get_cluster_provision_cfg_section(cluster, "contrail")
+        os_dict = self.get_calculated_openstack_cfg_dict(cluster,
+                cluster_servers)
+        glbl_cfg_dict = self.get_calculated_global_cfg_dict(cluster,
+                cluster_servers)
+        rabbit_dict = self.get_calculated_rabbitmq_cfg_dict(cluster,
+                cluster_servers, pkg)
+        neutron_dict = self.get_calculated_neutron_cfg_dict(cluster,
+                cluster_servers)
 
         # calculated values go into this dict
         kolla_passwds = {}
@@ -6387,8 +6417,10 @@ class VncServerManager():
         kolla_passwds["glance_database_password"] = os["glance"]["password"]
         kolla_passwds["glance_keystone_password"] = os["glance"]["password"]
 
-        kolla_passwds["ceilometer_database_password"] = os["ceilometer"]["password"]
-        kolla_passwds["ceilometer_keystone_password"] = os["ceilometer"]["password"]
+        kolla_passwds["ceilometer_database_password"] = \
+            os["ceilometer"]["password"]
+        kolla_passwds["ceilometer_keystone_password"] = \
+            os["ceilometer"]["password"]
 
         kolla_passwds["cinder_database_password"] = os["cinder"]["password"]
         kolla_passwds["cinder_keystone_password"] = os["cinder"]["password"]
@@ -6399,6 +6431,8 @@ class VncServerManager():
         kolla_passwds["swift_keystone_password"] = os["swift"]["password"]
         kolla_passwds["swift_hash_path_suffix"] = os["swift"]["password"]
         kolla_passwds["swift_hash_path_prefix"] = os["swift"]["password"]
+
+        kolla_passwds["rabbitmq_password"] = rabbit_dict["password"]
 
         # keys
         kolla_passwds["kolla_ssh_key"] = {}
@@ -6422,7 +6456,7 @@ class VncServerManager():
         self.merge_dict(pw_from_json, kolla_passwds)
 
         # globals:
-        # For now the only parameter that is derived is the image names
+        # 1. Image names
         image_params = pkg.get("parameters", {})
         for container in image_params.get("containers", None):
             role_with_underbar = None
@@ -6437,6 +6471,45 @@ class VncServerManager():
                 container_image =  container.get("container_image", None)
                 if container_image:
                     kolla_globals[img_key] = container_image
+
+        # 2. Keystone params
+        kolla_globals["keystone_admin_user"] = ks.get("admin_user", "admin")
+        kolla_globals["version"] = ks.get("version", "v2.0")
+        if kolla_globals["version"] == 'v2.0':
+            kolla_globals["keystone_admin_url"] = ("{{ admin_protocol }}://"
+                "{{ kolla_internal_fqdn }}:{{ keystone_admin_port }}")
+            kolla_globals["keystone_internal_url"] = ("{{ internal_protocol }}:"
+                    "//{{ kolla_internal_fqdn }}:{{ keystone_public_port }}")
+            kolla_globals["keystone_public_url"] = ("{{ public_protocol }}://"
+                    "{{ kolla_external_fqdn }}:{{ keystone_public_port }}")
+
+        # 3. HA params from openstack section
+        kolla_globals["kolla_internal_vip_address"] = os_dict["ctrl_data_ip"] 
+        kolla_globals["kolla_external_vip_address"] = os_dict["management_ip"]
+        if os_ha_rid:
+            kolla_globals["keepalived_virtual_router_id"] = os_ha_rid
+
+        # 4. Rabbitmq params
+        kolla_globals["rabbitmq_user"] = rabbit_dict.get("user", "openstack")
+
+        # 5. Neutron params
+        metadata_secret =  neutron_dict.get("metadata_proxy_secret", None)
+        if metadata_secret != None and len(metadata_secret) > 0:
+            kolla_globals["metadata_secret"] = metadata_secret
+
+        # 6. Contrail specific
+        # enable_nova_compute: - it should be yes on
+        # multi-node scenario where openstack and contrail-compute baremetal are
+        # on different nodes. On single node configs or where openstack and
+        # contrail-compute are on the same node, set it to no. Defaults to yes.
+        if len(os_srvrs.intersection(cmpt_srvrs)) != 0:
+            kolla_globals["enable_nova_compute"] = "no"
+
+        ctrl_ip = glbl_cfg_dict.get("controller_ip", None)
+        if ctrl_ip:
+            kolla_globals["contrail_api_interface_address"] = ctrl_ip
+
+        kolla_globals["neutron_plugin_agent"] = "opencontrail"
 
         # Add any more derivations for globals.yml above this
 
