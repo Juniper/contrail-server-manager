@@ -343,7 +343,7 @@ def get_server_contrail_4_cfg_section(server, section):
                 return cont[section]
     return {}
 
-def get_calculated_storage_ceph_cfg_dict(cluster, cluster_srvrs):
+def get_calculated_storage_ceph_cfg_dict(cluster, cluster_srvrs, pkg=None):
     storage_cfg = dict()
     disk_cfg = dict()
     storage_role_present = 0
