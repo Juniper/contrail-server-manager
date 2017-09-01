@@ -28,6 +28,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 
 
+############## REFACTOR BEGIN - CODE BELOW CAN BE DELETED AFTER TESTING ##########
 """
     wrapper class inspired from
     http://docs.ansible.com/ansible/developing_api.html
@@ -589,6 +590,10 @@ class ContrailOpenstackPlayBook(multiprocessing.Process):
         #    self.update_status()
         return stats
 
+############## REFACTOR END - CODE ABOVE CAN BE DELETED AFTER TESTING ##########
+
+#    wrapper class inspired from
+#    http://docs.ansible.com/ansible/developing_api.html
 # This class runs openstack playbooks followed by contrail ansible playbooks to
 # deploy openstack and contrail nodes in sequence.
 class ContrailAnsiblePlaybooks(multiprocessing.Process):
@@ -606,6 +611,11 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
         self.json_entity  = json_entity
         self.args         = args
         self.hosts_in_inv = json_entity[0]["hosts_in_inv"]
+        if "kolla_inv" in json_entity[0]["parameters"]:
+            self.hosts_in_kolla_inv = \
+                    SMAnsibleUtils(self.logger).hosts_in_kolla_inventory(\
+                        json_entity[0]['parameters']['kolla_inv'])
+
         self.tasks        = re.split(r'[,\ ]+', json_entity[0]["tasks"])
 
         #Initialize vars required for Ansible Playbook APIs
@@ -616,8 +626,13 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
         self.inventory    = None
         self.pb_executor  = None
 
-    def update_status(self):
-        for h in self.hosts_in_inv:
+    def update_status(self, kolla=False):
+        if kolla:
+            hosts = self.hosts_in_kolla_inv
+        else:
+            hosts = self.hosts_in_inv
+
+        for h in hosts:
             status_resp = { "server_id" : h,
                             "state" : self.current_status }
             SMAnsibleUtils(self.logger).send_REST_request(self.args.ansible_srvr_ip,
@@ -753,12 +768,12 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
                 self.current_status = "openstack_" + action
             else:
                 self.current_status = action
-            self.update_status()
+            self.update_status(kolla)
 
             rv = self.pb_executor.run()
             if rv != 0:
                 self.current_status = STATUS_FAILED
-                self.update_status()
+                self.update_status(kolla)
                 self.logger.log(self.logger.ERROR,
                         "Playbook Failed: %s" % self.pbook_path)
                 rv = None
@@ -767,7 +782,7 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
         except Exception as e:
             self.logger.log(self.logger.ERROR, e)
             self.current_status = STATUS_FAILED
-            self.update_status()
+            self.update_status(kolla)
             rv = None
         return rv
 

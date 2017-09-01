@@ -13,7 +13,6 @@ import threading
 import ConfigParser
 from bottle import Bottle, route
 from sm_ansible_playbook import ContrailAnsiblePlaybooks
-from sm_ansible_playbook import ContrailOpenstackPlayBook
 from sm_ansible_utils import *
 from collections import defaultdict
 
@@ -62,8 +61,8 @@ class SMAnsibleServer():
         self.joiner.start()
         self._smgr_log.log(self._smgr_log.INFO,  'Initializing Bottle App')
         self.app = bottle.app()
-        bottle.route('/run_contrail_playbook', 'POST', self.start_contrail_playbook)
-        bottle.route('/run_openstack_playbook', 'POST', self.start_openstack_playbook)
+        bottle.route('/run_ansible_playbooks', 'POST',
+                self.start_ansible_playbooks)
 
     def _parse_args(self, args_str):
         '''
@@ -131,17 +130,7 @@ class SMAnsibleServer():
         self._args.config_file = args.config_file
     # end _parse_args
 
-    def start_contrail_playbook(self):
-        entity = bottle.request.json
-        pb     = ContrailAnsiblePlayBook(entity, self._args)
-        pb.start()
-        self.joinq.put(pb)
-        # Return success. Actual status will be supplied when the pb thread
-        # completes and the next status query is made
-        bottle.response.headers['Content-Type'] = 'application/json'
-        return json.dumps({'status': 'Provision in Progress'})
-
-    def start_openstack_playbook(self):
+    def start_ansible_playbooks(self):
         entity = bottle.request.json
         pb     = ContrailAnsiblePlaybooks(entity, self._args)
         pb.start()

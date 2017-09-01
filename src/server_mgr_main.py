@@ -104,8 +104,7 @@ bottle.BaseRequest.MEMFILE_MAX = 2 * 102400
 
 _WEB_HOST = '127.0.0.1'
 _WEB_PORT = 9001
-_ANSIBLE_CONTRAIL_PROVISION_ENDPOINT = 'run_contrail_playbook'
-_ANSIBLE_OPENSTACK_PROVISION_ENDPOINT = 'run_openstack_playbook'
+_ANSIBLE_CONTRAIL_PROVISION_ENDPOINT = 'run_ansible_playbooks'
 _ANSIBLE_SRVR_PORT = 9003
 _DEF_CFG_DB = 'cluster_server_mgr.db'
 _DEF_SMGR_BASE_DIR = '/etc/contrail_smgr/'
@@ -1273,7 +1272,6 @@ class VncServerManager():
 
     def validate_smgr_request(self, type, oper, request, data = None, modify =
                               False):
-        self._smgr_log.log(self._smgr_log.DEBUG, "validate_smgr_request")
         ret_data = {}
         ret_data['status'] = 1
         if type == "SERVER":
@@ -4346,17 +4344,9 @@ class VncServerManager():
                 'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
                 'provisioned_id': package.get('id', '')}
         self._serverDb.modify_server(update)
-        #SMAnsibleUtils(self._smgr_log).send_REST_request(self._args.ansible_srvr_ip,
-        #              self._args.ansible_srvr_port,
-        #              _ANSIBLE_OPENSTACK_PROVISION_ENDPOINT, pp)
-        #update = {'id': server['id'],
-        #        'status' : 'openstack_completed',
-        #        'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
-        #        'provisioned_id': package.get('id', '')}
-        #self._serverDb.modify_server(update)
         self.ansible_utils.send_REST_request(self._args.ansible_srvr_ip,
                       self._args.ansible_srvr_port,
-                      _ANSIBLE_OPENSTACK_PROVISION_ENDPOINT, pp)
+                      _ANSIBLE_CONTRAIL_PROVISION_ENDPOINT, pp)
         update = {'id': server['id'],
                 'status' : 'provision_issued',
                 'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),

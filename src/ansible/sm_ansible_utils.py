@@ -427,6 +427,16 @@ class SMAnsibleUtils():
                 #    self.logger.log(self.logger.DEBUG, msg)
                 d1[k] = copy.deepcopy(v2)
 
+    def hosts_in_kolla_inventory(self, inventory):
+        hosts = []
+        for k in kolla_inv_hosts:
+            if k in inventory.keys():
+                for ip in inventory[k]:
+                    h = ip.split()
+                    if h[0] not in hosts:
+                        hosts.append(h[0])
+        return hosts
+
     def hosts_in_inventory(self, inventory):
         hosts = []
         for role in _valid_roles:
