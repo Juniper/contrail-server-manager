@@ -3934,6 +3934,9 @@ class VncServerManager():
                 sriov_str += "\n"
                 sriov_str += "grep \"%s\" /etc/rc.local || sed -i.bak \"/^exit 0/i%s\" /etc/rc.local" %(sriov_cmd, sriov_cmd)
                 sriov_str += "\n"
+            sriov_cmd = "/etc/setup_bond.sh"
+            sriov_str += "grep \"%s\" /etc/rc.local || sed -i.bak \"/^exit 0/i%s\" /etc/rc.local" %(sriov_cmd, sriov_cmd)
+            sriov_str += "\n"
 
         #Fetch network realted data and push to reimage
         execute_script = False

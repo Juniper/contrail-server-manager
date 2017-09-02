@@ -125,6 +125,31 @@ apt-get -y install vlan
 apt-get -y install sysstat
 apt-get -y install ethtool
 
+# Build script file to be executed in case of bond bring-up. This will be called
+# from rc.local.
+cat >/etc/setup_bond.sh <<EOF
+#!/bin/sh
+
+sleep 5
+
+for iface in \$(ifquery --list); do
+    ifquery \$iface | grep "bond-master"
+    if [ \$? -eq 0 ]; then
+        ifdown \$iface
+    fi
+done
+
+sleep 2
+
+for iface in \$(ifquery --list); do
+    ifquery \$iface | grep "bond-master"
+    if [ \$? -eq 0 ]; then
+        ifup \$iface
+    fi
+done
+EOF
+chmod 755 /etc/setup_bond.sh
+
 wget -O /root/staticroute_setup.py http://$server/kickstarts/staticroute_setup.py
 wget -O /root/interface_setup.py http://$server/kickstarts/interface_setup.py
 wget http://$server/contrail/config_file/$system_name.sh
