@@ -94,7 +94,7 @@ grow as virtual ports for VMs are added."
                         "description": "This stanza is defined when sriov interface is needed for computeVM. The user is exepcted to pre-create this switch and pre-configure sriov related items in vcenter/esxi. The associated PG is created by the SM provisioning",
                         "mandatory": false,  
                         "properties": {
-                          "": {
+                          "dv_port_group_sriov": {
                             "properties": {
                               "dv_portgroup_name": {
                                 "default": "", 
