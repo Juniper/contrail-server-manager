@@ -10,7 +10,7 @@ import urllib2
 
 from pyVim import connect
 from pyVmomi import vim
-from manage_dvs_pg import get_obj
+from manage_dvs_pg import get_obj, is_xenial_or_above
 
 def get_args():
     """
@@ -192,10 +192,18 @@ def main():
     ovffile.close()
 
     try:
-        si = connect.SmartConnect(host=args.host,
-                                  user=args.user,
-                                  pwd=args.password,
-                                  port=args.port)
+        if is_xenial_or_above():
+            ssl = __import__("ssl")
+            context = ssl._create_unverified_context()
+            si = connect.SmartConnect(host=args.host,
+                                      user=args.user,
+                                      pwd=args.password,
+                                      port=args.port, sslContext=context)
+        else:
+            si = connect.SmartConnect(host=args.host,
+                                      user=args.user,
+                                      pwd=args.password,
+                                      port=args.port)
     except:
         print "Unable to connect to %s" % args.host
         exit(1)
