@@ -228,23 +228,26 @@ def main():
                                              objs["datacenter"].vmFolder)
     while(True):
         if lease.state == vim.HttpNfcLease.State.ready:
-            # Spawn a dawmon thread to keep the lease active while POSTing
+            # Spawn a thread to keep the lease active while POSTing
             # VMDK.
             keepalive_thread = Thread(target=keep_lease_alive, args=(lease,))
+            keepalive_thread.daemon = True
             keepalive_thread.start()
-
-            for deviceUrl in lease.info.deviceUrl:
-                url = deviceUrl.url.replace('*', args.host)
-                fileItem = list(filter(lambda x: x.deviceId ==
-                                                 deviceUrl.importKey,
-                                       import_spec.fileItem))[0]
-                ovffilename = list(filter(lambda x: x == fileItem.path,
-                                          t.getnames()))[0]
-                ovffile = t.extractfile(ovffilename)
-                headers = { 'Content-length' : ovffile.size }
-                req = urllib2.Request(url, ovffile, headers)
-                response = urllib2.urlopen(req)
-            lease.HttpNfcLeaseComplete()
+            try:
+                for deviceUrl in lease.info.deviceUrl:
+                    url = deviceUrl.url.replace('*', args.host)
+                    fileItem = list(filter(lambda x: x.deviceId ==
+                                                     deviceUrl.importKey,
+                                           import_spec.fileItem))[0]
+                    ovffilename = list(filter(lambda x: x == fileItem.path,
+                                              t.getnames()))[0]
+                    ovffile = t.extractfile(ovffilename)
+                    headers = { 'Content-length' : ovffile.size }
+                    req = urllib2.Request(url, ovffile, headers)
+                    response = urllib2.urlopen(req, context = context)
+                lease.HttpNfcLeaseComplete()
+            except:
+                raise
             keepalive_thread.join()
             auto_start_vm(si, args, vm_obj)
             connect.Disconnect(si)
