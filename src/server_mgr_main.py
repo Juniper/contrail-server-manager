@@ -136,7 +136,7 @@ _DEF_COBBLER_KICKSTARTS_PATH = '/var/lib/cobbler/kickstarts/'
 _ENABLE_NEW_PUPPET_FRAMEWORK = True
 _ERR_INVALID_CONTRAIL_PKG = 'Invalid contrail package. Please specify a valid package'
 _ERR_OPENSTACK_SKU_NEEDED = 'openstack_sku image parameter has to be specified in the json file'
-_ERR_INVALID_IMAGE_ID = 'Invalid image id. The image id cannot begin with a number and can contain only alphanumeric and _ characters in it'
+_ERR_INVALID_IMAGE_ID = 'Invalid image id. The image id cannot begin with a number, cannot container capital letters  and can contain only alphanumeric and _ characters in it'
 DEFAULT_PATH_LSTOPO_XML='/var/www/html/contrail/lstopo/'
 
 
@@ -1976,7 +1976,7 @@ class VncServerManager():
          if not pattern.match(image_id):
              return False
          if (image_type == "contrail-ubuntu-package" or image_type == "contrail-centos-package"):
-             pattern = re.compile("[a-zA-Z0-9_]*$")
+             pattern = re.compile("[a-z0-9_]*$")
              if not pattern.match(image_id):
                  return False
          return True
