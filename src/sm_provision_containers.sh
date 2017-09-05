@@ -134,11 +134,11 @@ fi
 
 function get_real_path ()
 {
-    eval contrail_package=$1
-    if [[ "$contrail_package" = /* ]]; then
-        echo $contrail_package
+    eval script_path=$1
+    if [[ "$script_path" = /* ]]; then
+        echo $script_path
     else
-        echo $PWD/$contrail_package
+        echo $PWD/$script_path
     fi
 }
 
@@ -193,11 +193,13 @@ then
   service supervisor-webui-sm restart >> $log_file 2>&1
 fi
 
+
 # Verify Mandatory Arguments exists
 if [ "$JSON_PATH" == "" ]; then
    echo "JSON FILE CONTAINING CLUSTER, SERVER AND IMAGE OBJECTS IS MISSING"
    exit
 fi
+JSON_PATH=$(get_real_path $JSON_PATH)
 # set cluster, server and image json file paths.
 CLUSTER_JSON_PATH="$PROVISION_DIR/cluster.json"
 SERVER_JSON_PATH="$PROVISION_DIR/server.json"
