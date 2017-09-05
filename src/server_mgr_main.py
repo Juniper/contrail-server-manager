@@ -4204,9 +4204,13 @@ class VncServerManager():
             # substitute vc server for host
             vc_srvr_str = compute_esx_params["vcenter_server"] + "_" + \
                           compute_esx_params["datacenter"]
+            cluster_name_of_esx = compute_esx_params['cluster']
             for vc_srv in merged_inv["[all:vars]"]["vcenter_servers"]:
                 if vc_srvr_str in vc_srv.keys()[0]:
-                    compute_esx_params["vcenter_server"] = vc_srv.values()[0]
+                # if vc_server is found match the cluster of the vc server
+                # the cluster of the dvs and esxi need to match
+                    if cluster_name_of_esx in vc_srv.values()[0]['clusternames']:
+                        compute_esx_params["vcenter_server"] = vc_srv.values()[0]
 
             # Generate std sw PG list of dicts with sw name and pg name
             vm_nic_list = []
