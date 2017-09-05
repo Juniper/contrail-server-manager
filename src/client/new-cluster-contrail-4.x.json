@@ -43,6 +43,7 @@
                             "sandesh_ssl_enable": false,
                             "introspect_ssl_enable": false,
                             "metadata_ssl_enable": false,
+                            "configdb_minimum_diskgb": "256",
                             "analyticsdb_minimum_diskgb": "256",
                             "analyticsdb_cassandra_user": "cassandra",
                             "analyticsdb_cassandra_password": "cassandra",
