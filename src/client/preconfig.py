@@ -576,7 +576,7 @@ class Server(object):
                 fqdn = '%s.%s' % (self.id, self.domain)
             else:
                 fqdn = self.id
-            self.local_exec_cmd(r'puppet cert list %s && puppet cert clean %s' % (fqdn, fqdn))
+            self.local_exec_cmd(r'puppet cert list %s > /dev/null 2>@1 && puppet cert clean %s > /dev/null 2>@1' % (fqdn, fqdn))
             #self.exec_cmd(r'find /var/lib/puppet/ssl -name %s*.pem -delete' % fqdn, error_on_fail=True)
             self.exec_cmd(r'rm -rf /var/lib/puppet/ssl')
 
