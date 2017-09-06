@@ -130,6 +130,9 @@
                             "user": "guest",
                             "password": "guest"
                         },
+                        "webui_config": {
+                            "enable_underlay": true
+                        },
                         "storage_ceph_config": {
                             "journal_size": "2048",
                             "replica_size": "2",
