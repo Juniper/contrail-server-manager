@@ -4343,19 +4343,9 @@ class VncServerManager():
                 'cluster_id': cluster['id'], 'parameters': inv, "tasks": tasks}
         pp.append(copy.deepcopy(parameters))
 
-        update = {'id': server['id'],
-                'status' : 'openstack_started',
-                'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
-                'provisioned_id': package.get('id', '')}
-        self._serverDb.modify_server(update)
         self.ansible_utils.send_REST_request(self._args.ansible_srvr_ip,
                       self._args.ansible_srvr_port,
                       _ANSIBLE_CONTRAIL_PROVISION_ENDPOINT, pp)
-        update = {'id': server['id'],
-                'status' : 'provision_issued',
-                'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime()),
-                'provisioned_id': package.get('id', '')}
-        self._serverDb.modify_server(update)
 
         return True
 
