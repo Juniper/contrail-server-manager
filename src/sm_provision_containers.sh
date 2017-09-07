@@ -193,7 +193,7 @@ else
        echo "JSON FILE CONTAINING CLUSTER, SERVER AND IMAGE OBJECTS IS MISSING"
        exit
     fi
-
+    JSON_PATH=$(get_real_path $JSON_PATH)
     # set cluster, server and image json file paths.
     CLUSTER_JSON_PATH="$PROVISION_DIR/cluster.json"
     SERVER_JSON_PATH="$PROVISION_DIR/server.json"
