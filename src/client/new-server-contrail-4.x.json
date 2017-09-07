@@ -90,12 +90,12 @@
                         },
                         "storage": {
                             "storage_osd_disks": [
-                                "dev/sdb:/dev/sdd:Pool_1",
-                                "dev/sdc:/dev/sdd:Pool_2"
+                                "/dev/sdb:/dev/sdd:Pool_1",
+                                "/dev/sdc:/dev/sdd:Pool_2"
                             ],
                             "storage_osd_ssd_disks": [
                                 "/dev/sde:Pool_1",
-                                "dev/sdf:Pool_2"
+                                "/dev/sdf:Pool_2"
                             ],
                             "storage_chassis_id": "chassis_1"
                         },
