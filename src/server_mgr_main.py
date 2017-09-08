@@ -6472,6 +6472,9 @@ class VncServerManager():
                     "//{{ kolla_internal_fqdn }}:{{ keystone_public_port }}")
             kolla_globals["keystone_public_url"] = ("{{ public_protocol }}://"
                     "{{ kolla_external_fqdn }}:{{ keystone_public_port }}")
+            kolla_globals["enable_keystone_v3"] = "no"
+        else:
+            kolla_globals["enable_keystone_v3"] = "yes"
 
         # 3. HA params from openstack section
         kolla_globals["kolla_internal_vip_address"] = os_dict["ctrl_data_ip"] 
