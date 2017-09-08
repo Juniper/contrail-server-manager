@@ -27,6 +27,7 @@
                         "qos_priority_tagging": true,
                         "compute_as_gateway_mode": "server",
                         "tsn_evpn_mode": true,
+                        "tsn_server_list": ["192.168.0.30", "192.168.0.32"],
                         "coremask": "",
                         "huge_pages": "",
                         "vgw": {
