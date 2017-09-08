@@ -6502,14 +6502,17 @@ class VncServerManager():
 
         # 2. Keystone params
         kolla_globals["keystone_admin_user"] = ks.get("admin_user", "admin")
-        kolla_globals["version"] = ks.get("version", "v2.0")
-        if kolla_globals["version"] == 'v2.0':
+        keystone_ver = ks.get("version", "v2.0")
+        if keystone_ver == 'v2.0':
             kolla_globals["keystone_admin_url"] = ("{{ admin_protocol }}://"
                 "{{ kolla_internal_fqdn }}:{{ keystone_admin_port }}")
             kolla_globals["keystone_internal_url"] = ("{{ internal_protocol }}:"
                     "//{{ kolla_internal_fqdn }}:{{ keystone_public_port }}")
             kolla_globals["keystone_public_url"] = ("{{ public_protocol }}://"
                     "{{ kolla_external_fqdn }}:{{ keystone_public_port }}")
+            kolla_globals["enable_keystone_v3"] = "no"
+        else:
+            kolla_globals["enable_keystone_v3"] = "yes"
 
         # 3. HA params from openstack section
         kolla_globals["kolla_internal_vip_address"] = os_dict["ctrl_data_ip"] 
