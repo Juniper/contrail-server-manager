@@ -6183,8 +6183,8 @@ class VncServerManager():
             # var_list:
             #         k1=v1 k2=v2 l1='["str1","str2"]' k3=v3
             if isinstance(v, list):
-                var_list = var_list + " " + k + "=[" + \
-                        ','.join("\"" + str(i) + "\"" for i in v) + "]"
+                var_list = var_list + " " + k + "=\"[" + \
+                        ','.join("\'" + str(i) + "\'" for i in v) + "]\""
             # if the param is a dict() then the value needs to be in quotes
             # for ansible to understand
             elif isinstance(v, dict):

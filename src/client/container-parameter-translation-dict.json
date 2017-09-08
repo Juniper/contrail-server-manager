@@ -473,6 +473,10 @@
     "name": "parameters.provision.contrail_4.tsn_evpn_mode",
     "format": "boolean"
   },
+  "tsn_server_list": {
+    "name": "parameters.provision.contrail_4.tsn_server_list",
+    "format": "list"
+  },
   "compute_as_gateway_mode": {
     "name": "parameters.provision.contrail_4.compute_as_gateway_mode",
     "format": "string"
