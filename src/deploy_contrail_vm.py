@@ -236,7 +236,10 @@ def main():
                     ovffile = t.extractfile(ovffilename)
                     headers = { 'Content-length' : ovffile.size }
                     req = urllib2.Request(url, ovffile, headers)
-                    response = urllib2.urlopen(req, context = context)
+                    if is_xenial_or_above():
+                        response = urllib2.urlopen(req, context = context)
+                    else:
+                        response = urllib2.urlopen(req)
                 lease.HttpNfcLeaseComplete()
             except:
                 raise
