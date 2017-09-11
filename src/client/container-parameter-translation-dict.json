@@ -71,6 +71,14 @@
     "name": "parameters.provision.contrail_4.global_config.external_lb",
     "format": "boolean"
   },
+  "analyticsdb_minimum_diskgb": {
+    "name": "parameters.provision.contrail_4.global_config.analyticsdb_minimum_diskgb",
+    "format": "string"
+  },
+  "configdb_minimum_diskgb": {
+    "name": "parameters.provision.contrail_4.global_config.configdb_minimum_diskgb",
+    "format": "string"
+  },
   "controller_list": {
     "name": "parameters.provision.contrail_4.global_config.controller_list",
     "format": "list"
