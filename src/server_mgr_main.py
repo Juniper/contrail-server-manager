@@ -4166,9 +4166,6 @@ class VncServerManager():
         cluster_inv, kolla_inv = self.get_container_inventory(cluster)
         kolla_pwds, kolla_vars = self.get_container_kolla_params(cluster)
         merged_inv = cluster_inv
-        if not cluster_inv:
-            msg = "No Inventory definition found in cluster json"
-            self.log_and_raise_exception(msg)
 
         for s in self.ansible_utils.hosts_in_inventory(cluster_inv):
             servers = self._serverDb.get_server({'ip_address': s}, detail=True)
@@ -4342,6 +4339,14 @@ class VncServerManager():
         parameters = { 'hosts_in_inv': self.ansible_utils.hosts_in_inventory(cluster_inv), 
                 'cluster_id': cluster['id'], 'parameters': inv, "tasks": tasks}
         pp.append(copy.deepcopy(parameters))
+
+        # Update provisioned_id and status for servers
+        for list_item in server_list:
+            server = list_item['server']
+            update = { 'id': server['id'],
+                       'status': 'provision_issued',
+                       'provisioned_id': package.get('id', '') }
+            self._serverDb.modify_server(update)
 
         self.ansible_utils.send_REST_request(self._args.ansible_srvr_ip,
                       self._args.ansible_srvr_port,
@@ -6327,7 +6332,7 @@ class VncServerManager():
                                 ansible_ssh_pass=%s' % x['password']
                         for g in kolla_inv_hosts:
                             if grp_line not in cur_kolla_inventory[g]:
-                                cur_kolla_inventory[g].append(grp_line)
+                                cur_kolla_inventory[g].append(grp_line + var_list)
                         continue
                     if role == BARE_METAL_COMPUTE:
                         cur_inventory["[all:vars]"]["contrail_compute_mode"] = \
