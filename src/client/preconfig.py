@@ -93,17 +93,19 @@ class Utils(object):
                              args.server_manager_repo_port)
             try:
                 hostobj.connect()
-                hostobj.preconfig(sku=cliargs.sku)
             except:
                 if "contrail-compute" in getattr(hostobj, 'roles', []):
-                    log.error('ERROR_IGNORED: Unable to connect Host (%s) ' \
-                      'but ignoring it since it is on ESXI host' % (hostobj.ip))
                     srv_params = getattr(hostobj, 'parameters', {})
                     esxi_params = srv_params.get('esxi_parameters', None)
                     if esxi_params:
+                        log.error('ERROR_IGNORED: Unable to connect Host (%s) ' \
+                        'but ignoring it since it is on ESXI host' % (hostobj.ip))
                         pass
+                    else:
+                        raise RuntimeError('Connection to (%s) Failed' % hostobj.ip)
                 else:
                     raise RuntimeError('Connection to (%s) Failed' % hostobj.ip)
+            hostobj.preconfig(sku=cliargs.sku)
             hosts.append(hostobj)
 
     @staticmethod
