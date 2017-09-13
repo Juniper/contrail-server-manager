@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 
 from pyVim import connect
 from pyVmomi import vim
-from manage_dvs_pg import wait_for_task, get_obj
+from manage_dvs_pg import wait_for_task, get_obj, is_xenial_or_above
 
 def get_args():
     """
@@ -50,10 +50,18 @@ def update_mac(nic, vm_obj):
 def main():
     args = get_args()
     try:
-        si = connect.SmartConnect(host=args.host,
-                                  user=args.user,
-                                  pwd=args.password,
-                                  port=args.port)
+        if is_xenial_or_above():
+            ssl = __import__("ssl")
+            context = ssl._create_unverified_context()
+            si = connect.SmartConnect(host=args.host,
+                                      user=args.user,
+                                      pwd=args.password,
+                                      port=args.port, sslContext=context)
+        else:
+            si = connect.SmartConnect(host=args.host,
+                                      user=args.user,
+                                      pwd=args.password,
+                                      port=args.port)
         si_content = si.RetrieveContent()
     except:
         print "Unable to connect to %s" % args.host
