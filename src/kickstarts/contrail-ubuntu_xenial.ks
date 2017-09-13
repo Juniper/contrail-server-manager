@@ -120,12 +120,20 @@ for iface in \$(ifquery --list); do
     if [ \$? -eq 0 ]; then
         ifdown \$iface
     fi
+    ifquery \$iface | grep "vlan-raw-device"
+    if [ \$? -eq 0 ]; then
+        ifdown \$iface
+    fi
 done
 
 sleep 2
 
 for iface in \$(ifquery --list); do
     ifquery \$iface | grep "bond-master"
+    if [ \$? -eq 0 ]; then
+        ifup \$iface
+    fi
+    ifquery \$iface | grep "vlan-raw-device"
     if [ \$? -eq 0 ]; then
         ifup \$iface
     fi
