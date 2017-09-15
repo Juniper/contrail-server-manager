@@ -4304,11 +4304,12 @@ class VncServerManager():
                 'cluster_id': cluster['id'], 'parameters': inv, "tasks": tasks}
         pp.append(copy.deepcopy(parameters))
 
-        # Update provisioned_id and status for servers
+        # Update only provisioned_id - Do not update status here as server_list
+        # also might include servers which puppet might have completed
+        # provisioning already and we do not want to update status for those
         for list_item in server_list:
             server = list_item['server']
             update = { 'id': server['id'],
-                       'status': 'provision_issued',
                        'provisioned_id': package.get('id', '') }
             self._serverDb.modify_server(update)
 
