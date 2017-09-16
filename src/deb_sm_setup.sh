@@ -299,7 +299,7 @@ if [ "$SM" != "" ]; then
   fi
 
   # explicit install ansible (with 4.0 onwards ansible2.3 is packaged) to take care of upgrade SM case
-  apt-get -y --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install ansible >> $log_file 2>&1
+  apt-get -y --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install ansible=2.3.1.0-1ppa~xenial >> $log_file 2>&1
   apt-get -y --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install python-pyvmomi >> $log_file 2>&1
   apt-get -y --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install puppet-common=${PUPPET_VERSION} puppetmaster-common=${PUPPET_VERSION} >> $log_file 2>&1
   cp /opt/contrail/contrail_server_manager/puppet.conf /etc/puppet/
