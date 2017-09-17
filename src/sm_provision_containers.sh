@@ -144,6 +144,8 @@ if [ "$INSTALL_SM_LITE" != "" ]; then
        optional_args="--hostip=$HOSTIP"
    fi
    ./setup.sh --all --smlite --no-external-repos $optional_args
+   service apparmor stop
+   service apparmor teardown
    popd >> $log_file 2>&1
 
 fi 
