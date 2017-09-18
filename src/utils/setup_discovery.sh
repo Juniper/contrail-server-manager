@@ -44,8 +44,8 @@ then
   printf "\n Not able to find discovery image at ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME} \n"
   exit 1
 fi
-printf "\n Found $SM_IP_ADDRESS"
-printf "\n Found ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME} \n"
+#printf "\n Found $SM_IP_ADDRESS"
+#printf "\n Found ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME} \n"
 
 
 ProgressBar 5 ${_end}  "Setting up Dirs....."
@@ -54,9 +54,7 @@ sudo mkdir -p /root/lshw-data/
 sudo mkdir -p /var/www/html/contrail/lstopo/
 
 echo "deb file:/opt/contrail/contrail_server_manager/packages ./" > /etc/apt/sources.list.d/smgr_sources.list
-set +e
-apt-get update 2>&1  > /dev/null
-set -e
+apt-get update > /dev/null 2>&1 
 
 echo ""
 ProgressBar 10 ${_end} "Package Installation"
@@ -66,9 +64,8 @@ echo ""
 ProgressBar 40 ${_end} "Setting up NFS......"
 if grep -q '/var/www/html/contrail/images/hw_discover' /etc/exports; then
   sudo echo '/var/www/html/contrail/images/hw_discover *(async,no_root_squash,no_subtree_check,ro)' >> /etc/exports
-else
-  echo "Exports already configured\n"
 fi
+ProgressBar 15 ${_end} "Exports Configured.."
 sudo service nfs-kernel-server restart > /dev/null
 sudo echo 'rpcbind mountd nfsd statd lockd rquotad :ALL' >> /etc/hosts.allow
 sudo service rpcbind restart > /dev/null
@@ -78,32 +75,29 @@ sudo exportfs -v > /dev/null
 echo ""
 ProgressBar 50 ${_end} "Setup Image........."
 set +e
-sudo umount /mnt
+sudo umount /mnt > /dev/null 2>&1
 set -e
-sudo mount -o loop ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME} /mnt 2>&1 > /dev/null
+sudo mount -o loop ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME} /mnt  > /dev/null 2>&1
 sudo rm -fr /var/www/html/contrail/images/hw_discover
 sudo cp -a /mnt/. /var/www/html/contrail/images/hw_discover
 sudo umount /mnt
 
 
-echo ""
 ProgressBar 70 ${_end} "Setup Cobbler......."
 set +e
-sudo cobbler system report --name=default  > /dev/null
-RET_VAL=$?
-set +e
-if [ "x$RET_VAL" = "x0" ];
-then
-  printf "\n Cobbler looks good\n"
-  ProgressBar 100 ${_end} "Setup Completed...."
-  printf '\nFinished!\n'
-  exit 0
-fi
+sudo cobbler system remove --name=default  > /dev/null 2>&1
+sudo cobbler profile remove --name hw_discover > /dev/null 2>&1
+sudo cobbler distro remove --name hw_discover > /dev/null 2>&1
+set -e
+ProgressBar 80 ${_end} "Setup Cobbler......."
 sudo cobbler distro add --name hw_discover --initrd=/var/www/html/contrail/images/hw_discover/casper/initrd.img --kernel=/var/www/html/contrail/images/hw_discover/casper/vmlinuz
-sudo cobbler profile add --name=hw_discover --distro=hw_discover --kopts="boot=casper netboot=nfs nfsroot=${SM_IPADDRESS}:/var/www/html/contrail/images/hw_discover root=/dev/nfs server-manager=${SM_IPADDRESS}"
+ProgressBar 85 ${_end} "Setup Cobbler......."
+sudo cobbler profile add --name=hw_discover --distro=hw_discover --kopts="boot=casper netboot=nfs nfsroot=${SM_IP_ADDRESS}:/var/www/html/contrail/images/hw_discover root=/dev/nfs server-manager=${SM_IP_ADDRESS}"
+ProgressBar 90 ${_end} "Setup Cobbler......."
 sudo cobbler system add --name=default --profile=hw_discover
+ProgressBar 95 ${_end} "Setup Cobbler......."
 
-ProgressBar 100 ${_end} "Setup Completed...."
+ProgressBar 99 ${_end} "Setup Completed....."
 
 printf '\nFinished!\n'
 
