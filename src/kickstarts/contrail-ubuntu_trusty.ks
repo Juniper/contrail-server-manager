@@ -150,10 +150,27 @@ cat >/etc/setup_bond.sh <<EOF
 
 sleep 5
 
+vrouter_provisioned=0
+if [ -f /etc/contrail/supervisord_vrouter_files/contrail-vrouter-dpdk.ini ];
+then
+    vrouter_provisioned=1
+fi
+if [ -f /lib/systemd/system/contrail-vrouter-dpdk.service ];
+then
+    vrouter_provisioned=1
+fi
+
 for iface in \$(ifquery --list); do
     ifquery \$iface | grep "bond-master"
     if [ \$? -eq 0 ]; then
         ifdown \$iface
+    fi
+    if [ $vrouter_provisioned -eq 0 ];
+    then
+        ifquery \$iface | grep "vlan-raw-device"
+        if [ \$? -eq 0 ]; then
+            ifdown \$iface
+        fi
     fi
 done
 
@@ -163,6 +180,13 @@ for iface in \$(ifquery --list); do
     ifquery \$iface | grep "bond-master"
     if [ \$? -eq 0 ]; then
         ifup \$iface
+    fi
+    if [ $vrouter_provisioned -eq 0 ];
+    then
+        ifquery \$iface | grep "vlan-raw-device"
+        if [ \$? -eq 0 ]; then
+            ifup \$iface
+        fi
     fi
 done
 EOF
