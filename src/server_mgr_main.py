@@ -5907,6 +5907,8 @@ class VncServerManager():
                             ret_dict = {}
                             ret_dict['vcenter_compute_ip'] = \
                                                    dvs['vcenter_compute']
+                            # save the clustername for vcenter compute case
+                            ret_dict['clustername'] = dvs['clusternames'][0]
                             ret_dict['vc_plugin_ip'] = \
                                      self.get_mgmt_ip(vc_compute_srvrs.pop(0))
                             ret_dict['datacenter'] = dc
