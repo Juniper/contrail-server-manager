@@ -150,6 +150,7 @@
                             "ip": "",
                             "version": "v2.0",
                             "identity_uri": "",
+                            "auth_url": "",
                             "admin_password": "contrail123",
                             "admin_user": "admin",
                             "admin_tenant": "admin",
