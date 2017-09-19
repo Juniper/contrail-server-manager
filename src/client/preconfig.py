@@ -93,6 +93,7 @@ class Utils(object):
                              args.server_manager_repo_port)
             try:
                 hostobj.connect()
+                hostobj.preconfig(sku=cliargs.sku)
             except:
                 if "contrail-compute" in getattr(hostobj, 'roles', []):
                     srv_params = getattr(hostobj, 'parameters', {})
@@ -105,7 +106,6 @@ class Utils(object):
                         raise RuntimeError('Connection to (%s) Failed' % hostobj.ip)
                 else:
                     raise RuntimeError('Connection to (%s) Failed' % hostobj.ip)
-            hostobj.preconfig(sku=cliargs.sku)
             hosts.append(hostobj)
 
     @staticmethod
