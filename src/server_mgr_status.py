@@ -131,6 +131,7 @@ class ServerMgrStatusThread(threading.Thread):
             message = server_id + ' ' + server_state + ' ' + time_str
             self._smgr_log.log(self._smgr_log.DEBUG, "Server status Data %s" % message)
             servers = self._status_serverDb.modify_server( server_data)
+            self._smgr_main.update_provisioned_roles(server_id, cur_status)
             # if this is issu triggered provision, re-queue issu steps here
             self._smgr_log.log(self._smgr_log.DEBUG, "######### cluster is %s ##########" %servers[0]['cluster_id'])
             server = servers[0]
@@ -216,6 +217,7 @@ class ServerMgrStatusThread(threading.Thread):
                 self._smgr_main.update_provision_started_flag(server_id, server_state)
             self._smgr_main.update_provision_role_sequence(server_id,
                                                            server_state)
+            self._smgr_main.update_provisioned_roles(server_id, server_state)
             if server_state == "post_provision_completed":
                 server_state = "provision_completed"
 
