@@ -26,8 +26,10 @@ _start=1
 _end=100
 
 ProgressBar 2 ${_end}  "Gather Info........."
+DISCOVERY_URL=http://10.84.5.100/contrail/disovery-image6.iso
 DISCOVERY_IMG_PATH=/tmp/hw-discover
-DISCOVERY_IMG_NAME=live-cd5.iso
+DISCOVERY_IMG_NAME=disovery-image6.iso
+
 SM_IP_ADDRESS=`grep -s listen_ip_addr /opt/contrail/server_manager/sm-config.ini  | awk -F '=' '{printf $2}'`
 if [ "x${SM_IP_ADDRESS}" = "x" ];
 then
@@ -35,6 +37,8 @@ then
   exit 1
 fi
 
+sudo mkdir -p /tmp/hw-discover
+sudo wget -q ${DISCOVERY_URL} -O ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME}
 if [ ! -f ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME} ];
 then
   printf "\n Not able to find discovery image at ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME} \n"
@@ -45,10 +49,14 @@ printf "\n Found ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME} \n"
 
 
 ProgressBar 5 ${_end}  "Setting up Dirs....."
-sudo mkdir -p /tmp/hw-discover
 sudo mkdir -p /var/www/html/contrail/images/hw_discover
 sudo mkdir -p /root/lshw-data/
 sudo mkdir -p /var/www/html/contrail/lstopo/
+
+echo "deb file:/opt/contrail/contrail_server_manager/packages ./" > /etc/apt/sources.list.d/smgr_sources.list
+set +e
+apt-get update 2>&1  > /dev/null
+set -e
 
 echo ""
 ProgressBar 10 ${_end} "Package Installation"
@@ -56,7 +64,11 @@ sudo apt-get -qy install nfs-common nfs-kernel-server hwloc > /dev/null
 
 echo ""
 ProgressBar 40 ${_end} "Setting up NFS......"
-sudo echo '/var/www/html/contrail/images/hw_discover *(async,no_root_squash,no_subtree_check,ro)' > /etc/exports
+if grep -q '/var/www/html/contrail/images/hw_discover' /etc/exports; then
+  sudo echo '/var/www/html/contrail/images/hw_discover *(async,no_root_squash,no_subtree_check,ro)' >> /etc/exports
+else
+  echo "Exports already configured\n"
+fi
 sudo service nfs-kernel-server restart > /dev/null
 sudo echo 'rpcbind mountd nfsd statd lockd rquotad :ALL' >> /etc/hosts.allow
 sudo service rpcbind restart > /dev/null
@@ -65,7 +77,10 @@ sudo exportfs -v > /dev/null
 
 echo ""
 ProgressBar 50 ${_end} "Setup Image........."
-sudo mount -o loop ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME} /mnt 2&>1 > /dev/null
+set +e
+sudo umount /mnt
+set -e
+sudo mount -o loop ${DISCOVERY_IMG_PATH}/${DISCOVERY_IMG_NAME} /mnt 2>&1 > /dev/null
 sudo rm -fr /var/www/html/contrail/images/hw_discover
 sudo cp -a /mnt/. /var/www/html/contrail/images/hw_discover
 sudo umount /mnt
@@ -73,8 +88,10 @@ sudo umount /mnt
 
 echo ""
 ProgressBar 70 ${_end} "Setup Cobbler......."
+set +e
 sudo cobbler system report --name=default  > /dev/null
 RET_VAL=$?
+set +e
 if [ "x$RET_VAL" = "x0" ];
 then
   printf "\n Cobbler looks good\n"
