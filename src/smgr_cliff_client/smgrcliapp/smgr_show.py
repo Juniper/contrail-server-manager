@@ -220,7 +220,7 @@ class Show(Command):
 
         #Subparser for logs show
         parser_logs = subparsers.add_parser("logs", help='Show logs from server')
-        parser_logs.add_argument("--server_id", help=("server id for server"))
+        parser_logs.add_argument("--server_id", help=("server id for server"), required=True)
         parser_logs.add_argument("--file_name", help=("log file on the server"))
         parser_logs.set_defaults(which='logs')
         self.command_dictionary["logs"] = ['server_id', 'file_name']
