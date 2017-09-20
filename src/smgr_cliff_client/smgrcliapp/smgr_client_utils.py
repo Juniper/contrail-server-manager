@@ -270,20 +270,22 @@ class SmgrClientUtils():
     def convert_json_to_table(obj, json_resp, select_item=None):
         if obj != "monitoring" and obj != "inventory":
             try:
-                data_dict = json.loads(str(json_resp))
+                data_dict = json.loads(str(json_resp),object_pairs_hook=OrderedDict)
             except Exception as e:
                 return "Exception found: " + str(e)
             return_table = None
             if len(data_dict.keys()) == 1 and obj != "tag":
                 obj_type, obj_value = data_dict.popitem()
-                dict_list = eval(str(obj_value))
+                if isinstance(obj_value,list):
+                    dict_list = obj_value
+                else:
+                    dict_list = eval(str(obj_value))
                 if len(dict_list) == 0:
                     return []
-                sample_dict = dict(dict_list[0])
+                sample_dict = OrderedDict(dict_list[0])
                 sample_dict_key_list = sample_dict.keys()
                 if "id" in sample_dict_key_list:
-                    sample_dict_key_list.remove("id")
-                    sample_dict_key_list = ['id'] + sample_dict_key_list
+                    sample_dict_key_list.insert(0, sample_dict_key_list.pop(sample_dict_key_list.index("id")))
                 return_table = PrettyTable(sample_dict_key_list)
                 for d in dict_list:
                     d = dict(d)
