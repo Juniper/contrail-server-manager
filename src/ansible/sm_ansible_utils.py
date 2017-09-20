@@ -128,6 +128,20 @@ VCENTER_COMPUTE       = "contrail-vcenter-compute"
 OPENSTACK_CONTAINER   = "openstack"
 _DEF_BASE_PLAYBOOKS_DIR = "/opt/contrail/server_manager/ansible/playbooks"
 
+# This dictionary is used to co-relate the names of roles and the respective ansible roles
+
+_ansible_role_names = {
+                     CONTROLLER_CONTAINER  : 'controller',
+                     ANALYTICS_CONTAINER   : 'analytics',
+                     ANALYTICSDB_CONTAINER : 'analyticsdb',
+                     LB_CONTAINER          : 'lb',
+                     BARE_METAL_COMPUTE    : 'bare_metal_agent',
+                     CEPH_CONTROLLER       : 'ceph_master',
+                     CEPH_COMPUTE          : 'ceph_compute',
+                     OPENSTACK_CONTAINER   : 'openstack',
+                     VC_PLUGIN             : 'vcenter_plugin'
+}
+
 # Add new roles and corresponding container_name here
 _container_names = { CONTROLLER_CONTAINER  : 'controller',
                      ANALYTICS_CONTAINER   : 'analytics',

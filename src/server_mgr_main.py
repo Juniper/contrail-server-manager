@@ -53,6 +53,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'ansible'))
 from sm_ansible_utils import *
 from sm_ansible_utils import _container_img_keys
 from sm_ansible_utils import _valid_roles
+from sm_ansible_utils import _ansible_role_names
 from sm_ansible_utils import _openstack_containers
 from sm_ansible_utils import _openstack_image_exceptions
 from sm_ansible_utils import _inventory_group
@@ -1428,65 +1429,29 @@ class VncServerManager():
                     match_dict[match_key] = match_value
                 detail = ret_data["detail"]
                 if not select_clause:
-                    select_clause = ["id", "host_name", "cluster_id", "status"]
+                    select_clause = ["id", "host_name", "cluster_id", "status", "parameters"]
                 servers = self._serverDb.get_server(
-                    match_dict, field_list=select_clause)
+                    match_dict, detail=True)
                 if not len(servers):
                     msg =  ("There are no servers for which provision info can be displayed.")
                     self.log_and_raise_exception(msg)
                 cluster_id = servers[0]['cluster_id']
-                cluster_dict_detail = self._serverDb.get_cluster(
-                    {"id": cluster_id}, detail=True)[0]
-                provision_role_sequence = cluster_dict_detail['provision_role_sequence']
-                provision_role_sequence = eval(provision_role_sequence)
-                provision_steps = provision_role_sequence.get('steps', [])
-                provision_step_tuple_list = []
-                for provision_step_tuple in provision_steps:
-                    for step_tuple in provision_step_tuple:
-                        provision_step_tuple_list.append(step_tuple)
-                provision_complete = provision_role_sequence.get('completed', [])
-                server_role_mapping = {}
-                for idx, server_role_steps_tuple in enumerate(provision_step_tuple_list):
-                    server_id, role_to_do = server_role_steps_tuple
-                    if str(server_id) not in server_role_mapping:
-                        server_role_mapping[str(server_id)] = {}
-                    server_role_dict = server_role_mapping[str(server_id)]
-                    server_role_dict[str(role_to_do)] = {}
-                    if idx > 0:
-                        previous_server_id, previous_role_to_do = provision_step_tuple_list[idx-1]
-                        server_role_dict[str(role_to_do)]["previous_server"] = str(previous_server_id)
-                        server_role_dict[str(role_to_do)]["previous_role"] = str(previous_role_to_do)
-
-                for server_role_completed_tuple in provision_complete:
-                    server_id, role_completed, time_completed = server_role_completed_tuple
-                    if str(server_id) not in server_role_mapping:
-                        server_role_mapping[str(server_id)] = {}
-                    server_role_dict = server_role_mapping[str(server_id)]
-                    server_role_dict[str(role_completed)] = {}
-                    server_role_dict[str(role_completed)]["end_time"] = time_completed
-
                 for server in servers:
                     if server['status'] in ['server_added','server_discovered','reimage_started','restart_issued', 'reimage_started']:
                         msg =  ("Server with Id %s is currently not under provision." % (server['id']))
                         self.log_and_raise_exception(msg)
-                    provision_server_dict = {"id": str(server['host_name']), "cluster_id": str(server['cluster_id']),
-                        "provisioned_roles": [], "role_being_provisioned": None, "roles_pending_provision": []}
-                    if str(server['host_name']) in server_role_mapping:
-                        server_role_dict = server_role_mapping[str(server['host_name'])]
-                        for role in server_role_dict.keys():
-                            if "end_time" in server_role_dict[role]:
-                                provision_server_dict["provisioned_roles"].append(str(role))
-                            elif str(server['status']) == str(role+"_started"):
-                                provision_server_dict["role_being_provisioned"] = str(role)
-                            else:
-                                provision_server_dict["roles_pending_provision"].append(str(role))
-                        if len(provision_server_dict["roles_pending_provision"]) and (provision_server_dict["role_being_provisioned"] == None):
-                            next_role_dict = server_role_dict[str(provision_server_dict["roles_pending_provision"][0])]
-                            if "previous_role" in next_role_dict and "previous_server" in next_role_dict:
-                                provision_server_dict["role_being_provisioned"] = "Waiting for role " + str(next_role_dict["previous_role"]) + \
-                                " to complete on node " + str(next_role_dict["previous_server"])
-                        provision_server_status.append(provision_server_dict)
-
+                    server_params = eval(server['parameters'])
+                    provisioned_roles_dict = server_params.get('provisioned_roles', {})
+                    if not len(provisioned_roles_dict.keys()):
+                        msg =  ("Server with Id %s is currently not under provision." % (server['id']))
+                        self.log_and_raise_exception(msg)
+                    provision_server_dict = collections.OrderedDict((('id', str(server['host_name'])),
+                        ('cluster_id', str(server['cluster_id'])),
+                        ('provision_in_progress', str(server_params['provisioned_roles']['role_under_provision'])),
+                        ('provision_pending', str(server_params['provisioned_roles']['roles_to_provision'])),
+                        ('provision_completed', str(server_params['provisioned_roles']['roles_completed']))
+                        ))
+                    provision_server_status.append(provision_server_dict)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.GET_SMGR_CFG_SERVER, False)
@@ -2485,6 +2450,12 @@ class VncServerManager():
                                                bottle.request, server)
                     server['status'] = "server_added"
                     server['discovered'] = "false"
+                    server_params = eval(server.get("parameters","{}"))
+                    server_params["provisioned_roles"] = {}
+                    server_params["provisioned_roles"]["role_under_provision"] = []
+                    server_params["provisioned_roles"]["roles_to_provision"] = []
+                    server_params["provisioned_roles"]["roles_completed"] = []
+                    server['parameters'] = server_params
                     self._serverDb.add_server(server)
                     # Trigger to collect monitoring info
 
@@ -5015,6 +4986,60 @@ class VncServerManager():
                                                    False)
         return True
 
+    def update_provisioned_roles(self, server_id, status):
+        if not server_id or not status or '_' not in status:
+            return False
+        try:
+            state = status.split('_')[-1]
+            ansible_role = status.split('_' + str(state))[0]
+
+            if not state or not ansible_role or\
+              ansible_role not in _ansible_role_names.values():
+                return False
+
+            ansible_role_dict = {v: k for k,v in _ansible_role_names.iteritems()}
+            role = ansible_role_dict[str(ansible_role)]
+
+            servers = self._serverDb.get_server(
+                {"id" : server_id}, detail=True)
+            if not servers:
+                return False
+            server = servers[0]
+            cluster_id = server['cluster_id']
+            clusters = self._serverDb.get_cluster(
+                {"id" : cluster_id}, detail=True)
+            if not clusters:
+                return False
+            cluster = clusters[0]
+
+            server_params = eval(server.get('parameters',"{}"))
+            provisioned_roles_dict = server_params.get('provisioned_roles', {})
+            if not len(provisioned_roles_dict.keys()):
+                return False
+
+            if state == "started" and\
+              role in provisioned_roles_dict["roles_to_provision"]:
+                provisioned_roles_dict["roles_to_provision"].remove(role)
+                provisioned_roles_dict["role_under_provision"].append(role)
+            if state == "completed" and\
+              role in provisioned_roles_dict["role_under_provision"]:
+                provisioned_roles_dict["role_under_provision"].remove(role)
+                provisioned_roles_dict["roles_completed"].append(role)
+
+            server_params['provisioned_roles'] = provisioned_roles_dict
+
+        except Exception as e:
+            self.log_trace()
+            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
+                                                                            None)
+            self._smgr_log.log(self._smgr_log.ERROR,
+                               "Error updating provision roles. Server Id: %s, Role: %s, Provisioned_roles dict: %s" \
+                               % (server_id, role, provisioned_roles_dict))
+
+        server_data = {'id': server_id, 'parameters': server_params}
+        self._serverDb.modify_server(server_data)
+        return True
+
     def update_provision_role_sequence(self, server_id, status):
         if not server_id or not status or '_' not in status:
             return False
@@ -5260,6 +5285,26 @@ class VncServerManager():
                                % (_DEF_ROLE_SEQUENCE_DEF_FILE))
             role_sequence = default_role_sequence
         return role_sequence
+
+    def prepare_roles_to_provision(self, cluster_id):
+        if not cluster_id:
+            return False
+        cluster = self._serverDb.get_cluster(
+            {"id" : cluster_id},
+            detail=True)[0]
+        cluster_servers = self._serverDb.get_server(
+            {"cluster_id" : cluster['id']}, detail=True)
+        for server in cluster_servers:
+            roles = server["roles"]
+            server_params = eval(server.get("parameters", "{}"))
+            server_params["provisioned_roles"]["roles_to_provision"] = eval(roles)
+            server_params["provisioned_roles"]["roles_completed"] = []
+            server_params["provisioned_roles"]["role_under_provision"] = []
+            update = {'id': server['id'],
+                'parameters' : server_params,
+                'last_update': strftime(
+                "%Y-%m-%d %H:%M:%S", gmtime())}
+            self._serverDb.modify_server(update)
 
     def prepare_provision_role_sequence(self, cluster, role_servers, puppet_manifest_version):
         # Make sure this is calculated for compute image in mixed provisions
@@ -6624,6 +6669,9 @@ class VncServerManager():
             role_sequence = {}
             role_sequence['steps'] = []
             role_sequence['completed'] = []
+
+        self.prepare_roles_to_provision(cluster_id)
+
         role_servers = {}
         for server_pkg in server_packages:
             server = server_pkg['server']
