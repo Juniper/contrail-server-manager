@@ -491,7 +491,7 @@
   },
   "compute_controller_list": {
     "name": "parameters.provision.contrail_4.compute_controller_list",
-    "format": "string"
+    "format": "list"
   },
   "qos_priority_tagging": {
     "name": "parameters.provision.contrail_4.qos_priority_tagging",
