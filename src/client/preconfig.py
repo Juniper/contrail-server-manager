@@ -382,8 +382,7 @@ class Server(object):
             raise RuntimeError('UnSupported OS type (%s)' % self.os_version)
 
         for package in packages_list:
-            self.exec_cmd('DEBIAN_FRONTEND=noninteractive apt-get -y install %s' % package,
-                          error_on_fail=True)
+            self.exec_cmd('DEBIAN_FRONTEND=noninteractive apt-get -y --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install %s' % package, error_on_fail=True)
         # remove the existing the driver to install the one you want
         self.exec_cmd('rmmod i40e')
         self.exec_cmd('modprobe i40e')
