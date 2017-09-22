@@ -327,7 +327,6 @@ if [ "$SM" != "" ]; then
 
   if [ $check_upgrade == 0 ]; then
     # Take a backup of the existing dhcp.template
-    cp /etc/cobbler/dhcp.template /var/tmp/dhcp.template
     # Upgrade
     echo "$space$arrow Upgrading Server Manager"
     RESTART_SERVER_MANAGER="1"
@@ -337,6 +336,7 @@ if [ "$SM" != "" ]; then
        apt-get -y install contrail-server-manager-lite >> $log_file 2>&1
        apt-get -y install -f >> $log_file 2>&1
     else
+       cp /etc/cobbler/dhcp.template /var/tmp/dhcp.template
        cv=`cobbler --version`
        cv=( $cv  )
        if [ "${cv[1]}" != "2.6.11" ]; then
@@ -426,7 +426,11 @@ set -e
 
 # In case of upgrade restore the saved dhcp.template back
 if [ $check_upgrade == 0 ]; then
-    mv /var/tmp/dhcp.template /etc/cobbler/dhcp.template
+    if [ "$SMLITE" != "" ]; then
+      echo "SMLite case, no dhcp.template" >> $log_file 2>&1
+    else
+      mv /var/tmp/dhcp.template /etc/cobbler/dhcp.template
+    fi
 fi
 
 sm_installed=`dpkg -l | grep "contrail-server-manager " || true`
