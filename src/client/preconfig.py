@@ -91,7 +91,20 @@ class Utils(object):
             print "Configuring  => " + host_dict['id']
             hostobj = Server(host_dict, args.server_manager_ip,
                              args.server_manager_repo_port)
-            hostobj.connect()
+            try:
+                hostobj.connect()
+            except:
+                if "contrail-compute" in getattr(hostobj, 'roles', []):
+                    srv_params = getattr(hostobj, 'parameters', {})
+                    esxi_params = srv_params.get('esxi_parameters', None)
+                    if esxi_params:
+                        log.error('ERROR_IGNORED: Unable to connect Host (%s) ' \
+                        'but ignoring it since it is on ESXI host' % (hostobj.ip))
+                        pass
+                    else:
+                        raise RuntimeError('Connection to (%s) Failed' % hostobj.ip)
+                else:
+                    raise RuntimeError('Connection to (%s) Failed' % hostobj.ip)
             hostobj.preconfig(sku=cliargs.sku)
             hosts.append(hostobj)
 
