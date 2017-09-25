@@ -95,7 +95,10 @@ from StringIO import StringIO
 import requests
 import tempfile
 from contrail_defaults import *
-
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 from gevent import monkey
 monkey.patch_all()
 import gevent
@@ -1445,7 +1448,7 @@ class VncServerManager():
                     if not len(provisioned_roles_dict.keys()):
                         msg =  ("Server with Id %s is currently not under provision." % (server['id']))
                         self.log_and_raise_exception(msg)
-                    provision_server_dict = collections.OrderedDict((('id', str(server['host_name'])),
+                    provision_server_dict = OrderedDict((('id', str(server['host_name'])),
                         ('cluster_id', str(server['cluster_id'])),
                         ('provision_pending', str(server_params['provisioned_roles']['roles_to_provision'])),
                         ('provision_in_progress', str(server_params['provisioned_roles']['role_under_provision'])),
