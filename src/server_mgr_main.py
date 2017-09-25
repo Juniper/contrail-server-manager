@@ -787,7 +787,7 @@ class VncServerManager():
                 self._smgr_log.log(self._smgr_log.ERROR,
                         "required parameter --server_id missing")
                 resp_msg = self.form_operartion_data(
-                        "Usage: server-manager show logs --server_id <id> [--file <log_file_on_server>]", ERR_GENERAL_ERROR,
+                        "Usage: server-manager display logs --server_id <id> [--file <log_file_on_server>]", ERR_GENERAL_ERROR,
                     None)
                 return resp_msg
             else:
@@ -822,7 +822,9 @@ class VncServerManager():
 
                 sftp_client.close()
                 return {dict_name: logs}
-
+        except IOError as e:
+            resp_msg = "Logs do not exist for this server"
+            abort(404, resp_msg)
         except Exception as e:
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                     None)
