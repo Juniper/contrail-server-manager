@@ -1984,6 +1984,7 @@ class VncServerManager():
     def put_image(self):
         entity = bottle.request.json
         add_db = True
+        image_filename=""
         try:
             self.validate_smgr_entity("image", entity)
             images = entity.get("image", None)
@@ -2028,6 +2029,23 @@ class VncServerManager():
                                                 (image_category)
                         self._smgr_log.log(self._smgr_log.ERROR, msg)
                         raise ServerMgrException(msg, ERR_OPR_ERROR)
+                    if image_path.startswith("http"):
+                        resp = requests.get(image_path, verify=False)
+                        self._smgr_log.log(self._smgr_log.DEBUG, "len of \
+                                   download file = %d, resp.code => %d"
+                                   %(len(resp.content), resp.status_code))
+                        if resp.status_code != 200 :
+                            msg = "image download (%s) failed" % (image_path)
+                            self._smgr_log.log(self._smgr_log.ERROR, msg)
+                            raise ServerMgrException(msg, ERR_OPR_ERROR)
+
+                        image_filename = '/tmp/' + image_id
+                        image_file = open('/tmp/'+image_id, "w")
+                        image_file.write(resp.content)
+                        image_file.close()
+                        #pdb.set_trace()
+                        image_path=image_filename
+
                     if not os.path.exists(image_path):
                         msg = "image not found at %s" % \
                                                 (image_path)
@@ -2141,11 +2159,15 @@ class VncServerManager():
                 bottle.request,
                 self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
             resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
+            if image_filename != "" and os.path.exists(image_filename):
+                os.remove(image_filename)
             abort(404, resp_msg)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                      self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
             resp_msg = self.form_operartion_data(e.msg, e.ret_code, None)
+            if image_filename != "" and os.path.exists(image_filename):
+                os.remove(image_filename)
             abort(404, resp_msg)
 
         except Exception as e:
@@ -2154,8 +2176,12 @@ class VncServerManager():
                                      self._smgr_trans_log.PUT_SMGR_CFG_IMAGE, False)
             resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
                                                                             None)
+            if image_filename != "" and os.path.exists(image_filename):
+                os.remove(image_filename)
             abort(404, resp_msg)
 
+        if image_filename != "" and os.path.exists(image_filename):
+            os.remove(image_filename)
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_IMAGE)
         msg = "Image add/Modify success" + " " + str(additional_ret_msg)
