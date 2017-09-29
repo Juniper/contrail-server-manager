@@ -1983,7 +1983,6 @@ class VncServerManager():
                         image_file = open('/tmp/'+image_id, "w")
                         image_file.write(resp.content)
                         image_file.close()
-                        #pdb.set_trace()
                         image_path=image_filename
 
                     if not os.path.exists(image_path):
@@ -3906,7 +3905,7 @@ class VncServerManager():
 
     def build_server_cfg(self, server):
         # Build SRIOV interface configuration
-        parameters = eval(server.get("parameters", "{}"))
+        parameters = eval(str(server.get("parameters", "{}")))
         prov_params = parameters.get("provision", {})
         contrail4_params = prov_params.get("contrail_4", {})
         sriov = contrail4_params.get("sriov", {})
@@ -4016,6 +4015,8 @@ class VncServerManager():
         network = eval(server.get('network', '{}'))
         routes = network.get('routes', [])
         routes_str = ''
+        if not len(routes):
+            return routes_str
         for route in routes:
             ipaddr += '%s ' % route.get('network', '')
             netmask += '%s ' % route.get('netmask', '')
@@ -4126,11 +4127,8 @@ class VncServerManager():
             merged_inv["[all:vars]"]["cluster_id"] = \
                     cluster["id"]
 
-            # FIXME: Needed for kolla-ansible for now.
-            # Revisit the playbooks to see if dependency on this variable can be
-            # removed
-            if ContrailVersion(package) > self.last_puppet_version:
-                merged_inv["[all:vars]"]["openstack_sku"] = 'ocata'
+        smutil = ServerMgrUtil()
+        merged_inv["[all:vars]"]["openstack_sku"] = smutil.calculate_openstack_sku(package)
 
         if "contrail_image_id" in package.keys() and \
             package["contrail_image_id"]:
@@ -4269,6 +4267,8 @@ class VncServerManager():
         inv["kolla_inv"] = kolla_inv
         inv["kolla_passwords"] = kolla_pwds
         inv["kolla_globals"]   = kolla_vars
+        inv["preconfig_targets_pb"] = str(_DEF_BASE_PLAYBOOKS_DIR)+ \
+                "/"+package.get('id','')+"/playbooks/preconfig.yml"
         inv["contrail_deploy_pb"] = str(_DEF_BASE_PLAYBOOKS_DIR)+ \
                 "/"+package.get('id','')+"/playbooks/site.yml"
         inv["kolla_deploy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
@@ -4346,6 +4346,29 @@ class VncServerManager():
         self._do_ansible_provision_cluster(
                 provision_server_list, cluster, package, tasks)
 
+    # Run Preconfig Ansible task on all servers before Running provision tasks
+    def preconfig_target_servers(self, provision_server_list, cluster, package,
+            tasks):
+        provision_failure_flag = False
+        tasks = "preconfig_targets"
+        self._do_ansible_provision_cluster(provision_server_list, cluster,
+                                           package, tasks)
+        for server in provision_server_list:
+            wait_for_preconfig_complete_flag = True
+            while wait_for_preconfig_complete_flag:
+                gevent.sleep(10)
+                status_for_server = self._serverDb.get_server(
+                        {'id': str(server['server']['id'])}, detail=True)[0]
+                server_status = str(status_for_server["status"])
+                if server_status == "provision_completed":
+                    wait_for_preconfig_complete_flag = False
+                elif server_status == "provision_failed":
+                    self._smgr_log.log(self._smgr_log.DEBUG,
+                        "Preconfig failed for server %s " % str(server['server']['id']) )
+                    provision_failure_flag = True
+                    wait_for_preconfig_complete_flag = False
+        return provision_failure_flag
+
     # This function runs on a separate gevent thread and processes requests for reimage.
     def _reimage_server_cobbler(self):
         self._smgr_log.log(self._smgr_log.DEBUG,
@@ -4396,6 +4419,12 @@ class VncServerManager():
                             server['server']['domain'] = self.get_server_domain(server['server'], server['cluster'] )
                             self._smgr_certs.create_server_cert(server['server'])
                         if package["parameters"].get("containers",None):
+                            provision_failure_flag = self.preconfig_target_servers(provision_server_list,
+                                                          cluster, package, tasks)
+                            if provision_failure_flag:
+                                msg = "Provision failed due to failures in preconfig"
+                                self.log_and_raise_exception(msg)
+                                continue
                             if self.is_role_in_cluster('openstack',
                                     provision_server_list) and \
                                      package['contrail_image_id']:
@@ -6300,7 +6329,6 @@ class VncServerManager():
 
         cur_inventory["[all:children]"] = []
         cur_inventory["[all:vars]"] = copy.deepcopy(contrail_4)
-
         feature_configs = self.build_calculated_srvr_feature_params(cluster_servers)
         for feature in feature_configs.keys():
             if feature_configs[str(feature)] and isinstance(feature_configs[str(feature)], dict):
@@ -6352,7 +6380,10 @@ class VncServerManager():
 
             # The host specific variables from contrail_4 of the server json
             var_list = self.build_calculated_srvr_inventory_params(x)
-
+            domain = str(x.get('domain', ''))
+            if not domain:
+                domain = (cluster.get('parameters', {})).get('domain', '')
+            grp_line = grp_line + ' domain_name=%s' % domain
             for role in server_roles:
                 self.set_container_image_for_role(cur_inventory["[all:vars]"],
                         role, package)
@@ -6850,7 +6881,18 @@ class VncServerManager():
             self.translate_contrail_4_to_contrail(ret_data)
             provision_server_list, role_sequence, provision_status = \
                                       self.prepare_provision(ret_data)
-
+            for server in provision_server_list:
+                # Create Server Config file to run interface setup and static route setup
+                # This script runs during preconfig step of Provision
+                execute_script = self.build_server_cfg(server['server'])
+                if not execute_script:
+                    update = {'id': server['server']['id'],
+                              'status' : 'provision_failed',
+                              'last_update': strftime("%Y-%m-%d %H:%M:%S", gmtime())}
+                    self._serverDb.modify_server(update)
+                    msg = "Provision failed for Server %s -" \
+                           "Could not create preconfig script" % str(server['server']['id'])
+                    self.log_and_raise_exception(msg)
             # Add the provision request to reimage_queue (name of queue needs to be changed,
             # earlier it was used only for reimage, now provision requests also queued there).
             provision_item = ('provision', provision_server_list,
