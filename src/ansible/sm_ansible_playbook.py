@@ -540,6 +540,18 @@ class ContrailOpenstackPlayBook(multiprocessing.Process):
             rv = -1
         return rv
 
+    def run_preconfig_targets_pb(self):
+        try:
+            self.init_contrail_playbook()
+            self._sm_logger.log(self._sm_logger.INFO,
+                "Starting preconfig playbook %s" % self.pbook_path)
+            rv = self.pb_executor.run()
+        except Exception as e:
+            self._sm_logger.log(self._sm_logger.ERROR, e)
+            self.current_status = STATUS_FAILED
+            self.update_status()
+            rv = -1
+        return rv
 
     def run(self):
         stats = None
@@ -571,6 +583,14 @@ class ContrailOpenstackPlayBook(multiprocessing.Process):
                 return None
         if 'contrail_deploy' in self.tasks:
             rv = self.run_contrail_deploy_pb()
+            if rv != 0:
+                self.current_status = STATUS_FAILED
+                self.update_status()
+                return None
+            else:
+                stats = self.pb_executor._tqm._stats
+        if 'preconfig_targets' in self.tasks:
+            rv = self.run_preconfig_targets_pb()
             if rv != 0:
                 self.current_status = STATUS_FAILED
                 self.update_status()
@@ -813,6 +833,12 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
         if 'contrail_deploy' in self.tasks:
             rv = self.run_playbook("contrail_deploy_pb", False,
                     "contrail-deploy")
+            if rv == None:
+                return rv
+
+        if 'preconfig_targets' in self.tasks:
+            rv = self.run_playbook("preconfig_targets_pb", False,
+                    "preconfig_targets")
             if rv == None:
                 return rv
 
