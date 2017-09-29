@@ -161,7 +161,7 @@ function setup_smgr_repos()
   echo "$space$arrow Installing dependent packages for Setting up Smgr repos"
   #scan pkgs in local repo and create Packages.gz
   if [ ${rel[1]} == "16.04"  ]; then
-    PKG_16_04='xz-utils_*.deb perl*.deb libperl*.deb libopts*.deb ntp*.deb'
+    PKG_16_04='xz-utils_*.deb perl*.deb libperl*.deb libopts*.deb ntp*.deb libgdbm3*.deb'
   fi
 
   pushd /opt/contrail/contrail_server_manager/packages >> $log_file 2>&1

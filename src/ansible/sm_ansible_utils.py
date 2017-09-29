@@ -189,6 +189,7 @@ ansible_valid_tasks = [ 'openstack_bootstrap',
                         'openstack_destroy',
                         'openstack_post_deploy',
                         'openstack_post_deploy_contrail',
+                        'preconfig_targets',
                         'contrail_deploy' ]
 ansible_default_tasks = [ 'openstack_bootstrap',
                           'openstack_deploy',

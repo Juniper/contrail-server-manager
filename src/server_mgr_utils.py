@@ -75,6 +75,21 @@ class ServerMgrUtil():
                 password = cluster_parameters.get("password", None)
         return password
 
+    def calculate_openstack_sku(self, package):
+        package_params = package['parameters']
+        openstack_sku = package_params['sku']
+        sku_number = int(openstack_sku.partition(":")[2].split('.')[0])
+        if sku_number == 15:
+            return 'ocata'
+        elif sku_number == 14:
+            return 'newton'
+        elif sku_number == 13:
+            return 'mitaka'
+        elif sku_number == 12:
+            return 'liberty'
+        else:
+            return 'kilo'
+
     def calculate_kernel_upgrade(self,server_config,contrail_package_params):
         dbutils = DbUtils()
         server_contrail_4 = dbutils.get_contrail_4(server_config)
