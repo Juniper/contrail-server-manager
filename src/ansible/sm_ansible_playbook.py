@@ -252,6 +252,12 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
             if rv == None:
                 return rv
 
+        if 'preconfig_targets' in self.tasks:
+            rv = self.run_playbook("preconfig_targets_pb", False,
+                    "preconfig_targets")
+            if rv == None:
+                return rv
+
         # This has to happen after contrail_deploy
         if 'openstack_post_deploy_contrail' in self.tasks:
             rv = self.run_playbook("kolla_post_deploy_contrail_pb", True,

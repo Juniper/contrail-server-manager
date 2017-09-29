@@ -262,23 +262,7 @@ if [ ! -z "$CLUSTER_ID" ]; then
     optional_args="$optional_args --cluster-id $CLUSTER_ID"
 fi
 
-optional_preconfig_args=""
-
-if [ ! -z "$SM_OS_SKU" ]; then
-    optional_preconfig_args="$optional_preconfig_args --sku $SM_OS_SKU"
-fi
-
-if [ ! -z "$KEY_PATH" ]; then
-    optional_preconfig_args="$optional_preconfig_args --key-path $KEY_PATH"
-fi
-
-echo "$arrow Pre provision checks to make sure setup is ready for contrail provisioning"
-# Precheck the targets to make sure that, ready for contrail provisioning
 SERVER_MGR_IP=$(grep listen_ip_addr /opt/contrail/server_manager/sm-config.ini | grep -Po "listen_ip_addr = \K.*")
-cd $PROVISION_DIR && /opt/contrail/server_manager/client/preconfig.py --server-json ${SERVER_JSON_PATH} \
-                                                                      --server-manager-ip ${SERVER_MGR_IP} \
-                                                                      --server-manager-repo-port 80 \
-                                                                      $optional_preconfig_args
 
 echo "$arrow Adding server manager objects to server manager database"
 if grep -q domain /etc/contrail/sm-client-config.ini; then
