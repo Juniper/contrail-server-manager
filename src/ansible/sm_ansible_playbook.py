@@ -773,7 +773,7 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
             rv = self.pb_executor.run()
             if rv != 0:
                 self.current_status = STATUS_FAILED
-                self.update_status(kolla)
+                #self.update_status(kolla)
                 self.logger.log(self.logger.ERROR,
                         "Playbook Failed: %s" % self.pbook_path)
                 rv = None
