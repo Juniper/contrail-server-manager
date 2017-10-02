@@ -287,7 +287,7 @@ class CallbackModule(CallbackBase):
                 "failed: %s" % (t['failures']),
             )
 
-            if int(t['failures']) == 0:
+            if int(t['failures']) == 0 and int(t['unreachable']) == 0:
                 status_resp = { "server_id" : h,
                                 "state" : STATUS_SUCCESS }
             else:
