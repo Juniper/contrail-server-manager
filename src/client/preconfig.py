@@ -170,8 +170,8 @@ class Server(object):
         status, old_entry = self.exec_cmd(host_cmd)
         old_entry = old_entry.strip()
         if status:
-            log.info('Seems puppet host is not configured')
-            log.info('Adding puppet alias to /etc/hosts file')
+            log.info('Seems host id is not configured')
+            log.info('Adding host id alias to /etc/hosts file')
             puppet_cmd = 'echo %s %s.%s %s >> /etc/hosts' % (self.ip , self.id, self.domain, self.id)
             print "HOST CMD: " + puppet_cmd
             self.exec_cmd(puppet_cmd, error_on_fail=True)
@@ -270,7 +270,7 @@ class Server(object):
     def preconfig(self, sku='mitaka'):
         self.set_os_version()
         #self.preconfig_verify_domain()
-        self.preconfig_hosts_file()
+        self.preconfig_hosts_file(sku)
         self.preconfig_unauthenticated_packages()
         self.preconfig_repos(sku)
         self.preconfig_1604_repos(sku)
@@ -308,8 +308,9 @@ class Server(object):
             log.error('Hostname is not configured')
             raise RuntimeError('Hostname is not configured for (%s)' % self.ip)
 
-    def preconfig_hosts_file(self):
-        self.verify_puppet_host()
+    def preconfig_hosts_file(self, sku):
+        if sku != 'ocata':
+            self.verify_puppet_host()
         self.verify_self_host()
         self.verify_setup_hostname()
 
