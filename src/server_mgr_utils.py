@@ -65,6 +65,16 @@ class ServerMgrUtil():
             version = ver + "-"+ release.split('.')[0]
         return version
 
+    def get_password(self,server, serverDb):
+        password = server["password"].strip()
+        if password == "":
+            cluster_id = server.get("cluster_id", None)
+            if cluster_id:
+                cluster = serverDb.get_cluster({'id': cluster_id},detail=True)[0]
+                cluster_parameters = eval(cluster["parameters"])
+                password = cluster_parameters.get("password", None)
+        return password
+
     def calculate_kernel_upgrade(self,server_config,contrail_package_params):
         dbutils = DbUtils()
         server_contrail_4 = dbutils.get_contrail_4(server_config)

@@ -25,6 +25,7 @@ from send_mail import send_mail
 import requests
 import json
 from server_mgr_defaults import *
+from server_mgr_utils import *
 from paramiko import *
 import os
 import sys
@@ -100,6 +101,7 @@ class ServerMgrStatusThread(threading.Thread):
         server_hostname= request.query['server_id']
         server_state = request.query['state']
         server_data = {}
+        smutil = ServerMgrUtil()
         try:
             result = parse_qs(request.query_string)
             ansible_status = str(result['state'][0])
@@ -162,7 +164,7 @@ class ServerMgrStatusThread(threading.Thread):
                 ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh_handl.connect(server['ip_address'],
                           username = server.get('username', 'root'),
-                          password = server['password'])
+                          password = smutil.get_password(server,self._status_serverDb))
                 # for bug 1648268 collect output for the failed command
                 i, o, err = ssh_handl.exec_command(cmd)
                 self._smgr_log.log(self._smgr_log.DEBUG, 
@@ -190,6 +192,7 @@ class ServerMgrStatusThread(threading.Thread):
         #query_args = parse_qs(urlparse(bottle.request.url).query,
                                       #keep_blank_values=True)
         #match_key, match_value = query_args.popitem()
+        smutil = ServerMgrUtil()
         server_hostname= request.query['server_id'].lower()
         server_state = request.query['state']
         body = request.body.read()
@@ -260,7 +263,7 @@ class ServerMgrStatusThread(threading.Thread):
                     ssh_handl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                     ssh_handl.connect(server['ip_address'],
                               username = server.get('username', 'root'),
-                              password = server['password'])
+                              password = smutil.get_password(server,self._status_serverDb))
                     # for bug 1648268 collect output for the failed command
                     i, o ,err = ssh_handl.exec_command(cmd)
                     self._smgr_log.log(self._smgr_log.DEBUG, 

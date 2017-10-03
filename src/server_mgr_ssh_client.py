@@ -15,6 +15,7 @@ import paramiko
 from os import chmod
 from server_mgr_db import ServerMgrDb as db
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
+from server_mgr_utils import *
 
 DEF_SERVER_DB_LOCATION = "/etc/contrail_smgr/smgr_data.db"
 
@@ -39,7 +40,9 @@ class ServerMgrSSHClient(object):
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             match_dict = dict()
             match_dict["id"] = server_id
+            smutil = ServerMgrUtil()
             server = self._serverDb.get_server(match_dict, detail=True)
+            password = smutil.get_password(server[0],self._serverDb)
             if len(server) == 1:
                 server = server[0]
                 if "ssh_private_key" in server and option == "key" and server["ssh_private_key"]:
@@ -47,8 +50,8 @@ class ServerMgrSSHClient(object):
                     private_key = StringIO(key)
                     pkey = paramiko.RSAKey.from_private_key(private_key)
                     ssh.connect(ip, username='root', pkey=pkey, timeout=30)
-                elif "password" in server and option == "password" and server["password"]:
-                    root_pwd = server["password"]
+                elif option == "password" and password is not None:
+                    root_pwd = password
                     ssh.connect(ip, username='root', password=root_pwd, timeout=30)
             self._ssh_client = ssh
 
