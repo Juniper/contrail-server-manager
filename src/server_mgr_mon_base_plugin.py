@@ -38,6 +38,7 @@ from server_mgr_err import *
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_ssh_client import ServerMgrSSHClient
+from server_mgr_utils import *
 import json
 import requests
 import gevent
@@ -500,8 +501,10 @@ class ServerMgrMonBasePlugin():
 
     def populate_server_data_lists(self, servers, ipmi_list, hostname_list,
                                    server_ip_list, ipmi_username_list, ipmi_password_list, feature):
+        smutil = ServerMgrUtil()
         for server in servers:
             server = dict(server)
+            server_password= smutil.get_password(server,self._serverDb)
             if 'parameters' in server:
                 server_parameters = eval(server['parameters'])
                 if feature == "monitoring" and "enable_monitoring" in server_parameters \
@@ -513,7 +516,7 @@ class ServerMgrMonBasePlugin():
             if 'ipmi_address' in server and server['ipmi_address'] \
                     and 'id' in server and server['id'] \
                     and 'ip_address' in server and server['ip_address'] \
-                    and 'password' in server and server['password']:
+                    and server_password:
                 ipmi_list.append(server['ipmi_address'])
                 hostname_list.append(server['id'])
                 server_ip_list.append(server['ip_address'])
