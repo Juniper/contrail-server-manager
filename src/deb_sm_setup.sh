@@ -290,12 +290,12 @@ if [ "$SM" != "" ]; then
   PUPPET_VERSION="3.7.3-1puppetlabs1"
   #TODO: To be Removed after local repo additions
   if [ ${rel[1]} == "16.04"  ]; then
-    apt-get --no-install-recommends -y install libpython2.7>=2.7.6-8ubuntu0.2 >> $log_file 2>&1
+    apt-get --no-install-recommends -y install libpython2.7 >> $log_file 2>&1
     PUPPET_VERSION="3.8.5-2"
     ANSIBLE_VERSION="2.3.1.0-1ppa~xenial"
   fi
   if [ ${rel[1]} == "14.04"  ]; then
-    apt-get --no-install-recommends -y install libpython2.7>=2.7.6-8ubuntu0.2 >> $log_file 2>&1
+    apt-get --no-install-recommends -y install libpython2.7 >> $log_file 2>&1
     PUPPET_VERSION="3.7.3-1puppetlabs1"
     ANSIBLE_VERSION="2.3.1.0-1ppa~trusty"
   fi
