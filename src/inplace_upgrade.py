@@ -4,11 +4,13 @@ import paramiko
 import time
 import sys
 import logging
+from server_mgr_utils import *
 
 PROV_TIMEOUT = 3600
 logging.basicConfig(format='%(asctime)s %(message)s',
                     filename='/var/log/contrail/inplace_upgrade.log',
                                                   level=logging.INFO)
+DEF_SERVER_DB_LOCATION = "/etc/contrail_smgr/smgr_data.db"
 
 class Utils():
     @staticmethod
@@ -19,11 +21,13 @@ class Utils():
 
     @staticmethod
     def exec_remote(server, command):
+        serverDb = db(DEF_SERVER_DB_LOCATION)
+        smutil = ServerMgrUtil()
         ssh_handle = paramiko.SSHClient()
         ssh_handle.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh_handle.connect(server['ip_address'],
                                username = 'root',
-                               password = server['password'])
+                               password = smutil.get_password(server,serverDb))
         i, o, err = ssh_handle.exec_command(command)
         logging.info("executing command %s on %s" %(command, server['id']))
         op = o.read()
