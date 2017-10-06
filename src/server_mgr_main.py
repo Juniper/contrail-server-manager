@@ -4163,6 +4163,7 @@ class VncServerManager():
         pp = []
         inv = {}
         params   = {}
+        smutil = ServerMgrUtil()
         cluster_inv, kolla_inv = self.get_container_inventory(cluster)
         kolla_pwds, kolla_vars = self.get_container_kolla_params(cluster)
         merged_inv = cluster_inv
@@ -4177,7 +4178,7 @@ class VncServerManager():
             # and add it to host_vars in the ansible inventory
             merged_inv["[all:vars]"]["ansible_user"]="root"
             merged_inv["[all:vars]"]["ansible_password"] = \
-                    server["password"]
+                    smutil.get_password(server,self._serverDb) 
 
             # Needed for logging infra to do per-provision logging
             merged_inv["[all:vars]"]["cluster_id"] = \
@@ -5570,6 +5571,7 @@ class VncServerManager():
 
     def build_calculated_cluster_params(
             self, server, cluster, role_servers, cluster_servers, package):
+        smutil = ServerMgrUtil()
         # if parameters are already calculated, nothing to do, return.
         cluster_params = cluster.get("parameters", {})
         cluster_contrail_prov_params = (
@@ -5748,7 +5750,7 @@ class VncServerManager():
             ssh_hndl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh_hndl.connect(server['ip_address'],
                                username = server.get('username', 'root'),
-                               password = server['password'])
+                               password = smutil.get_password(server,self._serverDb))
             neutron_url = self.issu_obj.get_set_config_parameters(ssh_hndl,
                           '/etc/nova/nova.conf', 'url', section = "neutron")
             m = re.search('[0-9]+(?:\.[0-9]+){3}', neutron_url)
@@ -7140,6 +7142,7 @@ class VncServerManager():
         success_list = []
         failed_list = []
         power_reboot_list = []
+        smutil = ServerMgrUtil()
         for server in reboot_server_list:
             try:
                 # Enable net boot flag in cobbler for the system.
@@ -7192,7 +7195,7 @@ class VncServerManager():
                         paramiko.AutoAddPolicy())
                     client.connect(
                         server["ip"], username='root',
-                        password=server["password"])
+                        password=smutil.get_password(server,self._serverDb))
                     stdin, stdout, stderr = client.exec_command('reboot')
                 # end else
                 # Update Server table to update time.

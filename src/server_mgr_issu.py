@@ -1,5 +1,6 @@
 import paramiko
 from server_mgr_main import VncServerManager
+from server_mgr_utils import *
 
 class SmgrIssuClass(VncServerManager):
     def __init__(self, vnc_smgr_obj, entity):
@@ -24,6 +25,7 @@ class SmgrIssuClass(VncServerManager):
         self.issu_conf_file = "/opt/contrail/bin/issu/inventory/inventory.conf"
 
     def setup_params(self):
+        smutil = ServerMgrUtil()
         old_cluster_det = self._serverDb.get_cluster(
                                {"id" : self.old_cluster},
                                detail=True)[0]
@@ -76,27 +78,31 @@ class SmgrIssuClass(VncServerManager):
                                password = self.old_config_password)
         self.old_config_ip_list = []
         for server in self.old_config_list:
+            server_password = smutil.get_password(server,self._serverDb)
             tup = (server['ip_address'], server.get('username', 'root'),
-                                                     server['password'])
+                                                     server_password)
             self.old_config_ip_list.append(tup)
         self.old_control_ip_list = []
         for server in self.old_control_list:
+            server_password = smutil.get_password(server,self._serverDb)
             tup = (server['ip_address'], server.get('username', 'root'),
-                                                     server['password'])
+                                                     server_password)
             self.old_control_ip_list.append(tup)
         self.old_webui_ip_list = []
         self.old_webui_list = self.role_get_servers(self.old_servers,
                                                                'webui')
         for server in self.old_webui_list:
+            server_password = smutil.get_password(server,self._serverDb)
             tup = (server['ip_address'], server.get('username', 'root'),
-                                                     server['password'])
+                                                     server_password)
             self.old_webui_ip_list.append(tup)
         self.old_collector_ip_list = []
         self.old_collector_list = self.role_get_servers(self.old_servers,
                                                             'collector')
         for server in self.old_collector_list:
+            server_password = smutil.get_password(server,self._serverDb)
             tup = (server['ip_address'], server.get('username', 'root'),
-                                                     server['password'])
+                                                     server_password)
             self.old_collector_ip_list.append(tup)
         self.old_database_list = self.role_get_servers(self.old_servers,
                                                              'database')
@@ -118,8 +124,9 @@ class SmgrIssuClass(VncServerManager):
                                username = self.issu_task_master[1],
                                password = self.issu_task_master[2])
         for server in self.openstack_list:
+            server_password = smutil.get_password(server,self._serverDb)
             tup = (server['ip_address'], server.get('username', 'root'),
-                                                     server['password'])
+                                                     server_password)
             self.openstack_ip_list.append(tup)
 
         # end setup_params
