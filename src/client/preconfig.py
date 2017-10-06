@@ -134,7 +134,7 @@ class Server(object):
         self.extra_packages_14_04 = ['puppet=3.7.3-1puppetlabs1', 'python-netaddr',
                                      'ifenslave-2.6', 'sysstat',
                                      'ethtool', 'vlan', 'i40e-dkms', 'bnxt-en-dkms']
-        self.extra_packages_16_04 = ['puppet=3.8.5-2', 'python-netaddr',
+        self.extra_packages_16_04 = ['puppet=3.8.5-2', 'ruby-augeas', 'python-netaddr',
                                      'ifenslave-2.6', 'sysstat',
                                      'ethtool', 'vlan', 'i40e-dkms', 'bnxt-en-dkms']
         self.extra_packages_16_04_no_puppet = ['python-netaddr',
