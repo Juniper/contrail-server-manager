@@ -7363,10 +7363,12 @@ class VncServerManager():
     def get_vcenter_compute_mode(self,package):
         package_params = package['parameters']
         openstack_sku = package_params['sku']
-        if int(openstack_sku.partition(":")[2].split('.')[0]) >= 15:
-            return "container"
-        else:
-            return "bare_metal"
+        # TODO: Comment out this check till nova compute is supported as a container
+        #if int(openstack_sku.partition(":")[2].split('.')[0]) >= 15:
+        #    return "container"
+        #else:
+        #    return "bare_metal"
+        return "bare_metal"
 
     def get_container_image_for_role(self, role, package):
         if role == BARE_METAL_COMPUTE or role == OPENSTACK_CONTAINER or \
