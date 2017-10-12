@@ -115,6 +115,11 @@ class Utils(object):
         if cliargs.storage_keys_ini_file:
             cliargs.storage_keys_ini_file = Utils.get_abspath(*Utils.is_file_exists(cliargs.storage_keys_ini_file))[0]
 
+        if not (cliargs.contrail_cloud_package or cliargs.contrail_packages):
+            log.error('ERROR: Missing Contrail Image argument')
+            log.error('ERROR: Please add contrail image argument using --contrail-packages for contrail-install-package or -c for contrail-cloud-docker package')
+            raise RuntimeError('Testbed parsing failed')
+
         # update log level and log file
         log_level = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
         cliargs.v = cliargs.v if cliargs.v <= 3 else 3
