@@ -46,11 +46,11 @@ class ServerMgrCerts():
         self._smgr_ca_cert = sm_ca_cert
         return sm_ca_private_key, sm_ca_cert
 
-    def create_server_cert(self, server, force=False):
+    def create_server_cert(self, server, force=False, cluster_details=False):
         server_private_key = self._smgr_cert_location + server['host_name'] + '-privkey.pem'
         server_csr = self._smgr_cert_location + server['host_name'] + '.csr'
         server_pem = self._smgr_cert_location + server['host_name'] + '.pem'
-        server_openssl_cfg_obj = OpensslConfigGenerator(server)
+        server_openssl_cfg_obj = OpensslConfigGenerator(server, cluster_details)
         server_openssl_cfg_obj.generate_openssl_config()
         server_openssl_cfg_file = server_openssl_cfg_obj.get_openssl_cfg_location()
         if not force and os.path.isfile(server_private_key) and os.path.isfile(server_pem):
