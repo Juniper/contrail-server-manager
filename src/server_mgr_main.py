@@ -4438,7 +4438,9 @@ class VncServerManager():
                         # Create SSL Certs for ALL servers, not just Openstack
                         for server in provision_server_list:
                             server['server']['domain'] = self.get_server_domain(server['server'], server['cluster'] )
-                            self._smgr_certs.create_server_cert(server['server'])
+                            cluster_details = self._serverDb.get_cluster( {"id" :
+                                          server['server']['cluster_id']}, detail=True)[0]
+                            self._smgr_certs.create_server_cert(server['server'], cluster_details=cluster_details)
                         if package["parameters"].get("containers",None):
                             if self.is_role_in_cluster('openstack',
                                     provision_server_list) and \
@@ -7052,6 +7054,7 @@ class VncServerManager():
                                         "Enable netboot")
                     cobbler_server.enable_system_netboot(
                         server['host_name'])
+                    self._smgr_certs.delete_server_cert(server)
                     cmd = "puppet cert clean %s.%s" % (
                         server['host_name'], server['domain'])
                     ret_code = subprocess.call(cmd, shell=True)
