@@ -15,7 +15,6 @@ from server_mgr_err import *
 from server_mgr_utils import *
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
-from server_mgr_db import ServerMgrDb as db
 
 _DEF_OPENSSL_CFG_FILE = '/usr/lib/ssl/openssl.cnf'
 
@@ -108,10 +107,23 @@ authorityKeyIdentifier=keyid:always,issuer:always
 
 class OpensslConfigGenerator:
 
-    def __init__(self, server_config):
+    def __init__(self, server_config, cluster_config):
         ''' Constructor '''
         self._server_config = server_config
+        self._cluster_config = cluster_config
         self._openssl_cfg_location = _DEF_OPENSSL_CFG_FILE
+
+    def get_vips_in_cluster(self,cluster):
+        cluster_params = eval(cluster['parameters'])
+        cluster_provision_params = cluster_params.get("provision", {})
+        internal_vip = ""
+        external_vip = ""
+        if cluster_provision_params:
+            openstack_params = cluster_provision_params.get("openstack", {})
+            ha_params = openstack_params.get("ha", {})
+            internal_vip = ha_params.get('internal_vip', None)
+            external_vip = ha_params.get('external_vip', None)
+        return (internal_vip, external_vip)
 
     def calculate_san_ip_stanza(self):
         san_ips_stanza = ""
@@ -121,6 +133,17 @@ class OpensslConfigGenerator:
             if isinstance(intf_config,dict) and "ip_address" in intf_config and\
               intf_config["ip_address"] and len(intf_config["ip_address"]):
                 san_ips_list.append(intf_config["ip_address"].split('/')[0])
+
+        cluster_id = str(self._server_config['cluster_id'])
+        roles = eval(str(self._server_config['roles']))
+        if cluster_id != "" and 'openstack' in roles:
+            # get vip ip-addresses from cluster
+            int_vip, ext_vip = self.get_vips_in_cluster(self._cluster_config)
+            print int_vip, ext_vip
+            if int_vip:
+                san_ips_list.append(str(int_vip))
+            if ext_vip:
+                san_ips_list.append(str(ext_vip))
 
         for idx,val in enumerate(san_ips_list):
             san_ip_line = "IP."+str(idx+1) + " = " + str(val)
