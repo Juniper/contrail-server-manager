@@ -8,14 +8,6 @@
                 "gateway": "10.204.221.46",
                 "password": "abcd",
                 "provision": {
-                    "contrail": {
-                        "ha": {
-                            "contrail_internal_vip": "192.168.1.24",
-                            "contrail_external_vip": "192.168.1.24",
-                            "contrail_internal_virtual_router_id": 103,
-                            "contrail_external_virtual_router_id": 104
-                        }
-                    },
                     "contrail_4": {
                         "docker_registry": "",
                         "docker_registry_insecure": true,
@@ -29,6 +21,8 @@
                         "tor_ssl_certs_src_dir": "/etc/contrail_smgr/puppet/ssl/tor",
                         "ctrl_data_network": "192.168.1.0/24",
                         "enable_lbaas": false,
+                        "kernel_upgrade": false,
+                        "kernel_version": "",
                         "tsn_mode": false,
                         "metadata_ssl_enable": false,
                         "global_config": {
@@ -52,6 +46,12 @@
                             "apiserver_certfile": "/etc/contrailctl/ssl/server.pem",
                             "apiserver_keyfile": "/etc/contrailctl/ssl/server-privatekey.pem",
                             "apiserver_cafile": "/etc/contrailctl/ssl/ca-cert.pem"
+                        },
+                        "ha": {
+                            "contrail_internal_vip": "192.168.1.24",
+                            "contrail_external_vip": "192.168.1.24",
+                            "contrail_internal_virtual_router_id": 103,
+                            "contrail_external_virtual_router_id": 104
                         },
                         "openstack_config": {
                             "management_ip": "",

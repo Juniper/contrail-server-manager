@@ -7,14 +7,6 @@
     "newname": "contrail_4.kernel_version",
     "newformat": "string"
   },
-  "manage_neutron": {
-    "newname": "contrail.config.manage_neutron",
-    "newformat": "boolean"
-  },
-  "config_ip_list": {
-    "newname": "contrail.config.config_ip_list",
-    "newformat": "list"
-  },
   "keystone.ip": {
     "newname": "openstack.keystone.ip",
     "newformat": "string"
@@ -64,7 +56,7 @@
     "newformat": "integer"
   },
   "neutron_metadata_proxy_shared_secret": {
-    "name": "parameters.provision.openstack.neutron.shared_secret",
+    "name": "openstack.neutron.shared_secret",
     "format": "boolean"
   },
   "cloud_orchestrator": {
@@ -532,19 +524,19 @@
     "newformat": "integer"
   },
   "ha.contrail_internal_vip": {
-    "newname": "contrail.ha.contrail_internal_vip",
+    "newname": "contrail_4.ha.contrail_internal_vip",
     "newformat": "string"
   },
   "ha.contrail_external_vip": {
-    "newname": "contrail.ha.contrail_external_vip",
+    "newname": "contrail_4.ha.contrail_external_vip",
     "newformat": "string"
   },
   "ha.contrail_internal_virtual_router_id": {
-    "newname": "contrail.ha.contrail_internal_virtual_router_id",
+    "newname": "contrail_4.ha.contrail_internal_virtual_router_id",
     "newformat": "integer"
   },
   "ha.contrail_external_virtual_router_id": {
-    "newname": "contrail.ha.contrail_external_virtual_router_id",
+    "newname": "contrail_4.ha.contrail_external_virtual_router_id",
     "newformat": "integer"
   },
   "cfgm.auth_protocol": {
