@@ -184,6 +184,7 @@ class VncServerManager():
     '''
     _smgr_log = None
     _smgr_trans_log = None
+    _smgr_util = None
     _smgr_reimg_log = None
     _tags_list = ['tag1', 'tag2', 'tag3', 'tag4',
                   'tag5', 'tag6', 'tag7']
@@ -362,6 +363,7 @@ class VncServerManager():
         #Create an instance of logger
         try:
             self._smgr_log = ServerMgrlogger()
+            self._smgr_util = ServerMgrUtil()
             self.ansible_utils = SMAnsibleUtils(self._smgr_log)
         except:
             print "Error Creating logger object"
@@ -801,7 +803,7 @@ class VncServerManager():
                 server = self._serverDb.get_server(
                     {"id" : sid[0]}, detail=True)
                 ssh_client = self.create_ssh_connection(server[0]['ip_address'],
-                    'root', server[0]['password'])
+                    'root', self._smgr_util.get_password(server[0], self._serverDb))
                 sftp_client = ssh_client.open_sftp()
 
                 logs = []
@@ -1801,7 +1803,6 @@ class VncServerManager():
     #Common function to get the version of tgz(for both CentOs and Ubuntu), rpm
     #and debian Contrail packages. It also gets the version of the Contrail storage package
     def get_contrail_package_version(self, image_type, image_id, image_path,file_type):
-        sm = ServerMgrUtil()
         if file_type and 'gzip compressed data' in file_type:
             mirror = self._args.html_root_dir+"contrail/repo/"+image_id
             if image_type == 'contrail-storage-ubuntu-package':
@@ -1811,7 +1812,7 @@ class VncServerManager():
             tmp_pkg = subprocess.check_output(tmp_img_path, shell=True)
         else:
             tmp_pkg = image_path
-        version = sm.get_package_version(tmp_pkg.strip('\n'), image_type)
+        version = self._smgr_util.get_package_version(tmp_pkg.strip('\n'), image_type)
         return version.strip('\n')
 
     def diff_string(self, str1, str2):
@@ -2030,10 +2031,9 @@ class VncServerManager():
                     pkg_type = None
                     if ((image_type == "contrail-centos-package") or
                         (image_type == "contrail-ubuntu-package") ):
-                        smutil = ServerMgrUtil()
                         if output and 'gzip' in output:
                             # get the tgz package type
-                            pkg_type = smutil.get_tgz_package_type(image_path)
+                            pkg_type = self._smgr_util.get_tgz_package_type(image_path)
                         if (pkg_type == "contrail-cloud-docker-tgz" or pkg_type == "contrail-networking-docker-tgz"):
                             if pkg_type == "contrail-networking-docker-tgz" and not image_params.has_key("openstack_sku"):
                                 self.log_and_raise_exception(_ERR_OPENSTACK_SKU_NEEDED)
@@ -2657,10 +2657,9 @@ class VncServerManager():
             output = subprocess.check_output(cmd, shell=True)
             if ((image_type == "contrail-centos-package") or
                 (image_type == "contrail-ubuntu-package")):
-                smutil = ServerMgrUtil()
                 if output and 'gzip' in output:
                     # get the tgz package type
-                    pkg_type = smutil.get_tgz_package_type(dest)
+                    pkg_type = self._smgr_util.get_tgz_package_type(dest)
                 if (pkg_type == "contrail-cloud-docker-tgz" or pkg_type == "contrail-networking-docker-tgz"):
                     if pkg_type == "contrail-networking-docker-tgz" and not image_params.has_key("openstack_sku"):
                         msg = _ERR_OPENSTACK_SKU_NEEDED
@@ -4163,7 +4162,6 @@ class VncServerManager():
         pp = []
         inv = {}
         params   = {}
-        smutil = ServerMgrUtil()
         cluster_inv, kolla_inv = self.get_container_inventory(cluster)
         kolla_pwds, kolla_vars = self.get_container_kolla_params(cluster)
         merged_inv = cluster_inv
@@ -4178,7 +4176,7 @@ class VncServerManager():
             # and add it to host_vars in the ansible inventory
             merged_inv["[all:vars]"]["ansible_user"]="root"
             merged_inv["[all:vars]"]["ansible_password"] = \
-                    smutil.get_password(server,self._serverDb) 
+                    self._smgr_util.get_password(server,self._serverDb) 
 
             # Needed for logging infra to do per-provision logging
             merged_inv["[all:vars]"]["cluster_id"] = \
@@ -4478,8 +4476,7 @@ class VncServerManager():
                                         contrail_package["calc_params"] = \
                                            package.get("calc_params",{})
                                     for server in servers:
-                                        smutil = ServerMgrUtil()
-                                        server['server'] = smutil.calculate_kernel_upgrade(server['server'],contrail_package['calc_params'])
+                                        server['server'] = self._smgr_util.calculate_kernel_upgrade(server['server'],contrail_package['calc_params'])
                                         self._do_provision_server(
                                                server['provision_params'],
                                                server['server'],
@@ -5466,8 +5463,7 @@ class VncServerManager():
             nova_api_package = self._args.html_root_dir+"contrail/repo/"+image_id + '/openstack-nova-api-*.rpm'
             cmd = 'ls ' + nova_api_package.encode("ascii")
             package_name = subprocess.check_output(cmd, shell=True)
-            sm = ServerMgrUtil()
-            version = sm.get_package_version(package_name, image_type)
+            version = self._smgr_util.get_package_version(package_name, image_type)
         if version != '' :
             self._smgr_log.log(self._smgr_log.DEBUG, "version of nova-api : %s" %version)
             # we need to find openstack version now, sample version string
@@ -5750,7 +5746,7 @@ class VncServerManager():
             ssh_hndl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh_hndl.connect(server['ip_address'],
                                username = server.get('username', 'root'),
-                               password = smutil.get_password(server,self._serverDb))
+                               password = self._smgr_util.get_password(server,self._serverDb))
             neutron_url = self.issu_obj.get_set_config_parameters(ssh_hndl,
                           '/etc/nova/nova.conf', 'url', section = "neutron")
             m = re.search('[0-9]+(?:\.[0-9]+){3}', neutron_url)
@@ -6396,8 +6392,7 @@ class VncServerManager():
 
         for x in cluster_servers:
 
-            smutil = ServerMgrUtil()
-            x = smutil.calculate_kernel_upgrade(x,package["calc_params"])
+            x = self._smgr_util.calculate_kernel_upgrade(x,package["calc_params"])
             vr_if_str = None
             server_roles = eval(x.get('roles', '[]'))
             server_roles_set = set(server_roles)
@@ -6414,7 +6409,7 @@ class VncServerManager():
                 if role in _valid_roles:
                     if role == OPENSTACK_CONTAINER:
                         grp_line = grp_line + ' ansible_connection=ssh \
-                                ansible_ssh_pass=%s' % x['password']
+                                ansible_ssh_pass=%s' % self._smgr_util.get_password(x,self._serverDb)
                         for g in kolla_inv_hosts:
                             if grp_line not in cur_kolla_inventory[g]:
                                 cur_kolla_inventory[g].append(grp_line + var_list)
@@ -7142,7 +7137,6 @@ class VncServerManager():
         success_list = []
         failed_list = []
         power_reboot_list = []
-        smutil = ServerMgrUtil()
         for server in reboot_server_list:
             try:
                 # Enable net boot flag in cobbler for the system.
@@ -7195,7 +7189,7 @@ class VncServerManager():
                         paramiko.AutoAddPolicy())
                     client.connect(
                         server["ip"], username='root',
-                        password=smutil.get_password(server,self._serverDb))
+                        password=self._smgr_util.get_password(server,self._serverDb))
                     stdin, stdout, stderr = client.exec_command('reboot')
                 # end else
                 # Update Server table to update time.
