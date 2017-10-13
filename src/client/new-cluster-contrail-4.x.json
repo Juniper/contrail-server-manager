@@ -25,7 +25,7 @@
                         "analyticsdb_image": "",
                         "agent_image": "",
                         "ssl_certs_src_dir": "/etc/contrail_smgr/puppet/ssl",
-                        "tor_ca_cert_file": "",
+                        "tor_ca_cert_file": "/etc/contrail_smgr/puppet/ssl/ca-cert.pem",
                         "tor_ssl_certs_src_dir": "/etc/contrail_smgr/puppet/ssl/tor",
                         "ctrl_data_network": "192.168.1.0/24",
                         "enable_lbaas": false,

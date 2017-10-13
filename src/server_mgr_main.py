@@ -5543,10 +5543,19 @@ class VncServerManager():
 
         tor_ca_cert_location = contrail_4.get('tor_ca_cert_file', '')
         tor_ssl_certs_src_dir = contrail_4.get('tor_ssl_certs_src_dir', '')
-        if tor_ca_cert_location and os.path.isfile(str(tor_ca_cert_location)) and tor_ssl_certs_src_dir:
-            # Copy the tor_ca_cert to tor_ssl_certs_src_dir
-            cmd = ("cp %s %s/ca-cert.pem" %(tor_ca_cert_location, tor_ssl_certs_src_dir))
-            subprocess.check_call(cmd, shell=True)
+        # If the certificate is not provided use the existing SM generated ca-cert
+        # In case user might have specified path, check if file exists
+        if not os.path.isfile(str(tor_ca_cert_location)):
+            msg = "No cert exists at location specified: %s" % (tor_ca_cert_location)
+            self.log_and_raise_exception(msg)
+        if not os.path.isdir(str(tor_ssl_certs_src_dir)):
+            # User specified directory should exist
+            msg = "No cert directory exists at location specified: %s" % (tor_ssl_certs_src_dir)
+            self.log_and_raise_exception(msg)
+
+        # We always copy this cert as it is a mandatory parameter for pssl
+        cmd = ("cp %s %s/ca-cert.pem" %(tor_ca_cert_location, tor_ssl_certs_src_dir))
+        subprocess.check_call(cmd, shell=True)
 
         for toragent_compute_server in role_servers['contrail-compute']:
             if 'top_of_rack' not in toragent_compute_server.keys():
