@@ -516,41 +516,6 @@ class VncServerManager():
         self._smgr_certs = ServerMgrCerts()
         sm_private_key, sm_cert = self._smgr_certs.create_sm_ca_cert()
 
-        # Read the JSON file, validate for correctness and add the entries to
-        # our DB.
-        if self._args.server_list is not None:
-            try:
-                server_file = open(self._args.server_list, 'r')
-                json_data = server_file.read()
-                server_file.close()
-            except IOError:
-                self._smgr_log.log(self._smgr_log.ERROR,
-                    "Error reading initial config file %s") \
-                    % (self._args.server_list)
-                exit()
-            try:
-                self.config_data = json.loads(json_data)
-                self._smgr_log.log(self._smgr_log.DEBUG,
-                    "Server list is %s" % self.config_data)
-
-            except Exception as e:
-                print repr(e)
-                self._smgr_log.log(self._smgr_log.ERROR,
-                    "Initial config file %s format error. "
-                    "File should be in JSON format") \
-                    % (self._args.server_list)
-                exit()
-            # Validate the config for sematic correctness.
-            self._validate_config(self.config_data)
-            # Store the initial configuration in our DB
-            try:
-                self._create_server_manager_config(self.config_data)
-            except Exception as e:
-                print repr(e)
-                self._smgr_log.log(self._smgr_log.ERROR,
-                    "Error adding initial config to SM Db. "
-                    "The following config data couldn't be added:\n%s") \
-                    % (self.config_data)
         self._monitoring_base_plugin_obj.initialize_features(sm_args=self._args, serverdb=self._serverDb)
         #Create and copy the ssh keys in the target servers if they are not already present
         #This will cover the upgrade case where none of the servers may have the key in it
@@ -643,7 +608,6 @@ class VncServerManager():
 
 
         # REST calls for PUT methods (Create New Records)
-        bottle.route('/all', 'PUT', self.create_server_mgr_config)
         bottle.route('/image/upload', 'PUT', self.upload_image)
         bottle.route('/status', 'PUT', self.put_status)
         bottle.route('/hw_server', 'PUT', self.add_hw_server)
@@ -3576,28 +3540,6 @@ class VncServerManager():
         return resp_msg
 
     # End of delete_image
-
-    # API to create the server manager configuration DB from provided JSON
-    # file.
-    def create_server_mgr_config(self):
-        entity = bottle.request.json
-        if not entity:
-            msg =  "No JSON config file specified"
-            resp_msg = self.form_operartion_data(msg, ERR_OPR_ERROR, None)
-            abort(404, resp_msg)
-
-        # Validate the config for sematic correctness.
-        self._validate_config(entity)
-        # Store the initial configuration in our DB
-        try:
-            self._create_server_manager_config(entity)
-        except Exception as e:
-            self.log_trace()
-            resp_msg = self.form_operartion_data(repr(e), ERR_GENERAL_ERROR,
-                                                                            None)
-            abort(404, resp_msg)
-        return entity
-    # end create_server_mgr_config
 
     # API to process DHCP event from cobbler. This event notifies of a server
     # getting or releasing dynamic IP from cobbler DHCP.
@@ -7484,20 +7426,6 @@ class VncServerManager():
         except Exception as e:
             raise e
 # end _do_provision_server
-
-    def _create_server_manager_config(self, config):
-        try:
-            cluster_list = config.get("cluster", None)
-            if cluster_list:
-                for cluster in cluster_list:
-                    self._serverDb.add_cluster(cluster)
-            servers = config.get("servers", None)
-            if servers:
-                for server in servers:
-                    self._serverDb.add_server(server)
-        except Exception as e:
-            raise e
-    # end _create_server_manager_config
 
     #generate random string
     def random_string(self, string_length=10):
