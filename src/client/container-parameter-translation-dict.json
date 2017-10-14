@@ -128,7 +128,7 @@
     "format": "boolean"
   },
   "metadata_ssl_enable": {
-    "name": "parameters.provision.contrail_4.global_config.metadata_ssl_enable",
+    "name": "parameters.provision.contrail_4.metadata_ssl_enable",
     "format": "boolean"
   },
   "uve_partition_count": {
