@@ -4100,6 +4100,7 @@ class VncServerManager():
         ret_data['servers'] = servers
         ret_data['server_packages'] = self.get_server_packages(servers,
                 payload['contrail_image_id'])
+        self.translate_contrail_4_to_contrail(ret_data)
         provision_server_list, role_seq, prov_status = \
                 self.prepare_provision(ret_data)
         provision_item = ('provision', provision_server_list,
@@ -6663,6 +6664,44 @@ class VncServerManager():
         self.build_calculated_kolla_params(cluster, cluster_servers, package)
     # end build_calculated_provision_params
 
+    # TODO: Remove if puppet is deprecated
+    def translate_params(self,obj_params,params_to_translate):
+        if "provision" in obj_params and "contrail_4" in obj_params["provision"]:
+            contrail_4_params = obj_params["provision"]["contrail_4"]
+            if "contrail" in obj_params["provision"]:
+                contrail_params = obj_params["provision"]["contrail"]
+            else:
+                contrail_params = {}
+            for param in params_to_translate:
+                if param in contrail_4_params:
+                    contrail_params[param] = contrail_4_params[param]
+                elif "global_config" in contrail_4_params and param in contrail_4_params["global_config"]:
+                    contrail_params[param] = contrail_4_params["global_config"][param]
+            obj_params["provision"]["contrail"] = contrail_params
+        return obj_params
+
+    def translate_contrail_4_to_contrail(self,provisioning_data):
+        params_to_translate = ["kernel_upgrade","kernel_version","enable_lbaas","xmpp_auth_enable",
+                               "xmpp_dns_auth_enable","ha","metadata_ssl_enable"]
+        cluster_id = provisioning_data['cluster_id']
+        cluster = self._serverDb.get_cluster(
+                                  {"id" : cluster_id},
+                                    detail=True)[0]
+        servers = self._serverDb.get_server(
+                                  {"cluster_id" : cluster_id},
+                                    detail=True)
+        if "parameters" in cluster:
+            cluster["parameters"] = eval(cluster["parameters"])
+            cluster_params = cluster.get('parameters', {})
+            cluster["parameters"] = self.translate_params(cluster_params,params_to_translate)
+            self._serverDb.modify_cluster(cluster)
+        for server in servers:
+            if "parameters" in server:
+                server["parameters"] = eval(server["parameters"])
+                server_params = server.get('parameters', {})
+                server["parameters"] = self.translate_params(server_params,params_to_translate)
+                self._serverDb.modify_server(server)
+
     def prepare_provision(self, provisioning_data):
         '''returns provision role_sequence and povision_server_list
            after provision request validation'''
@@ -6858,6 +6897,7 @@ class VncServerManager():
                 self.log_and_raise_exception(msg)
             cluster_id = ret_data['cluster_id']
             tasks      = ret_data['tasks']
+            self.translate_contrail_4_to_contrail(ret_data)
             provision_server_list, role_sequence, provision_status = \
                                       self.prepare_provision(ret_data)
 

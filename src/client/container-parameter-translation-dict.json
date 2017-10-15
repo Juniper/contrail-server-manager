@@ -7,14 +7,6 @@
     "name": "parameters.provision.contrail_4.kernel_version",
     "format": "string"
   },
-  "manage_neutron": {
-    "name": "parameters.provision.contrail.config.manage_neutron",
-    "format": "boolean"
-  },
-  "config_ip_list": {
-    "name": "parameters.provision.contrail.config.config_ip_list",
-    "format": "list"
-  },
   "keystone.ip": {
     "name": "parameters.provision.openstack.keystone.ip",
     "format": "string"
@@ -668,19 +660,19 @@
     "format": "integer"
   },
   "ha.contrail_internal_vip": {
-    "name": "parameters.provision.contrail.ha.contrail_internal_vip",
+    "name": "parameters.provision.contrail_4.ha.contrail_internal_vip",
     "format": "string"
   },
   "ha.contrail_external_vip": {
-    "name": "parameters.provision.contrail.ha.contrail_external_vip",
+    "name": "parameters.provision.contrail_4.ha.contrail_external_vip",
     "format": "string"
   },
   "ha.contrail_internal_virtual_router_id": {
-    "name": "parameters.provision.contrail.ha.contrail_internal_virtual_router_id",
+    "name": "parameters.provision.contrail_4.ha.contrail_internal_virtual_router_id",
     "format": "integer"
   },
   "ha.contrail_external_virtual_router_id": {
-    "name": "parameters.provision.contrail.ha.contrail_external_virtual_router_id",
+    "name": "parameters.provision.contrail_4.ha.contrail_external_virtual_router_id",
     "format": "integer"
   },
   "cfgm.auth_protocol": {
