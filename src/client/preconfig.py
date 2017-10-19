@@ -67,6 +67,9 @@ class Utils(object):
         parser.add_argument('--sku',
                             default='mitaka',
                             help='Openstack SKU that is going to be provisioned')
+        parser.add_argument('--key-path',
+                            default=None,
+                            help='ssh private key for passwordless access to the target servers')
         cliargs = parser.parse_args(args)
         if len(args) == 0:
             parser.print_help()
@@ -90,7 +93,7 @@ class Utils(object):
         for host_dict in server_json['server']:
             print "Configuring  => " + host_dict['id']
             hostobj = Server(host_dict, args.server_manager_ip,
-                             args.server_manager_repo_port)
+                             args.server_manager_repo_port, cliargs.key_path)
             try:
                 hostobj.connect()
                 if not hostobj.check_compute_provisioned():
@@ -120,7 +123,8 @@ class Utils(object):
 
 class Server(object):
     def __init__(self, server_dict, server_manager_ip,
-                 server_manager_repo_port=9003):
+                 server_manager_repo_port=9003, keypath=None):
+        self.key_path = None
         self.server_dict = server_dict
         self.server_manager_ip = server_manager_ip
         self.server_manager_repo_port = server_manager_repo_port
@@ -129,6 +133,14 @@ class Server(object):
         self.username = 'root'
         self.export_server_info()
         self.os_version = ()
+        if keypath is not None:
+           self.key_path = keypath
+        elif server_dict.get('parameters') and server_dict['parameters'].get('auth'):
+           self.key_path = server_dict['parameters']['auth'].get('ssh_private_key_path')
+        elif 'password' not in server_dict:
+            log.error('ERROR: Either the server key path or password has to be specified for the server %s in the json file'%(server_dict['id']))
+            raise RuntimeError('Either the server key path or password has to be specified for the server %s in the json file'%(server_dict['id']))
+           
         self.extra_packages_12_04 = ['puppet=3.7.3-1puppetlabs1', 'python-netaddr',
                                      'ifenslave-2.6', 'sysstat',
                                      'ethtool', 'vlan']
@@ -186,15 +198,30 @@ class Server(object):
         log.debug('Verify PING to host after configuration')
         self.exec_cmd(ping_cmd, error_on_fail=True)
 
+    def connect_using_key(self, ssh, ip, username, keypath):
+       try:
+           ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+           privatekeyfile = os.path.expanduser(keypath)
+           mykey = paramiko.RSAKey.from_private_key_file(privatekeyfile)
+           ssh.connect(ip, username=username, pkey = mykey)
+           return ssh
+       except Exception, err:
+            log.error('ERROR: %s' % err)
+            log.error('ERROR: Unable to connect Host (%s) with username(%s) ' \
+                  'and key' % (ip, username))
+            raise RuntimeError('Connection to (%s) Failed' % self.ip)
 
     def connect(self):
         self.set_mgmt_ip_address()
         self.connection.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
-            self.connection.connect(self.ip, username=self.username, \
-                                    password=self.password, \
-                                    timeout=self.connection_timeout)
-            log.info('Connected to Host (%s)' % self.ip)
+            if self.key_path:
+                self.connect_using_key(self.connection,self.ip, self.username, self.key_path)
+            else:
+                self.connection.connect(self.ip, username=self.username, \
+                               password=self.password, \
+                               timeout=self.connection_timeout)
+                log.info('Connected to Host (%s)' % self.ip)
         except Exception, err:
             log.error('ERROR: %s' % err)
             log.error('ERROR: Unable to connect Host (%s) with username(%s) ' \
