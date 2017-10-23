@@ -119,7 +119,7 @@ class OpensslConfigGenerator:
         list_of_interfaces = eval(str(self._server_config["network"]))["interfaces"]
         for intf_config in list_of_interfaces:
             if isinstance(intf_config,dict) and "ip_address" in intf_config and\
-              len(intf_config["ip_address"]):
+              intf_config["ip_address"] and len(intf_config["ip_address"]):
                 san_ips_list.append(intf_config["ip_address"].split('/')[0])
 
         for idx,val in enumerate(san_ips_list):
