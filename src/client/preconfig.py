@@ -283,34 +283,12 @@ class Server(object):
         if sku != 'ocata':
             self.preconfig_puppet_config()
 
-    def verify_puppet_host(self):
-        ping_cmd = r'ping -q -c 1 puppet > /dev/null 2>@1'
-        puppet_cmd = r'grep puppet /etc/hosts | grep -v "^[ ]*#"'
-        status, old_entry = self.exec_cmd(puppet_cmd)
-        old_entry = old_entry.strip()
-        if status:
-            log.info('Seems puppet host is not configured')
-            log.info('Adding puppet alias to /etc/hosts file')
-            puppet_cmd = 'echo %s puppet >> /etc/hosts' % self.server_manager_ip
-            self.exec_cmd(puppet_cmd, error_on_fail=True)
-        else:
-            log.info('Seems puppet host is already configured. ' \
-                     'Replacing with Server Manager (%s) entry' % self.server_manager_ip)
-            self.exec_cmd(r"sed -i 's/%s/%s puppet/g' /etc/hosts" % (
-                              old_entry, self.server_manager_ip),
-                          error_on_fail=True)
-
-        log.debug('Verify puppet host after configuration')
-        self.exec_cmd(ping_cmd, error_on_fail=True)
-
     def verify_setup_hostname(self):
         if not self.id:
             log.error('Hostname is not configured')
             raise RuntimeError('Hostname is not configured for (%s)' % self.ip)
 
     def preconfig_hosts_file(self, sku):
-        if sku != 'ocata':
-            self.verify_puppet_host()
         self.verify_self_host()
         self.verify_setup_hostname()
 
