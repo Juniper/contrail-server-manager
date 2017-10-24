@@ -426,6 +426,9 @@ set +e
 apt-get update >> $log_file 2>&1
 set -e
 
+fqdn=$(hostname -f)
+sed -i "/agent/ a  \   \ server = $fqdn" /etc/puppet/puppet.conf
+
 # In case of upgrade restore the saved dhcp.template back
 if [ $check_upgrade == 0 ]; then
     if [ "$SMLITE" != "" ]; then
