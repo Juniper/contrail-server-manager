@@ -9,7 +9,7 @@ set -x -v
 sed -i '/127\.0\..\.1/d' /etc/hosts
 echo "127.0.0.1 localhost.$system_domain localhost" >> /etc/hosts
 echo "$ip_address $system_name.$system_domain $system_name" >> /etc/hosts
-echo "$server puppet" >> /etc/hosts
+echo "$server $server_hostname" >> /etc/hosts
 #--------------------------------------------------------------------------
 # Set apt-get config option to allow un-authenticated packages to be installed
 # This is needed for puppet package resource to succeed. In the long run, we
@@ -221,7 +221,7 @@ mv /etc/apt/sources.list /etc/apt/sources.list.backup
 #echo "deb http://$server/thirdparty_packages/ ./" > /etc/apt/sources.list
 cat >>/etc/apt/sources.list <<EOF
 # add repos needed for puppet and its dependencies
-deb http://puppet/thirdparty_packages/ ./
+deb http://$server/thirdparty_packages/ ./
 EOF
 
 apt-get update
@@ -238,6 +238,7 @@ echo "    usecacheonfailure = false" >> /etc/puppet/puppet.conf
 echo "    ordering = manifest" >> /etc/puppet/puppet.conf
 echo "    report = true" >> /etc/puppet/puppet.conf
 echo "    stringify_facts = false" >> /etc/puppet/puppet.conf
+echo "    server = $server_hostname" >> /etc/puppet/puppet.conf
 echo "[main]" >> /etc/puppet/puppet.conf
 echo "runinterval=10" >> /etc/puppet/puppet.conf
 echo "configtimeout=500" >> /etc/puppet/puppet.conf
