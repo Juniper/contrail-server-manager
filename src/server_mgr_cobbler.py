@@ -6,6 +6,7 @@ import xmlrpclib
 import threading
 import time
 import subprocess
+import socket
 from server_mgr_logger import ServerMgrlogger as ServerMgrlogger
 from server_mgr_exception import ServerMgrException as ServerMgrException
 from server_mgr_err import *
@@ -344,6 +345,7 @@ class ServerMgrCobbler(object):
                 kernel_options += ' system_domain=' + system_domain
                 kernel_options += ' ip_address=' + ip
                 kernel_options += ' server=' + server_ip
+                kernel_options += ' server_hostname=' + socket.getfqdn()
                 if package_image_id:
                     kernel_options += ' contrail_repo_name=' + \
                         package_image_id
