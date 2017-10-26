@@ -219,11 +219,20 @@ $(python -c "import json;\
              fid.close();\
              ")
 
-read CLUSTER_ID <<< $(python -c "import json;\
+read CLUSTER_ID AUTH_PATH <<< $(python -c "import json;\
                         fid = open('${CLUSTER_JSON_PATH}', 'r');\
                         data = json.load(fid);\
                         fid.close();\
-                        print data['cluster'][0]['id']")
+                        print data['cluster'][0]['id'], \
+                              data['cluster'][0]['parameters'].get('auth')")
+
+if [ "$AUTH_PATH" != "None" ]; then
+      read KEY_PATH <<< $(python -c "import json;\
+                            fid = open('${CLUSTER_JSON_PATH}', 'r');\
+                            data = json.load(fid);\
+                            fid.close();\
+                            print data['cluster'][0]['parameters']['auth'].get('ssh_private_key_path')")
+fi
 
 if [ "$CLUSTER_ID" == "" ]; then
     echo "CLUSTER ID MISSING"
@@ -257,6 +266,10 @@ optional_preconfig_args=""
 
 if [ ! -z "$SM_OS_SKU" ]; then
     optional_preconfig_args="$optional_preconfig_args --sku $SM_OS_SKU"
+fi
+
+if [ ! -z "$KEY_PATH" ]; then
+    optional_preconfig_args="$optional_preconfig_args --key-path $KEY_PATH"
 fi
 
 echo "$arrow Pre provision checks to make sure setup is ready for contrail provisioning"
