@@ -29,11 +29,17 @@ class PlayLogger:
         config.read([self.defaults_file])
         self.default_config["smgr"] = dict(config.items("SERVER-MANAGER"))
         self.smgr_ip = self.default_config["smgr"]["listen_ip_addr"]
+        self._sm_prov_logger = None
         f = open("/var/log/contrail-server-manager/debug.log", "a")
         f.write("Ansible callback init - smgr_ip: %s" % self.smgr_ip)
         try:
             self._sm_logger = ServerMgrlogger()
-            self._sm_prov_logger = ServerMgrProvlogger(cluster_id)
+            if cluster_id:
+                self._sm_prov_logger = ServerMgrProvlogger(cluster_id)
+            else:
+                self._sm_logger.log(self._sm_logger.ERROR,
+                   "cluster_id not found in inventory - provision specific "\
+                   "logging will not be done")
         except:
             f = open("/var/log/contrail-server-manager/debug.log", "a")
             f.write("Ansible Callback Init - ServerMgrlogger init failed\n")
@@ -42,7 +48,8 @@ class PlayLogger:
 
     def append(self, log_line):
         self.log += log_line+"\n"
-        self._sm_prov_logger.log("info", log_line)
+        if self._sm_prov_logger:
+            self._sm_prov_logger.log("info", log_line)
         self._sm_logger.log(self._sm_logger.INFO, log_line)
 
     def banner(self, msg):
@@ -220,8 +227,7 @@ class CallbackModule(CallbackBase):
         inv = vm._inventory
         vars = vm.get_vars(inv._loader, play)
         host_vars = vars['vars']['hostvars']
-        vars = inv.get_hosts()
-        cluster_id = host_vars[vars[0].name]['cluster_id']
+        cluster_id = host_vars[host_vars.keys()[0]].get('cluster_id', None)
         self.logger = PlayLogger(cluster_id)
         self.logger.append("CLUSTER = %s" % str(cluster_id))
         if not name:
