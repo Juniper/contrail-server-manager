@@ -2154,7 +2154,6 @@ class VncServerManager():
                     self._smgr_log.log(self._smgr_log.INFO,
                                 "generating ceph uuid/keys for storage")
                     generate_storage_keys(cur_cluster)
-                    self.generate_passwords(cur_cluster.get("parameters", {}))
                     # If using vcenter, do not generate passwords
                     provision_params = cur_cluster["parameters"].get(
                         "provision", None)
