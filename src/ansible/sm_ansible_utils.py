@@ -218,9 +218,16 @@ _openstack_image_exceptions = {
 # Do not change any string in this list without making sure they do not break
 # the _openstack_image_exceptions dictionary above
 _openstack_containers = [
+  'barbican-api',
+  'barbican-worker',
   'barbican-base',
   'barbican-keystone-listener',
   'base',
+  'cinder-api',
+  'cinder-base',
+  'cinder-scheduler',
+  'cinder-volume',
+  'cinder-backup',
   'cron',
   'fluentd',
   'glance-api',
