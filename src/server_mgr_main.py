@@ -5883,27 +5883,24 @@ class VncServerManager():
 
     def get_calculated_openstack_cfg_dict(self, cluster, cluster_srvrs, pkg=None):
         openstack_cfg = dict()
-        cluster_ks_cfg = \
-                self.get_cluster_openstack_cfg_section(cluster, "keystone")
-        if cluster_ks_cfg:
-            hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
-            cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
-            external_openstack_ip = cluster_ops_cfg.get("external_openstack_ip", None)
-            # If only external_vip is given, then it is ignored
-            if hacfg and "internal_vip" in hacfg:
-                if "external_vip" in hacfg:
-                    openstack_cfg["management_ip"] = hacfg["external_vip"]
-                else:
-                    openstack_cfg["management_ip"] = hacfg["internal_vip"]
-                openstack_cfg["ctrl_data_ip"] = hacfg["internal_vip"]
-            elif external_openstack_ip:
-                openstack_cfg["ctrl_data_ip"] = external_openstack_ip
-                openstack_cfg["management_ip"] = external_openstack_ip
+        hacfg = self.get_cluster_openstack_cfg_section(cluster, "ha")
+        cluster_ops_cfg = self.get_cluster_openstack_cfg_section(cluster, None)
+        external_openstack_ip = cluster_ops_cfg.get("external_openstack_ip", None)
+        # If only external_vip is given, then it is ignored
+        if hacfg and "internal_vip" in hacfg:
+            if "external_vip" in hacfg:
+                openstack_cfg["management_ip"] = hacfg["external_vip"]
             else:
-                for x in cluster_srvrs:
-                    if "openstack" in eval(x.get('roles', '[]')):
-                        openstack_cfg["ctrl_data_ip"] = self.get_control_ip(x)
-                        openstack_cfg["management_ip"] = self.get_mgmt_ip(x)
+                openstack_cfg["management_ip"] = hacfg["internal_vip"]
+            openstack_cfg["ctrl_data_ip"] = hacfg["internal_vip"]
+        elif external_openstack_ip:
+            openstack_cfg["ctrl_data_ip"] = external_openstack_ip
+            openstack_cfg["management_ip"] = external_openstack_ip
+        else:
+            for x in cluster_srvrs:
+                if "openstack" in eval(x.get('roles', '[]')):
+                    openstack_cfg["ctrl_data_ip"] = self.get_control_ip(x)
+                    openstack_cfg["management_ip"] = self.get_mgmt_ip(x)
         return openstack_cfg
     #end  get_calculated_openstack_cfg_dict
 
