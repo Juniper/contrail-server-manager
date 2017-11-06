@@ -706,7 +706,6 @@ class ServerMgrMonBasePlugin():
                 server['ipmi_username'] = self._default_ipmi_username
                 server['ipmi_password'] = self._default_ipmi_password
             return_dict[str(server['id'])] = server
-        self._smgr_log.log(self._smgr_log.DEBUG, "Created server dictionary.")
         return return_dict
 
     def get_mon_conf_details(self):
