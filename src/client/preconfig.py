@@ -96,7 +96,8 @@ class Utils(object):
                              args.server_manager_repo_port, cliargs.key_path)
             try:
                 hostobj.connect()
-                hostobj.preconfig(sku=cliargs.sku)
+                if not hostobj.check_compute_provisioned():
+                    hostobj.preconfig(sku=cliargs.sku)
             except:
                 if "contrail-compute" in getattr(hostobj, 'roles', []):
                     srv_params = getattr(hostobj, 'parameters', {})
@@ -293,6 +294,15 @@ class Server(object):
 
     def set_os_version(self):
         self.os_version = self.get_os_version()
+
+    def check_compute_provisioned(self):
+        # if this compute role and vhost present return true
+        if "contrail-compute" in getattr(self, 'roles', []):
+            cmd = 'grep "set vhost0 address" /etc/network/interfaces'
+            status, output = self.exec_cmd(cmd)
+            if status == 0:
+                return True
+        return False
 
     def preconfig(self, sku='mitaka'):
         self.set_os_version()
