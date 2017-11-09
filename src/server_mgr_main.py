@@ -6434,6 +6434,7 @@ class VncServerManager():
         if not ContrailVersion(pkg) > self.last_puppet_version:
             return
 
+        contrail_4_dict = DbUtils().get_contrail_4(cluster)
         os_ha_rid = None
         os_srvrs = set(self.get_server_ip_list_for_role(OPENSTACK_CONTAINER,
                 cluster_servers))
@@ -6576,6 +6577,10 @@ class VncServerManager():
             kolla_globals["contrail_api_interface_address"] = ctrl_ip
 
         kolla_globals["neutron_plugin_agent"] = "opencontrail"
+
+        # 7. From contrail_4 section of the cluster
+        kolla_globals["metadata_ssl_enable"] = \
+                contrail_4_dict.get("metadata_ssl_enable", False)
 
         # Add any more derivations for globals.yml above this
 
