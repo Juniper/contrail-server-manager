@@ -298,7 +298,7 @@ class Server(object):
     def check_compute_provisioned(self):
         # if this compute role and vhost present return true
         if "contrail-compute" in getattr(self, 'roles', []):
-            cmd = 'grep "set vhost0 address" /etc/network/interfaces'
+            cmd = 'grep -r "set vhost0 address" /etc/network/interfaces*'
             status, output = self.exec_cmd(cmd)
             if status == 0:
                 return True
