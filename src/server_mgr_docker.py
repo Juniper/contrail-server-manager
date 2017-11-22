@@ -86,7 +86,9 @@ class SM_Docker():
             self._docker_client.tag(image, repo, tag)
             return True
         except Exception as e:
-            msg = "tag container failed for image %s: %s" % (repo,tag, e)
+            msg = \
+               "tag container failed for image %s: check image version: %s" % \
+               (repo,tag)
             self._smgr_log.log(self._smgr_log.ERROR, msg)
             return msg
 
