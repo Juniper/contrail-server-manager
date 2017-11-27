@@ -713,5 +713,9 @@
     "name": "gateway_routes",
     "dest_path": "parameters.provision.contrail_4.vgw.gateway_name",
     "format": "string"
+  },
+  "resource_backup_restore": {
+    "name": "parameters.provision.contrail_4.resource_backup_restore",
+    "format": "boolean"
   }
 }
