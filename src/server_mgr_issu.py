@@ -18,11 +18,20 @@ class SmgrIssuClass(VncServerManager):
         self.old_image = entity.get('old_image', None)
         self.compute_tag = entity.get('compute_tag', "")
         self.compute_server_id = entity.get('server_id', "")
+        self.is_docker_image = None
         self.setup_params()
         if self.check_issu_cluster_status(self.new_cluster):
+            self.is_docker_image = self.check_image()
             self.set_configured_params()
         self.issu_script = "/opt/contrail/bin/issu/contrail-issu"
         self.issu_conf_file = "/opt/contrail/bin/issu/inventory/inventory.conf"
+
+    def check_image(self):
+        cmd = "docker ps -a |grep controller -q"
+        status = self._execute_cmd(self.ssh_old_config, cmd)
+        if status:
+            return False
+        return True
 
     def setup_params(self):
         smutil = ServerMgrUtil()
@@ -46,10 +55,16 @@ class SmgrIssuClass(VncServerManager):
                         "ISSU: Number of server in one of clusters is 0!!")
         self.old_config_list = self.role_get_servers(self.old_servers, 
                                                               'config')
+        if not self.old_config_list:
+            self.old_config_list = self.role_get_servers(self.old_servers, 
+                                                    'contrail-controller')
         self.new_config_list = self.role_get_servers(self.new_servers, 
                                                  'contrail-controller')
         self.old_control_list = self.role_get_servers(self.old_servers, 
                                                              'control')
+        if not self.old_control_list:
+            self.old_control_list = self.role_get_servers(self.old_servers, 
+                                                     'contrail-controller')
         self.new_control_list = self.role_get_servers(self.new_servers, 
                                                  'contrail-controller')
         self.old_config_ip = self.old_config_list[0]['ip_address']
@@ -128,20 +143,22 @@ class SmgrIssuClass(VncServerManager):
             tup = (server['ip_address'], server.get('username', 'root'),
                                                      server_password)
             self.openstack_ip_list.append(tup)
-
+        self.is_docker_image = self.get_image()
         # end setup_params
 
     def set_configured_params(self):
         self.old_cass_server = self.get_set_config_parameters(self.ssh_old_config,
                                             "/etc/contrail/contrail-api.conf",
-                                                      "cassandra_server_list")
+                                                      "cassandra_server_list",
+                                            docker_flag = self.is_docker_image)
         self.old_zk_server = self.get_set_config_parameters(self.ssh_old_config,
                                           "/etc/contrail/contrail-api.conf",
-                                                             "zk_server_ip")
+                                                             "zk_server_ip",
+                                            docker_flag = self.is_docker_image)
         self.old_rabbit_server = self.get_set_config_parameters(self.ssh_old_config,
                                               "/etc/contrail/contrail-api.conf",
-                                                                "rabbit_server")
-
+                                                                "rabbit_server",
+                                            docker_flag = self.is_docker_image)
 
     def do_issu(self):
         if not self.issu_check_clusters():
@@ -322,7 +339,8 @@ class SmgrIssuClass(VncServerManager):
         provision_server_list, role_sequence, provision_status = \
                                      self.smgr_obj.prepare_provision(compute_data)
         provision_item = ('provision', provision_server_list, new_cluster,
-                                                                 role_sequence)
+                                                                 role_sequence,
+                                                                          None)
         self._reimage_queue.put_nowait(provision_item)
         self._smgr_log.log(self._smgr_log.DEBUG, 
                           "ISSU: computes provision queued. " \
@@ -376,13 +394,16 @@ class SmgrIssuClass(VncServerManager):
 
     def get_set_config_parameters(self, conn_handle, filename,
                               param, section = "DEFAULTS",
-                              action = "get", value = None):
+                              action = "get", value = None,
+                              docker_flag = False):
         if action == "get":
             cmd = "openstack-config --get %s %s %s" %(
                                       filename, section, param)
         else:
             cmd = "openstack-config --set %s %s %s %s" %(
                                filename, section, param, value)
+        if docker_flag:
+            cmd = "docker exec controller %s" %cmd
         stdin, stdout, stderr = conn_handle.exec_command(cmd)
         err = stderr.read()
         op = stdout.read()
@@ -531,11 +552,12 @@ class SmgrIssuClass(VncServerManager):
         i, stdout, stderr = handl.exec_command(cmd)
         err = stderr.read()
         op = stdout.read()
+        exit_status = stdout.channel.recv_exit_status()
         if err:
             self._smgr_log.log(self._smgr_log.DEBUG,
                                "ISSU: Error executing %s" %cmd)
             self.log_and_raise_exception(err)
-
+        return exit_status
 
     def _do_finalize_issu(self):
         ''' This is called from backend to finalize issu'''
