@@ -11,7 +11,7 @@ d-i grub-installer/only_debian	boolean	true
 d-i grub-installer/bootdev	string	(hd0)
 ### add kernel postinst options (--kopts-post)
 #d-i debian-installer/add-kernel-opts	string $kernel_options_post nomodeset
-d-i debian-installer/add-kernel-opts	string $kernel_options_post nousb console=tty0 console=ttyS0,9600n8 init=/bin/systemd
+d-i debian-installer/add-kernel-opts	string $kernel_options_post console=tty0 console=ttyS0,9600n8 init=/bin/systemd
 d-i     debian-installer/quiet  boolean false
 d-i     debian-installer/splash boolean false
 d-i     debian-installer/nomodeset boolean false
