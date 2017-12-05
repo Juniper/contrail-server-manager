@@ -30,6 +30,9 @@
                         "tsn_server_list": ["192.168.0.30", "192.168.0.32"],
                         "compute_controller_list": ["10.204.216.66", "10.204.217.7"],
                         "resource_backup_restore": true,
+                        "backup_idle_timeout": "10000",
+                        "restore_audit_timeout": "15000",
+                        "backup_file_count": "3",
                         "coremask": "",
                         "huge_pages": "",
                         "vgw": {
