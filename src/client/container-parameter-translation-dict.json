@@ -718,5 +718,20 @@
     "name": "resource_backup_restore",
     "dest_path": "parameters.provision.contrail_4.resource_backup_restore",
     "format": "boolean"
+  },
+  "backup_idle_timeout": {
+    "name": "backup_idle_timeout",
+    "dest_path": "parameters.provision.contrail_4.backup_idle_timeout",
+    "format": "integer"
+  },
+  "restore_audit_timeout": {
+    "name": "restore_audit_timeout",
+    "dest_path": "parameters.provision.contrail_4.restore_audit_timeout",
+    "format": "integer"
+  },
+  "backup_file_count": {
+    "name": "backup_file_count",
+    "dest_path": "parameters.provision.contrail_4.backup_file_count",
+    "format": "integer"
   }
 }
