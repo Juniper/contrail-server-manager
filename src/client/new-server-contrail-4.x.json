@@ -33,6 +33,8 @@
                         "backup_idle_timeout": "10000",
                         "restore_audit_timeout": "15000",
                         "backup_file_count": "3",
+                        "vrouter_1G_hugepages": "",
+                        "vrouter_2M_hugepages":"",
                         "coremask": "",
                         "huge_pages": "",
                         "vgw": {

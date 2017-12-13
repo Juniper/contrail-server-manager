@@ -733,5 +733,15 @@
     "name": "backup_file_count",
     "dest_path": "parameters.provision.contrail_4.backup_file_count",
     "format": "integer"
+  },
+  "vrouter_1G_hugepages": {
+    "name": "vrouter_1G_hugepages",
+    "dest_path": "parameters.provision.contrail_4.vrouter_1G_hugepages",
+    "format": "integer"
+  },
+  "vrouter_2M_hugepages": {
+    "name": "vrouter_2M_hugepages",
+    "dest_path": "parameters.provision.contrail_4.vrouter_2M_hugepages",
+    "format": "integer"
   }
 }
