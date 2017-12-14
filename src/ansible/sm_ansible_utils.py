@@ -269,11 +269,13 @@ _openstack_containers = [
   'openvswitch-db-server',
   'openvswitch-vswitchd',
   'rabbitmq'
- 'ironic-pxe',
- 'ironic-conductor',
- 'ironic-api',
- 'ironic-base',
- 'ironic-inspector'
+  'ironic-pxe',
+  'ironic-conductor',
+  'ironic-api',
+  'ironic-base',
+  'ironic-inspector',
+  'iscsid',
+  'dnsmasq'
 ]
 
 kolla_inv_groups = {
