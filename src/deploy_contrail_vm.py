@@ -225,7 +225,8 @@ def main():
                                            objs["datastore"],
                                            spec_params)
     lease = objs["resource pool"].ImportVApp(import_spec.importSpec,
-                                             objs["datacenter"].vmFolder)
+                                             objs["datacenter"].vmFolder,
+                                             objs['host_obj'])
     while(True):
         if lease.state == vim.HttpNfcLease.State.ready:
             # Spawn a thread to keep the lease active while POSTing
