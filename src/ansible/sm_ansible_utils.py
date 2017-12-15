@@ -268,7 +268,7 @@ _openstack_containers = [
   'openvswitch-base',
   'openvswitch-db-server',
   'openvswitch-vswitchd',
-  'rabbitmq'
+  'rabbitmq',
   'ironic-pxe',
   'ironic-conductor',
   'ironic-api',
