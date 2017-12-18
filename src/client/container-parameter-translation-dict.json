@@ -489,6 +489,10 @@
     "name": "parameters.provision.contrail_4.compute_controller_list",
     "format": "list"
   },
+  "local_asn": {
+    "name": "parameters.provision.contrail_4.local_asn",
+    "format": "integer"
+  },
   "qos_priority_tagging": {
     "name": "parameters.provision.contrail_4.qos_priority_tagging",
     "format": "boolean"

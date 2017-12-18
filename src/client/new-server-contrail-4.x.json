@@ -24,6 +24,7 @@
                                 ]
                             }
                         },
+                        "local_asn": "1000",
                         "qos_priority_tagging": true,
                         "compute_as_gateway_mode": "server",
                         "tsn_evpn_mode": true,
