@@ -4208,6 +4208,55 @@ class VncServerManager():
             msg = "No playbook found under path: %s" % (merged_inv["[all:vars]"]["ansible_playbook"])
             self.log_and_raise_exception(msg)
         # update esxi hosts list into inventory, fetch from server def
+        try:
+            esxi_hosts = self.update_esxi_info(cluster, merged_inv)
+        except:
+            t, v, tb = sys.exc_info()
+            tb_lines = traceback.format_exception(t, v, tb)
+            msg = ''
+            for tb_line in tb_lines:
+                msg = msg + tb_line
+            self.log_and_raise_exception(msg)
+        if esxi_hosts:
+            merged_inv["[all:vars]"]["esxi_hosts"] = esxi_hosts
+        inv["inventory"] = merged_inv
+        inv["kolla_inv"] = kolla_inv
+        inv["kolla_passwords"] = kolla_pwds
+        inv["kolla_globals"]   = kolla_vars
+        inv["contrail_deploy_pb"] = str(_DEF_BASE_PLAYBOOKS_DIR)+ \
+                "/"+package.get('id','')+"/playbooks/site.yml"
+        inv["kolla_deploy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
+                "/" + package.get('id','') + "/kolla-ansible/ansible/site.yml"
+        inv["kolla_bootstrap_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
+                "/" + package.get('id','') + "/kolla-ansible/ansible/kolla-host.yml"
+        inv["kolla_destroy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
+                "/" + package.get('id','') + "/kolla-ansible/ansible/destroy.yml"
+        inv["kolla_post_deploy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
+                "/" + package.get('id','') + "/kolla-ansible/ansible/post-deploy.yml"
+        inv["kolla_post_deploy_contrail_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
+                "/" + package.get('id','') + \
+                "/kolla-ansible/ansible/post-deploy-contrail.yml"
+ 
+        parameters = { 'hosts_in_inv': self.ansible_utils.hosts_in_inventory(cluster_inv), 
+                'cluster_id': cluster['id'], 'parameters': inv, "tasks": tasks}
+        pp.append(copy.deepcopy(parameters))
+
+        # Update only provisioned_id - Do not update status here as server_list
+        # also might include servers which puppet might have completed
+        # provisioning already and we do not want to update status for those
+        for list_item in server_list:
+            server = list_item['server']
+            update = { 'id': server['id'],
+                       'provisioned_id': package.get('id', '') }
+            self._serverDb.modify_server(update)
+
+        self.ansible_utils.send_REST_request(self._args.ansible_srvr_ip,
+                      self._args.ansible_srvr_port,
+                      _ANSIBLE_CONTRAIL_PROVISION_ENDPOINT, pp)
+
+        return True
+
+    def update_esxi_info(self, cluster, merged_inv):
         cluster_servers = self._serverDb.get_server(
                            {"cluster_id" : cluster["id"]},
                                             detail="True")
@@ -4319,44 +4368,7 @@ class VncServerManager():
                 contrail_vm_params['networks'] = vm_nic_list
 
             esxi_hosts.append(compute_esx_params)
-        if esxi_hosts:
-            merged_inv["[all:vars]"]["esxi_hosts"] = esxi_hosts
-        inv["inventory"] = merged_inv
-        inv["kolla_inv"] = kolla_inv
-        inv["kolla_passwords"] = kolla_pwds
-        inv["kolla_globals"]   = kolla_vars
-        inv["contrail_deploy_pb"] = str(_DEF_BASE_PLAYBOOKS_DIR)+ \
-                "/"+package.get('id','')+"/playbooks/site.yml"
-        inv["kolla_deploy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
-                "/" + package.get('id','') + "/kolla-ansible/ansible/site.yml"
-        inv["kolla_bootstrap_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
-                "/" + package.get('id','') + "/kolla-ansible/ansible/kolla-host.yml"
-        inv["kolla_destroy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
-                "/" + package.get('id','') + "/kolla-ansible/ansible/destroy.yml"
-        inv["kolla_post_deploy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
-                "/" + package.get('id','') + "/kolla-ansible/ansible/post-deploy.yml"
-        inv["kolla_post_deploy_contrail_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
-                "/" + package.get('id','') + \
-                "/kolla-ansible/ansible/post-deploy-contrail.yml"
- 
-        parameters = { 'hosts_in_inv': self.ansible_utils.hosts_in_inventory(cluster_inv), 
-                'cluster_id': cluster['id'], 'parameters': inv, "tasks": tasks}
-        pp.append(copy.deepcopy(parameters))
-
-        # Update only provisioned_id - Do not update status here as server_list
-        # also might include servers which puppet might have completed
-        # provisioning already and we do not want to update status for those
-        for list_item in server_list:
-            server = list_item['server']
-            update = { 'id': server['id'],
-                       'provisioned_id': package.get('id', '') }
-            self._serverDb.modify_server(update)
-
-        self.ansible_utils.send_REST_request(self._args.ansible_srvr_ip,
-                      self._args.ansible_srvr_port,
-                      _ANSIBLE_CONTRAIL_PROVISION_ENDPOINT, pp)
-
-        return True
+        return esxi_hosts
 
     def is_role_in_cluster(self, role, provision_server_list):
         for server in provision_server_list:
