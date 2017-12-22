@@ -674,6 +674,7 @@ class VncServerManager():
         bottle.route('/server/provision', 'POST', self.provision_server)
         bottle.route('/interface_created', 'POST', self.interface_created)
         bottle.route('/run_inventory', 'POST', self._server_inventory_obj.run_inventory)
+        bottle.route('/provision_role', 'POST', self.provision_role)
 
         self.verify_smlite_provision()
 
@@ -2017,7 +2018,6 @@ class VncServerManager():
                         image_file = open('/tmp/'+image_id, "w")
                         image_file.write(resp.content)
                         image_file.close()
-                        #pdb.set_trace()
                         image_path=image_filename
 
                     if not os.path.exists(image_path):
@@ -4158,7 +4158,7 @@ class VncServerManager():
                              "%Y-%m-%d %H:%M:%S", gmtime())}
                 self._serverDb.modify_server(update)
 
-    def _do_ansible_provision_cluster(self, server_list, cluster, package, tasks):
+    def _do_ansible_provision_cluster(self, server_list, cluster, package, tasks, prov_role=False):
         pp = []
         inv = {}
         params   = {}
@@ -4185,7 +4185,7 @@ class VncServerManager():
             # FIXME: Needed for kolla-ansible for now.
             # Revisit the playbooks to see if dependency on this variable can be
             # removed
-            if ContrailVersion(package) > self.last_puppet_version:
+            if prov_role != 'delete' and ContrailVersion(package) > self.last_puppet_version:
                 merged_inv["[all:vars]"]["openstack_sku"] = 'ocata'
 
         if "contrail_image_id" in package.keys() and \
@@ -4204,7 +4204,7 @@ class VncServerManager():
         package_params = package.get('parameters', {})
         if "contrail-container-package" in package_params and package_params["contrail-container-package"]:
             merged_inv["[all:vars]"]["ansible_playbook"]= str(_DEF_BASE_PLAYBOOKS_DIR)+"/"+package.get('id','')+"/playbooks/site.yml"
-        if not os.path.isfile(merged_inv["[all:vars]"]["ansible_playbook"]):
+        if prov_role != 'delete' and not os.path.isfile(merged_inv["[all:vars]"]["ansible_playbook"]):
             msg = "No playbook found under path: %s" % (merged_inv["[all:vars]"]["ansible_playbook"])
             self.log_and_raise_exception(msg)
         # update esxi hosts list into inventory, fetch from server def
@@ -4223,8 +4223,14 @@ class VncServerManager():
         inv["kolla_inv"] = kolla_inv
         inv["kolla_passwords"] = kolla_pwds
         inv["kolla_globals"]   = kolla_vars
-        inv["contrail_deploy_pb"] = str(_DEF_BASE_PLAYBOOKS_DIR)+ \
-                "/"+package.get('id','')+"/playbooks/site.yml"
+        # for deleting role command trigger the appropriate yml file
+        if prov_role=='delete':
+            inv["contrail_deploy_pb"] = str(_DEF_BASE_PLAYBOOKS_DIR)+ "/"+package.get('id','')+"/playbooks/del_compute.yml"
+        # for provision role command trigger the compute.yml
+        elif prov_role=='add':
+            inv["contrail_deploy_pb"] = str(_DEF_BASE_PLAYBOOKS_DIR)+ "/"+package.get('id','')+"/playbooks/compute.yml"
+        else:
+            inv["contrail_deploy_pb"] = str(_DEF_BASE_PLAYBOOKS_DIR)+ "/"+package.get('id','')+"/playbooks/site.yml"
         inv["kolla_deploy_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
                 "/" + package.get('id','') + "/kolla-ansible/ansible/site.yml"
         inv["kolla_bootstrap_pb"]  = str(_DEF_BASE_PLAYBOOKS_DIR) + \
@@ -4241,11 +4247,18 @@ class VncServerManager():
                 'cluster_id': cluster['id'], 'parameters': inv, "tasks": tasks}
         pp.append(copy.deepcopy(parameters))
 
+        #Update the provisioned_id for the cluster
+        cluster_data = {'id': cluster['id'], 'provisioned_id': package.get('id', '') }
+        self._serverDb.modify_cluster(cluster_data)
         # Update only provisioned_id - Do not update status here as server_list
         # also might include servers which puppet might have completed
         # provisioning already and we do not want to update status for those
         for list_item in server_list:
-            server = list_item['server']
+            # in case of add or del role the server is directly passed
+            if prov_role:
+                server = list_item
+            else:
+                server = list_item['server']
             update = { 'id': server['id'],
                        'provisioned_id': package.get('id', '') }
             self._serverDb.modify_server(update)
@@ -4459,6 +4472,9 @@ class VncServerManager():
                         # decide based on the first.
                         package = provision_server_list[0]['package']
                         cluster = provision_server_list[0]['cluster']
+                        # update the cluster table with the provisioned_id
+                        cluster_data = {'id': cluster['id'], 'provisioned_id': package.get('id', '') }
+                        self._serverDb.modify_cluster(cluster_data)
                         # Create SSL Certs for ALL servers, not just Openstack
                         for server in provision_server_list:
                             server['server']['domain'] = self.get_server_domain(server['server'], server['cluster'] )
@@ -6328,7 +6344,7 @@ class VncServerManager():
     #    expected to provide the right VIP in the contrail_4 : {
     #    "keystone_config" : { "ip": <VIP>...}} dictionary else the IP of the
     #    last openstack node in the cluster DB is picked.
-    def build_calculated_inventory_params(self, cluster, cluster_servers, package):
+    def build_calculated_inventory_params(self, cluster, cluster_servers, package, server_list=[],prov_role=False):
         grp_line = None
         open_stk_srvr = None
         need_ansible = False
@@ -6413,7 +6429,7 @@ class VncServerManager():
 
         for x in cluster_servers:
 
-            x = self._smgr_util.calculate_kernel_upgrade(x,package["calc_params"])
+            x = self._smgr_util.calculate_kernel_upgrade(x,package.get("calc_params", {}))
             vr_if_str = None
             server_roles = eval(x.get('roles', '[]'))
             server_roles_set = set(server_roles)
@@ -6425,8 +6441,8 @@ class VncServerManager():
             var_list = self.build_calculated_srvr_inventory_params(x)
 
             for role in server_roles:
-                self.set_container_image_for_role(cur_inventory["[all:vars]"],
-                        role, package)
+                if prov_role != 'delete':
+                    self.set_container_image_for_role(cur_inventory["[all:vars]"],role, package)
                 if role in _valid_roles:
                     if role == OPENSTACK_CONTAINER:
                         grp_line = grp_line + ' ansible_connection=ssh \
@@ -6436,6 +6452,9 @@ class VncServerManager():
                                 cur_kolla_inventory[g].append(grp_line + var_list)
                         continue
                     if role == BARE_METAL_COMPUTE:
+                        # filter out the server that is not in the compute list given by the user
+                        if (prov_role) and not x['id'] in server_list:
+                            continue
                         cur_inventory["[all:vars]"]["contrail_compute_mode"] = \
                                 "bare_metal"
                     if role == AGENT_CONTAINER:
@@ -6959,6 +6978,55 @@ class VncServerManager():
         provision_status['return_message'] = "server(s) provision issued"
         return provision_status
     # end provision_server
+
+    # function to validate that all the servers given belong to the same cluster
+    def validate_same_cluster(self, server_list):
+        cluster_id_prev= None
+        server_dict = {}
+        for item in server_list:
+           server_dict['id'] = str(item)
+           server = self._serverDb.get_server(server_dict, detail=True)[0]
+           cluster_id = server.get("cluster_id", None)
+           if cluster_id_prev and cluster_id != cluster_id_prev:
+               msg = "All the severs should belong to the same cluster"
+               raise ServerMgrException(msg)
+           cluster_id_prev = cluster_id
+
+    # function to provision the given role from the given servers
+    def provision_role(self):
+        server_dict = {}
+        cluster = {}
+        server_list = []
+        tasks = "contrail_deploy"
+        entity = bottle.request.json
+        self.validate_same_cluster(entity['id'])
+        role_oper = entity['oper']
+        # this for future support. For now it is only compute supported
+        role_list = entity['role_list']
+        #Get the list of all servers for which you want provision the given role
+        for item in entity['id']:
+           server_dict['id'] = str(item)
+           server = self._serverDb.get_server(server_dict, detail=True)[0]
+           server_list.append(server)
+           # create the certificates on the server given
+           self._smgr_certs.create_server_cert(server)
+           cluster_id = server.get("cluster_id", None)
+ 
+        if cluster_id:
+           cluster = self._serverDb.get_cluster({'id': cluster_id},detail=True)[0]
+           cluster['parameters'] = eval(cluster['parameters'])
+           # get the package image id from the cluster table
+           package_image_id = str(cluster['provisioned_id'])
+           # get the package details from the database
+           package = self._serverDb.get_image({"id": package_image_id}, detail=True)[0]
+           package['parameters'] =  eval(package.get("parameters",{}))
+           package['contrail_image_id'] = package_image_id
+           # get all the servers belongig to the cluster
+           cluster_servers = self._serverDb.get_server({"cluster_id" : cluster_id},detail="True")
+           # calculate and build the inventory params
+           self.build_calculated_inventory_params(cluster, cluster_servers, package, entity['id'],role_oper)
+           # provision the given role on the given server using ansible
+           self._do_ansible_provision_cluster(server_list, cluster, package, tasks, role_oper)
 
     # TBD
     def cleanup(self):
@@ -7487,6 +7555,9 @@ class VncServerManager():
                 cluster_servers,
                 package,
                 serverDb)
+            # update cluster table with provisioned id
+            cluster_data = {'id': cluster['id'], 'provisioned_id': package.get('id', '') }
+            self._serverDb.modify_cluster(cluster_data)
             # Update Server table with provisioned id
             update = {'id': server['id'],
                   'status' : 'provision_issued',
