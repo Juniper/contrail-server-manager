@@ -17,7 +17,7 @@ ignore client-updates;
 set vendorclass = option vendor-class-identifier;
 
 subnet __$SUBNETADDRESS__ netmask __$SUBNETMASK__ {
-    option routers              __$IPADDRESS__;
+    option routers              __$SUBNETGATEWAY__;
     option subnet-mask          __$SUBNETMASK__;
     option domain-name-servers  __$IPADDRESS__;
     option domain-search        "__$DOMAIN__";

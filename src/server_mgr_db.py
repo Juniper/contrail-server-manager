@@ -511,7 +511,7 @@ class ServerMgrDb:
     def add_dhcp_subnet(self, dhcp_subnet_config):
         try:
             dhcp_subnet_config = dict(dhcp_subnet_config)
-            if dhcp_subnet_config and 'subnet_address' in dhcp_subnet_config:
+            if dhcp_subnet_config and self.validate_dhcp_add("subnet", dhcp_subnet_config):
                 dhcp_subnet_config = {k:str(v) for k,v in dhcp_subnet_config.iteritems()}
                 self._add_row(dhcp_subnet_table, dhcp_subnet_config)
                 self._smgr_log.log(self._smgr_log.DEBUG, "ADDED DHCP SUBNET CONFIG FOR SUBNET " + dhcp_subnet_config['subnet_address'])
@@ -523,7 +523,7 @@ class ServerMgrDb:
     def add_dhcp_host(self, dhcp_host_config):
         try:
             dhcp_host_config = dict(dhcp_host_config)
-            if dhcp_host_config and 'host_fqdn' in dhcp_host_config:
+            if dhcp_host_config and self.validate_dhcp_add("host", dhcp_host_config):
                 self._add_row(dhcp_hosts_table, dhcp_host_config)
                 self._smgr_log.log(self._smgr_log.DEBUG, "ADDED DHCP HOST CONFIG FOR HOST FQDN " + dhcp_host_config['host_fqdn'])
         except Exception as e:
@@ -721,6 +721,41 @@ class ServerMgrDb:
     def get_cidr(self, subnet_address, subnet_mask):
         ip = IPNetwork(str(subnet_address)+'/'+str(subnet_mask))
         return str(subnet_address) + "/" + str(ip.prefixlen)
+
+    def validate_dhcp_add(self, obj_type, obj_dict, raise_exception=True):
+        if not obj_dict:
+            msg = "Valid dictionary not given to add DHCP element"
+            if raise_exception:
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+            return False
+
+        if obj_type == "subnet":
+          try:
+            if "subnet_address" not in obj_dict:
+              msg = "Primary key subnet address not present for DHCP subnet, cannot add this object: %s" % (obj_dict)
+              if raise_exception:
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+              return False
+            else:
+              valid_subnet_address = IPAddress(obj_dict['subnet_address'])
+              valid_subnet_gateway = IPAddress(obj_dict['subnet_gateway'])
+              valid_subnet_range = IPNetwork(self.get_cidr(obj_dict["subnet_address"], obj_dict["subnet_mask"]))
+          except Exception as e:
+            self.log_and_raise_exception(e.message, ERR_OPR_ERROR)
+            raise e
+        elif obj_type == "host":
+          if "host_fqdn" not in obj_dict:
+            msg = "Primary key subnet address not present for DHCP host, cannot add this object: %s" % (obj_dict)
+            if raise_exception:
+                self.log_and_raise_exception(msg, ERR_OPR_ERROR)
+            return False
+          try:
+            valid_ip_address = IPAddress(obj_dict['ip_address'])
+          except Exception as e:
+            self.log_and_raise_exception(e.message, ERR_OPR_ERROR)
+            raise e
+        return True
+    #end of validate_dhcp_add
 
     def validate_dhcp_delete(self, obj_type, match_dict=None, unmatch_dict=None, raise_exception=True):
         if obj_type == "subnet":

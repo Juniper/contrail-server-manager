@@ -140,13 +140,14 @@ _DEF_SMGR_FQDN = '__$HOSTFQDN__'
 _DEF_SMGR_HOST_NAME = '__$HOSTNAME__'
 
 _DEF_SMGR_SUBNET_ADDRESS = '__$SUBNETADDRESS__'
+_DEF_SMGR_SUBNET_GATEWAY = '__$SUBNETGATEWAY__'
 _DEF_SMGR_SUBNET_MASK = '__$SUBNETMASK__'
 _DEF_SMGR_DOMAIN = '__$DOMAIN__'
 
 smgr_subnet_config = {
     "subnet_address": _DEF_SMGR_SUBNET_ADDRESS,
     "subnet_mask": _DEF_SMGR_SUBNET_MASK,
-    "subnet_gateway": _DEF_SMGR_IP,
+    "subnet_gateway": _DEF_SMGR_SUBNET_GATEWAY,
     "subnet_domain": _DEF_SMGR_DOMAIN,
     "dns_server_list": [_DEF_SMGR_IP],
     "search_domains_list": [_DEF_SMGR_DOMAIN],
@@ -155,6 +156,9 @@ smgr_subnet_config = {
 }
 
 class DHCPTemplateGenerator:
+
+    # We auto add the DHCP subnet for the subnet that SM IP belongs to
+    # This means the subnet is auto added to the cobbler dhcp template if user doesn't add it automatically
 
     def __init__(self, server_db, smgr_config=None):
         ''' Constructor '''
