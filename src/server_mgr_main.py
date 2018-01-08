@@ -7646,10 +7646,12 @@ class VncServerManager():
             self._plug_service_passwords(openstack_params, "ceilometer", "mongo",
                                                     keystone_params["admin_password"])
             #Do we need the below
+            heat_encryption_key = self.random_string(16)
+            while heat_encryption_key.isdigit():
+                heat_encryption_key = self.random_string(16)
             self._plug_service_passwords(openstack_params, "heat",
                                                     "encryption_key",
-                                                    self.random_string(16))
-            heat_encryption_key = openstack_params["heat"]["encryption_key"]
+                                                    heat_encryption_key)
             if 'E' in heat_encryption_key:
                 heat_encryption_key = heat_encryption_key.replace('E','D')
                 openstack_params["heat"]["encryption_key"] = heat_encryption_key
