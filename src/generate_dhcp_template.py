@@ -134,6 +134,10 @@ host $__host_fqdn__ {
 }
 """)
 
+host_ignore_bootp_template = string.Template("""
+host $__host_fqdn__ { hardware ethernet $__host_mac__; deny booting;}
+""")
+
 _DEF_SMGR_IP = '__$IPADDRESS__'
 _DEF_SMGR_MAC = '__$MACADDRESS__'
 _DEF_SMGR_FQDN = '__$HOSTFQDN__'
@@ -194,12 +198,18 @@ class DHCPTemplateGenerator:
         hosts_stanza = ""
         hosts = self._serverDb.get_dhcp_host()
         for dhcp_host in hosts:
-            host_stanza = host_template.safe_substitute({
-                '__host_fqdn__': dhcp_host['host_fqdn'],
-                '__host_mac__': dhcp_host['mac_address'],
-                '__host_name__': dhcp_host['host_name'],
-                '__host_listen_ip__': dhcp_host['ip_address']
-            })
+            if 'ignore_bootp' in dhcp_host and dhcp_host['ignore_bootp'] in ['True', 'true', True]:
+                host_stanza = host_ignore_bootp_template.safe_substitute({
+                    '__host_fqdn__': dhcp_host['host_fqdn'],
+                    '__host_mac__': dhcp_host['mac_address']
+                })
+            else:
+                host_stanza = host_template.safe_substitute({
+                    '__host_fqdn__': dhcp_host['host_fqdn'],
+                    '__host_mac__': dhcp_host['mac_address'],
+                    '__host_name__': dhcp_host['host_name'],
+                    '__host_listen_ip__': dhcp_host['ip_address']
+                })
             hosts_stanza += host_stanza + "\n"
         return hosts_stanza
 

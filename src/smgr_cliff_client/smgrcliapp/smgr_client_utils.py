@@ -124,6 +124,7 @@ main_object_dict = {
         ("mac_address", "Specify unique MAC for this host"),
         ("host_name", "Specify host name for this host"),
         ("ip_address", "Specify IP Address of this host"),
+        ("ignore_bootp", "Flag to Deny Booting for a DHCP Host"),
     ]),
     "dhcp_subnet": OrderedDict([
         ("subnet_address", "Specify unique Subnet Address for cobbler to control"),

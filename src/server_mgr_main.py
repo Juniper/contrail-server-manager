@@ -240,7 +240,7 @@ class VncServerManager():
     #dict to hold code defaults
     _code_defaults_dict = {}
     _smgr_config = None
-    _dhcp_host_key_list = ["host_fqdn","ip_address","mac_address","host_name"]
+    _dhcp_host_key_list = ["host_fqdn","ip_address","mac_address","host_name","ignore_bootp"]
     _dhcp_subnet_key_list = ["subnet_address","subnet_mask","subnet_gateway","subnet_domain",
         "search_domains_list","dns_server_list","default_lease_time", "max_lease_time"]
     _server_mask_list = ["password"]

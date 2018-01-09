@@ -84,6 +84,7 @@ dhcp_host_fields = {
     "mac_address": "",
     "ip_address": "",
     "host_name": "",
+    "ignore_bootp": "",
     "parameters": """{
                 }"""
 }
