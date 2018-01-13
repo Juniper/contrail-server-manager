@@ -275,7 +275,14 @@ _openstack_containers = [
   'ironic-base',
   'ironic-inspector',
   'iscsid',
-  'dnsmasq'
+  'dnsmasq',
+  'swift-account',
+  'swift-base',
+  'swift-container',
+  'swift-object-expirer',
+  'swift-object',
+  'swift-proxy-server',
+  'swift-rsyncd'
 ]
 
 kolla_inv_groups = {
