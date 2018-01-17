@@ -130,8 +130,6 @@ class Provision(Command):
         except Exception as e:
             sys.exit("Exception: %s : Error getting smgr config" % e.message)
 
-        print(">>>>>> Main Entry  <<<<<<");
-        print(parsed_args)
         provision_params = {}
         payload = {}
         match_key = None
@@ -175,8 +173,6 @@ class Provision(Command):
 
 	if getattr(parsed_args, "no_run", None):
             payload['no_run'] = 1;
-	    print("debug provision flag set - %d" % payload['no_run']);
-         
 
         if not getattr(parsed_args, "no_confirm", None):
             if getattr(parsed_args, "package_image_id", None):

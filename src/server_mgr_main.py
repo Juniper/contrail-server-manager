@@ -4205,8 +4205,6 @@ class VncServerManager():
         self.ansible_utils.send_REST_request(self._args.ansible_srvr_ip,
                       self._args.ansible_srvr_port,
                       _ANSIBLE_CONTRAIL_PROVISION_ENDPOINT, pp)
-        if debug_prov:
-            print("^^^^^^ NO RUN SET, INVEN Created, NOT Exec ^^^^^^^^^^^")
 
         return True
 
