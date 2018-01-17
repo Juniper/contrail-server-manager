@@ -153,6 +153,7 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
         inv_dir = pbook_dir + '/inventory/'
 
         ev = None
+        no_run = parameters["no_run"]
         try:
             if kolla:
                 inv_file = inv_dir + cluster_id + "_kolla.inv"
@@ -186,6 +187,10 @@ class ContrailAnsiblePlaybooks(multiprocessing.Process):
             SMAnsibleUtils(None).create_inv_file(inv_file, inv_dict)
             self.logger.log(self.logger.INFO, "Created inventory %s for playbook %s" %
                     (inv_file, self.pbook_path))
+
+            if no_run:
+                return
+
             self.var_mgr = VariableManager()
             self.inventory = Inventory(loader=DataLoader(),
                                        variable_manager=self.var_mgr,

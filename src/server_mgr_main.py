@@ -1055,6 +1055,10 @@ class VncServerManager():
         package_image_id = entity.get("package_image_id", '')
         if package_image_id:
             self.get_package_image(package_image_id)
+
+        prov_flag = entity.get("no_run", None)
+        ret_data["no_run"] = prov_flag
+
         tasks = entity.get("tasks", None)
         if tasks == None:
             tasks = ','.join(ansible_default_tasks)
@@ -1163,6 +1167,8 @@ class VncServerManager():
             ret_data["cluster_id"] = cluster_id
             ret_data["package_image_id"] = package_image_id
             ret_data["tasks"] = tasks
+        sm_prov_log = ServerMgrProvlogger(cluster_id)
+        sm_prov_log.log("debug", "Value debug provision flag %s" %prov_flag)
         return ret_data
     # end validate_smgr_provision
 
@@ -4102,7 +4108,7 @@ class VncServerManager():
                              "%Y-%m-%d %H:%M:%S", gmtime())}
                 self._serverDb.modify_server(update)
 
-    def _do_ansible_provision_cluster(self, server_list, cluster, package, tasks):
+    def _do_ansible_provision_cluster(self, server_list, cluster, package, tasks, debug_prov):
         pp = []
         inv = {}
         params   = {}
@@ -4163,6 +4169,8 @@ class VncServerManager():
             self.log_and_raise_exception(msg)
         if esxi_hosts:
             merged_inv["[all:vars]"]["esxi_hosts"] = esxi_hosts
+
+        inv["no_run"] = debug_prov
         inv["inventory"] = merged_inv
         inv["kolla_inv"] = kolla_inv
         inv["kolla_passwords"] = kolla_pwds
@@ -4197,6 +4205,8 @@ class VncServerManager():
         self.ansible_utils.send_REST_request(self._args.ansible_srvr_ip,
                       self._args.ansible_srvr_port,
                       _ANSIBLE_CONTRAIL_PROVISION_ENDPOINT, pp)
+        if debug_prov:
+            print("^^^^^^ NO RUN SET, INVEN Created, NOT Exec ^^^^^^^^^^^")
 
         return True
 
@@ -4334,7 +4344,7 @@ class VncServerManager():
     #TODO: Temporary - Block ansible provision till openstack provision completes
     # If no openstack role in cluster, the ansible provision kicks off immediately
     def manage_ansible_provision(self, provision_server_list, cluster, package,
-            tasks):
+            tasks, debug_prov):
         servers = self.get_servers_for_role('openstack',
                 provision_server_list)
         if len(servers):
@@ -4356,7 +4366,7 @@ class VncServerManager():
             # When there are no openstack nodes, just run 'contrail_deploy'
             tasks = "contrail_deploy"
         self._do_ansible_provision_cluster(
-                provision_server_list, cluster, package, tasks)
+                provision_server_list, cluster, package, tasks, debug_prov)
 
     # This function runs on a separate gevent thread and processes requests for reimage.
     def _reimage_server_cobbler(self):
@@ -4399,6 +4409,9 @@ class VncServerManager():
                         cluster_id = reimage_item[2]
                         role_sequence = reimage_item[3]
                         tasks = reimage_item[4]
+                        debug_prov = reimage_item[5]
+                        sm_prov_log = ServerMgrProvlogger(cluster_id)
+                        sm_prov_log.log("debug", "Inside reimage cobbler: dbg provision flag %d" %debug_prov)
                         # package will be same for all servers. So its ok to
                         # decide based on the first.
                         package = provision_server_list[0]['package']
@@ -4459,7 +4472,7 @@ class VncServerManager():
                                     server['cluster'], server['cluster_servers'],
                                     server['package'], server['serverDb'])
                                 self._smgr_log.log(self._smgr_log.DEBUG, "provision processed from queue")
-                                smgr_prov_log = ServerMgrProvlogger(server['cluster']['id'])
+                                sm_prov_log = ServerMgrProvlogger(server['cluster']['id'])
                                 sm_prov_log.log("debug", "provision processed from queue")
                         # Update cluster with role_sequence and apply sequence first step
                         # If no role_sequence present, just update cluster with it.
@@ -4467,7 +4480,7 @@ class VncServerManager():
                         if package["parameters"].get("containers",None):
                             gevent.spawn(self.manage_ansible_provision, 
                                          provision_server_list, cluster,
-                                         package, tasks)
+                                         package, tasks, debug_prov)
                 if optype == 'issu':
                     if not self.issu_obj:
                         entity = {}
@@ -6861,6 +6874,12 @@ class VncServerManager():
                 self.log_and_raise_exception(msg)
             cluster_id = ret_data['cluster_id']
             tasks      = ret_data['tasks']
+            # Fixme
+            self._sm_prov_log = ServerMgrProvlogger(cluster_id)
+            norun_flag = ret_data['no_run']
+            self._sm_prov_log.log("debug", "B4 posting to reimage queue %d"
+                    %norun_flag)
+
             self.translate_contrail_4_to_contrail(ret_data)
             provision_server_list, role_sequence, provision_status = \
                                       self.prepare_provision(ret_data)
@@ -6868,7 +6887,8 @@ class VncServerManager():
             # Add the provision request to reimage_queue (name of queue needs to be changed,
             # earlier it was used only for reimage, now provision requests also queued there).
             provision_item = ('provision', provision_server_list,
-                                        cluster_id, role_sequence, tasks)
+                                        cluster_id, role_sequence, tasks,
+                                        norun_flag)
             self._reimage_queue.put_nowait(provision_item)
             self._sm_prov_log = ServerMgrProvlogger(cluster_id)
             self._sm_prov_log.log("debug",

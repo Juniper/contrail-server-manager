@@ -63,6 +63,9 @@ class Provision(Command):
         parser.add_argument("--no_confirm", "-F", action="store_true",
                             help=("flag to bypass confirmation message, "
                                   "default = do not bypass"))
+        parser.add_argument("--no_run", "-r", action="store_true",
+                            help=("flag to build only inventory, no execute, "
+                                  "default = execute"))
         parser.add_argument("--tasks",
                             help=("tags that user will specify to run only "
                                   "specific ansible tasks - "
@@ -73,7 +76,8 @@ class Provision(Command):
                                                 "interactive",
                                                 "contrail_image_id", "tasks"
                                                 "no_confirm",
-                                                "provision_params_file", "f", "F", "I"]
+                                                "provision_params_file", "f",
+                                                "F", "I", "no_run", "r"]
         for key in self.command_dictionary:
             new_dict = dict()
             new_dict[key] = [str("--" + s) for s in self.command_dictionary[key] if len(s) > 1]
@@ -126,6 +130,8 @@ class Provision(Command):
         except Exception as e:
             sys.exit("Exception: %s : Error getting smgr config" % e.message)
 
+        print(">>>>>> Main Entry  <<<<<<");
+        print(parsed_args)
         provision_params = {}
         payload = {}
         match_key = None
@@ -166,6 +172,11 @@ class Provision(Command):
             tasks =  getattr(parsed_args, "tasks", None)
         if tasks != None:
             payload['tasks'] = tasks
+
+	if getattr(parsed_args, "no_run", None):
+            payload['no_run'] = 1;
+	    print("debug provision flag set - %d" % payload['no_run']);
+         
 
         if not getattr(parsed_args, "no_confirm", None):
             if getattr(parsed_args, "package_image_id", None):
