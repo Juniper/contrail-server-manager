@@ -172,7 +172,7 @@ class ServerMgrDb:
 
             self.update_image_table()
             self.update_server_table()
-        except e:
+        except Exception as e:
             raise e
     # End of __init__
 
@@ -214,6 +214,9 @@ class ServerMgrDb:
           server_id = server.get('id',"")
           self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], host_name))
           # dhcp based server discovery will have server id as empty
+          #if both the host_name and server_id are not set just bail out
+          if host_name in [None,""] and server_id in [None, ""]:
+              break
           if server_id == None or server_id == "":
             continue
           if host_name is None or host_name == "":
