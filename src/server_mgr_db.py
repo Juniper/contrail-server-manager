@@ -164,7 +164,7 @@ class ServerMgrDb:
 
             self.update_image_table()
             self.update_server_table()
-        except e:
+        except Exception as e:
             raise e
     # End of __init__
 
@@ -206,6 +206,9 @@ class ServerMgrDb:
           host_name = server.get('host_name', "")
           server_id = server.get('id',"")
           self._smgr_log.log(self._smgr_log.DEBUG, "SERVER_ID : %s, host => %s" %(server['id'], host_name))
+          #if both the host_name and server_id are not set just bail out
+          if host_name in [None,""] and server_id in [None, ""]:
+              break
           if host_name is None or host_name == "":
               server['host_name'] = server_id.lower()
           else :
