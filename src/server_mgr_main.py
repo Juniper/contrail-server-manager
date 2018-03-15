@@ -3821,6 +3821,18 @@ class VncServerManager():
                 if reimage_parameters['vm_parameters']:
                     reimage_parameters['vm_parameters']['network'] = \
                                                     server.get('network', None)
+                if server_parameters.get('provision') and server_parameters['provision'].get('contrail_4'):
+                       # check if kernel_upgrade option is specified in the json
+                       if "kernel_upgrade" in server_parameters['provision']['contrail_4']:
+                           kernel_upgrade = bool(server_parameters['provision']['contrail_4']['kernel_upgrade'])
+                           reimage_parameters['kernel_upgrade'] = kernel_upgrade
+                           #If the kernel_upgrade option is true, then if the kernel_version and
+                           #kernel_repo_url for the kernel header file is specified then populate it
+                           if kernel_upgrade:
+                               if "kernel_version" in server_parameters['provision']['contrail_4']:
+                                   reimage_parameters['kernel_version'] = "kernel-" +server_parameters['provision']['contrail_4']['kernel_version']
+                               if "kernel_repo_url" in server_parameters['provision']['contrail_4']:
+                                   reimage_parameters['kernel_repo_url'] = server_parameters['provision']['contrail_4']['kernel_repo_url']
 
                 execute_script = self.build_server_cfg(server)
                 host_name = server['host_name']
@@ -7302,7 +7314,9 @@ class VncServerManager():
                 base_image, self._args.listen_ip_addr,
                 reimage_parameters.get('partition', ''),
                 reimage_parameters.get('config_file', None),
-                reimage_parameters.get('ipmi_interface',self._args.ipmi_interface))
+                reimage_parameters.get('ipmi_interface',self._args.ipmi_interface),
+                reimage_parameters.get('kernel_version'),
+                reimage_parameters.get('kernel_repo_url'))
             # if this is a VM do qemu_system to create VM the proceed
             if reimage_parameters.get('vm_parameters', None):
                 self.create_vm(reimage_parameters)
