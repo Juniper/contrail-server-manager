@@ -239,7 +239,7 @@ class ServerMgrCobbler(object):
                       ifname, enc_passwd, server_license, esx_nicname,
                       power_type, power_user, power_pass, power_address,
                       base_image, server_ip, partition=None,
-                      node_cfg = None, ipmi_interface= None):
+                      node_cfg = None, ipmi_interface= None, kernel_version=None, kernel_repo_url=None):
         try:
             # Validate cobbler token
             self._validate_token(self._token)
@@ -316,6 +316,12 @@ class ServerMgrCobbler(object):
 
             if node_cfg:
                 ks_metadata += ' device_cfg=' + node_cfg
+            # check if kernel_version is passed
+            # then pass the kernel_repo_url info as well 
+            if kernel_version:
+                ks_metadata += ' kernel_version=' + kernel_version
+                if kernel_repo_url:
+                    ks_metadata += ' kernel_repo_url=' + kernel_repo_url
 
             if (base_image['type'] in self._vmware_types):
                 ks_metadata += ' server_license=' + server_license

@@ -59,10 +59,17 @@ $SNIPPET('kickstart_start')
 ## $SNIPPET('pre_anamon')
 %end
 
+#if $getVar('kernel_repo_url','') != ''
+    repo --name=updates --baseurl="$kernel_repo_url"
+#end if
+
 %packages --nobase
 @core
 openssh-clients
 puppet
+#if $getVar('kernel_version','') != ''
+$kernel_version
+#end if
 
 $SNIPPET('func_install_if_enabled')
 %end
