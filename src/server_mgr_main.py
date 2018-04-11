@@ -6496,7 +6496,7 @@ class VncServerManager():
 
                     indx = next(i for i,k in \
                             enumerate(cur_inventory[grp]) if \
-                            x["ip_address"] in k)
+                            x["ip_address"] == k.split(' ')[0])
                     cur_inventory[grp][indx] = \
                             cur_inventory[grp][indx] + var_list
         # for x in cluster_servers
