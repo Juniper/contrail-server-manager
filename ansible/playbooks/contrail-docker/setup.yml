@@ -1,0 +1,21 @@
+---
+- name: "Run server-manager container"
+  docker_container:
+    name: server-manager
+    image: contrail-server-manager
+    state: started
+    network_mode: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - /dist/:/dist/
+    volumes_from:
+      - cobbler
+    exposed_ports:
+      - 9001
+    privileged: yes
+  become: yes
+  become_user: root
+
+# Implement postinst stuff
+
+# Restart Xinetd and Cobbler containers
