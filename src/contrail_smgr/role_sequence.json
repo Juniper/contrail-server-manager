@@ -1,0 +1,66 @@
+{
+    "default": {
+            "role_sequence": [[["haproxy"], "p"],
+                              [["loadbalancer"], "p"],
+                              [["database"], "p"],
+                              [["openstack"], "p"], 
+                              [["config"], "p"],
+                              [["control"], "p"], 
+                              [["global_controller"], "p"],
+                              [["collector"], "p"],
+                              [["webui"], "p"],
+                              [["compute"], "p"],
+                              [["tsn"], "p"],
+                              [["toragent"], "p"],
+                              [["storage-compute"], "p"],
+                              [["storage-master"], "p"]]
+    },
+    "default_ha": {
+            "role_sequence": [[["keepalived"], "p"],
+                              [["haproxy"], "p"],
+                              [["loadbalancer"], "p"],
+                              [["database"], "p"],
+                              [["openstack"], "p"],
+                              [["pre_exec_vnc_galera"], "s"],
+                              [["post_exec_vnc_galera"], "s"],
+                              [["config"], "p"],
+                              [["control"], "p"], 
+                              [["global_controller"], "p"],
+                              [["collector"], "p"],
+                              [["webui"], "p"],
+                              [["compute"], "p"]]
+    },
+    "default_contrail_ha": {
+            "role_sequence": [[["keepalived"], "p"],
+                              [["haproxy"], "p"],
+                              [["loadbalancer"], "p"],
+                              [["database"], "p"],
+                              [["openstack"], "p"],
+                              [["config"], "p"],
+                              [["control"], "p"],
+                              [["global_controller"], "p"],
+                              [["collector"], "p"],
+                              [["webui"], "p"],
+                              [["compute"], "p"]]
+    },
+    "cluster": [
+        {
+            "id": "all_roles_sequential_computes_parallel_sample",
+            "role_sequence": [[["database"], "s"],
+                              [["openstack"], "s"],
+                              [["config"], "s"],
+                              [["control"], "s"],
+                              [["collector"], "s"],
+                              [["webui"], "s"],
+                              [["compute"], "p"]]
+
+        },
+        {
+            "id": "all_roles_parallel_sample",
+            "role_sequence": [[["database","openstack", 
+                                "config", "control",
+                                "collector", "webui", "compute"], "s"]] 
+        }
+    ]
+}
+
