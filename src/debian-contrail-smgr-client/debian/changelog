@@ -1,6 +1,0 @@
-contrail-smgr-client (1401101206) tsurendra; urgency=low
-
-  [tsurendra ]
-  * debian/changelog: changelog
-
- -- tsurendra <tsurendra@juniper.net>  Wed, 10 Jul 2013 13:00:11 -0500
