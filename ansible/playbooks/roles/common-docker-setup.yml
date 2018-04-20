@@ -1,0 +1,13 @@
+---
+- name: "Install docker-py"
+  yum:
+    name: python-docker-py
+    state: present
+  become: yes
+  become_user: root
+
+- name: Disable selinux for the build
+  selinux:
+    state: disabled
+  become: yes
+  become_user: root

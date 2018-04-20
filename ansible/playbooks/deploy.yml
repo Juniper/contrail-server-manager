@@ -1,0 +1,16 @@
+- name: Create dynamic inventory
+  hosts: deployer
+  gather_facts: no
+  vars_files:
+    - "{{ config_file }}"
+  roles:
+    - create_inventory
+
+- name: Deploy containers
+  hosts: command_servers
+  gather_facts: yes
+  vars_files:
+    - "{{ hostvars['localhost'].config_file }}"
+  roles:
+    - create_configs
+    - launch_containers

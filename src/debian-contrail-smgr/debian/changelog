@@ -1,6 +1,0 @@
-contrail-smgr (1401101206) swamy; urgency=low
-
-  [swamy ]
-  * debian/changelog: changelog
-
- -- swamy <swamy@juniper.net>  Wed, 10 Jul 2013 13:00:11 -0500

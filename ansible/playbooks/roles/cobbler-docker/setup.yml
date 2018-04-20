@@ -1,0 +1,19 @@
+---
+- name: "Run cobbler container"
+  docker_container:
+    name: cobbler
+    image: cobbler
+    state: started
+    network_mode: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - /dist/images:/mnt:ro
+    exposed_ports:
+      - 69
+      - 80
+      - 443
+      - 25151
+    privileged: yes
+  become: yes
+  become_user: root
+
