@@ -4,7 +4,7 @@ PROJECT = 'servermanagercli'
 
 def get_version():
     version = None
-    with open('contrail_version.txt') as f:
+    with open('version.txt') as f:
         version = f.read()
         version = version.strip()
     if version:

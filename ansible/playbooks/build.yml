@@ -1,0 +1,7 @@
+- name: Build containers
+  hosts: localhost
+  gather_facts: yes
+#  vars_files:
+#    - "{{ hostvars['localhost'].config_file }}"
+  roles:
+    - build_containers

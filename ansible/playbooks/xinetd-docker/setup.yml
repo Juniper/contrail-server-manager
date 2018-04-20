@@ -1,0 +1,14 @@
+---
+- name: "Run xinetd container"
+  docker_container:
+    name: xinetd
+    image: xinetd
+    state: started
+    network_mode: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - host_xinetd.d:/etc/xinetd.d 
+    privileged: yes
+  become: yes
+  become_user: root
+
