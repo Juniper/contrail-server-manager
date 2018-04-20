@@ -1,0 +1,40 @@
+[SERVER-MANAGER]
+listen_ip_addr = {{ listen_ip_addr }}
+listen_port    = {{ listen_port }}
+database_name            = {{ database_name }}
+server_manager_base_dir  = {{ server_manager_base_dir }}
+html_root_dir            = {{ html_root_dir }}
+cobbler                  = {{ cobbler }}
+monitoring               = {{ monitoring }}
+cobbler_ip_address       = {{ cobbler_ip_address }}
+cobbler_port             = {{ cobbler_port }}
+cobbler_username         = {{ cobbler_username }}
+cobbler_password         = {{ cobbler_password }}
+ipmi_password            = {{ ipmi_password }}
+ipmi_interface           = {{ ipmi_interface }}
+ipmi_type                = {{ ipmi_type }}
+collectors               = {{ collectors }}
+http_introspect_port     = {{ http_introspect_port }}
+sandesh_log_level        = {{ sandesh_log_level }}
+
+[ANSIBLE-SERVER]
+ansible_srvr_ip = {{ ansible_srvr_ip }}
+ansible_srvr_port = {{ ansible_srvr_port }}
+ansible_log_path  = {{ ansible_log_path }}
+
+[CLUSTER]
+
+[SERVER]
+
+[IMAGE]
+
+[DHCP_HOST]
+
+[DHCP_SUBNET]
+
+[MONITORING]
+monitoring_frequency = {{ monitoring_frequency }}
+monitoring_plugin = {{ monitoring_plugin }}
+
+[INVENTORY]
+inventory_plugin = {{ inventory_plugin }}

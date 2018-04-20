@@ -1,0 +1,24 @@
+---
+server_manager_server:
+    5b11s3-node3:
+        ip: localhost
+        connection: local
+        ssh_user: root
+        ssh_pass: c0ntrail123
+        sudo_pass: c0ntrail123
+
+        # Specify either container_path
+        # container_path: /root/docker/contrail_command_kit/contrail-command.tar
+        # or registry details and container_name
+        #registry_insecure: true
+        container_registry: localhost:5000
+        #container_name: server-manager
+        #container_tag: latest
+        config_dir: /etc/contrail
+
+        # Server configurations given here go to /etc/contrail/server_manager.yml
+        server_config:
+            log_level: debug
+            monitoring: false
+            address: ":9001"
+

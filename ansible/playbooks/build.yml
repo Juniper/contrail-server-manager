@@ -1,0 +1,37 @@
+- name: Build containers
+  hosts: localhost
+  roles:
+    - install-docker-daemon
+    - role: add-insecure-registry
+      new_registry: "{{ contrail_docker_registry }}"
+  vars:
+    workdir: /root/contrail-server-manager
+    sourcedir: "{{ ansible_env.HOME }}"
+  tasks:
+    - include: build-setup.yaml
+
+    - name: run
+      include: build-step.yaml
+      loop_control:
+        label: "{{ item.name }}"
+      with_items: # Insert tasks here
+        - name: Make docker
+          command: make docker
+
+    - name: Fix files ownerships
+      file:
+        name: "{{ sourcedir }}"
+        recurse: yes
+        owner: "{{ ansible_env.USER }}"
+      become: yes
+      become_user: root
+
+- hosts: localhost
+  name: Publish containers to the internal registry
+  roles:
+    - role: publish-container-images
+      registry: "{{ contrail_docker_registry }}"
+      tag: "{{ packaging.docker_version }}"
+      images:
+        - { name: server-manager, tag: latest }
+        - { name: cobbler, tag: latest }

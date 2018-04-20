@@ -1,0 +1,39 @@
+---
+default_server_manager_config:
+
+    # Server Manager
+    log_level: debug
+    listen_ip_addr: 127.0.0.1
+    listen_port: 9001
+    database_name: smgr_data.db
+    server_manager_base_dir: /etc/contrail_smgr/
+    html_root_dir: /var/www/html/
+
+    # Cobbler
+    cobbler: true
+    cobbler_ip_address: 127.0.0.1
+    cobbler_port: 25151
+    cobbler_username: testing
+    cobbler_password: testing
+
+    # IPMI
+    ipmi_username: ADMIN
+    ipmi_password: ADMIN
+    ipmi_interface:
+    ipmi_type: ipmilan
+
+    # Sandesh
+    collectors: ['127.0.0.1:8086']
+    http_introspect_port: 8107
+    sandesh_log_level: SYS_ERR
+
+    # Ansible
+    ansible_srvr_ip : 127.0.0.1
+    ansible_srvr_port: 9003
+    ansible_log_path: /var/log/contrail-server-manager/debug.log
+
+    # Monitoring
+    monitoring: false
+    monitoring_frequency: 300
+    monitoring_plugin: server_mgr_ipmi_monitoring.ServerMgrIPMIMonitoring
+    inventory_plugin: server_mgr_inventory.ServerMgrInventory

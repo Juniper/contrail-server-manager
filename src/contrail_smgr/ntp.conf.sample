@@ -1,0 +1,3 @@
+server 127.127.1.0  iburst maxpoll 9
+fudge  127.127.1.0 stratum 10
+restrict 127.0.0.1 nomodify

@@ -1,0 +1,13 @@
+---
+
+- name: Add server manager server to inventory
+  add_host:
+    hostname: "{{ item.value.ip }}"
+    groupname: server_manager
+    ansible_user: "{{ item.value.ssh_user|default('root') }}"
+    ansible_ssh_pass: "{{ item.value.ssh_pass|default('c0ntrail123') }}"
+    ansible_become: true
+    ansible_become_pass: "{{ item.value.sudo_pass|default('sudoPassword') }}"
+    server_name: "{{ item.key }}"
+    server_ip: "{{ item.value.ip }}"
+  with_dict: "{{ server_manager_server }}"

@@ -1,0 +1,28 @@
+---
+
+- set_fact:
+    config_dir: >-
+      {%- for server,cfg in server_manager_server.iteritems() -%}
+        {%- if cfg.ip == inventory_hostname -%}
+          {{ cfg.get('config_dir', '/etc/contrail') }}
+        {%- endif -%}
+      {%- endfor -%}
+
+- name: Create host specific server_manager_config
+  set_fact:
+    host_server_config: >-
+        {%- for server,cfg in command_servers.iteritems() -%}
+          {%- if cfg.ip == inventory_hostname -%}
+            {{ cfg.get('server_config', {}) }}
+          {%- endif -%}
+        {%- endfor -%}
+
+- name: Create merged server_config
+  set_fact:
+    server_manager_config: "{{ default_server_manage_config|combine(host_server_config, recursive=True) }}"
+
+- name: Creating sm-config.ini
+  template:
+    src: "{{ role_path }}/templates/sm-config.ini.j2"
+    dest: "{{ config_dir }}/sm-config.ini"
+
