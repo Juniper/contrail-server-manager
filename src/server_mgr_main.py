@@ -4206,6 +4206,9 @@ class VncServerManager():
                 merged_inv['[all:vars]']["contrail_apt_repo"] = \
                     "[arch=amd64] http://" + str(self._args.listen_ip_addr) + "/contrail/repo/" + \
                     package["contrail_image_id"] + " contrail main"
+                merged_inv['[all:vars]']["netronome_apt_repo"] = \
+                    "[arch=amd64] http://" + str(self._args.listen_ip_addr) + "/contrail/repo/" + \
+                    package["contrail_image_id"] + " netronome main"
             elif package["type"] == "contrail-centos-package":
                 merged_inv['[all:vars]']["contrail_yum_repo"] = \
                     "http://" + str(self._args.listen_ip_addr) + "/cobbler/repo_mirror/" + \
@@ -6566,6 +6569,9 @@ class VncServerManager():
         kolla_globals["contrail_apt_repo"] = \
                     "[arch=amd64] http://" + str(self._args.listen_ip_addr) + "/contrail/repo/" + \
                     pkg["contrail_image_id"] + " contrail main"
+        kolla_globals["netronome_apt_repo"] = \
+                    "[arch=amd64] http://" + str(self._args.listen_ip_addr) + "/contrail/repo/" + \
+                    pkg["contrail_image_id"] + " netronome main"
         kolla_globals["contrail_docker_registry"] = self._args.docker_insecure_registries
         pub_key = None
         priv_key = None
