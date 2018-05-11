@@ -23,7 +23,6 @@
                         "enable_lbaas": false,
                         "kernel_upgrade": false,
                         "kernel_version": "",
-                        "tsn_mode": false,
                         "metadata_ssl_enable": false,
                         "global_config": {
                             "log_level": "SYS_INFO",
