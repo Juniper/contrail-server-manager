@@ -473,6 +473,10 @@
     "dest_path": "parameters.provision.contrail_4.sriov.interface",
     "format": "list"
   },
+  "tsn_mode": {
+    "name": "parameters.provision.contrail_4.tsn_mode",
+    "format": "boolean"
+  },
   "tsn_evpn_mode": {
     "name": "parameters.provision.contrail_4.tsn_evpn_mode",
     "format": "boolean"
