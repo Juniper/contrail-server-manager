@@ -70,6 +70,13 @@ class Utils(object):
         parser.add_argument('--key-path',
                             default=None,
                             help='ssh private key for passwordless access to the target servers')
+        parser.add_argument('--retain-ntp-config', 
+                            action='store_true',
+                            default=False,
+                            help='Don\'t change the existing NTP configuration')
+        parser.add_argument('--ntp-server',
+                            default=None,
+                            help='NTP Server to be configured instead of Server-Manager IP')
         cliargs = parser.parse_args(args)
         if len(args) == 0:
             parser.print_help()
@@ -93,7 +100,9 @@ class Utils(object):
         for host_dict in server_json['server']:
             print "Configuring  => " + host_dict['id']
             hostobj = Server(host_dict, args.server_manager_ip,
-                             args.server_manager_repo_port, cliargs.key_path)
+                             args.server_manager_repo_port, cliargs.key_path,
+                             cliargs.retain_ntp_config,
+                             cliargs.ntp_server)
             try:
                 hostobj.connect()
                 if not hostobj.check_compute_provisioned():
@@ -123,7 +132,8 @@ class Utils(object):
 
 class Server(object):
     def __init__(self, server_dict, server_manager_ip,
-                 server_manager_repo_port=9003, keypath=None):
+                 server_manager_repo_port=9003, keypath=None,
+                 retain_ntp_config = True, ntp_server = ""):
         self.key_path = None
         self.server_dict = server_dict
         self.server_manager_ip = server_manager_ip
@@ -133,6 +143,13 @@ class Server(object):
         self.username = 'root'
         self.export_server_info()
         self.os_version = ()
+        self.retain_ntp_config = retain_ntp_config
+
+        if ntp_server is None or ntp_server == "":
+            self.ntp_server = server_manager_ip
+        else:
+            self.ntp_server = ntp_server
+
         if keypath is not None:
            self.key_path = keypath
         elif server_dict.get('parameters') and server_dict['parameters'].get('auth'):
@@ -316,7 +333,8 @@ class Server(object):
         # Setup static routes if defined
         if getattr(self, 'network', None) and 'routes' in self.network and len(self.network['routes']) > 0:
             self.setup_static_routes()
-        self.preconfig_ntp_config()
+        if self.retain_ntp_config == False:
+            self.preconfig_ntp_config()
         if sku != 'ocata':
             self.preconfig_puppet_config()
 
@@ -569,7 +587,7 @@ class Server(object):
         self.exec_setup_static_routes(interface, network, gateway, netmask, vlan)
 
     def check_ntp_status(self):
-        status, output = self.exec_cmd(r'ntpq -pn | grep "%s" ' % self.server_manager_ip)
+        status, output = self.exec_cmd(r'ntpq -pn | grep "%s" ' % self.ntp_server)
         if status:
             self.setup_ntp()
 
@@ -577,7 +595,7 @@ class Server(object):
         log.debug('Install ntp package')
         self.exec_cmd('DEBIAN_FRONTEND=noninteractive apt-get -y install ntp', error_on_fail=True)
         log.debug('Setup NTP configuration')
-        self.exec_cmd('ntpdate %s' % self.server_manager_ip)
+        self.exec_cmd('ntpdate %s' % self.ntp_server)
         log.debug('Backup existing ntp.conf')
         self.exec_cmd(r'mv /etc/ntp.conf /etc/ntp.conf.$(date +%Y_%m_%d__%H_%M_%S).contrailbackup',
                       error_on_fail=True)
@@ -587,9 +605,9 @@ class Server(object):
                      'restrict 127.0.0.1\n' \
                      'restrict -6 ::1\n' \
                      'includefile /etc/ntp/crypto/pw\n' \
-                     'keys /etc/ntp/keys' % self.server_manager_ip
+                     'keys /etc/ntp/keys' % self.ntp_server
         if self.ip == self.server_manager_ip:
-            ntp_config = ntp_config.replace('server %s' % self.server_manager_ip, 'server 127.127.1.0  iburst maxpoll 9')
+            ntp_config = ntp_config.replace('server %s' % self.ntp_server, 'server 127.127.1.0  iburst maxpoll 9')
         self.exec_cmd(r'echo "%s" >> /etc/ntp.conf' % ntp_config,
                       error_on_fail=True)
 
