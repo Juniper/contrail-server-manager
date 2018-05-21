@@ -6692,6 +6692,10 @@ class VncServerManager():
         if metadata_ssl_enable:
             kolla_globals["metadata_ssl_enable"] = metadata_ssl_enable
 
+        api_cfg_dict = contrail_4_dict.get("api_config", None)
+        if api_cfg_dict and api_cfg_dict.get("aaa_mode", None) == "rbac":
+            kolla_globals["enable_opencontrail_rbac"] = "yes"
+
         # Add any more derivations for globals.yml above this
 
         # Merge values from "kolla_globals" section of cluster JSON
