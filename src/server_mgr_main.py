@@ -2167,6 +2167,7 @@ class VncServerManager():
         try:
             self.validate_smgr_entity("cluster", entity)
             cluster = entity.get('cluster', None)
+            return_entity = {"cluster": []}
             for cur_cluster in cluster:
                 #use macros for obj type
                 if self._serverDb.check_obj(
@@ -2198,6 +2199,9 @@ class VncServerManager():
                             "cloud_orchestrator", None) != "vcenter":
                         self.generate_passwords(cur_cluster.get("parameters", {}))
                     self._serverDb.add_cluster(cur_cluster)
+                # Hide passwords before returning
+                self.hide_passwords(cur_cluster, self._cluster_mask_list)
+                return_entity["cluster"].append(cur_cluster)
         except ServerMgrException as e:
             self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER,
@@ -2216,7 +2220,7 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
                                 self._smgr_trans_log.PUT_SMGR_CFG_CLUSTER)
         msg = "Cluster Add/Modify Success"
-        resp_msg = self.form_operartion_data(msg, 0, entity)
+        resp_msg = self.form_operartion_data(msg, 0, return_entity)
         return resp_msg
 
     # Function to validate values of tag field, if present, in received
@@ -2449,6 +2453,7 @@ class VncServerManager():
             self.validate_smgr_entity("server", entity)
             servers = entity.get("server", None)
             new_servers = []
+            return_entity = {"server": []}
             for server in servers:
                 self.plug_mgmt_intf_details(server)
                 self.validate_server_mgr_tags(server)
@@ -2486,7 +2491,9 @@ class VncServerManager():
                     server['parameters'] = server_params
                     self._serverDb.add_server(server)
                     # Trigger to collect monitoring info
-
+                # Hide passwords before returning servers added
+                self.hide_passwords(server, self._server_mask_list)
+                return_entity["server"].append(server)
             # End of for
             if len(new_servers):
                 gevent.spawn(self._monitoring_base_plugin_obj.setup_keys, None, new_servers)
@@ -2505,7 +2512,7 @@ class VncServerManager():
         self._smgr_trans_log.log(bottle.request,
             self._smgr_trans_log.PUT_SMGR_CFG_SERVER)
         msg = "Server add/Modify Success"
-        resp_msg = self.form_operartion_data(msg, 0, entity)
+        resp_msg = self.form_operartion_data(msg, 0, return_entity)
         return resp_msg
 
     # Function to change tags used for grouping together servers.
