@@ -515,8 +515,12 @@ class ServerMgrIPMIMonitoring():
             self.log("error", "Error in getting network info for " + str(hostname) + " Error: " + str(e))
             raise e
 
-    def fetch_and_process_sel_logs(self, hostname, ip, username, password, sel_event_log_list):
-        sel_cmd = 'ipmitool -H %s -U %s -P %s sel elist' % (ip, username, password)
+    def fetch_and_process_sel_logs(self, hostname, ip, username, password, ipmi_interface, sel_event_log_list):
+        if ipmi_interface == 'lanplus':
+          interface = "-I lanplus"
+        else:
+          interface = ""
+        sel_cmd = 'ipmitool -H %s -U %s -P %s sel elist %s' % (ip, username, password, interface)
         sel_result = self.base_obj.call_subprocess(sel_cmd)
         try:
             if sel_result is not None:
@@ -560,7 +564,7 @@ class ServerMgrIPMIMonitoring():
             ipmi_stats_trace = ServerMonitoringInfoUve(data=sm_ipmi_info)
             self.call_send(ipmi_stats_trace)
 
-    def gevent_runner_func(self, hostname, ipmi, ip, username, password, supported_sensors, ipmi_state,
+    def gevent_runner_func(self, hostname, ipmi, ip, username, password, interface, supported_sensors, ipmi_state,
                            sel_event_log_list, option="key"):
         return_dict = dict()
         #self.log("info", "Gevent Thread created for %s" % hostname)
@@ -582,7 +586,7 @@ class ServerMgrIPMIMonitoring():
             self.fetch_and_process_chassis(hostname, ipmi, ip, username, password)
             if sel_event_log_list:
                 return_dict["sel_log"] = \
-                    self.fetch_and_process_sel_logs(hostname, ipmi, username, password, sel_event_log_list)
+                    self.fetch_and_process_sel_logs(hostname, ipmi, username, password, sel_event_log_list, interface)
             else:
                 return_dict["sel_log"] = self.fetch_and_process_sel_logs(hostname, ipmi, username, password, [])
             if not ipmi_state and return_dict["ipmi_status"]:
@@ -929,7 +933,7 @@ class ServerMgrIPMIMonitoring():
                             and server['ipmi_address'] and server['ipmi_username'] and server['ipmi_password']:
                         thread = gevent.spawn(
                             self.gevent_runner_func, server['id'], server['ipmi_address'], server['ip_address'],
-                            server['ipmi_username'], server['ipmi_password'],
+                            server['ipmi_username'], server['ipmi_password'], server['ipmi_interface'],
                             supported_sensors, ipmi_state[str(server['id'])], sel_log_dict[str(server['id'])],
                             self.ssh_access_method)
                         gevent_threads[str(server['id'])] = thread
