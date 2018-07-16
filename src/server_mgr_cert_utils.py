@@ -82,7 +82,7 @@ class Cert(object):
             if os.path.isfile(location):
                 return exit_status
         exit_status, stdout, stderr = \
-        self.local_exec('openssl genrsa -out %s' % (location), error_on_fail=True)
+        self.local_exec('umask 0077 && openssl genrsa -out %s' % (location), error_on_fail=True)
         return exit_status
 
     def generate_csr(self, location, private_key, subj='/', force=False):
@@ -91,7 +91,7 @@ class Cert(object):
             if os.path.isfile(location):
                 return exit_status
         exit_status, stdout, stderr = \
-            self.local_exec('openssl req -new -key %s -out %s -subj %s' % (private_key, location, subj), 
+            self.local_exec('umask 0077 && openssl req -new -key %s -out %s -subj %s' % (private_key, location, subj),
                            error_on_fail=True)
         return exit_status
     
@@ -103,10 +103,10 @@ class Cert(object):
             if os.path.isfile(location):
                 return exit_status
         if self_signed:
-            cmd = 'openssl req -x509 -new -nodes -key %s -days %s -out %s -subj %s -config %s' % \
+            cmd = 'umask 0077 && openssl req -x509 -new -nodes -key %s -days %s -out %s -subj %s -config %s' % \
             (key, days, location, subj, openssl_cfg_file)
         else:
-            cmd = 'openssl x509 -req -in %s -CA %s -CAkey %s -CAcreateserial -out %s -days %s -extensions v3_req -extfile %s' % \
+            cmd = 'umask 0077 && openssl x509 -req -in %s -CA %s -CAkey %s -CAcreateserial -out %s -days %s -extensions v3_req -extfile %s' % \
             (csr, root_pem, key, location, days, openssl_cfg_file)
         exit_stats, stdout, stderr = self.local_exec(cmd, error_on_fail=True)
         return exit_status

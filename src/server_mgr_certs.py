@@ -21,7 +21,9 @@ class ServerMgrCerts():
                  db=None):
         self._smgr_cert_obj = Cert()
         self._smgr_cert_obj.local_exec('mkdir -p %s' % (cert_location), error_on_fail=True)
+        self._smgr_cert_obj.local_exec('chown 700 %s' % (cert_location), error_on_fail=True)
         self._smgr_cert_obj.local_exec('mkdir -p %s/tor/' % (cert_location), error_on_fail=True)
+        self._smgr_cert_obj.local_exec('chown 700 %s/tor/' % (cert_location), error_on_fail=True)
         self._smgr_cert_location = cert_location
         self._smgr_ca_private_key = None
         self._smgr_ca_cert = None
