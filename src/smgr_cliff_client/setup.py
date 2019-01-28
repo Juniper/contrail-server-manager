@@ -60,7 +60,7 @@ for entry_point in entry_points:
 setuptools.setup(
     name=PROJECT,
     version=VERSION,
-    setup_requires=['configparser'],
+    setup_requires=['configparser==3.5.3'],
     description='Server Manager Command Line Interface',
     package_data={'': ['*.ini', '*.txt', '*.sh']},
     packages=setuptools.find_packages(),
